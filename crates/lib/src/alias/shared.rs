@@ -5,8 +5,9 @@ pub struct Alias(String);
 
 impl Alias {
     pub fn from_last_command() -> anyhow::Result<Self> {
-        ShellBuilder
-            .build_current()?
+        ShellBuilder::new()
+            .guess()
+            .build()?
             .last_command_from_history()
             .map(Self::try_from)?
     }

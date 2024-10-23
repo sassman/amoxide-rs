@@ -7,7 +7,8 @@ use clap::{Parser, Subcommand};
 /// either globally or project (like directory) specific.
 #[derive(Parser)]
 #[command(name = "sm")]
-#[command(about = "The Shell-Manager", long_about = None)]
+#[command(about = "The Shell-Manager", long_about = None, version, author)]
+#[command(propagate_version = true)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -23,8 +24,13 @@ pub enum Commands {
     #[command(alias = "e")]
     Env,
 
+    /// Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file
     #[command(alias = "i")]
-    Init,
+    Init {
+        /// The shell to initialize
+        #[arg()]
+        shell: String,
+    },
 }
 
 #[derive(Subcommand)]

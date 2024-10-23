@@ -7,15 +7,8 @@
 after installation you can add the following line to your `~/.bashrc` or `~/.zshrc` to have the shell-manager loaded on every shell start
 
 ```shell
-chpwd() {
-  eval "$(sm env)"
-}
-```
-
-Or just run this snipped that adds the line to your `~/.zshrc`
-
-```shell
-echo 'chpwd() { eval "$(sm env)"; }' >> ~/.zshrc
+# for zsh
+sm init >> ~/.zshrc
 ```
 
 ## Usage by Example
