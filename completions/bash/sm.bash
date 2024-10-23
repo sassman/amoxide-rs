@@ -76,7 +76,7 @@ _sm() {
 
     case "${cmd}" in
         sm)
-            opts="-h --help add env init help"
+            opts="-h -V --help --version add env init help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -90,7 +90,7 @@ _sm() {
             return 0
             ;;
         sm__add)
-            opts="-h --help alias path secret help"
+            opts="-h -V --help --version alias path secret help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -104,7 +104,7 @@ _sm() {
             return 0
             ;;
         sm__add__alias)
-            opts="-d -l -h --directory --long --help <NAME> [VALUE]"
+            opts="-d -l -h -V --directory --long --help --version <NAME> [VALUE]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -188,7 +188,7 @@ _sm() {
             return 0
             ;;
         sm__add__path)
-            opts="-d -h --directory --help <NAME> <VALUE>"
+            opts="-d -h -V --directory --help --version <NAME> <VALUE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -202,7 +202,7 @@ _sm() {
             return 0
             ;;
         sm__add__secret)
-            opts="-d -h --directory --help <NAME> <VALUE>"
+            opts="-d -h -V --directory --help --version <NAME> <VALUE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -216,7 +216,7 @@ _sm() {
             return 0
             ;;
         sm__env)
-            opts="-h --help"
+            opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -342,7 +342,7 @@ _sm() {
             return 0
             ;;
         sm__init)
-            opts="-h --help"
+            opts="-h -V --help --version <SHELL>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

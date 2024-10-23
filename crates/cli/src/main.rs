@@ -59,7 +59,7 @@ fn main() -> anyhow::Result<()> {
             }
         },
         Commands::Env => verbs::env()?,
-        Commands::Init => verbs::init()?,
+        Commands::Init { shell } => verbs::init(shell)?,
     }
 
     Ok(())

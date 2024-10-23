@@ -17,6 +17,8 @@ _sm() {
     _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
 ":: :_sm_commands" \
 "*::: :->sm" \
 && ret=0
@@ -30,6 +32,8 @@ _sm() {
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
 ":: :_sm__add_commands" \
 "*::: :->add" \
 && ret=0
@@ -48,6 +52,8 @@ _arguments "${_arguments_options[@]}" : \
 '--long[Long alias flag]' \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
 ':name -- The name of the alias:' \
 '::value -- The command to be aliased, if not provided, the last command fromm the history will be used:' \
 && ret=0
@@ -58,6 +64,8 @@ _arguments "${_arguments_options[@]}" : \
 '--directory[Directory-specific flag]' \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
 ':name -- The name of the path:' \
 ':value -- The path to be added:' \
 && ret=0
@@ -68,6 +76,8 @@ _arguments "${_arguments_options[@]}" : \
 '--directory[Directory-specific flag]' \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
 ':name -- The name of the secret:' \
 ':value -- The secret value:' \
 && ret=0
@@ -112,12 +122,17 @@ esac
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
 && ret=0
 ;;
 (init)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell -- The shell to initialize:' \
 && ret=0
 ;;
 (help)
@@ -186,7 +201,7 @@ _sm_commands() {
     local commands; commands=(
 'add:Add a new alias, path, or secret' \
 'env:Load environment variables into the current shell' \
-'init:' \
+'init:Initialize the shell-manager for your shell, usually put \`eval "\$(sm init)"\` in your shell rc file' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'sm commands' commands "$@"
@@ -256,7 +271,7 @@ _sm__help_commands() {
     local commands; commands=(
 'add:Add a new alias, path, or secret' \
 'env:Load environment variables into the current shell' \
-'init:' \
+'init:Initialize the shell-manager for your shell, usually put \`eval "\$(sm init)"\` in your shell rc file' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'sm help commands' commands "$@"

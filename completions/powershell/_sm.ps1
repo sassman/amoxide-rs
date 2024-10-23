@@ -23,15 +23,19 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
         'sm' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias, path, or secret')
             [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Load environment variables into the current shell')
-            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'init')
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
         'sm;add' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'Add a new path')
             [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'Add a new secret')
@@ -45,6 +49,8 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('--long', '--long', [CompletionResultType]::ParameterName, 'Long alias flag')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
         'sm;add;path' {
@@ -52,6 +58,8 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('--directory', '--directory', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
         'sm;add;secret' {
@@ -59,6 +67,8 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('--directory', '--directory', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
         'sm;add;help' {
@@ -83,17 +93,21 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
         'sm;env' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
         'sm;init' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
         'sm;help' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias, path, or secret')
             [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Load environment variables into the current shell')
-            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'init')
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }

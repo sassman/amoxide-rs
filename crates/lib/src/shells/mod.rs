@@ -6,3 +6,4 @@ mod zsh;
 pub use nix::*;
 pub use power_shell::*;
 pub use shared::*;
+pub use zsh::*;

@@ -85,7 +85,7 @@ pub fn env_alias() -> anyhow::Result<()> {
         }
     }
 
-    let shell = ShellBuilder.build_current()?;
+    let shell = ShellBuilder::new().guess().build()?;
     ap.execute(shell);
 
     Ok(())
