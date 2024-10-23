@@ -1,0 +1,21 @@
+[package]
+name = "shell-manager-cli"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["help", "derive"] }
+env_logger = "0.10"
+log = "0.4"
+shell-manager-lib = { path = "../lib" }
+
+[build-dependencies]
+clap_complete = "4.5"
+clap = { version = "4.5", features = ["help", "derive"] }
+shell-manager-lib = { path = "../lib" }
+
+[[bin]]
+name = "sm"
+path = "src/main.rs"
