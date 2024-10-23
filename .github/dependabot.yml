@@ -1,0 +1,20 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  reviewers:
+    - sassman
+- package-ecosystem: cargo
+  directory: "/examples"
+  schedule:
+    interval: weekly
+  ignore:
+    - dependency-name: "*"
+- package-ecosystem: "github-actions"
+  directory: "/"
+  # Check for updates every Monday
+  schedule:
+    interval: "weekly"
