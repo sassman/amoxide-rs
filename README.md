@@ -2,14 +2,23 @@
 
 > The shell-manager (`sm`) is only for the most laziest among you. It helps you to manage your aliases, paths and secret env variables on the shell, either globally or project (like directory) specific.
 
-## An Example
+## Setup
 
-to load everything into your current shell (zsh or bash), you can simply call this
+after installation you can add the following line to your `~/.bashrc` or `~/.zshrc` to have the shell-manager loaded on every shell start
 
 ```shell
-# something you would put in your ~/.bashrc or ~/.zshrc
-$ eval "$(sm env)"
+chpwd() {
+  eval "$(sm env)"
+}
 ```
+
+Or just run this snipped that adds the line to your `~/.zshrc`
+
+```shell
+echo 'chpwd() { eval "$(sm env)"; }' >> ~/.zshrc
+```
+
+## Usage by Example
 
 Once this is done, you can get really lazy so instead of editing your `~/.bashrc` or `~/.zshrc` to add a new alias you can simple call this command
 
@@ -26,6 +35,31 @@ $ sm add alias -d t "./x.py test"
 ```
 
 The `-d` or `--directory` will ensure this very alias shows only up when in this or any sub directories. You could say it's project or directory bound.
+
+If you want to add simply the last executed command as an alias you can do so by not naming the alias command
+
+```shell
+# example command
+$ echo "Hello World!"
+
+# add the last command above as an alias h
+$ sm add alias h
+```
+
+Also you can be lazy about the verb and nound like so:
+
+```shell
+$ sm a a l 'ls -lha'
+#    ^ ^ ^
+#    | | |
+#    | | +---- this is the alais `l`
+#    | +---- this is the noun `alias`
+#    +---- this is the verb `add`
+```
+
+This does the same as `sm add alias l 'ls -lha'`
+
+## Future features (WIP)
 
 It's also possible to add a "longer alias" that you would usually put in a shell function, just like this:
 
