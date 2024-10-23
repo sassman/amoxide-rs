@@ -1,7 +1,5 @@
 use clap::{Parser, Subcommand};
 
-use shell_manager_lib::alias::Alias as AliasCommand;
-
 /// The Shell-Manager
 ///
 /// The shell-manager (`sm`) is only for the most laziest among you.
@@ -37,9 +35,8 @@ pub enum AddCommands {
         /// The name of the alias
         name: String,
 
-        /// The command to be aliased, if not provided, the last history entry will be used
-        #[arg(default_value = "$_")]
-        value: AliasCommand,
+        /// The command to be aliased, if not provided, the last command fromm the history will be used
+        value: Option<String>,
 
         /// Directory-specific flag
         #[arg(short, long)]
