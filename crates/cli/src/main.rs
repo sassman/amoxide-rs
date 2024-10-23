@@ -19,7 +19,13 @@ fn main() -> anyhow::Result<()> {
                 directory,
                 long,
             } => {
-                if let Err(e) = alias::add::add_alias(name, value, *directory, *long) {
+                // todo: try to hand this over to clap
+                let alias = if let Some(value) = value {
+                    alias::Alias::try_from(value.clone())?
+                } else {
+                    alias::Alias::from_last_command()?
+                };
+                if let Err(e) = alias::add::add_alias(name, &alias, *directory, *long) {
                     eprintln!("Failed to add alias: {}", e);
                 }
             }

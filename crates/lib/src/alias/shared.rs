@@ -5,18 +5,20 @@ pub struct Alias(String);
 
 impl Alias {
     pub fn from_last_command() -> anyhow::Result<Self> {
-        Ok(ShellBuilder
+        ShellBuilder
             .build_current()?
-            .last_command_from_history()?
-            .into())
+            .last_command_from_history()
+            .map(Self::try_from)?
     }
 }
 
-impl From<String> for Alias {
-    fn from(value: String) -> Self {
+impl TryFrom<String> for Alias {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
-            "$_" => todo!(r#"implement the special case 'get last command from history'"#),
-            _ => Self(value),
+            "$_" => Alias::from_last_command(),
+            _ => Ok(Self(value)),
         }
     }
 }

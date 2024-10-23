@@ -49,7 +49,7 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':name -- The name of the alias:' \
-'::value -- The command to be aliased, if not provided, the last history entry will be used:' \
+'::value -- The command to be aliased, if not provided, the last command fromm the history will be used:' \
 && ret=0
 ;;
 (path)
