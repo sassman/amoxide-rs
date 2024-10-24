@@ -6,8 +6,7 @@ mod cli;
 use cli::{AddCommands, Cli, Commands};
 use context::Context;
 use log::info;
-use shell_manager_lib::*;
-use shells::ShellBuilder;
+use sm_lib::{shells::ShellBuilder, *};
 
 fn main() -> anyhow::Result<()> {
     // setup env logger

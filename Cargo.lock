@@ -328,7 +328,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "shell-manager-cli"
+name = "sm-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -336,11 +336,11 @@ dependencies = [
  "clap_complete",
  "env_logger",
  "log",
- "shell-manager-lib",
+ "sm-lib",
 ]
 
 [[package]]
-name = "shell-manager-lib"
+name = "sm-lib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
