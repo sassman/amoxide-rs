@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_sm_global_optspecs
-	string join \n h/help V/version
+	string join \n current-shell= h/help V/version
 end
 
 function __fish_sm_needs_command
@@ -24,6 +24,7 @@ function __fish_sm_using_subcommand
 	contains -- $cmd[1] $argv
 end
 
+complete -c sm -n "__fish_sm_needs_command" -l current-shell -d 'The current shell sm runing in' -r
 complete -c sm -n "__fish_sm_needs_command" -s h -l help -d 'Print help'
 complete -c sm -n "__fish_sm_needs_command" -s V -l version -d 'Print version'
 complete -c sm -n "__fish_sm_needs_command" -f -a "add" -d 'Add a new alias, path, or secret'

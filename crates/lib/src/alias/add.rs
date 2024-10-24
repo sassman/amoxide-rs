@@ -33,9 +33,7 @@ pub fn add_alias(name: &str, value: &Alias, directory: bool, long: bool) -> anyh
         let content = fs::read_to_string(&aliases_file_path)?;
         toml::from_str::<AliasConfig>(&content)?
     } else {
-        AliasConfig {
-            aliases: Default::default(),
-        }
+        AliasConfig::default()
     };
 
     let alias_entry = AliasEntry {

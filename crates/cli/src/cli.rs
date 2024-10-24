@@ -10,6 +10,10 @@ use clap::{Parser, Subcommand};
 #[command(about = "The Shell-Manager", long_about = None, version, author)]
 #[command(propagate_version = true)]
 pub struct Cli {
+    /// The current shell sm runing in
+    #[arg(long, env = "SHELL_MANAGER_SHELL")]
+    pub current_shell: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -22,7 +26,11 @@ pub enum Commands {
 
     /// Load environment variables into the current shell
     #[command(alias = "e")]
-    Env,
+    Env {
+        /// The shell to initialize
+        #[arg(env = "SHELL_MANAGER_SHELL")]
+        shell: String,
+    },
 
     /// Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file
     #[command(alias = "i")]

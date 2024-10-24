@@ -10,6 +10,7 @@ pub fn init(shell: &str) -> anyhow::Result<()> {
         "zsh" => {
             println!("# zsh initialization for shell-manager");
             println!("# put this in your ~/.zshrc");
+            println!("export SHELL_MANAGER_SHELL=zsh");
             println!(r#"chpwd() {{ eval "$(sm env)" }}"#);
             println!("# the following will bring auto-completion to your shell");
             println!("{}", include_str!("../../../../completions/zsh/_sm"));

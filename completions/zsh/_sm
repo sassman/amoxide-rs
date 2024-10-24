@@ -15,6 +15,7 @@ _sm() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
+'--current-shell=[The current shell sm runing in]:CURRENT_SHELL: ' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -124,6 +125,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
+':shell -- The shell to initialize:' \
 && ret=0
 ;;
 (init)

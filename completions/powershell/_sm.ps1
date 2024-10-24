@@ -21,6 +21,7 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
 
     $completions = @(switch ($command) {
         'sm' {
+            [CompletionResult]::new('--current-shell', '--current-shell', [CompletionResultType]::ParameterName, 'The current shell sm runing in')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')

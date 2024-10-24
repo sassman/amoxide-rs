@@ -1,4 +1,8 @@
-use std::{fmt::Debug, fs::File, io::BufRead};
+use std::{
+    fmt::{Debug, Display},
+    fs::File,
+    io::BufRead,
+};
 
 use anyhow::bail;
 use log::info;
@@ -14,6 +18,13 @@ pub trait Shell: Send + Sync + Debug {
     fn last_command_from_history(&self) -> anyhow::Result<String>;
 }
 
+impl Display for dyn Shell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", format!("{:?}", self).to_lowercase())
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct ShellBuilder {
     try_current: bool,
     name: Option<String>,
@@ -21,10 +32,7 @@ pub struct ShellBuilder {
 
 impl ShellBuilder {
     pub fn new() -> Self {
-        Self {
-            try_current: false,
-            name: None,
-        }
+        Self::default()
     }
 
     /// Configure the builder to use the current shell, this might fail

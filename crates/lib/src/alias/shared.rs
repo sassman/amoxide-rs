@@ -1,26 +1,47 @@
-use crate::shells::ShellBuilder;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, path::PathBuf};
+
+use crate::context::Context;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AliasEntry {
+    pub value: String,
+    pub directory: Option<PathBuf>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct AliasConfig {
+    pub aliases: HashMap<String, AliasEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ShellAlias {
+    pub name: String,
+    pub value: String,
+}
+
+impl From<(String, AliasEntry)> for ShellAlias {
+    fn from((name, entry): (String, AliasEntry)) -> Self {
+        Self {
+            name,
+            value: entry.value,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Alias(String);
 
 impl Alias {
-    pub fn from_last_command() -> anyhow::Result<Self> {
-        ShellBuilder::new()
-            .guess()
-            .build()?
-            .last_command_from_history()
-            .map(Self::try_from)?
+    pub fn from_last_command(ctx: &Context) -> anyhow::Result<Self> {
+        ctx.shell().last_command_from_history().map(Self::from)
     }
 }
 
-impl TryFrom<String> for Alias {
-    type Error = anyhow::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "$_" => Alias::from_last_command(),
-            _ => Ok(Self(value)),
-        }
+impl From<String> for Alias {
+    fn from(value: String) -> Self {
+        // todo: would be good to validate the alias somehow
+        Self(value)
     }
 }
 
