@@ -76,12 +76,16 @@ _sm() {
 
     case "${cmd}" in
         sm)
-            opts="-h -V --help --version add env init help"
+            opts="-h -V --current-shell --help --version add env init help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --current-shell)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -216,7 +220,7 @@ _sm() {
             return 0
             ;;
         sm__env)
-            opts="-h -V --help --version"
+            opts="-h -V --help --version <SHELL>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

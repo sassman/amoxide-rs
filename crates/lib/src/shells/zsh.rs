@@ -20,17 +20,17 @@ impl Shell for Zsh {
         let home = std::env::var("HOME").context("Failed to get home directory")?;
         let history_path = PathBuf::from(home).join(".zsh_history");
         let history_file = File::open(history_path).context("Failed to open history file")?;
-        let cmds = lines_from_file(&history_file, 1);
+        let cmds = lines_from_file(&history_file, 2);
 
         if cmds.is_empty() {
             bail!("No commands found in history file");
         }
 
-        let cmd = cmds[0].trim();
+        let cmd = cmds[1].trim();
         if let Some((_, cmd)) = cmd.split_once(";") {
             Ok(cmd.to_string())
         } else {
-            bail!("History file has no command");
+            bail!("History file has no commands");
         }
     }
 }

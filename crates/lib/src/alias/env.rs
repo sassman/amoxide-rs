@@ -5,7 +5,7 @@ use dirs::config_dir;
 use log::debug;
 
 use crate::alias::{AliasConfig, ShellAlias};
-use crate::shells::{Shell, ShellBuilder};
+use crate::context::Context;
 
 #[derive(Debug, Default)]
 struct ActiveAliases(Vec<ShellAlias>);
@@ -24,23 +24,24 @@ impl ActionPlan {
         Self::default()
     }
 
-    pub fn execute(self, shell: Box<dyn Shell>) {
+    pub fn execute(self, ctx: &Context) {
         for alias in self.active_aliases.0 {
-            println!("{}", shell.render_alias(&alias));
+            println!("{}", ctx.shell().render_alias(&alias));
         }
 
         for unalias in self.inactive_aliases.0 {
-            println!("{}", shell.render_unalias(&unalias));
+            println!("{}", ctx.shell().render_unalias(&unalias));
         }
     }
 }
 
-#[allow(dead_code)]
-pub fn current_shell_aliases() -> anyhow::Result<HashMap<String, ()>> {
+pub fn current_shell_aliases(ctx: &Context) -> anyhow::Result<HashMap<String, ()>> {
+    dbg!(format!("{}", ctx.cmd("alias")?));
+
     todo!("This function needs some kind of alias caching, that is fed via command line input, during the initialization in the specific sheell- rc file");
 }
 
-pub fn env_alias() -> anyhow::Result<()> {
+pub fn env_alias(ctx: &Context) -> anyhow::Result<()> {
     let config_dir = config_dir()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Config directory not found"))?;
     let aliases_file_path = config_dir.join("shell-manager/aliases.toml");
@@ -72,7 +73,8 @@ pub fn env_alias() -> anyhow::Result<()> {
                 ap.active_aliases.0.push(sha);
             } else {
                 // let is_alias_set = current_aliases.contains_key(name);
-                let is_alias_set = true;
+                // todo: when an alias is not even set, then the unalias command causes an error message, so it souldn't be added to the inactive_aliases
+                let is_alias_set = false;
                 if is_alias_set {
                     // current_aliases.remove(name);
                     ap.inactive_aliases.0.push(sha);
@@ -85,20 +87,37 @@ pub fn env_alias() -> anyhow::Result<()> {
         }
     }
 
-    let shell = ShellBuilder::new().guess().build()?;
-    ap.execute(shell);
+    ap.execute(ctx);
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::process::Command;
+
+    use crate::shells::Zsh;
+
     use super::*;
 
     #[test]
-    #[ignore]
     fn test_current_aliases() {
-        let a = current_shell_aliases().unwrap();
+        let a = current_shell_aliases(&Context::new(Box::new(Zsh))).unwrap();
         assert!(!a.is_empty());
+    }
+
+    #[test]
+    fn test_alias_shell_out() {
+        let x = String::from_utf8(
+            Command::new("/bin/bash")
+                .arg("-c")
+                .arg("alias")
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap();
+
+        dbg!(x);
     }
 }

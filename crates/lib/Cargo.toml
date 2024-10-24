@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0"
-clap = { version = "4.5", features = ["help", "derive"] }
+clap = { version = "4.5", features = ["help", "derive", "env"] }
 dirs = "4.0"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive"] }
