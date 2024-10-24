@@ -7,8 +7,8 @@
 after installation you can add the following line to your `~/.bashrc` or `~/.zshrc` to have the shell-manager loaded on every shell start
 
 ```shell
-# for zsh
-sm init >> ~/.zshrc
+# puth this in your ~/.zshrc
+eval "$(sm init zsh)"
 ```
 
 ## Usage by Example
