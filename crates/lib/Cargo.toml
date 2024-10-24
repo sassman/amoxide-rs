@@ -1,5 +1,5 @@
 [package]
-name = "shell-manager-lib"
+name = "sm-lib"
 version = "0.1.0"
 edition = "2021"
 publish = false

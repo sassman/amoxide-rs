@@ -1,5 +1,5 @@
 [package]
-name = "shell-manager-cli"
+name = "sm-cli"
 authors = ["Sven Kanoldt <sven+oss@d34dl0ck.me>"]
 version = "0.1.0"
 edition = "2021"
@@ -10,12 +10,12 @@ anyhow = "1.0"
 clap = { version = "4.5", features = ["help", "derive", "usage", "env"] }
 env_logger = "0.10"
 log = "0.4"
-shell-manager-lib = { path = "../lib" }
+sm-lib = { path = "../lib" }
 
 [build-dependencies]
 clap_complete = "4.5"
-clap = { version = "4.5", features = ["help", "derive"] }
-shell-manager-lib = { path = "../lib" }
+clap = { version = "4.5", features = ["help", "derive", "usage", "env"] }
+sm-lib = { path = "../lib" }
 
 [[bin]]
 name = "sm"

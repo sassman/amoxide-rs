@@ -1,0 +1,10 @@
+[package]
+name = "sm-bash-builtin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bash-builtins = "0.4.1"
+
+[lib]
+crate-type = ["cdylib"]
