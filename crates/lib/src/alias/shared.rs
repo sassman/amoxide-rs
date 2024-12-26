@@ -1,3 +1,4 @@
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 
@@ -25,6 +26,32 @@ impl From<(String, AliasEntry)> for ShellAlias {
         Self {
             name,
             value: entry.value,
+        }
+    }
+}
+
+impl TryFrom<String> for ShellAlias {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if let Some((name, alias)) = value.split_once('=') {
+            if name.starts_with("alias ") {
+                let name = name.replacen("alias ", "", 1);
+                Ok(Self {
+                    name: name.to_string(),
+                    value: alias.to_string(),
+                })
+            } else {
+                bail!(
+                    "Invalid alias format: `{}` should start with `alias `",
+                    value
+                );
+            }
+        } else {
+            bail!(
+                "Invalid alias format: `{}`, expected is `alias l=\"ls -lha\"`",
+                value
+            );
         }
     }
 }

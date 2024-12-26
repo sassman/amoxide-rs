@@ -1,11 +1,12 @@
-use std::{fs::File, path::PathBuf};
-
 use anyhow::{bail, Context};
+use std::fs::File;
 
-use super::{lines_from_file, NixShell, Shell};
+use super::{home, lines_from_file, NixShell, Shell};
 
 #[derive(Debug, Default)]
 pub struct Zsh;
+
+impl Zsh {}
 
 impl Shell for Zsh {
     fn render_unalias(&self, unalias: &crate::alias::ShellAlias) -> String {
@@ -17,8 +18,7 @@ impl Shell for Zsh {
     }
 
     fn last_command_from_history(&self) -> anyhow::Result<String> {
-        let home = std::env::var("HOME").context("Failed to get home directory")?;
-        let history_path = PathBuf::from(home).join(".zsh_history");
+        let history_path = home()?.join(".zsh_history");
         let history_file = File::open(history_path).context("Failed to open history file")?;
         let cmds = lines_from_file(&history_file, 2);
 
@@ -32,5 +32,10 @@ impl Shell for Zsh {
         } else {
             bail!("History file has no commands");
         }
+    }
+
+    fn open_rc_file(&self) -> anyhow::Result<File> {
+        let path = home()?.join(".zshrc");
+        File::open(path).context("Failed to open ~/.zshrc file")
     }
 }

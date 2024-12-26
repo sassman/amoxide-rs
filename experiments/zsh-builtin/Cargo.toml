@@ -1,0 +1,15 @@
+[package]
+name = "sm-zsh-builtin"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+zsh-module = { git = "https://github.com/Diegovsky/zsh-module-rs", rev = "d95aeac" }
+env_logger = "0.10"
+log = "0.4"
+sm-lib = { path = "../../crates/lib" }
+sm-cli = { path = "../../crates/cli" }
+
+[lib]
+crate-type = ["cdylib"]

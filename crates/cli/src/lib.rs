@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+pub use clap::{Parser, Subcommand};
 
 /// The Shell-Manager
 ///
@@ -24,6 +24,10 @@ pub enum Commands {
     #[command(subcommand, alias = "a")]
     Add(AddCommands),
 
+    /// Imports all alias provided via stdin, e.g. `alias -L | sm import alias`
+    #[command(subcommand, alias = "m")]
+    Import(ImportCommands),
+
     /// Load environment variables into the current shell
     #[command(alias = "e")]
     Env {
@@ -39,6 +43,16 @@ pub enum Commands {
         #[arg()]
         shell: String,
     },
+}
+
+#[derive(Subcommand)]
+pub enum ImportCommands {
+    #[command(alias = "a")]
+    Alias,
+    #[command(alias = "p")]
+    Path,
+    #[command(alias = "s")]
+    Secret,
 }
 
 #[derive(Subcommand)]
@@ -61,6 +75,7 @@ pub enum AddCommands {
         long: bool,
     },
     /// Add a new path
+    #[command(alias = "p")]
     Path {
         /// The name of the path
         name: String,
@@ -73,6 +88,7 @@ pub enum AddCommands {
         directory: bool,
     },
     /// Add a new secret
+    #[command(alias = "s")]
     Secret {
         /// The name of the secret
         name: String,

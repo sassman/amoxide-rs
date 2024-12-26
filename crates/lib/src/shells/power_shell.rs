@@ -21,6 +21,10 @@ impl Shell for PowerShell {
     fn last_command_from_history(&self) -> anyhow::Result<String> {
         todo!("Implement last_command_from_history for PowerShell")
     }
+
+    fn open_rc_file(&self) -> anyhow::Result<std::fs::File> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
