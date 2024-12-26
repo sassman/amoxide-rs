@@ -16,7 +16,3 @@ sm-lib = { path = "../lib" }
 clap_complete = "4.5"
 clap = { version = "4.5", features = ["help", "derive", "usage", "env"] }
 sm-lib = { path = "../lib" }
-
-[[bin]]
-name = "sm"
-path = "src/main.rs"

@@ -2,9 +2,10 @@ use std::{
     fmt::{Debug, Display},
     fs::File,
     io::BufRead,
+    path::PathBuf,
 };
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use log::info;
 use rev_buf_reader::RevBufReader;
 
@@ -16,6 +17,7 @@ pub trait Shell: Send + Sync + Debug {
     fn render_unalias(&self, unalias: &ShellAlias) -> String;
     fn render_alias(&self, alias: &ShellAlias) -> String;
     fn last_command_from_history(&self) -> anyhow::Result<String>;
+    fn open_rc_file(&self) -> anyhow::Result<File>;
 }
 
 impl Display for dyn Shell {
@@ -103,6 +105,12 @@ pub fn lines_from_file(file: &File, limit: usize) -> Vec<String> {
         .take(limit)
         .map(|l| l.expect("Could not parse line"))
         .collect()
+}
+
+pub fn home() -> anyhow::Result<PathBuf> {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .context("Failed to get home directory")
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use clap_complete::{
     generate_to,
 };
 
-include!("src/cli.rs");
+include!("src/lib.rs");
 
 fn main() {
     let mut cmd = Cli::command();

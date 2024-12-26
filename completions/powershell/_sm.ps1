@@ -27,6 +27,7 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias, path, or secret')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Imports all alias provided via stdin, e.g. `alias -L | sm import alias`')
             [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Load environment variables into the current shell')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -91,6 +92,57 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
         'sm;add;help;help' {
             break
         }
+        'sm;import' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'alias')
+            [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'path')
+            [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'secret')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'sm;import;alias' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'sm;import;path' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'sm;import;secret' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'sm;import;help' {
+            [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'alias')
+            [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'path')
+            [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'secret')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'sm;import;help;alias' {
+            break
+        }
+        'sm;import;help;path' {
+            break
+        }
+        'sm;import;help;secret' {
+            break
+        }
+        'sm;import;help;help' {
+            break
+        }
         'sm;env' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
@@ -107,6 +159,7 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
         }
         'sm;help' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias, path, or secret')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Imports all alias provided via stdin, e.g. `alias -L | sm import alias`')
             [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Load environment variables into the current shell')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -125,6 +178,21 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             break
         }
         'sm;help;add;secret' {
+            break
+        }
+        'sm;help;import' {
+            [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'alias')
+            [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'path')
+            [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'secret')
+            break
+        }
+        'sm;help;import;alias' {
+            break
+        }
+        'sm;help;import;path' {
+            break
+        }
+        'sm;help;import;secret' {
             break
         }
         'sm;help;env' {
