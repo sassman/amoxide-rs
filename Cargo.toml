@@ -1,3 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["crates/lib", "crates/cli", "experiments/bash-builtin", "experiments/zsh-builtin", "crates/bin"]
+members = [
+    "crates/am",
+    # "crates/sm-lib",
+    # "crates/sm-bin",
+    # "crates/sm-cli",
+    # "experiments/bash-builtin",
+    # "experiments/zsh-builtin",
+]

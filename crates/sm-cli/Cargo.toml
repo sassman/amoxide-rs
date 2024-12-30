@@ -10,9 +10,9 @@ anyhow = "1.0"
 clap = { version = "4.5", features = ["help", "derive", "usage", "env"] }
 env_logger = "0.10"
 log = "0.4"
-sm-lib = { path = "../lib" }
+sm-lib = { path = "../sm-lib" }
 
 [build-dependencies]
 clap_complete = "4.5"
 clap = { version = "4.5", features = ["help", "derive", "usage", "env"] }
-sm-lib = { path = "../lib" }
+sm-lib = { path = "../sm-lib" }
