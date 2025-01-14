@@ -1,49 +1,68 @@
+use anyhow::bail;
 use log::info;
 
 use am::{
     cli::*,
     update::{update, AppModel},
-    Message,
+    AddAliasProfile, Message,
 };
 
 fn main() -> anyhow::Result<()> {
     // setup env logger
-    if !cfg!(debug_assertions) {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    let filter_level = if !cfg!(debug_assertions) {
+        "info"
     } else {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
-    }
+        "debug"
+    };
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(filter_level))
+        .init();
     let cli = Cli::parse();
     let mut model = AppModel::default();
 
-    match &cli.command {
-        Commands::Add(Alias { name, command }) => {
+    let mut message = match &cli.command {
+        Commands::Add(Alias {
+            profile,
+            name,
+            command,
+        }) => {
             let alias = if let Some(command) = command {
-                command.clone()
+                command.join(" ")
             } else {
                 info!("Fetching the last command from history");
                 todo!("Fetching the last command from history is not implemented yet")
             };
-            info!("Adding alias {} for command {}", name, alias);
-            todo!();
+            let profile = profile
+                .as_deref()
+                .map(|p| AddAliasProfile::Profile(p.to_owned()))
+                .unwrap_or(AddAliasProfile::ActiveProfile);
+
+            info!("Adding alias `{name}` with command `{alias}` to {profile}",);
+            Message::AddAlias(name.clone(), alias, profile)
         }
+        Commands::Profiles => Message::ListProfiles,
         Commands::Profile(Profile {
             name,
             inherits,
             list,
         }) => {
-            if *list || name.is_none() {
-                info!("Listing all profiles");
-                update(&mut model, Message::ListProfiles);
-                return Ok(());
+            if *list {
+                Message::ListProfiles
+            } else if let Some(ref name) = name {
+                Message::LoadOrCreateProfile(name.as_str(), inherits)
+            } else {
+                bail!("No profile name provided or use the --list flag to list all profiles")
             }
-            let Some(name) = name else { unreachable!() };
-            update(&mut model, Message::LoadOrCreateProfile(name, inherits));
-            Ok(())
         }
         Commands::Env { shell } => {
             info!("Setting up environment for {}", shell);
-            todo!()
+            Message::ListAliasesForShell(shell)
         }
+        Commands::Init { shell } => Message::InitShell(shell),
+    };
+
+    while let Some(msg) = update(&mut model, message)? {
+        message = msg;
     }
+
+    Ok(())
 }
