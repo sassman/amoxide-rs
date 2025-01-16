@@ -1,6 +1,3 @@
-use std::fmt::Display;
-
-use clap::ValueEnum;
 pub use clap::{Args, Parser, Subcommand};
 
 use crate::shell::Shells;
@@ -21,6 +18,12 @@ use crate::shell::Shells;
 #[command(about = "The Alias-Manager", long_about = None, version, author)]
 #[command(propagate_version = true)]
 pub struct Cli {
+    #[arg(env = "_AM_SHELL", hide = true)]
+    pub shell: Option<Shells>,
+
+    #[arg(env = "_AM_SESSION_KEY", hide = true)]
+    pub session_key: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -68,12 +71,21 @@ pub struct Alias {
 #[derive(Args)]
 pub struct Profile {
     /// The name of the profile
+    /// If omitted, the active profile will be used from the env var `_AM_ACTIVE_PROFILE`
+    #[arg(env = "_AM_ACTIVE_PROFILE", hide = true)]
     pub name: Option<String>,
 
     /// The optional base profile to inherit from
     #[arg(short, long)]
     pub inherits: Option<String>,
 
+    /// Execute this on activation of the profile
+    #[arg(long)]
+    pub on_activate: Option<String>,
+
     #[arg(long)]
     pub list: bool,
+
+    #[arg(long)]
+    pub print_full_init: bool,
 }

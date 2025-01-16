@@ -67,8 +67,6 @@ impl ProfileConfig {
         let name = name.to_string();
         let mut existing_profile = self.profiles.binary_search_by(|p1| p1.name.cmp(&name));
         if let Ok(i) = existing_profile {
-            let profile = self.profiles.get(i).unwrap();
-            info!("Activating profile {}", profile.name);
             return Ok(Response::ProfileActivated(i));
         }
 
@@ -81,8 +79,6 @@ impl ProfileConfig {
             .binary_search_by(|p1| p1.name.cmp(&profile_name));
 
         let i = existing_profile.unwrap();
-        let profile = self.profiles.get(i).unwrap();
-        info!("Activating new profile {}", profile.name);
         Ok(Response::ProfileAdded(i))
     }
 }

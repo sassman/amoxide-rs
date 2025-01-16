@@ -13,6 +13,10 @@ impl Shell for Fish {
     fn alias(&self, alias_name: &str, command: &str) -> String {
         format!("alias {alias_name} {}", quote_cmd(command),)
     }
+
+    fn env_var(&self, var_name: &str, value: &str) -> String {
+        format!("set -gx {var_name} {}", quote_cmd(value),)
+    }
 }
 
 #[cfg(test)]

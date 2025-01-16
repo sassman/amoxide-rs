@@ -1,5 +1,7 @@
 use anyhow::bail;
-use log::info;
+use env_logger::Builder;
+use log::{info, warn};
+use std::io::Write;
 
 use am::{
     cli::*,
@@ -7,17 +9,39 @@ use am::{
     AddAliasProfile, Message,
 };
 
-fn main() -> anyhow::Result<()> {
+fn setup_logging() {
     // setup env logger
     let filter_level = if !cfg!(debug_assertions) {
         "info"
     } else {
         "debug"
     };
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(filter_level))
+    let mut builder = Builder::from_default_env();
+
+    builder
+        .filter_level(filter_level.parse().unwrap())
+        .default_format()
+        .format(|buf, record| writeln!(buf, "# {} - {}", record.level(), record.args()))
         .init();
+}
+
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let mut model = AppModel::default();
+
+    if let Some(shell) = cli.shell {
+        update(&mut model, Message::SetShell(&shell))?;
+    }
+
+    if !matches!(&cli.command, Commands::Env { .. } | Commands::Init { .. }) {
+        setup_logging();
+    }
+
+    if let Some(session_key) = &cli.session_key {
+        update(&mut model, Message::RestoreState(&session_key))?;
+    } else {
+        warn!("session key not provided, not restoring the state like active profile etc.");
+    }
 
     let mut message = match &cli.command {
         Commands::Add(Alias {
@@ -44,24 +68,46 @@ fn main() -> anyhow::Result<()> {
             name,
             inherits,
             list,
+            on_activate,
+            print_full_init,
         }) => {
+            info!("profile command");
             if *list {
                 Message::ListProfiles
             } else if let Some(ref name) = name {
-                Message::LoadOrCreateProfile(name.as_str(), inherits)
+                info!("updating profile {name}");
+                update(
+                    &mut model,
+                    Message::CreateOrUpdateProfile(name.as_str(), inherits),
+                )?;
+                if let Some(_on_activate) = on_activate {
+                    warn!("todo: on_activate is not implemented yet");
+                }
+                info!("activating profile {name}");
+                update(&mut model, Message::ActivateProfile(name))?;
+
+                if *print_full_init {
+                    Message::ListActiveAliases
+                } else {
+                    Message::DoNothing
+                }
             } else {
-                bail!("No profile name provided or use the --list flag to list all profiles")
+                bail!(
+                    "No profile name provided please use `am profile --list` to list all profiles"
+                )
             }
         }
-        Commands::Env { shell } => {
-            info!("Setting up environment for {}", shell);
-            Message::ListAliasesForShell(shell)
-        }
-        Commands::Init { shell } => Message::InitShell(shell),
+        Commands::Init { shell } | Commands::Env { shell } => Message::InitShell(shell),
     };
 
     while let Some(msg) = update(&mut model, message)? {
         message = msg;
+    }
+
+    if let Some(session_key) = &cli.session_key {
+        update(&mut model, Message::SaveState(&session_key))?;
+    } else {
+        warn!("session key not provided, not saving the state like active profile etc.");
     }
 
     Ok(())

@@ -17,6 +17,7 @@ To avoid confusion between Profiles and Directory Specific Aliases, we will refe
 - In a Node.js project:
 
 ```sh
+# Quotes are optional
 am add t "npm test"
 am add d "npm run dev"
 am add b "npm run build"
@@ -44,7 +45,7 @@ am add logs "docker-compose logs -f"
   - with a profile activation command, here we use `fnm` to switch between node versions
 
 ```sh
-am profile js --activate-with 'eval $(fnm env) && fnm use lts'
+am profile js --on-activate 'eval $(fnm env) && fnm use lts'
 am add t "npm test"
 am add d "npm run dev"
 am add b "npm run build"
@@ -54,7 +55,7 @@ am add b "npm run build"
   - with a profile activation command, here we use `pyenv` to switch between python versions
 
 ```sh
-am profile py --activate-with 'eval "$(pyenv init -)" && pyenv shell 3.8.2'
+am profile py --on-activate 'eval "$(pyenv init -)" && pyenv shell 3.8.2'
 am add t "pytest"
 am add d "python manage.py runserver"
 am add b "python setup.py build"
@@ -68,13 +69,13 @@ Profiles can also inherit from other profiles, so you can have a base profile fo
 
 ```sh
 am profile base
-am add g "git"
 am add gs "git status"
 am add ga "git add"
 am add gc "git commit -s -m"
 
-am profile js --inherits bas
+am profile js --inherits base
 am add t "npm test"
+am add --base g "git"
 am add d "npm run dev"
 am add b "npm run build"
 ```
@@ -86,3 +87,9 @@ am add b "npm run build"
 Fish has an autoload feature that allows you to define functions in separate files and load them when they are called. am uses this feature and persists aliases as functions in separate files in the user's home directory.
 
 When `am env fish` is called those files are written to the fish configuration directory and autoloaded. This is subject of change in the future, as it might be better to write the function that correspons to an alias to the fish configuration directory when the alias is added.
+
+## Features to be Implemented List
+
+- [ ] Merge a given profile into another profile (by name, overwrite existing aliases
+- [ ] Remove a profile (with `am profile --rm <profile>`)
+- [ ] Remove an alias (with `am remove <alias>` or `am r <alias>`)

@@ -1,56 +1,30 @@
 use indoc::formatdoc;
 use log::info;
 
-use crate::{
-    dirs::{fish_config_dir, fish_functions_dir},
-    Profile, TomlAlias,
-};
+use crate::{dirs::fish_functions_dir, Profile, TomlAlias};
 
-pub fn init_shell_code(active_profile: &Profile) -> crate::Result<()> {
-    let active_profile_name = &active_profile.name;
-
-    let shell_code = indoc::indoc! {r#"
+pub fn init_shell_code(active_profile_name: &str) {
+    let shell_code = formatdoc! {r#"
         # add the alias-manager functions folder to the fish functions path
         set fish_functions_path (path resolve $__fish_config_dir/functions/alias-manager/*/) $fish_function_path
 
-        set -g _AM_ACTIVE_PROFILE "{active_profile_name}"
+        set -gx _AM_ACTIVE_PROFILE "{active_profile_name}"
+        set -gx _AM_SHELL "fish"
 
+        # Set up the session key that will be used to store logs
+        # We don't use `random [min] [max]` because it is unavailable in older versions of fish shell
+        set -gx _AM_SESSION_KEY (string sub -s1 -l16 (random)(random)(random)(random)(random)0000000000000000)
+
+        # todo: remove this once am is stable
         # wrapper function to call the binary with taking care of callbacks etc.
         function am
             cargo run -p am -- $argv
         end
 
-        function "am profile" --wraps='am profile' --description 'List all profiles'
-            am profile $argv
-            echo yes
-        end
-
+        am profile --print-full-init | source
     "#};
 
-    println!("{}", shell_code);
-
-    Ok(())
-}
-
-pub fn setup_fish_config_file() -> crate::Result<()> {
-    // in the fish config `conf.d` directory, we create a file that has wrappers to call the binary with taking care of callbacks etc.
-    //
-    // The file will be named `alias-manager.fish`
-    let config_file = fish_config_dir().join("conf.d").join("alias-manager.fish");
-    if !config_file.exists() {
-        std::fs::create_dir_all(config_file.parent().unwrap())?;
-    }
-
-    // kudos to: https://www.reddit.com/r/fishshell/comments/176ahss/tip_you_can_use_function_subfolders_with_this/
-    std::fs::write(
-        &config_file,
-        indoc::indoc! {r#"
-            # add the alias-manager functions folder to the fish functions path
-            set fish_functions_path (path resolve $__fish_config_dir/functions/alias-manager/*/) $fish_function_path
-        "#},
-    )?;
-
-    Ok(())
+    println!("{shell_code}");
 }
 
 pub fn setup_fish_functions_for_profile(profile: &Profile) -> crate::Result<()> {

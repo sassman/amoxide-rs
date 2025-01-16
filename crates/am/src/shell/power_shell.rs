@@ -16,6 +16,10 @@ impl Shell for PowerShell {
             cmd = quote_cmd(command),
         )
     }
+
+    fn env_var(&self, var_name: &str, value: &str) -> String {
+        format!("Set-Variable -Name {var_name} -Value {}", quote_cmd(value),)
+    }
 }
 
 #[cfg(test)]

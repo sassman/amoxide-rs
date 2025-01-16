@@ -24,8 +24,16 @@ pub enum Message<'a> {
     SetEnv(String),
     InitShell(&'a Shells),
 
+    ActivateProfile(&'a str),
+    SetShell(&'a Shells),
+
     ListProfiles,
-    LoadOrCreateProfile(&'a str, &'a Option<String>),
+    CreateOrUpdateProfile(&'a str, &'a Option<String>),
     SaveProfiles,
-    ListAliasesForShell(&'a Shells),
+
+    ListActiveAliases,
+    DoNothing,
+
+    RestoreState(&'a str), // by session key
+    SaveState(&'a str),    // by session key
 }
