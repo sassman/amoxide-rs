@@ -12,6 +12,10 @@ impl Shell for Zsh {
         NixShell.alias(alias_name, command)
     }
 
+    fn env_var(&self, var_name: &str, value: &str) -> String {
+        NixShell.env_var(var_name, value)
+    }
+
     // fn last_command_from_history(&self) -> anyhow::Result<String> {
     //     let history_path = home()?.join(".zsh_history");
     //     let history_file = File::open(history_path).context("Failed to open history file")?;

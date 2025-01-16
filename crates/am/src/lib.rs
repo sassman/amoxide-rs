@@ -4,7 +4,7 @@ pub mod dirs;
 pub mod messages;
 pub mod profile;
 pub mod setup;
-mod shell;
+pub mod shell;
 pub mod update;
 
 pub use alias::*;

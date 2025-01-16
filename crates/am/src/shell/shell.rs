@@ -5,6 +5,7 @@ use clap::ValueEnum;
 pub trait Shell: Send + Sync + Debug {
     fn unalias(&self, alias_name: &str) -> String;
     fn alias(&self, alias_name: &str, command: &str) -> String;
+    fn env_var(&self, var_name: &str, value: &str) -> String;
     // fn last_command_from_history(&self) -> anyhow::Result<String>;
     // fn rc_file(&self) -> anyhow::Result<File>;
 }
@@ -22,6 +23,12 @@ pub enum Shells {
     Zsh,
     // #[cfg(windows)]
     // Cmd,
+}
+
+impl Shells {
+    pub fn as_shell(self) -> Box<dyn Shell> {
+        self.into()
+    }
 }
 
 impl Display for Shells {

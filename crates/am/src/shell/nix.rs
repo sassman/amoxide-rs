@@ -13,6 +13,10 @@ impl Shell for NixShell {
     fn alias(&self, alias_name: &str, command: &str) -> String {
         format!("alias {alias_name}={cmd}", cmd = quote_cmd(command),)
     }
+
+    fn env_var(&self, var_name: &str, value: &str) -> String {
+        format!("export {var_name}={}", quote_cmd(value),)
+    }
 }
 
 #[cfg(test)]
