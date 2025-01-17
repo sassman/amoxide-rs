@@ -61,7 +61,9 @@ fn main() -> anyhow::Result<()> {
                 .unwrap_or(AddAliasProfile::ActiveProfile);
 
             info!("Adding alias `{name}` with command `{alias}` to {profile}",);
-            Message::AddAlias(name.clone(), alias, profile)
+            update(&mut model, Message::AddAlias(name.clone(), alias, profile))?;
+
+            Message::SaveProfiles
         }
         Commands::Profiles => Message::ListProfiles,
         Commands::Profile(Profile {
@@ -80,6 +82,8 @@ fn main() -> anyhow::Result<()> {
                     &mut model,
                     Message::CreateOrUpdateProfile(name.as_str(), inherits),
                 )?;
+                update(&mut model, Message::SaveProfiles)?;
+
                 if let Some(_on_activate) = on_activate {
                     warn!("todo: on_activate is not implemented yet");
                 }

@@ -44,6 +44,11 @@ impl ProfileConfig {
     pub fn get_profile_mut(&mut self, index: usize) -> Option<&mut Profile> {
         self.profiles.get_mut(index)
     }
+
+    /// Get the amount of profiles availbale
+    pub fn len(&self) -> usize {
+        self.profiles.len()
+    }
 }
 
 pub enum Response {
@@ -77,6 +82,8 @@ impl ProfileConfig {
         existing_profile = self
             .profiles
             .binary_search_by(|p1| p1.name.cmp(&profile_name));
+
+        dbg!(&self.profiles);
 
         let i = existing_profile.unwrap();
         Ok(Response::ProfileAdded(i))
@@ -121,7 +128,7 @@ impl ProfileConfig {
 pub struct Profile {
     pub name: String,
     pub inherits: Option<String>,
-    pub aliases: Option<AliasSet>,
+    pub aliases: AliasSet,
 }
 
 impl Display for Profile {
@@ -173,9 +180,7 @@ impl Profile {
         let name: AliasName = name.into();
         let alias = TomlAlias::Command(command);
 
-        self.aliases
-            .get_or_insert_with(Default::default)
-            .insert(name, alias);
+        self.aliases.insert(name, alias);
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,7 @@ use crate::{profile, AddAliasProfile, Message, Profile, ProfileConfig, TomlAlias
 
 pub struct AppModel {
     pub state: PeristedState,
-    profile_config: Option<ProfileConfig>,
+    profile_config: ProfileConfig,
     shell: Shells,
 }
 
@@ -20,7 +20,11 @@ pub struct PeristedState {
 
 impl PeristedState {
     pub fn save(&self, session_key: &str) -> crate::Result<()> {
-        let path = config_dir().join(format!("{session_key}.toml"));
+        let dir = config_dir();
+        if !dir.exists() {
+            std::fs::create_dir_all(&dir)?;
+        }
+        let path = dir.join(format!("{session_key}.toml"));
         debug!("Saving state to: {}", path.display());
         let data = toml::to_string(self)?;
         std::fs::write(path, data)?;
@@ -47,9 +51,15 @@ impl PeristedState {
 
 impl Default for AppModel {
     fn default() -> Self {
+        let mut profile_config = ProfileConfig::load().unwrap();
+        // ensure there is a default profile
+        if profile_config.get_default_profile().is_none() {
+            profile_config.add_default_profile().unwrap();
+        }
+
         Self {
             state: PeristedState::default(),
-            profile_config: None,
+            profile_config,
             shell: Shells::Fish,
         }
     }
@@ -57,18 +67,11 @@ impl Default for AppModel {
 
 impl AppModel {
     fn profile_config_mut(&mut self) -> &mut ProfileConfig {
-        if self.profile_config.is_none() {
-            self.profile_config = Some(ProfileConfig::load().unwrap());
-        }
-        self.profile_config.as_mut().unwrap()
+        &mut self.profile_config
     }
 
     fn profile_config(&mut self) -> &ProfileConfig {
-        if self.profile_config.is_none() {
-            // this is actually not good practice, but for now it's fine
-            self.profile_config = Some(ProfileConfig::load().unwrap());
-        }
-        self.profile_config.as_ref().unwrap()
+        &self.profile_config
     }
 
     fn get_active_profile(&mut self) -> &Profile {
@@ -92,13 +95,7 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
 
                     let profile = match config.get_profile_mut(active_profile) {
                         Some(profile) => profile,
-                        None => match config.get_default_profile_mut() {
-                            Some(profile) => profile,
-                            None => {
-                                config.add_default_profile()?;
-                                config.get_default_profile_mut().unwrap()
-                            }
-                        },
+                        None => bail!("Active profile not found, please check your config."),
                     };
 
                     profile
@@ -131,7 +128,7 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
                 } else {
                     println!("# [profile: {name}]{is_active}");
                 }
-                let Some(aliases) = aliases.as_ref() else {
+                if aliases.is_empty() {
                     println!("  # No aliases");
                     continue;
                 };
@@ -168,12 +165,12 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
         Message::InitShell(shell) => {
             let active_profile = model.get_active_profile();
 
-            match shell {
-                Shells::Fish => {
-                    init_shell_code(&active_profile.name);
-                }
+            let init_shell_code = match shell {
+                Shells::Fish => init_shell_code(&active_profile.name),
                 _ => unimplemented!("InitShell for shell: {shell}"),
-            }
+            };
+
+            println!("{init_shell_code}");
 
             Ok(None)
         }
@@ -194,8 +191,7 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
                 .profile_config()
                 .iter()
                 .enumerate()
-                .filter(|i| i.1.name.eq(name))
-                .next()
+                .find(|i| i.1.name.eq(name))
                 .map(|i| i.0)
                 .unwrap();
 
@@ -207,7 +203,7 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
             let shell = model.shell.clone().as_shell();
             let active_profile = model.get_active_profile();
 
-            for (alias_name, alias_details) in active_profile.aliases.as_ref().unwrap().iter() {
+            for (alias_name, alias_details) in active_profile.aliases.iter() {
                 let name = alias_name.as_ref();
                 let alias = match &alias_details {
                     TomlAlias::Detailed(details) => shell.alias(name, &details.command),
@@ -221,6 +217,16 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
         Message::RestoreState(session_key) => {
             info!("restoring state from session key: {session_key}");
             model.state = PeristedState::load(session_key)?;
+
+            // validate that the active profile is still valid
+            if model.state.active_profile >= model.profile_config().len() {
+                warn!(
+                    "Active profile index {} is out of bounds, resetting to 0",
+                    model.state.active_profile
+                );
+                model.state.active_profile = 0;
+            }
+
             Ok(None)
         }
         Message::SaveState(session_key) => {

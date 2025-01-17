@@ -29,7 +29,34 @@ impl Display for AliasName {
     }
 }
 
-pub type AliasSet = BTreeMap<AliasName, TomlAlias>;
+#[derive(Debug, Deserialize, Default, Serialize, Clone)]
+pub struct AliasSet(BTreeMap<AliasName, TomlAlias>);
+
+impl AsRef<BTreeMap<AliasName, TomlAlias>> for AliasSet {
+    fn as_ref(&self) -> &BTreeMap<AliasName, TomlAlias> {
+        &self.0
+    }
+}
+
+impl AsMut<BTreeMap<AliasName, TomlAlias>> for AliasSet {
+    fn as_mut(&mut self) -> &mut BTreeMap<AliasName, TomlAlias> {
+        &mut self.0
+    }
+}
+
+impl AliasSet {
+    pub fn iter(&self) -> impl Iterator<Item = (&AliasName, &TomlAlias)> {
+        self.as_ref().iter()
+    }
+
+    pub fn insert(&mut self, name: AliasName, alias: TomlAlias) -> Option<TomlAlias> {
+        self.as_mut().insert(name, alias)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.as_ref().is_empty()
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
@@ -61,6 +88,6 @@ impl Ord for AliasDetail {
 
 impl PartialOrd<AliasDetail> for AliasDetail {
     fn partial_cmp(&self, other: &AliasDetail) -> Option<std::cmp::Ordering> {
-        self.name.partial_cmp(&other.name)
+        Some(self.cmp(other))
     }
 }
