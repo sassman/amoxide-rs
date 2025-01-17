@@ -110,7 +110,7 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
         Message::ListProfiles => {
             warn!("todo: grab the active shell from the app model, hardcoding to fish for now");
             let active_profile = model.get_active_profile().name.to_owned();
-            let shell = crate::shell::Fish::default();
+            let shell = crate::shell::Fish;
             for profile in model.profile_config().iter() {
                 let Profile {
                     name,
@@ -183,7 +183,7 @@ pub fn update<'a>(model: &mut AppModel, message: Message) -> anyhow::Result<Opti
             // checking the profile by name exists
             let _ = model
                 .profile_config()
-                .get_profile_by_name(&name)
+                .get_profile_by_name(name)
                 .ok_or(anyhow!("Profile {name} does not exist."))?;
 
             // setting the active profile by index

@@ -47,9 +47,9 @@ impl Display for Shells {
     }
 }
 
-impl Into<String> for Shells {
-    fn into(self) -> String {
-        format!("{}", self)
+impl From<Shells> for String {
+    fn from(val: Shells) -> Self {
+        format!("{}", val)
     }
 }
 
