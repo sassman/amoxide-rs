@@ -1,0 +1,214 @@
+#compdef am
+
+autoload -U is-at-least
+
+_am() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+'::shell:(fish zsh)' \
+'::session_key:_default' \
+":: :_am_commands" \
+"*::: :->am" \
+&& ret=0
+    case $state in
+    (am)
+        words=($line[3] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-command-$line[3]:"
+        case $line[3] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+'-p+[The name of the profile to add the alias to, if not provided, the active profile will be used. If no profile is active, the default profile will be used]:PROFILE:_default' \
+'--profile=[The name of the profile to add the alias to, if not provided, the active profile will be used. If no profile is active, the default profile will be used]:PROFILE:_default' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- The name of the alias:_default' \
+'*::command -- The command to be aliased, if not provided, the last command fromm the history will be used:_default' \
+&& ret=0
+;;
+(profile)
+_arguments "${_arguments_options[@]}" : \
+'-i+[The optional base profile to inherit from]:INHERITS:_default' \
+'--inherits=[The optional base profile to inherit from]:INHERITS:_default' \
+'--on-activate=[Execute this on activation of the profile]:ON_ACTIVATE:_default' \
+'--list[]' \
+'--print-full-init[]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+'::name -- The name of the profile If omitted, the active profile will be used from the env var `_AM_ACTIVE_PROFILE`:_default' \
+&& ret=0
+;;
+(profiles)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
+(env)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell:(fish zsh)' \
+&& ret=0
+;;
+(init)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell:(fish zsh)' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_am__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-help-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(profile)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(profiles)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(env)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(init)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_am_commands] )) ||
+_am_commands() {
+    local commands; commands=(
+'add:Add a new alias' \
+'profile:Add or activate a profile' \
+'profiles:List all profiles' \
+'env:Print and set up required environment variables for am' \
+'init:' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am commands' commands "$@"
+}
+(( $+functions[_am__add_commands] )) ||
+_am__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'am add commands' commands "$@"
+}
+(( $+functions[_am__env_commands] )) ||
+_am__env_commands() {
+    local commands; commands=()
+    _describe -t commands 'am env commands' commands "$@"
+}
+(( $+functions[_am__help_commands] )) ||
+_am__help_commands() {
+    local commands; commands=(
+'add:Add a new alias' \
+'profile:Add or activate a profile' \
+'profiles:List all profiles' \
+'env:Print and set up required environment variables for am' \
+'init:' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am help commands' commands "$@"
+}
+(( $+functions[_am__help__add_commands] )) ||
+_am__help__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help add commands' commands "$@"
+}
+(( $+functions[_am__help__env_commands] )) ||
+_am__help__env_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help env commands' commands "$@"
+}
+(( $+functions[_am__help__help_commands] )) ||
+_am__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help help commands' commands "$@"
+}
+(( $+functions[_am__help__init_commands] )) ||
+_am__help__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help init commands' commands "$@"
+}
+(( $+functions[_am__help__profile_commands] )) ||
+_am__help__profile_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help profile commands' commands "$@"
+}
+(( $+functions[_am__help__profiles_commands] )) ||
+_am__help__profiles_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help profiles commands' commands "$@"
+}
+(( $+functions[_am__init_commands] )) ||
+_am__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'am init commands' commands "$@"
+}
+(( $+functions[_am__profile_commands] )) ||
+_am__profile_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile commands' commands "$@"
+}
+(( $+functions[_am__profiles_commands] )) ||
+_am__profiles_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profiles commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_am" ]; then
+    _am "$@"
+else
+    compdef _am am
+fi

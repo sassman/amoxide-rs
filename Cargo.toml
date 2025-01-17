@@ -2,9 +2,9 @@
 resolver = "2"
 members = [
     "crates/am",
-    # "crates/sm-lib",
-    # "crates/sm-bin",
-    # "crates/sm-cli",
+    # "crates/am-lib",
+    # "crates/am-bin",
+    # "crates/am-cli",
     # "experiments/bash-builtin",
     # "experiments/zsh-builtin",
 ]

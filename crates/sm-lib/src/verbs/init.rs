@@ -8,10 +8,10 @@ pub fn init(shell: &str) -> anyhow::Result<()> {
     let sh = format!("{sh:?}");
     match sh.to_lowercase().as_str() {
         "zsh" => {
-            println!("# zsh initialization for shell-manager");
+            println!("# zsh initialization for alias-manager");
             println!("# put this in your ~/.zshrc");
             println!("export SHELL_MANAGER_SHELL=zsh");
-            println!(r#"chpwd() {{ eval "$(sm env)" }}"#);
+            println!(r#"chpwd() {{ eval "$(am env)" }}"#);
             println!("# the following will bring auto-completion to your shell");
             println!("{}", include_str!("../../../../completions/zsh/_sm"));
         }

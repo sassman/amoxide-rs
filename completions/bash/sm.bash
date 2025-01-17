@@ -10,21 +10,21 @@ _sm() {
     do
         case "${cmd},${i}" in
             ",$1")
-                cmd="sm"
+                cmd="am"
                 ;;
-            sm,add)
+            am,add)
                 cmd="sm__add"
                 ;;
-            sm,env)
+            am,env)
                 cmd="sm__env"
                 ;;
-            sm,help)
+            am,help)
                 cmd="sm__help"
                 ;;
-            sm,import)
+            am,import)
                 cmd="sm__import"
                 ;;
-            sm,init)
+            am,init)
                 cmd="sm__init"
                 ;;
             sm__add,alias)
@@ -114,7 +114,7 @@ _sm() {
     done
 
     case "${cmd}" in
-        sm)
+        am)
             opts="-h -V --current-shell --help --version add import env init help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -584,7 +584,7 @@ _sm() {
 }
 
 if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
-    complete -F _sm -o nosort -o bashdefault -o default sm
+    complete -F _sm -o nosort -o bashdefault -o default am
 else
-    complete -F _sm -o bashdefault -o default sm
+    complete -F _sm -o bashdefault -o default am
 fi

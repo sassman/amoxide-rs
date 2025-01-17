@@ -2,12 +2,12 @@
 using namespace System.Management.Automation
 using namespace System.Management.Automation.Language
 
-Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $commandElements = $commandAst.CommandElements
     $command = @(
-        'sm'
+        'am'
         for ($i = 1; $i -lt $commandElements.Count; $i++) {
             $element = $commandElements[$i]
             if ($element -isnot [StringConstantExpressionAst] -or
@@ -20,20 +20,20 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
     }) -join ';'
 
     $completions = @(switch ($command) {
-        'sm' {
-            [CompletionResult]::new('--current-shell', '--current-shell', [CompletionResultType]::ParameterName, 'The current shell sm runing in')
+        'am' {
+            [CompletionResult]::new('--current-shell', '--current-shell', [CompletionResultType]::ParameterName, 'The current shell am runing in')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias, path, or secret')
-            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Imports all alias provided via stdin, e.g. `alias -L | sm import alias`')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Imports all alias provided via stdin, e.g. `alias -L | am import alias`')
             [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Load environment variables into the current shell')
-            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file')
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the alias-manager for your shell, usually put `eval "$(am init)"` in your shell rc file')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
-        'sm;add' {
+        'am;add' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -44,7 +44,7 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
-        'sm;add;alias' {
+        'am;add;alias' {
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('--directory', '--directory', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Long alias flag')
@@ -55,7 +55,7 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;add;path' {
+        'am;add;path' {
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('--directory', '--directory', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
@@ -64,7 +64,7 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;add;secret' {
+        'am;add;secret' {
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('--directory', '--directory', [CompletionResultType]::ParameterName, 'Directory-specific flag')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
@@ -73,26 +73,26 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;add;help' {
+        'am;add;help' {
             [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'Add a new path')
             [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'Add a new secret')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
-        'sm;add;help;alias' {
+        'am;add;help;alias' {
             break
         }
-        'sm;add;help;path' {
+        'am;add;help;path' {
             break
         }
-        'sm;add;help;secret' {
+        'am;add;help;secret' {
             break
         }
-        'sm;add;help;help' {
+        'am;add;help;help' {
             break
         }
-        'sm;import' {
+        'am;import' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -103,105 +103,105 @@ Register-ArgumentCompleter -Native -CommandName 'sm' -ScriptBlock {
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
-        'sm;import;alias' {
+        'am;import;alias' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;import;path' {
+        'am;import;path' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;import;secret' {
+        'am;import;secret' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;import;help' {
+        'am;import;help' {
             [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'alias')
             [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'path')
             [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'secret')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
-        'sm;import;help;alias' {
+        'am;import;help;alias' {
             break
         }
-        'sm;import;help;path' {
+        'am;import;help;path' {
             break
         }
-        'sm;import;help;secret' {
+        'am;import;help;secret' {
             break
         }
-        'sm;import;help;help' {
+        'am;import;help;help' {
             break
         }
-        'sm;env' {
+        'am;env' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;init' {
+        'am;init' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'sm;help' {
+        'am;help' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias, path, or secret')
-            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Imports all alias provided via stdin, e.g. `alias -L | sm import alias`')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Imports all alias provided via stdin, e.g. `alias -L | am import alias`')
             [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Load environment variables into the current shell')
-            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file')
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Initialize the alias-manager for your shell, usually put `eval "$(am init)"` in your shell rc file')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
-        'sm;help;add' {
+        'am;help;add' {
             [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'Add a new path')
             [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'Add a new secret')
             break
         }
-        'sm;help;add;alias' {
+        'am;help;add;alias' {
             break
         }
-        'sm;help;add;path' {
+        'am;help;add;path' {
             break
         }
-        'sm;help;add;secret' {
+        'am;help;add;secret' {
             break
         }
-        'sm;help;import' {
+        'am;help;import' {
             [CompletionResult]::new('alias', 'alias', [CompletionResultType]::ParameterValue, 'alias')
             [CompletionResult]::new('path', 'path', [CompletionResultType]::ParameterValue, 'path')
             [CompletionResult]::new('secret', 'secret', [CompletionResultType]::ParameterValue, 'secret')
             break
         }
-        'sm;help;import;alias' {
+        'am;help;import;alias' {
             break
         }
-        'sm;help;import;path' {
+        'am;help;import;path' {
             break
         }
-        'sm;help;import;secret' {
+        'am;help;import;secret' {
             break
         }
-        'sm;help;env' {
+        'am;help;env' {
             break
         }
-        'sm;help;init' {
+        'am;help;init' {
             break
         }
-        'sm;help;help' {
+        'am;help;help' {
             break
         }
     })

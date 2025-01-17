@@ -1,14 +1,14 @@
-# The Shell-Manager
+# The Alias-Manager
 
-> The shell-manager (`sm`) is only for the most laziest among you. It helps you to manage your aliases, paths and secret env variables on the shell, either globally or project (like directory) specific.
+> The alias-manager (`am`) is only for the most laziest among you. It helps you to manage your aliases, paths and secret env variables on the shell, either globally or project (like directory) specific.
 
 ## Setup
 
-after installation you can add the following line to your `~/.bashrc` or `~/.zshrc` to have the shell-manager loaded on every shell start
+after installation you can add the following line to your `~/.bashrc` or `~/.zshrc` to have the alias-manager loaded on every shell start
 
 ```shell
 # puth this in your ~/.zshrc
-eval "$(sm init zsh)"
+eval "$(am init zsh)"
 ```
 
 ## Usage by Example
@@ -16,15 +16,15 @@ eval "$(sm init zsh)"
 Once this is done, you can get really lazy so instead of editing your `~/.bashrc` or `~/.zshrc` to add a new alias you can simple call this command
 
 ```shell
-$ sm add alias ll "ls -lha"
-$ sm add alias gs "git status"
+$ am add ll "ls -lha"
+$ am add gs "git status"
 ```
 
 Ok, so far so good. But now let's assume you are working on a project like the rust compiler, and you want to have a new alias that is **only** available when working on this very project.
 
 ```shell
 # t is an alias for test, just like `cargo test` but in the rustc context
-$ sm add alias -d t "./x.py test"
+$ am add -d t "./x.py test"
 ```
 
 The `-d` or `--directory` will ensure this very alias shows only up when in this or any sub directories. You could say it's project or directory bound.
@@ -36,28 +36,28 @@ If you want to add simply the last executed command as an alias you can do so by
 $ echo "Hello World!"
 
 # add the last command above as an alias h
-$ sm add alias h
+$ am add h
 ```
 
 Also you can be lazy about the verb and nound like so:
 
 ```shell
-$ sm a a l 'ls -lha'
-#    ^ ^ ^
-#    | | |
-#    | | +---- this is the alais `l`
-#    | +---- this is the noun `alias`
+$ am a l ls -lha
+#    ^ ^ ^-----^
+#    | |       |
+#    | |       +---- this is alias command `ls -lha`
+#    | +---- this is the alias name `l`
 #    +---- this is the verb `add`
 ```
 
-This does the same as `sm add alias l 'ls -lha'`
+This does the same as `am a l ls -lha`
 
 ## Future features (WIP)
 
 It's also possible to add a "longer alias" that you would usually put in a shell function, just like this:
 
 ```shell
-$ sm add alias -l gp
+$ am add -l gp
 # this is now the code for the alias
 git fetch origin
 git stash

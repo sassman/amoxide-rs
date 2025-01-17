@@ -1,5 +1,5 @@
 [package]
-name = "sm-lib"
+name = "am-lib"
 version = "0.1.0"
 edition = "2021"
 publish = false
