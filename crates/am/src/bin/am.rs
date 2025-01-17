@@ -38,7 +38,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Some(session_key) = &cli.session_key {
-        update(&mut model, Message::RestoreState(&session_key))?;
+        update(&mut model, Message::RestoreState(session_key))?;
     } else {
         warn!("session key not provided, not restoring the state like active profile etc.");
     }
@@ -109,7 +109,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Some(session_key) = &cli.session_key {
-        update(&mut model, Message::SaveState(&session_key))?;
+        update(&mut model, Message::SaveState(session_key))?;
     } else {
         warn!("session key not provided, not saving the state like active profile etc.");
     }

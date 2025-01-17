@@ -52,7 +52,7 @@ pub fn setup_fish_functions_for_profile(profile: &Profile) -> crate::Result<()> 
         let (command, description) = match &command {
             TomlAlias::Detailed(alias) => {
                 let command = &alias.command;
-                let description = alias.description.as_ref().unwrap_or(&command);
+                let description = alias.description.as_ref().unwrap_or(command);
                 (command, description)
             }
             TomlAlias::Command(command) => (&command.clone(), command),
