@@ -3,7 +3,20 @@ use log::info;
 
 use crate::{dirs::fish_functions_dir, Profile, TomlAlias};
 
-pub fn init_shell_code(active_profile_name: &str) {
+pub fn init_shell_code(active_profile_name: &str) -> String {
+    // in case of a non release build we add a wrapper function to call the binary
+    let am_wrapper = if cfg!(debug_assertions) {
+        info!("Adding a wrapper function to call the binary");
+        formatdoc! {r#"
+            # wrapper function to call the binary with taking care of callbacks etc.
+            function am
+                cargo run -p am -- $argv
+            end
+        "#}
+    } else {
+        "".to_string()
+    };
+
     let shell_code = formatdoc! {r#"
         # add the alias-manager functions folder to the fish functions path
         set fish_functions_path (path resolve $__fish_config_dir/functions/alias-manager/*/) $fish_function_path
@@ -14,17 +27,11 @@ pub fn init_shell_code(active_profile_name: &str) {
         # Set up the session key that will be used to store logs
         # We don't use `random [min] [max]` because it is unavailable in older versions of fish shell
         set -gx _AM_SESSION_KEY (string sub -s1 -l16 (random)(random)(random)(random)(random)0000000000000000)
-
-        # todo: remove this once am is stable
-        # wrapper function to call the binary with taking care of callbacks etc.
-        function am
-            cargo run -p am -- $argv
-        end
-
+        {am_wrapper}
         am profile --print-full-init | source
     "#};
 
-    println!("{shell_code}");
+    shell_code
 }
 
 pub fn setup_fish_functions_for_profile(profile: &Profile) -> crate::Result<()> {
@@ -36,10 +43,7 @@ pub fn setup_fish_functions_for_profile(profile: &Profile) -> crate::Result<()> 
         std::fs::create_dir_all(&profile_functions_dir)?;
     }
 
-    let Some(aliases) = profile.aliases.as_ref() else {
-        info!("The provided profile `{}` has no aliases", profile.name);
-        return Ok(());
-    };
+    let aliases = &profile.aliases;
 
     let date = chrono::Local::now();
     for alias in aliases.iter() {
