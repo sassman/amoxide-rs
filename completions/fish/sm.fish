@@ -24,62 +24,62 @@ function __fish_sm_using_subcommand
 	contains -- $cmd[1] $argv
 end
 
-complete -c sm -n "__fish_sm_needs_command" -l current-shell -d 'The current shell sm runing in' -r
-complete -c sm -n "__fish_sm_needs_command" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_needs_command" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_needs_command" -f -a "add" -d 'Add a new alias, path, or secret'
-complete -c sm -n "__fish_sm_needs_command" -f -a "import" -d 'Imports all alias provided via stdin, e.g. `alias -L | sm import alias`'
-complete -c sm -n "__fish_sm_needs_command" -f -a "env" -d 'Load environment variables into the current shell'
-complete -c sm -n "__fish_sm_needs_command" -f -a "init" -d 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file'
-complete -c sm -n "__fish_sm_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c sm -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "alias" -d 'Add a new alias'
-complete -c sm -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "path" -d 'Add a new path'
-complete -c sm -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "secret" -d 'Add a new secret'
-complete -c sm -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s d -l directory -d 'Directory-specific flag'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s l -l long -d 'Long alias flag'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from path" -s d -l directory -d 'Directory-specific flag'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from path" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from path" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from secret" -s d -l directory -d 'Directory-specific flag'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from secret" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from secret" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "alias" -d 'Add a new alias'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "path" -d 'Add a new path'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "secret" -d 'Add a new secret'
-complete -c sm -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c sm -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "alias"
-complete -c sm -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "path"
-complete -c sm -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "secret"
-complete -c sm -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from alias" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from alias" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from path" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from path" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from secret" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from secret" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "alias"
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "path"
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "secret"
-complete -c sm -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c sm -n "__fish_sm_using_subcommand env" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand env" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand init" -s h -l help -d 'Print help'
-complete -c sm -n "__fish_sm_using_subcommand init" -s V -l version -d 'Print version'
-complete -c sm -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "add" -d 'Add a new alias, path, or secret'
-complete -c sm -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "import" -d 'Imports all alias provided via stdin, e.g. `alias -L | sm import alias`'
-complete -c sm -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "env" -d 'Load environment variables into the current shell'
-complete -c sm -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "init" -d 'Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file'
-complete -c sm -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c sm -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from add" -f -a "alias" -d 'Add a new alias'
-complete -c sm -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from add" -f -a "path" -d 'Add a new path'
-complete -c sm -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from add" -f -a "secret" -d 'Add a new secret'
-complete -c sm -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from import" -f -a "alias"
-complete -c sm -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from import" -f -a "path"
-complete -c sm -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from import" -f -a "secret"
+complete -c am -n "__fish_sm_needs_command" -l current-shell -d 'The current shell am runing in' -r
+complete -c am -n "__fish_sm_needs_command" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_needs_command" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_needs_command" -f -a "add" -d 'Add a new alias, path, or secret'
+complete -c am -n "__fish_sm_needs_command" -f -a "import" -d 'Imports all alias provided via stdin, e.g. `alias -L | am import alias`'
+complete -c am -n "__fish_sm_needs_command" -f -a "env" -d 'Load environment variables into the current shell'
+complete -c am -n "__fish_sm_needs_command" -f -a "init" -d 'Initialize the alias-manager for your shell, usually put `eval "$(am init)"` in your shell rc file'
+complete -c am -n "__fish_sm_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "alias" -d 'Add a new alias'
+complete -c am -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "path" -d 'Add a new path'
+complete -c am -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "secret" -d 'Add a new secret'
+complete -c am -n "__fish_sm_using_subcommand add; and not __fish_seen_subcommand_from alias path secret help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s d -l directory -d 'Directory-specific flag'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s l -l long -d 'Long alias flag'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from alias" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from path" -s d -l directory -d 'Directory-specific flag'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from path" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from path" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from secret" -s d -l directory -d 'Directory-specific flag'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from secret" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from secret" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "alias" -d 'Add a new alias'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "path" -d 'Add a new path'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "secret" -d 'Add a new secret'
+complete -c am -n "__fish_sm_using_subcommand add; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "alias"
+complete -c am -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "path"
+complete -c am -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "secret"
+complete -c am -n "__fish_sm_using_subcommand import; and not __fish_seen_subcommand_from alias path secret help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from alias" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from alias" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from path" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from path" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from secret" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from secret" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "alias"
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "path"
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "secret"
+complete -c am -n "__fish_sm_using_subcommand import; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_sm_using_subcommand env" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand env" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand init" -s h -l help -d 'Print help'
+complete -c am -n "__fish_sm_using_subcommand init" -s V -l version -d 'Print version'
+complete -c am -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "add" -d 'Add a new alias, path, or secret'
+complete -c am -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "import" -d 'Imports all alias provided via stdin, e.g. `alias -L | am import alias`'
+complete -c am -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "env" -d 'Load environment variables into the current shell'
+complete -c am -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "init" -d 'Initialize the alias-manager for your shell, usually put `eval "$(am init)"` in your shell rc file'
+complete -c am -n "__fish_sm_using_subcommand help; and not __fish_seen_subcommand_from add import env init help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from add" -f -a "alias" -d 'Add a new alias'
+complete -c am -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from add" -f -a "path" -d 'Add a new path'
+complete -c am -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from add" -f -a "secret" -d 'Add a new secret'
+complete -c am -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from import" -f -a "alias"
+complete -c am -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from import" -f -a "path"
+complete -c am -n "__fish_sm_using_subcommand help; and __fish_seen_subcommand_from import" -f -a "secret"

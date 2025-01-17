@@ -17,31 +17,31 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             cross: true
-            binName: sm
+            binName: am
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             cross: true
-            binName: sm
+            binName: am
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             cross: true
-            binName: sm
+            binName: am
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             cross: true
-            binName: sm
+            binName: am
           - target: x86_64-apple-darwin
             os: macos-latest
             cross: false
-            binName: sm
+            binName: am
           - target: aarch64-apple-darwin
             os: macos-latest
             cross: true
-            binName: sm
+            binName: am
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             cross: false
-            binName: sm.exe
+            binName: am.exe
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
@@ -80,7 +80,7 @@ jobs:
           TARGET: ${{ matrix.target }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          filename="sm-$TAG-$TARGET.tar.gz"
+          filename="am-$TAG-$TARGET.tar.gz"
           tar -czvf "$filename" README.md LICENSE -C "target/$TARGET/release" "${{ matrix.binName }}"
           echo "::set-output name=filename::$filename"
       - name: Upload Archive

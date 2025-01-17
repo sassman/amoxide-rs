@@ -1,4 +1,4 @@
-#compdef sm
+#compdef am
 
 autoload -U is-at-least
 
@@ -15,19 +15,19 @@ _sm() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'--current-shell=[The current shell sm runing in]:CURRENT_SHELL: ' \
+'--current-shell=[The current shell am runing in]:CURRENT_SHELL: ' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
 ":: :_sm_commands" \
-"*::: :->sm" \
+"*::: :->am" \
 && ret=0
     case $state in
-    (sm)
+    (am)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-command-$line[1]:"
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
@@ -43,7 +43,7 @@ _arguments "${_arguments_options[@]}" : \
     (add)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-add-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-add-command-$line[1]:"
         case $line[1] in
             (alias)
 _arguments "${_arguments_options[@]}" : \
@@ -93,7 +93,7 @@ _arguments "${_arguments_options[@]}" : \
     (help)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-add-help-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-add-help-command-$line[1]:"
         case $line[1] in
             (alias)
 _arguments "${_arguments_options[@]}" : \
@@ -133,7 +133,7 @@ _arguments "${_arguments_options[@]}" : \
     (import)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-import-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-import-command-$line[1]:"
         case $line[1] in
             (alias)
 _arguments "${_arguments_options[@]}" : \
@@ -169,7 +169,7 @@ _arguments "${_arguments_options[@]}" : \
     (help)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-import-help-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-import-help-command-$line[1]:"
         case $line[1] in
             (alias)
 _arguments "${_arguments_options[@]}" : \
@@ -223,7 +223,7 @@ _arguments "${_arguments_options[@]}" : \
     (help)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-help-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-help-command-$line[1]:"
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
@@ -235,7 +235,7 @@ _arguments "${_arguments_options[@]}" : \
     (add)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-help-add-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-help-add-command-$line[1]:"
         case $line[1] in
             (alias)
 _arguments "${_arguments_options[@]}" : \
@@ -263,7 +263,7 @@ _arguments "${_arguments_options[@]}" : \
     (import)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:sm-help-import-command-$line[1]:"
+        curcontext="${curcontext%:*:*}:am-help-import-command-$line[1]:"
         case $line[1] in
             (alias)
 _arguments "${_arguments_options[@]}" : \
@@ -306,12 +306,12 @@ esac
 _sm_commands() {
     local commands; commands=(
 'add:Add a new alias, path, or secret' \
-'import:Imports all alias provided via stdin, e.g. \`alias -L | sm import alias\`' \
+'import:Imports all alias provided via stdin, e.g. \`alias -L | am import alias\`' \
 'env:Load environment variables into the current shell' \
-'init:Initialize the shell-manager for your shell, usually put \`eval "\$(sm init)"\` in your shell rc file' \
+'init:Initialize the alias-manager for your shell, usually put \`eval "\$(am init)"\` in your shell rc file' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'sm commands' commands "$@"
+    _describe -t commands 'am commands' commands "$@"
 }
 (( $+functions[_sm__add_commands] )) ||
 _sm__add_commands() {
@@ -321,12 +321,12 @@ _sm__add_commands() {
 'secret:Add a new secret' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'sm add commands' commands "$@"
+    _describe -t commands 'am add commands' commands "$@"
 }
 (( $+functions[_sm__add__alias_commands] )) ||
 _sm__add__alias_commands() {
     local commands; commands=()
-    _describe -t commands 'sm add alias commands' commands "$@"
+    _describe -t commands 'am add alias commands' commands "$@"
 }
 (( $+functions[_sm__add__help_commands] )) ||
 _sm__add__help_commands() {
@@ -336,53 +336,53 @@ _sm__add__help_commands() {
 'secret:Add a new secret' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'sm add help commands' commands "$@"
+    _describe -t commands 'am add help commands' commands "$@"
 }
 (( $+functions[_sm__add__help__alias_commands] )) ||
 _sm__add__help__alias_commands() {
     local commands; commands=()
-    _describe -t commands 'sm add help alias commands' commands "$@"
+    _describe -t commands 'am add help alias commands' commands "$@"
 }
 (( $+functions[_sm__add__help__help_commands] )) ||
 _sm__add__help__help_commands() {
     local commands; commands=()
-    _describe -t commands 'sm add help help commands' commands "$@"
+    _describe -t commands 'am add help help commands' commands "$@"
 }
 (( $+functions[_sm__add__help__path_commands] )) ||
 _sm__add__help__path_commands() {
     local commands; commands=()
-    _describe -t commands 'sm add help path commands' commands "$@"
+    _describe -t commands 'am add help path commands' commands "$@"
 }
 (( $+functions[_sm__add__help__secret_commands] )) ||
 _sm__add__help__secret_commands() {
     local commands; commands=()
-    _describe -t commands 'sm add help secret commands' commands "$@"
+    _describe -t commands 'am add help secret commands' commands "$@"
 }
 (( $+functions[_sm__add__path_commands] )) ||
 _sm__add__path_commands() {
     local commands; commands=()
-    _describe -t commands 'sm add path commands' commands "$@"
+    _describe -t commands 'am add path commands' commands "$@"
 }
 (( $+functions[_sm__add__secret_commands] )) ||
 _sm__add__secret_commands() {
     local commands; commands=()
-    _describe -t commands 'sm add secret commands' commands "$@"
+    _describe -t commands 'am add secret commands' commands "$@"
 }
 (( $+functions[_sm__env_commands] )) ||
 _sm__env_commands() {
     local commands; commands=()
-    _describe -t commands 'sm env commands' commands "$@"
+    _describe -t commands 'am env commands' commands "$@"
 }
 (( $+functions[_sm__help_commands] )) ||
 _sm__help_commands() {
     local commands; commands=(
 'add:Add a new alias, path, or secret' \
-'import:Imports all alias provided via stdin, e.g. \`alias -L | sm import alias\`' \
+'import:Imports all alias provided via stdin, e.g. \`alias -L | am import alias\`' \
 'env:Load environment variables into the current shell' \
-'init:Initialize the shell-manager for your shell, usually put \`eval "\$(sm init)"\` in your shell rc file' \
+'init:Initialize the alias-manager for your shell, usually put \`eval "\$(am init)"\` in your shell rc file' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'sm help commands' commands "$@"
+    _describe -t commands 'am help commands' commands "$@"
 }
 (( $+functions[_sm__help__add_commands] )) ||
 _sm__help__add_commands() {
@@ -391,32 +391,32 @@ _sm__help__add_commands() {
 'path:Add a new path' \
 'secret:Add a new secret' \
     )
-    _describe -t commands 'sm help add commands' commands "$@"
+    _describe -t commands 'am help add commands' commands "$@"
 }
 (( $+functions[_sm__help__add__alias_commands] )) ||
 _sm__help__add__alias_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help add alias commands' commands "$@"
+    _describe -t commands 'am help add alias commands' commands "$@"
 }
 (( $+functions[_sm__help__add__path_commands] )) ||
 _sm__help__add__path_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help add path commands' commands "$@"
+    _describe -t commands 'am help add path commands' commands "$@"
 }
 (( $+functions[_sm__help__add__secret_commands] )) ||
 _sm__help__add__secret_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help add secret commands' commands "$@"
+    _describe -t commands 'am help add secret commands' commands "$@"
 }
 (( $+functions[_sm__help__env_commands] )) ||
 _sm__help__env_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help env commands' commands "$@"
+    _describe -t commands 'am help env commands' commands "$@"
 }
 (( $+functions[_sm__help__help_commands] )) ||
 _sm__help__help_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help help commands' commands "$@"
+    _describe -t commands 'am help help commands' commands "$@"
 }
 (( $+functions[_sm__help__import_commands] )) ||
 _sm__help__import_commands() {
@@ -425,27 +425,27 @@ _sm__help__import_commands() {
 'path:' \
 'secret:' \
     )
-    _describe -t commands 'sm help import commands' commands "$@"
+    _describe -t commands 'am help import commands' commands "$@"
 }
 (( $+functions[_sm__help__import__alias_commands] )) ||
 _sm__help__import__alias_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help import alias commands' commands "$@"
+    _describe -t commands 'am help import alias commands' commands "$@"
 }
 (( $+functions[_sm__help__import__path_commands] )) ||
 _sm__help__import__path_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help import path commands' commands "$@"
+    _describe -t commands 'am help import path commands' commands "$@"
 }
 (( $+functions[_sm__help__import__secret_commands] )) ||
 _sm__help__import__secret_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help import secret commands' commands "$@"
+    _describe -t commands 'am help import secret commands' commands "$@"
 }
 (( $+functions[_sm__help__init_commands] )) ||
 _sm__help__init_commands() {
     local commands; commands=()
-    _describe -t commands 'sm help init commands' commands "$@"
+    _describe -t commands 'am help init commands' commands "$@"
 }
 (( $+functions[_sm__import_commands] )) ||
 _sm__import_commands() {
@@ -455,12 +455,12 @@ _sm__import_commands() {
 'secret:' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'sm import commands' commands "$@"
+    _describe -t commands 'am import commands' commands "$@"
 }
 (( $+functions[_sm__import__alias_commands] )) ||
 _sm__import__alias_commands() {
     local commands; commands=()
-    _describe -t commands 'sm import alias commands' commands "$@"
+    _describe -t commands 'am import alias commands' commands "$@"
 }
 (( $+functions[_sm__import__help_commands] )) ||
 _sm__import__help_commands() {
@@ -470,46 +470,46 @@ _sm__import__help_commands() {
 'secret:' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
-    _describe -t commands 'sm import help commands' commands "$@"
+    _describe -t commands 'am import help commands' commands "$@"
 }
 (( $+functions[_sm__import__help__alias_commands] )) ||
 _sm__import__help__alias_commands() {
     local commands; commands=()
-    _describe -t commands 'sm import help alias commands' commands "$@"
+    _describe -t commands 'am import help alias commands' commands "$@"
 }
 (( $+functions[_sm__import__help__help_commands] )) ||
 _sm__import__help__help_commands() {
     local commands; commands=()
-    _describe -t commands 'sm import help help commands' commands "$@"
+    _describe -t commands 'am import help help commands' commands "$@"
 }
 (( $+functions[_sm__import__help__path_commands] )) ||
 _sm__import__help__path_commands() {
     local commands; commands=()
-    _describe -t commands 'sm import help path commands' commands "$@"
+    _describe -t commands 'am import help path commands' commands "$@"
 }
 (( $+functions[_sm__import__help__secret_commands] )) ||
 _sm__import__help__secret_commands() {
     local commands; commands=()
-    _describe -t commands 'sm import help secret commands' commands "$@"
+    _describe -t commands 'am import help secret commands' commands "$@"
 }
 (( $+functions[_sm__import__path_commands] )) ||
 _sm__import__path_commands() {
     local commands; commands=()
-    _describe -t commands 'sm import path commands' commands "$@"
+    _describe -t commands 'am import path commands' commands "$@"
 }
 (( $+functions[_sm__import__secret_commands] )) ||
 _sm__import__secret_commands() {
     local commands; commands=()
-    _describe -t commands 'sm import secret commands' commands "$@"
+    _describe -t commands 'am import secret commands' commands "$@"
 }
 (( $+functions[_sm__init_commands] )) ||
 _sm__init_commands() {
     local commands; commands=()
-    _describe -t commands 'sm init commands' commands "$@"
+    _describe -t commands 'am init commands' commands "$@"
 }
 
 if [ "$funcstack[1]" = "_sm" ]; then
     _sm "$@"
 else
-    compdef _sm sm
+    compdef _sm am
 fi

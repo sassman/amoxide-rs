@@ -2,15 +2,15 @@ pub use clap::{Parser, Subcommand};
 
 /// The Shell-Manager
 ///
-/// The shell-manager (`sm`) is only for the most laziest among you.
+/// The alias-manager (`am`) is only for the most laziest among you.
 /// It helps you to manage your aliases, paths and secret env variables on the shell,
 /// either globally or project (like directory) specific.
 #[derive(Parser)]
-#[command(name = "sm")]
+#[command(name = "am")]
 #[command(about = "The Shell-Manager", long_about = None, version, author)]
 #[command(propagate_version = true)]
 pub struct Cli {
-    /// The current shell sm runing in
+    /// The current shell am runing in
     #[arg(long, env = "SHELL_MANAGER_SHELL")]
     pub current_shell: Option<String>,
 
@@ -24,7 +24,7 @@ pub enum Commands {
     #[command(subcommand, alias = "a")]
     Add(AddCommands),
 
-    /// Imports all alias provided via stdin, e.g. `alias -L | sm import alias`
+    /// Imports all alias provided via stdin, e.g. `alias -L | am import alias`
     #[command(subcommand, alias = "m")]
     Import(ImportCommands),
 
@@ -36,7 +36,7 @@ pub enum Commands {
         shell: String,
     },
 
-    /// Initialize the shell-manager for your shell, usually put `eval "$(sm init)"` in your shell rc file
+    /// Initialize the alias-manager for your shell, usually put `eval "$(am init)"` in your shell rc file
     #[command(alias = "i")]
     Init {
         /// The shell to initialize
