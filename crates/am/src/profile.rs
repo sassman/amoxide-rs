@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::usize;
 
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -9,7 +8,7 @@ use crate::{AliasName, AliasSet, Result, TomlAlias};
 
 const CONFIG_FILE: &str = "profiles.toml";
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct ProfileConfig {
     profiles: Vec<Profile>,
 }
@@ -176,9 +175,9 @@ impl Profile {
         }
     }
 
-    pub fn add_alias(&mut self, name: String, command: String) -> Result<()> {
-        let name: AliasName = name.into();
-        let alias = TomlAlias::Command(command);
+    pub fn add_alias(&mut self, name: impl AsRef<str>, command: impl AsRef<str>) -> Result<()> {
+        let name: AliasName = name.as_ref().into();
+        let alias = TomlAlias::Command(command.as_ref().to_string());
 
         self.aliases.insert(name, alias);
 

@@ -5,6 +5,7 @@ pub mod messages;
 pub mod profile;
 pub mod setup;
 pub mod shell;
+pub mod state;
 pub mod update;
 
 pub use alias::*;

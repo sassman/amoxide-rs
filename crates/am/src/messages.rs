@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::shell::Shells;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum AddAliasProfile {
     Profile(String),
     ActiveProfile,
