@@ -28,26 +28,24 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Add or activate a profile')
             [CompletionResult]::new('profiles', 'profiles', [CompletionResultType]::ParameterValue, 'List all profiles')
-            [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Print and set up required environment variables for am')
-            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'init')
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code (eval in your shell rc file)')
+            [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
         'am;add' {
-            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'The name of the profile to add the alias to, if not provided, the active profile will be used. If no profile is active, the default profile will be used')
-            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'The name of the profile to add the alias to, if not provided, the active profile will be used. If no profile is active, the default profile will be used')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
         'am;profile' {
-            [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'The optional base profile to inherit from')
-            [CompletionResult]::new('--inherits', '--inherits', [CompletionResultType]::ParameterName, 'The optional base profile to inherit from')
-            [CompletionResult]::new('--on-activate', '--on-activate', [CompletionResultType]::ParameterName, 'Execute this on activation of the profile')
-            [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
-            [CompletionResult]::new('--print-full-init', '--print-full-init', [CompletionResultType]::ParameterName, 'print-full-init')
+            [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Base profile to inherit from')
+            [CompletionResult]::new('--inherits', '--inherits', [CompletionResultType]::ParameterName, 'Base profile to inherit from')
+            [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'List all profiles')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -61,14 +59,14 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'am;env' {
+        'am;init' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'am;init' {
+        'am;hook' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -79,8 +77,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Add or activate a profile')
             [CompletionResult]::new('profiles', 'profiles', [CompletionResultType]::ParameterValue, 'List all profiles')
-            [CompletionResult]::new('env', 'env', [CompletionResultType]::ParameterValue, 'Print and set up required environment variables for am')
-            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'init')
+            [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code (eval in your shell rc file)')
+            [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -93,10 +91,10 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;help;profiles' {
             break
         }
-        'am;help;env' {
+        'am;help;init' {
             break
         }
-        'am;help;init' {
+        'am;help;hook' {
             break
         }
         'am;help;help' {

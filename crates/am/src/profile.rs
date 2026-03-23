@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::usize;
 
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -45,9 +44,12 @@ impl ProfileConfig {
         self.profiles.get_mut(index)
     }
 
-    /// Get the amount of profiles availbale
     pub fn len(&self) -> usize {
         self.profiles.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.profiles.is_empty()
     }
 }
 
@@ -82,8 +84,6 @@ impl ProfileConfig {
         existing_profile = self
             .profiles
             .binary_search_by(|p1| p1.name.cmp(&profile_name));
-
-        dbg!(&self.profiles);
 
         let i = existing_profile.unwrap();
         Ok(Response::ProfileAdded(i))
@@ -128,6 +128,7 @@ impl ProfileConfig {
 pub struct Profile {
     pub name: String,
     pub inherits: Option<String>,
+    #[serde(default)]
     pub aliases: AliasSet,
 }
 
@@ -145,7 +146,7 @@ impl PartialEq<Profile> for Profile {
 
 impl PartialOrd<Profile> for Profile {
     fn partial_cmp(&self, other: &Profile) -> Option<std::cmp::Ordering> {
-        self.name.partial_cmp(&other.name)
+        Some(self.cmp(other))
     }
 }
 

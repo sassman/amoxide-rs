@@ -15,11 +15,11 @@ _am() {
             am,add)
                 cmd="am__add"
                 ;;
-            am,env)
-                cmd="am__env"
-                ;;
             am,help)
                 cmd="am__help"
+                ;;
+            am,hook)
+                cmd="am__hook"
                 ;;
             am,init)
                 cmd="am__init"
@@ -33,11 +33,11 @@ _am() {
             am__help,add)
                 cmd="am__help__add"
                 ;;
-            am__help,env)
-                cmd="am__help__env"
-                ;;
             am__help,help)
                 cmd="am__help__help"
+                ;;
+            am__help,hook)
+                cmd="am__help__hook"
                 ;;
             am__help,init)
                 cmd="am__help__init"
@@ -55,7 +55,7 @@ _am() {
 
     case "${cmd}" in
         am)
-            opts="-h -V --help --version fish zsh [SESSION_KEY] add profile profiles env init help"
+            opts="-h -V --help --version add profile profiles init hook help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -90,22 +90,8 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__env)
-            opts="-h -V --help --version fish zsh"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         am__help)
-            opts="add profile profiles env init help"
+            opts="add profile profiles init hook help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -132,7 +118,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__env)
+        am__help__help)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -146,7 +132,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__help)
+        am__help__hook)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -202,6 +188,20 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        am__hook)
+            opts="-h -V --help --version fish zsh"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         am__init)
             opts="-h -V --help --version fish zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -217,7 +217,7 @@ _am() {
             return 0
             ;;
         am__profile)
-            opts="-i -h -V --inherits --on-activate --list --print-full-init --help --version [NAME]"
+            opts="-i -h -V --inherits --list --help --version [NAME]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -228,10 +228,6 @@ _am() {
                     return 0
                     ;;
                 -i)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --on-activate)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

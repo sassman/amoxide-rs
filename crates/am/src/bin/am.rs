@@ -1,6 +1,6 @@
 use anyhow::bail;
 use env_logger::Builder;
-use log::{info, warn};
+use log::info;
 use std::io::Write;
 
 use am::{
@@ -10,17 +10,14 @@ use am::{
 };
 
 fn setup_logging() {
-    // setup env logger
-    let filter_level = if !cfg!(debug_assertions) {
-        "info"
-    } else {
+    let filter_level = if cfg!(debug_assertions) {
         "debug"
+    } else {
+        "warn"
     };
     let mut builder = Builder::from_default_env();
-
     builder
         .filter_level(filter_level.parse().unwrap())
-        .default_format()
         .format(|buf, record| writeln!(buf, "# {} - {}", record.level(), record.args()))
         .init();
 }
@@ -29,18 +26,9 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let mut model = AppModel::default();
 
-    if let Some(shell) = cli.shell {
-        update(&mut model, Message::SetShell(&shell))?;
-    }
-
-    if !matches!(&cli.command, Commands::Env { .. } | Commands::Init { .. }) {
+    // Don't log for commands whose stdout is eval'd by the shell
+    if !matches!(&cli.command, Commands::Init { .. } | Commands::Hook { .. }) {
         setup_logging();
-    }
-
-    if let Some(session_key) = &cli.session_key {
-        update(&mut model, Message::RestoreState(session_key))?;
-    } else {
-        warn!("session key not provided, not restoring the state like active profile etc.");
     }
 
     let mut message = match &cli.command {
@@ -49,20 +37,20 @@ fn main() -> anyhow::Result<()> {
             name,
             command,
         }) => {
-            let alias = if let Some(command) = command {
-                command.join(" ")
-            } else {
-                info!("Fetching the last command from history");
-                todo!("Fetching the last command from history is not implemented yet")
+            let alias_cmd = match command {
+                Some(parts) => parts.join(" "),
+                None => bail!("No command provided. Usage: am add <name> <command...>"),
             };
-            let profile = profile
+            let target = profile
                 .as_deref()
                 .map(|p| AddAliasProfile::Profile(p.to_owned()))
                 .unwrap_or(AddAliasProfile::ActiveProfile);
 
-            info!("Adding alias `{name}` with command `{alias}` to {profile}",);
-            update(&mut model, Message::AddAlias(name.clone(), alias, profile))?;
-
+            info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
+            update(
+                &mut model,
+                Message::AddAlias(name.clone(), alias_cmd, target),
+            )?;
             Message::SaveProfiles
         }
         Commands::Profiles => Message::ListProfiles,
@@ -70,48 +58,26 @@ fn main() -> anyhow::Result<()> {
             name,
             inherits,
             list,
-            on_activate,
-            print_full_init,
         }) => {
-            info!("profile command");
             if *list {
                 Message::ListProfiles
             } else if let Some(ref name) = name {
-                info!("updating profile {name}");
                 update(
                     &mut model,
-                    Message::CreateOrUpdateProfile(name.as_str(), inherits),
+                    Message::CreateOrUpdateProfile(name.clone(), inherits.clone()),
                 )?;
                 update(&mut model, Message::SaveProfiles)?;
-
-                if let Some(_on_activate) = on_activate {
-                    warn!("todo: on_activate is not implemented yet");
-                }
-                info!("activating profile {name}");
-                update(&mut model, Message::ActivateProfile(name))?;
-
-                if *print_full_init {
-                    Message::ListActiveAliases
-                } else {
-                    Message::DoNothing
-                }
+                Message::SaveConfig
             } else {
-                bail!(
-                    "No profile name provided please use `am profile --list` to list all profiles"
-                )
+                bail!("No profile name provided. Use `am profile --list` to list profiles.")
             }
         }
-        Commands::Init { shell } | Commands::Env { shell } => Message::InitShell(shell),
+        Commands::Init { shell } => Message::InitShell(shell.clone()),
+        Commands::Hook { shell } => Message::Hook(shell.clone()),
     };
 
     while let Some(msg) = update(&mut model, message)? {
         message = msg;
-    }
-
-    if let Some(session_key) = &cli.session_key {
-        update(&mut model, Message::SaveState(session_key))?;
-    } else {
-        warn!("session key not provided, not saving the state like active profile etc.");
     }
 
     Ok(())
