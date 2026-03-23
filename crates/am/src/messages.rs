@@ -17,23 +17,17 @@ impl Display for AddAliasProfile {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Message<'a> {
+#[derive(Debug)]
+pub enum Message {
     AddAlias(String, String, AddAliasProfile),
-    AddProfile(String, Option<String>),
-    SetEnv(String),
-    InitShell(&'a Shells),
+    InitShell(Shells),
+    Hook(Shells),
 
-    ActivateProfile(&'a str),
-    SetShell(&'a Shells),
-
+    ActivateProfile(String),
     ListProfiles,
-    CreateOrUpdateProfile(&'a str, &'a Option<String>),
+    CreateOrUpdateProfile(String, Option<String>),
     SaveProfiles,
+    SaveConfig,
 
-    ListActiveAliases,
     DoNothing,
-
-    RestoreState(&'a str), // by session key
-    SaveState(&'a str),    // by session key
 }

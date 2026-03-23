@@ -14,8 +14,12 @@ impl Shell for NixShell {
         format!("alias {alias_name}={cmd}", cmd = quote_cmd(command),)
     }
 
-    fn env_var(&self, var_name: &str, value: &str) -> String {
-        format!("export {var_name}={}", quote_cmd(value),)
+    fn set_env(&self, var_name: &str, value: &str) -> String {
+        format!("export {var_name}={}", quote_cmd(value))
+    }
+
+    fn unset_env(&self, var_name: &str) -> String {
+        format!("unset {var_name}")
     }
 }
 
@@ -33,5 +37,7 @@ mod tests {
 
         assert_eq!(&NixShell.alias("h", "echo hello"), "alias h=\"echo hello\"");
         assert_eq!(&NixShell.unalias("h"), "unalias h");
+        assert_eq!(&NixShell.set_env("FOO", "bar"), "export FOO=\"bar\"");
+        assert_eq!(&NixShell.unset_env("FOO"), "unset FOO");
     }
 }

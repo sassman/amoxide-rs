@@ -19,41 +19,37 @@ _am() {
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
-'::shell:(fish zsh)' \
-'::session_key:_default' \
 ":: :_am_commands" \
 "*::: :->am" \
 && ret=0
     case $state in
     (am)
-        words=($line[3] "${words[@]}")
+        words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:am-command-$line[3]:"
-        case $line[3] in
+        curcontext="${curcontext%:*:*}:am-command-$line[1]:"
+        case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
-'-p+[The name of the profile to add the alias to, if not provided, the active profile will be used. If no profile is active, the default profile will be used]:PROFILE:_default' \
-'--profile=[The name of the profile to add the alias to, if not provided, the active profile will be used. If no profile is active, the default profile will be used]:PROFILE:_default' \
-'-h[Print help (see more with '\''--help'\'')]' \
-'--help[Print help (see more with '\''--help'\'')]' \
-'-V[Print version]' \
-'--version[Print version]' \
-':name -- The name of the alias:_default' \
-'*::command -- The command to be aliased, if not provided, the last command fromm the history will be used:_default' \
-&& ret=0
-;;
-(profile)
-_arguments "${_arguments_options[@]}" : \
-'-i+[The optional base profile to inherit from]:INHERITS:_default' \
-'--inherits=[The optional base profile to inherit from]:INHERITS:_default' \
-'--on-activate=[Execute this on activation of the profile]:ON_ACTIVATE:_default' \
-'--list[]' \
-'--print-full-init[]' \
+'-p+[Profile to add the alias to (defaults to active profile)]:PROFILE:_default' \
+'--profile=[Profile to add the alias to (defaults to active profile)]:PROFILE:_default' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
-'::name -- The name of the profile If omitted, the active profile will be used from the env var `_AM_ACTIVE_PROFILE`:_default' \
+':name -- The alias name:_default' \
+'*::command -- The command to alias:_default' \
+&& ret=0
+;;
+(profile)
+_arguments "${_arguments_options[@]}" : \
+'-i+[Base profile to inherit from]:INHERITS:_default' \
+'--inherits=[Base profile to inherit from]:INHERITS:_default' \
+'--list[List all profiles]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+'::name -- Profile name:_default' \
 && ret=0
 ;;
 (profiles)
@@ -64,7 +60,7 @@ _arguments "${_arguments_options[@]}" : \
 '--version[Print version]' \
 && ret=0
 ;;
-(env)
+(init)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -73,7 +69,7 @@ _arguments "${_arguments_options[@]}" : \
 ':shell:(fish zsh)' \
 && ret=0
 ;;
-(init)
+(hook)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -106,11 +102,11 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(env)
+(init)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(init)
+(hook)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -133,8 +129,8 @@ _am_commands() {
 'add:Add a new alias' \
 'profile:Add or activate a profile' \
 'profiles:List all profiles' \
-'env:Print and set up required environment variables for am' \
-'init:' \
+'init:Print shell init code (eval in your shell rc file)' \
+'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'am commands' commands "$@"
@@ -144,19 +140,14 @@ _am__add_commands() {
     local commands; commands=()
     _describe -t commands 'am add commands' commands "$@"
 }
-(( $+functions[_am__env_commands] )) ||
-_am__env_commands() {
-    local commands; commands=()
-    _describe -t commands 'am env commands' commands "$@"
-}
 (( $+functions[_am__help_commands] )) ||
 _am__help_commands() {
     local commands; commands=(
 'add:Add a new alias' \
 'profile:Add or activate a profile' \
 'profiles:List all profiles' \
-'env:Print and set up required environment variables for am' \
-'init:' \
+'init:Print shell init code (eval in your shell rc file)' \
+'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'am help commands' commands "$@"
@@ -166,15 +157,15 @@ _am__help__add_commands() {
     local commands; commands=()
     _describe -t commands 'am help add commands' commands "$@"
 }
-(( $+functions[_am__help__env_commands] )) ||
-_am__help__env_commands() {
-    local commands; commands=()
-    _describe -t commands 'am help env commands' commands "$@"
-}
 (( $+functions[_am__help__help_commands] )) ||
 _am__help__help_commands() {
     local commands; commands=()
     _describe -t commands 'am help help commands' commands "$@"
+}
+(( $+functions[_am__help__hook_commands] )) ||
+_am__help__hook_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help hook commands' commands "$@"
 }
 (( $+functions[_am__help__init_commands] )) ||
 _am__help__init_commands() {
@@ -190,6 +181,11 @@ _am__help__profile_commands() {
 _am__help__profiles_commands() {
     local commands; commands=()
     _describe -t commands 'am help profiles commands' commands "$@"
+}
+(( $+functions[_am__hook_commands] )) ||
+_am__hook_commands() {
+    local commands; commands=()
+    _describe -t commands 'am hook commands' commands "$@"
 }
 (( $+functions[_am__init_commands] )) ||
 _am__init_commands() {

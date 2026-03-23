@@ -5,9 +5,8 @@ use clap::ValueEnum;
 pub trait Shell: Send + Sync + Debug {
     fn unalias(&self, alias_name: &str) -> String;
     fn alias(&self, alias_name: &str, command: &str) -> String;
-    fn env_var(&self, var_name: &str, value: &str) -> String;
-    // fn last_command_from_history(&self) -> anyhow::Result<String>;
-    // fn rc_file(&self) -> anyhow::Result<File>;
+    fn set_env(&self, var_name: &str, value: &str) -> String;
+    fn unset_env(&self, var_name: &str) -> String;
 }
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
