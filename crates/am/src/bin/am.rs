@@ -1,10 +1,12 @@
 use anyhow::bail;
 use env_logger::Builder;
 use log::info;
-use std::io::Write;
+use std::io::{BufRead, Write};
 
 use am::{
     cli::*,
+    dirs::relative_path,
+    project::{ProjectAliases, ALIASES_FILE},
     update::{update, AppModel},
     AddAliasProfile, Message,
 };
@@ -34,6 +36,7 @@ fn main() -> anyhow::Result<()> {
     let mut message = match &cli.command {
         Commands::Add(Alias {
             profile,
+            local,
             name,
             command,
         }) => {
@@ -41,37 +44,49 @@ fn main() -> anyhow::Result<()> {
                 Some(parts) => parts.join(" "),
                 None => bail!("No command provided. Usage: am add <name> <command...>"),
             };
+
+            if *local {
+                add_local_alias(name, &alias_cmd)?;
+                Message::DoNothing
+            } else {
+                let target = profile
+                    .as_deref()
+                    .map(|p| AddAliasProfile::Profile(p.to_owned()))
+                    .unwrap_or(AddAliasProfile::ActiveProfile);
+
+                info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
+                update(
+                    &mut model,
+                    Message::AddAlias(name.clone(), alias_cmd, target),
+                )?;
+                Message::SaveProfiles
+            }
+        }
+        Commands::Remove { profile, name } => {
             let target = profile
                 .as_deref()
                 .map(|p| AddAliasProfile::Profile(p.to_owned()))
                 .unwrap_or(AddAliasProfile::ActiveProfile);
 
-            info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
-            update(
-                &mut model,
-                Message::AddAlias(name.clone(), alias_cmd, target),
-            )?;
+            info!("Removing alias `{name}` from {target}");
+            update(&mut model, Message::RemoveAlias(name.clone(), target))?;
             Message::SaveProfiles
         }
-        Commands::Profiles => Message::ListProfiles,
-        Commands::Profile(Profile {
-            name,
-            inherits,
-            list,
-        }) => {
-            if *list {
-                Message::ListProfiles
-            } else if let Some(ref name) = name {
+        Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
+            ProfileAction::Add { name, inherits } => {
                 update(
                     &mut model,
                     Message::CreateOrUpdateProfile(name.clone(), inherits.clone()),
                 )?;
                 update(&mut model, Message::SaveProfiles)?;
                 Message::SaveConfig
-            } else {
-                bail!("No profile name provided. Use `am profile --list` to list profiles.")
             }
-        }
+            ProfileAction::Set { name } => {
+                update(&mut model, Message::ActivateProfile(name.clone()))?;
+                Message::SaveConfig
+            }
+            ProfileAction::List => Message::ListProfiles,
+        },
         Commands::Init { shell } => Message::InitShell(shell.clone()),
         Commands::Hook { shell } => Message::Hook(shell.clone()),
     };
@@ -81,4 +96,73 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn add_local_alias(name: &str, command: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let local_path = cwd.join(ALIASES_FILE);
+
+    if local_path.exists() {
+        // .aliases exists in CWD — add to it
+        let mut project = ProjectAliases::load(&local_path)?;
+        project.add_alias(name.to_string(), command.to_string());
+        project.save(&local_path)?;
+        println!("Added `{name}` to {ALIASES_FILE}");
+        return Ok(());
+    }
+
+    // No .aliases in CWD — check if one exists up the tree
+    if let Some(parent) = cwd.parent() {
+        if let Some(existing_path) = ProjectAliases::find_path(parent)? {
+            match prompt_existing_aliases(&existing_path, &cwd)? {
+                Choice::Yes => {
+                    let mut project = ProjectAliases::load(&existing_path)?;
+                    project.add_alias(name.to_string(), command.to_string());
+                    project.save(&existing_path)?;
+                    let rel = relative_path(&cwd, &existing_path);
+                    println!("Added `{name}` to {}", rel.display());
+                    return Ok(());
+                }
+                Choice::No => {} // fall through to create new
+                Choice::Cancel => {
+                    println!("Cancelled.");
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Create new .aliases in CWD
+    let mut project = ProjectAliases::default();
+    project.add_alias(name.to_string(), command.to_string());
+    project.save(&local_path)?;
+    println!("Created {ALIASES_FILE} with alias `{name}`");
+    Ok(())
+}
+
+enum Choice {
+    Yes,
+    No,
+    Cancel,
+}
+
+fn prompt_existing_aliases(
+    path: &std::path::Path,
+    cwd: &std::path::Path,
+) -> anyhow::Result<Choice> {
+    let rel = relative_path(cwd, path);
+    eprint!(
+        "Found existing {ALIASES_FILE} at {}\nAdd to that file instead? [N/y/c] ",
+        rel.display()
+    );
+    std::io::stderr().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().lock().read_line(&mut input)?;
+
+    match input.trim().to_lowercase().as_str() {
+        "y" | "yes" => Ok(Choice::Yes),
+        "c" | "cancel" => Ok(Choice::Cancel),
+        _ => Ok(Choice::No),
+    }
 }

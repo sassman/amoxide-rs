@@ -1,37 +1,72 @@
-use std::path::Path;
+use log::warn;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use crate::dirs::home_dir;
+use crate::{AliasName, AliasSet, TomlAlias};
 
-use crate::AliasSet;
+pub const ALIASES_FILE: &str = ".aliases";
 
-const ALIASES_FILE: &str = ".aliases";
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ProjectAliases {
     pub aliases: AliasSet,
 }
 
 impl ProjectAliases {
     /// Walk up from `start_dir` looking for a `.aliases` file.
-    /// Stops at the user's home directory to avoid loading stray files from `/` or `/home`.
+    /// Stops before the user's home directory.
     pub fn find(start_dir: &Path) -> crate::Result<Option<Self>> {
-        let home = dirs::home_dir();
+        match Self::find_path(start_dir)? {
+            Some(path) => {
+                let data = std::fs::read_to_string(&path)?;
+                match toml::from_str::<ProjectAliases>(&data) {
+                    Ok(project) => Ok(Some(project)),
+                    Err(e) => {
+                        warn!("Skipping {}: {e}", path.display());
+                        Ok(None)
+                    }
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Walk up from `start_dir` looking for a `.aliases` file path.
+    /// Returns the path without parsing.
+    pub fn find_path(start_dir: &Path) -> crate::Result<Option<PathBuf>> {
+        let home = home_dir();
         let mut dir = start_dir.to_path_buf();
         loop {
-            let candidate = dir.join(ALIASES_FILE);
-            if candidate.exists() {
-                let data = std::fs::read_to_string(candidate)?;
-                let project: ProjectAliases = toml::from_str(&data)?;
-                return Ok(Some(project));
-            }
-            // Stop at home directory boundary
             if home.as_ref().is_some_and(|h| h == &dir) {
                 return Ok(None);
+            }
+            let candidate = dir.join(ALIASES_FILE);
+            if candidate.exists() {
+                return Ok(Some(candidate));
             }
             if !dir.pop() {
                 return Ok(None);
             }
         }
+    }
+
+    /// Load from a specific path.
+    pub fn load(path: &Path) -> crate::Result<Self> {
+        let data = std::fs::read_to_string(path)?;
+        let project = toml::from_str(&data)?;
+        Ok(project)
+    }
+
+    /// Save to a specific path.
+    pub fn save(&self, path: &Path) -> crate::Result<()> {
+        let data = toml::to_string(self)?;
+        std::fs::write(path, data)?;
+        Ok(())
+    }
+
+    pub fn add_alias(&mut self, name: String, command: String) {
+        let key: AliasName = name.into();
+        self.aliases.insert(key, TomlAlias::Command(command));
     }
 }
 
@@ -63,6 +98,19 @@ mod tests {
     }
 
     #[test]
+    fn test_invalid_toml_is_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(".aliases"),
+            "alias foo=\"bar\"\nthis is not toml",
+        )
+        .unwrap();
+
+        let project = ProjectAliases::find(dir.path()).unwrap();
+        assert!(project.is_none());
+    }
+
+    #[test]
     fn test_find_aliases_in_parent_directory() {
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("src").join("deep");
@@ -75,5 +123,33 @@ mod tests {
 
         let project = ProjectAliases::find(&sub).unwrap();
         assert!(project.is_some());
+    }
+
+    #[test]
+    fn test_find_path_returns_location() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("src");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        let path = ProjectAliases::find_path(&sub).unwrap();
+        assert_eq!(path.unwrap(), dir.path().join(".aliases"));
+    }
+
+    #[test]
+    fn test_add_alias_and_save_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".aliases");
+
+        let mut project = ProjectAliases::default();
+        project.add_alias("t".to_string(), "cargo test".to_string());
+        project.save(&path).unwrap();
+
+        let loaded = ProjectAliases::load(&path).unwrap();
+        assert_eq!(loaded.aliases.iter().count(), 1);
     }
 }

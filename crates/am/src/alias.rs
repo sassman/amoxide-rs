@@ -53,6 +53,10 @@ impl AliasSet {
         self.as_mut().insert(name, alias)
     }
 
+    pub fn remove(&mut self, name: &AliasName) -> Option<TomlAlias> {
+        self.as_mut().remove(name)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.as_ref().is_empty()
     }

@@ -20,13 +20,23 @@ pub enum Commands {
     #[command(alias = "a", trailing_var_arg = true)]
     Add(Alias),
 
-    /// Add or activate a profile
-    #[command(alias = "p")]
-    Profile(Profile),
+    /// Remove an alias
+    #[command(alias = "r")]
+    Remove {
+        /// Profile to remove the alias from (defaults to active profile)
+        #[arg(short, long)]
+        profile: Option<String>,
 
-    /// List all profiles
-    #[command(alias = "l")]
-    Profiles,
+        /// The alias name to remove
+        name: String,
+    },
+
+    /// Manage profiles (defaults to listing when no subcommand given)
+    #[command(aliases = ["p", "l"])]
+    Profile {
+        #[command(subcommand)]
+        action: Option<ProfileAction>,
+    },
 
     /// Print shell init code (eval in your shell rc file)
     #[command(alias = "i")]
@@ -37,29 +47,44 @@ pub enum Commands {
     Hook { shell: Shells },
 }
 
+#[derive(Subcommand)]
+pub enum ProfileAction {
+    /// Add a new profile
+    #[command(alias = "a")]
+    Add {
+        /// Profile name
+        name: String,
+
+        /// Base profile to inherit from
+        #[arg(short, long)]
+        inherits: Option<String>,
+    },
+
+    /// Set the active profile
+    #[command(alias = "s")]
+    Set {
+        /// Profile name
+        name: String,
+    },
+
+    /// List all profiles
+    #[command(alias = "l")]
+    List,
+}
+
 #[derive(Args)]
 pub struct Alias {
     /// Profile to add the alias to (defaults to active profile)
-    #[arg(short, long)]
+    #[arg(short, long, conflicts_with = "local")]
     pub profile: Option<String>,
+
+    /// Add to the project's .aliases file instead of a profile
+    #[arg(short, long)]
+    pub local: bool,
 
     /// The alias name
     pub name: String,
 
     /// The command to alias
     pub command: Option<Vec<String>>,
-}
-
-#[derive(Args)]
-pub struct Profile {
-    /// Profile name
-    pub name: Option<String>,
-
-    /// Base profile to inherit from
-    #[arg(short, long)]
-    pub inherits: Option<String>,
-
-    /// List all profiles
-    #[arg(long)]
-    pub list: bool,
 }
