@@ -1,10 +1,10 @@
 use anyhow::anyhow;
 
 use crate::config::Config;
+use crate::display::render_listing;
 use crate::hook::generate_hook;
 use crate::init::generate_init;
-use crate::shell::Shells;
-use crate::{profile, AddAliasProfile, Message, Profile, ProfileConfig, TomlAlias};
+use crate::{profile, AddAliasProfile, Message, Profile, ProfileConfig};
 
 pub struct AppModel {
     pub config: Config,
@@ -67,35 +67,27 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
             profile.add_alias(name, cmd)?;
             Ok(Some(Message::SaveProfiles))
         }
+        Message::RemoveAlias(name, target) => {
+            let profile = match target {
+                AddAliasProfile::Profile(profile_name) => model
+                    .profile_config_mut()
+                    .get_profile_by_name_mut(&profile_name)
+                    .ok_or_else(|| anyhow!("Profile not found: {profile_name}"))?,
+                AddAliasProfile::ActiveProfile => {
+                    let active = model.config.active_profile.clone();
+                    model
+                        .profile_config_mut()
+                        .get_profile_by_name_mut(&active)
+                        .ok_or_else(|| anyhow!("Active profile not found: {active}"))?
+                }
+            };
+            profile.remove_alias(&name)?;
+            Ok(Some(Message::SaveProfiles))
+        }
         Message::ListProfiles => {
-            let active_name = &model.config.active_profile;
-            let shell = Shells::Fish.as_shell();
-            for profile in model.profile_config().iter() {
-                let Profile {
-                    name,
-                    inherits,
-                    aliases,
-                } = profile;
-                let is_active = if name == active_name { " (active)" } else { "" };
-
-                if let Some(inherits) = inherits {
-                    println!("# [profile: {name}, extends: {inherits}]{is_active}");
-                } else {
-                    println!("# [profile: {name}]{is_active}");
-                }
-                if aliases.is_empty() {
-                    println!("  # No aliases");
-                    continue;
-                }
-                for (alias_name, command) in aliases.iter() {
-                    let n = alias_name.as_ref();
-                    let alias = match &command {
-                        TomlAlias::Detailed(details) => shell.alias(n, &details.command),
-                        TomlAlias::Command(cmd) => shell.alias(n, cmd),
-                    };
-                    println!("  {alias}");
-                }
-            }
+            let cwd = std::env::current_dir()?;
+            let output = render_listing(model.profile_config(), &model.config.active_profile, &cwd);
+            println!("{output}");
             Ok(None)
         }
         Message::CreateOrUpdateProfile(name, inherits) => {

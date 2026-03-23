@@ -2,6 +2,7 @@ pub mod alias;
 pub mod cli;
 pub mod config;
 pub mod dirs;
+pub mod display;
 pub mod hook;
 pub mod init;
 pub mod messages;

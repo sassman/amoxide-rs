@@ -180,9 +180,15 @@ impl Profile {
     pub fn add_alias(&mut self, name: String, command: String) -> Result<()> {
         let name: AliasName = name.into();
         let alias = TomlAlias::Command(command);
-
         self.aliases.insert(name, alias);
+        Ok(())
+    }
 
+    pub fn remove_alias(&mut self, name: &str) -> Result<()> {
+        let key: AliasName = name.into();
+        self.aliases
+            .remove(&key)
+            .ok_or_else(|| anyhow::anyhow!("Alias '{name}' not found"))?;
         Ok(())
     }
 }
