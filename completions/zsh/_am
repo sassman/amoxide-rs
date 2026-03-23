@@ -53,6 +53,14 @@ _arguments "${_arguments_options[@]}" : \
 ':name -- The alias name to remove:_default' \
 && ret=0
 ;;
+(ls)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
 (profile)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -171,6 +179,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(ls)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (profile)
 _arguments "${_arguments_options[@]}" : \
 ":: :_am__help__profile_commands" \
@@ -225,6 +237,7 @@ _am_commands() {
     local commands; commands=(
 'add:Add a new alias' \
 'remove:Remove an alias' \
+'ls:List all profiles and project aliases' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code (eval in your shell rc file)' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
@@ -242,6 +255,7 @@ _am__help_commands() {
     local commands; commands=(
 'add:Add a new alias' \
 'remove:Remove an alias' \
+'ls:List all profiles and project aliases' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code (eval in your shell rc file)' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
@@ -268,6 +282,11 @@ _am__help__hook_commands() {
 _am__help__init_commands() {
     local commands; commands=()
     _describe -t commands 'am help init commands' commands "$@"
+}
+(( $+functions[_am__help__ls_commands] )) ||
+_am__help__ls_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help ls commands' commands "$@"
 }
 (( $+functions[_am__help__profile_commands] )) ||
 _am__help__profile_commands() {
@@ -307,6 +326,11 @@ _am__hook_commands() {
 _am__init_commands() {
     local commands; commands=()
     _describe -t commands 'am init commands' commands "$@"
+}
+(( $+functions[_am__ls_commands] )) ||
+_am__ls_commands() {
+    local commands; commands=()
+    _describe -t commands 'am ls commands' commands "$@"
 }
 (( $+functions[_am__profile_commands] )) ||
 _am__profile_commands() {

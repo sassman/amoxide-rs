@@ -28,6 +28,9 @@ _am() {
             am,init)
                 cmd="am__init"
                 ;;
+            am,ls)
+                cmd="am__ls"
+                ;;
             am,profile)
                 cmd="am__profile"
                 ;;
@@ -45,6 +48,9 @@ _am() {
                 ;;
             am__help,init)
                 cmd="am__help__init"
+                ;;
+            am__help,ls)
+                cmd="am__help__ls"
                 ;;
             am__help,profile)
                 cmd="am__help__profile"
@@ -92,7 +98,7 @@ _am() {
 
     case "${cmd}" in
         am)
-            opts="-h -V --help --version add remove profile init hook help"
+            opts="-h -V --help --version add remove ls profile init hook help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -128,7 +134,7 @@ _am() {
             return 0
             ;;
         am__help)
-            opts="add remove profile init hook help"
+            opts="add remove ls profile init hook help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -184,6 +190,20 @@ _am() {
             return 0
             ;;
         am__help__init)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__help__ls)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -283,6 +303,20 @@ _am() {
             ;;
         am__init)
             opts="-h -V --help --version fish zsh"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__ls)
+            opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -31,8 +31,12 @@ pub enum Commands {
         name: String,
     },
 
+    /// List all profiles and project aliases
+    #[command(alias = "l")]
+    Ls,
+
     /// Manage profiles (defaults to listing when no subcommand given)
-    #[command(aliases = ["p", "l"])]
+    #[command(alias = "p")]
     Profile {
         #[command(subcommand)]
         action: Option<ProfileAction>,

@@ -72,6 +72,7 @@ fn main() -> anyhow::Result<()> {
             update(&mut model, Message::RemoveAlias(name.clone(), target))?;
             Message::SaveProfiles
         }
+        Commands::Ls => Message::ListProfiles,
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
             ProfileAction::Add { name, inherits } => {
                 update(

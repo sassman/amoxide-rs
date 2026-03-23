@@ -1,0 +1,3 @@
+[aliases]
+i = "cargo install --path crates/am/"
+t = "cargo test --all-features"
