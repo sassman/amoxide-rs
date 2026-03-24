@@ -159,8 +159,10 @@ Listing profiles shows a tree with inheritance:
 ○ git
 │ gs → git status
 │ gp → git push
+│
 ├─○ node
 │   nr → npm run
+│
 ╰─● rust (active)
     ct → cargo test
     cb → cargo build
@@ -171,6 +173,7 @@ If you're inside a project with a `.aliases` file, the listing also shows those:
 ```
 ○ git
 │ gs → git status
+│
 ╰─● rust (active)
     ct → cargo test
 
