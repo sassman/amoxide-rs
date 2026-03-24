@@ -84,7 +84,101 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 execute_move(model);
             }
         }
-        _ => {} // other messages handled in later tasks
+        TuiMessage::DeleteItem => {
+            if model.mode != Mode::Normal {
+                return;
+            }
+            let node = match model.tree.get(model.cursor) {
+                Some(n) => n.clone(),
+                None => return,
+            };
+            match node.kind {
+                NodeKind::AliasItem => {
+                    if let Some(ref id) = node.alias_id {
+                        delete_alias(model, id);
+                        save_all(model);
+                        model.rebuild_tree();
+                    }
+                }
+                NodeKind::ProfileHeader => {
+                    model.mode = Mode::Confirm(ConfirmAction::DeleteProfile(node.label.clone()));
+                }
+                _ => {}
+            }
+        }
+        TuiMessage::ConfirmYes => {
+            let action = match &model.mode {
+                Mode::Confirm(a) => a.clone(),
+                _ => return,
+            };
+            match action {
+                ConfirmAction::DeleteProfile(name) => {
+                    let _ = model.app_model.profile_config_mut().remove_profile(&name);
+                    if model.app_model.config.active_profile.as_deref() == Some(name.as_str()) {
+                        model.app_model.config.active_profile = None;
+                    }
+                    save_all(model);
+                    model.rebuild_tree();
+                }
+                ConfirmAction::OverwriteAliases { aliases, destination } => {
+                    do_move(model, &aliases, &destination);
+                }
+            }
+            model.mode = Mode::Normal;
+        }
+        TuiMessage::ConfirmNo => {
+            model.mode = Mode::Normal;
+        }
+        TuiMessage::StartCreateProfile => {
+            if model.mode == Mode::Normal {
+                model.mode = Mode::TextInput(String::new());
+            }
+        }
+        TuiMessage::TextInputChar(c) => {
+            if let Mode::TextInput(ref mut buf) = model.mode {
+                buf.push(c);
+            }
+        }
+        TuiMessage::TextInputBackspace => {
+            if let Mode::TextInput(ref mut buf) = model.mode {
+                buf.pop();
+            }
+        }
+        TuiMessage::TextInputConfirm => {
+            let name = match &model.mode {
+                Mode::TextInput(buf) => buf.clone(),
+                _ => return,
+            };
+            if name.is_empty() {
+                return;
+            }
+            if model.app_model.profile_config().get_profile_by_name(&name).is_some() {
+                // Profile already exists — no-op.
+                return;
+            }
+            let _ = model.app_model.profile_config_mut().add_profile(&name, &None);
+            save_all(model);
+            model.rebuild_tree();
+            model.mode = Mode::Normal;
+        }
+        TuiMessage::TextInputCancel => {
+            model.mode = Mode::Normal;
+        }
+        TuiMessage::SetActive => {
+            if model.mode != Mode::Normal {
+                return;
+            }
+            let node = match model.tree.get(model.cursor) {
+                Some(n) => n.clone(),
+                None => return,
+            };
+            if node.kind == NodeKind::ProfileHeader {
+                model.app_model.config.active_profile = Some(node.label.clone());
+                save_all(model);
+                model.rebuild_tree();
+            }
+        }
+        _ => {} // remaining messages (Quit, Resize) handled at the app layer
     }
 }
 
@@ -132,6 +226,26 @@ fn execute_move(model: &mut TuiModel) {
             destination,
         });
     }
+}
+
+fn delete_alias(model: &mut TuiModel, alias_id: &AliasId) {
+    match alias_id {
+        AliasId::Global { alias_name } => {
+            let _ = model.app_model.config.remove_alias(alias_name);
+        }
+        AliasId::Profile { profile_name, alias_name } => {
+            if let Some(p) = model.app_model.profile_config_mut().get_profile_by_name_mut(profile_name) {
+                let _ = p.remove_alias(alias_name);
+            }
+        }
+        AliasId::Project { alias_name } => {
+            if let Some(ref mut p) = model.project_aliases {
+                let key = am::AliasName::from(alias_name.as_str());
+                p.aliases.remove(&key);
+            }
+        }
+    }
+    model.selected.remove(alias_id);
 }
 
 fn is_same_source(id: &AliasId, dest: &MoveDestination) -> bool {
@@ -546,5 +660,103 @@ mod tests {
             .aliases
             .iter()
             .any(|(n, _)| n.as_ref() == "gs"));
+    }
+
+    // --- Task 8: Delete + Confirm ---
+
+    #[test]
+    fn test_delete_alias() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        // cursor index 1 should be the alias item under the "git" profile header
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
+        model.cursor = alias_idx;
+        update(&mut model, TuiMessage::DeleteItem);
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("git")
+            .unwrap()
+            .aliases
+            .is_empty());
+    }
+
+    #[test]
+    fn test_delete_profile_enters_confirm() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        let header_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "git")
+            .unwrap();
+        model.cursor = header_idx;
+        update(&mut model, TuiMessage::DeleteItem);
+        assert_eq!(
+            model.mode,
+            Mode::Confirm(ConfirmAction::DeleteProfile("git".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_confirm_yes_deletes_profile() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+
+            [[profiles]]
+            name = "rust"
+            [profiles.aliases]
+            ct = "cargo test"
+        "#,
+        );
+        // Set up confirm mode for deleting "git"
+        model.mode = Mode::Confirm(ConfirmAction::DeleteProfile("git".to_string()));
+        update(&mut model, TuiMessage::ConfirmYes);
+        assert_eq!(model.mode, Mode::Normal);
+        assert_eq!(model.app_model.profile_config().len(), 1);
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("git")
+            .is_none());
+    }
+
+    #[test]
+    fn test_confirm_no_cancels_delete() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+        "#,
+        );
+        model.mode = Mode::Confirm(ConfirmAction::DeleteProfile("git".to_string()));
+        update(&mut model, TuiMessage::ConfirmNo);
+        assert_eq!(model.mode, Mode::Normal);
+        // Profile must still exist
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("git")
+            .is_some());
     }
 }
