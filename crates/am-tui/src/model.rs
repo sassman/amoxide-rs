@@ -35,6 +35,11 @@ pub struct TreeNode {
     pub alias_command: Option<String>,
     pub is_active: bool,
     pub label: String,
+    /// Prefix string for tree connectors (e.g. "│ ", "  ", "├─", "╰─")
+    /// Used by the view to render tree structure lines.
+    pub prefix: String,
+    /// Prefix for content lines under this node (alias lines, connector lines).
+    pub content_prefix: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]

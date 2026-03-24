@@ -31,6 +31,10 @@ pub fn build_dest_tree(app_model: &AppModel, has_project: bool) -> Vec<TreeNode>
 /// Build the full alias tree (headers + alias items).
 ///
 /// Order: Global → Project → Profile tree (roots first, children indented).
+///
+/// Each node is annotated with `prefix` (for its header line) and
+/// `content_prefix` (for alias/connector lines beneath it), mirroring the
+/// box-drawing approach from the CLI `display.rs`.
 pub fn build_tree_from_parts(
     global_aliases: &AliasSet,
     profiles: &ProfileConfig,
@@ -39,8 +43,19 @@ pub fn build_tree_from_parts(
 ) -> Vec<TreeNode> {
     let mut nodes: Vec<TreeNode> = Vec::new();
 
+    // Determine which top-level sections exist so we know which is "last".
+    let has_global = !global_aliases.is_empty();
+    let has_project = project.is_some_and(|p| !p.aliases.is_empty());
+    let has_profiles = profiles.iter().next().is_some();
+
+    // A top-level section's content_prefix uses "│ " if more sections follow,
+    // or "  " if it is the last section.
+    let global_is_last = has_global && !has_project && !has_profiles;
+    let project_is_last = has_project && !has_profiles;
+
     // --- Global section ---
-    if !global_aliases.is_empty() {
+    if has_global {
+        let content_prefix = if global_is_last { "  " } else { "│ " }.to_string();
         nodes.push(TreeNode {
             kind: NodeKind::GlobalHeader,
             depth: 0,
@@ -48,6 +63,8 @@ pub fn build_tree_from_parts(
             alias_command: None,
             is_active: false,
             label: "global".to_string(),
+            prefix: String::new(),
+            content_prefix: content_prefix.clone(),
         });
         for (name, alias) in global_aliases.iter() {
             nodes.push(TreeNode {
@@ -59,40 +76,43 @@ pub fn build_tree_from_parts(
                 alias_command: Some(alias.command().to_string()),
                 is_active: false,
                 label: name.to_string(),
+                prefix: String::new(),
+                content_prefix: content_prefix.clone(),
             });
         }
     }
 
     // --- Project section ---
-    if let Some(proj) = project {
-        if !proj.aliases.is_empty() {
+    if has_project {
+        let proj = project.unwrap();
+        let content_prefix = if project_is_last { "  " } else { "│ " }.to_string();
+        nodes.push(TreeNode {
+            kind: NodeKind::ProjectHeader,
+            depth: 0,
+            alias_id: None,
+            alias_command: None,
+            is_active: false,
+            label: "project".to_string(),
+            prefix: String::new(),
+            content_prefix: content_prefix.clone(),
+        });
+        for (name, alias) in proj.aliases.iter() {
             nodes.push(TreeNode {
-                kind: NodeKind::ProjectHeader,
-                depth: 0,
-                alias_id: None,
-                alias_command: None,
+                kind: NodeKind::AliasItem,
+                depth: 1,
+                alias_id: Some(AliasId::Project {
+                    alias_name: name.to_string(),
+                }),
+                alias_command: Some(alias.command().to_string()),
                 is_active: false,
-                label: "project".to_string(),
+                label: name.to_string(),
+                prefix: String::new(),
+                content_prefix: content_prefix.clone(),
             });
-            for (name, alias) in proj.aliases.iter() {
-                nodes.push(TreeNode {
-                    kind: NodeKind::AliasItem,
-                    depth: 1,
-                    alias_id: Some(AliasId::Project {
-                        alias_name: name.to_string(),
-                    }),
-                    alias_command: Some(alias.command().to_string()),
-                    is_active: false,
-                    label: name.to_string(),
-                });
-            }
         }
     }
 
     // --- Profile tree ---
-    // Build a map: profile_name -> list of child profile names.
-    // A "root" profile is one whose `inherits` field is None, or whose
-    // parent does not exist in the config.
     let profile_names: std::collections::HashSet<&str> =
         profiles.iter().map(|p| p.name.as_str()).collect();
 
@@ -116,23 +136,63 @@ pub fn build_tree_from_parts(
     }
 
     for root in &roots {
-        build_profile_nodes(root, &children_of, active_profile, profiles, 0, &mut nodes);
+        build_profile_nodes(
+            root,
+            &children_of,
+            active_profile,
+            profiles,
+            0,
+            "",   // prefix (root profiles have no connector)
+            "",   // content_prefix (root profiles start at column 0)
+            true, // is_root
+            &mut nodes,
+        );
     }
 
     nodes
 }
 
 /// Recursively emit a `ProfileHeader` node for `profile_name`, then its alias
-/// items, then recurse into children — all indented by `depth`.
+/// items, then recurse into children.
+///
+/// `header_prefix` is the prefix for the header line itself (e.g. "├─", "╰─",
+/// or "" for roots).
+/// `parent_content_prefix` is the prefix inherited from the parent for
+/// continuation lines.
 fn build_profile_nodes(
     profile_name: &str,
     children_of: &std::collections::BTreeMap<&str, Vec<&str>>,
     active_profile: Option<&str>,
     profiles: &ProfileConfig,
     depth: u16,
+    header_prefix: &str,
+    parent_content_prefix: &str,
+    is_root: bool,
     nodes: &mut Vec<TreeNode>,
 ) {
     let is_active = active_profile == Some(profile_name);
+    let kids = children_of
+        .get(profile_name)
+        .cloned()
+        .unwrap_or_default();
+    let has_children = !kids.is_empty();
+
+    // The content_prefix for alias lines under this profile header.
+    // If the profile has children, we use "│ " to draw the vertical connector;
+    // otherwise "  " for clean indentation.
+    let content_prefix = if has_children {
+        format!("{parent_content_prefix}│ ")
+    } else {
+        format!("{parent_content_prefix}  ")
+    };
+
+    // For root profiles, prefix is empty (no connector).
+    // For child profiles, header_prefix already contains the connector.
+    let prefix = if is_root {
+        String::new()
+    } else {
+        header_prefix.to_string()
+    };
 
     nodes.push(TreeNode {
         kind: NodeKind::ProfileHeader,
@@ -141,6 +201,8 @@ fn build_profile_nodes(
         alias_command: None,
         is_active,
         label: profile_name.to_string(),
+        prefix,
+        content_prefix: content_prefix.clone(),
     });
 
     // Emit alias items for this profile (own aliases only, not inherited).
@@ -156,15 +218,34 @@ fn build_profile_nodes(
                 alias_command: Some(alias.command().to_string()),
                 is_active: false,
                 label: name.to_string(),
+                prefix: String::new(),
+                content_prefix: content_prefix.clone(),
             });
         }
     }
 
-    // Recurse into children.
-    if let Some(children) = children_of.get(profile_name) {
-        for child in children {
-            build_profile_nodes(child, children_of, active_profile, profiles, depth + 1, nodes);
-        }
+    // Recurse into children with appropriate connectors.
+    for (i, child) in kids.iter().enumerate() {
+        let is_last = i == kids.len() - 1;
+        let connector = if is_last { "╰─" } else { "├─" };
+        let child_header_prefix = format!("{parent_content_prefix}{connector}");
+        let child_content_prefix = if is_last {
+            format!("{parent_content_prefix}  ")
+        } else {
+            format!("{parent_content_prefix}│ ")
+        };
+
+        build_profile_nodes(
+            child,
+            children_of,
+            active_profile,
+            profiles,
+            depth + 1,
+            &child_header_prefix,
+            &child_content_prefix,
+            false,
+            nodes,
+        );
     }
 }
 
@@ -191,6 +272,8 @@ pub fn build_dest_tree_from_parts(
         alias_command: None,
         is_active: false,
         label: "global".to_string(),
+        prefix: String::new(),
+        content_prefix: "│ ".to_string(),
     });
 
     // Project header always present when a project exists.
@@ -202,6 +285,8 @@ pub fn build_dest_tree_from_parts(
             alias_command: None,
             is_active: false,
             label: "project".to_string(),
+            prefix: String::new(),
+            content_prefix: "│ ".to_string(),
         });
     }
 
@@ -228,7 +313,16 @@ pub fn build_dest_tree_from_parts(
     }
 
     for root in &roots {
-        build_dest_profile_nodes(root, &children_of, active_profile, 0, &mut nodes);
+        build_dest_profile_nodes(
+            root,
+            &children_of,
+            active_profile,
+            0,
+            "",
+            "",
+            true,
+            &mut nodes,
+        );
     }
 
     nodes
@@ -240,9 +334,29 @@ fn build_dest_profile_nodes(
     children_of: &std::collections::BTreeMap<&str, Vec<&str>>,
     active_profile: Option<&str>,
     depth: u16,
+    header_prefix: &str,
+    parent_content_prefix: &str,
+    is_root: bool,
     nodes: &mut Vec<TreeNode>,
 ) {
     let is_active = active_profile == Some(profile_name);
+    let kids = children_of
+        .get(profile_name)
+        .cloned()
+        .unwrap_or_default();
+    let has_children = !kids.is_empty();
+
+    let content_prefix = if has_children {
+        format!("{parent_content_prefix}│ ")
+    } else {
+        format!("{parent_content_prefix}  ")
+    };
+
+    let prefix = if is_root {
+        String::new()
+    } else {
+        header_prefix.to_string()
+    };
 
     nodes.push(TreeNode {
         kind: NodeKind::ProfileHeader,
@@ -251,12 +365,30 @@ fn build_dest_profile_nodes(
         alias_command: None,
         is_active,
         label: profile_name.to_string(),
+        prefix,
+        content_prefix: content_prefix.clone(),
     });
 
-    if let Some(children) = children_of.get(profile_name) {
-        for child in children {
-            build_dest_profile_nodes(child, children_of, active_profile, depth + 1, nodes);
-        }
+    for (i, child) in kids.iter().enumerate() {
+        let is_last = i == kids.len() - 1;
+        let connector = if is_last { "╰─" } else { "├─" };
+        let child_header_prefix = format!("{parent_content_prefix}{connector}");
+        let child_content_prefix = if is_last {
+            format!("{parent_content_prefix}  ")
+        } else {
+            format!("{parent_content_prefix}│ ")
+        };
+
+        build_dest_profile_nodes(
+            child,
+            children_of,
+            active_profile,
+            depth + 1,
+            &child_header_prefix,
+            &child_content_prefix,
+            false,
+            nodes,
+        );
     }
 }
 

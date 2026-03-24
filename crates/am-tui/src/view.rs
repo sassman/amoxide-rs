@@ -67,34 +67,58 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 
     for (i, node) in model.dest_tree.iter().enumerate() {
         let is_cursor = i == model.dest_cursor && model.active_column == Column::Right;
-        let indent = "  ".repeat(node.depth as usize);
         let marker = if is_cursor { "▸ " } else { "  " };
 
         match &node.kind {
             NodeKind::GlobalHeader => {
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw(format!("{}{marker}", node.prefix)),
                     Span::raw("🌐 "),
                     Span::styled("global", Style::default().bold()),
                 ]));
+                // Blank connector line
+                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
             }
             NodeKind::ProjectHeader => {
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw(format!("{}{marker}", node.prefix)),
                     Span::raw("📁 "),
                     Span::styled("project (.aliases)", Style::default().bold()),
                 ]));
+                // Blank connector line
+                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
             }
             NodeKind::ProfileHeader => {
                 let icon = if node.is_active { "●" } else { "○" };
                 let active_tag = if node.is_active { " (active)" } else { "" };
+
+                // If this is a child profile (non-empty prefix with connector),
+                // add a connector line before to visually connect to parent.
+                if !node.prefix.is_empty() {
+                    // The connector line uses the parent's content_prefix area
+                    // plus "│" to keep the vertical line going.
+                    let connector_line = if node.prefix.ends_with("├─") {
+                        // parent_content_prefix is everything before the connector
+                        let parent_cp = &node.prefix[..node.prefix.len() - "├─".len()];
+                        format!("{parent_cp}│")
+                    } else if node.prefix.ends_with("╰─") {
+                        let parent_cp = &node.prefix[..node.prefix.len() - "╰─".len()];
+                        format!("{parent_cp}│")
+                    } else {
+                        node.content_prefix.clone()
+                    };
+                    lines.push(Line::from(Span::raw(connector_line)));
+                }
+
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw(format!("{}{marker}", node.prefix)),
                     Span::styled(
                         format!("{icon} {}{active_tag}", node.label),
                         Style::default().bold(),
                     ),
                 ]));
+                // Blank connector line after header
+                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
             }
             NodeKind::AliasItem => {
                 // AliasItem nodes are skipped in the dest tree
@@ -149,36 +173,56 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
         let is_cursor = i == model.cursor && model.active_column == Column::Left;
         let is_selected = node.alias_id.as_ref().is_some_and(|id| model.selected.contains(id));
 
-        let indent = "  ".repeat(node.depth as usize);
-
         match &node.kind {
             NodeKind::GlobalHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw(format!("{}{marker}", node.prefix)),
                     Span::raw("🌐 "),
                     Span::styled("global", Style::default().bold()),
                 ]));
+                // Blank connector line after header
+                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
             }
             NodeKind::ProjectHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw(format!("{}{marker}", node.prefix)),
                     Span::raw("📁 "),
                     Span::styled("project (.aliases)", Style::default().bold()),
                 ]));
+                // Blank connector line after header
+                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
             }
             NodeKind::ProfileHeader => {
                 let icon = if node.is_active { "●" } else { "○" };
                 let marker = if is_cursor { "▸ " } else { "  " };
                 let active_tag = if node.is_active { " (active)" } else { "" };
+
+                // If this is a child profile (non-empty prefix with connector),
+                // add a connector line before to visually connect to parent.
+                if !node.prefix.is_empty() {
+                    let connector_line = if node.prefix.ends_with("├─") {
+                        let parent_cp = &node.prefix[..node.prefix.len() - "├─".len()];
+                        format!("{parent_cp}│")
+                    } else if node.prefix.ends_with("╰─") {
+                        let parent_cp = &node.prefix[..node.prefix.len() - "╰─".len()];
+                        format!("{parent_cp}│")
+                    } else {
+                        node.content_prefix.clone()
+                    };
+                    lines.push(Line::from(Span::raw(connector_line)));
+                }
+
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw(format!("{}{marker}", node.prefix)),
                     Span::styled(
                         format!("{icon} {}{active_tag}", node.label),
                         Style::default().bold(),
                     ),
                 ]));
+                // Blank connector line after header
+                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
             }
             NodeKind::AliasItem => {
                 let marker = if is_cursor {
@@ -197,19 +241,22 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Style::default()
                 };
 
+                // Name line: content_prefix + marker + name
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{indent}  {marker}")),
+                    Span::raw(format!("{}{marker}", node.content_prefix)),
                     Span::styled(node.label.clone(), name_style),
                 ]));
 
+                // Command line: content_prefix + extra indent + command (dimmed)
                 if let Some(ref cmd) = node.alias_command {
                     lines.push(Line::from(vec![
-                        Span::raw(format!("{indent}    ")),
+                        Span::raw(format!("{}  ", node.content_prefix)),
                         Span::styled(cmd.clone(), Style::default().fg(Color::DarkGray)),
                     ]));
                 }
 
-                lines.push(Line::from(""));
+                // Blank separator line (using content_prefix for vertical connector)
+                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
             }
         }
     }
