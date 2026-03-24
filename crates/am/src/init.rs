@@ -85,10 +85,16 @@ fn am_wrapper(shell: &Shells) -> String {
             "# am wrapper: reload after profile switch or local alias change",
             "function am --wraps=am",
             "    command am $argv",
-            "    if test \"$argv[1]\" = profile; and test \"$argv[2]\" = set",
-            &format!("        {reload_cmd}"),
-            "    else if contains -- -l $argv; or contains -- --local $argv",
-            &format!("        {hook_cmd}"),
+            "    # reload after profile switch (handles short forms: p/profile, s/set)",
+            "    if begin; test \"$argv[1]\" = profile; or test \"$argv[1]\" = p; end",
+            "        if begin; test \"$argv[2]\" = set; or test \"$argv[2]\" = s; end",
+            &format!("            {reload_cmd}"),
+            "        end",
+            "    # re-source hook after local alias change (only for add/a or remove/r)",
+            "    else if begin; test \"$argv[1]\" = add; or test \"$argv[1]\" = a; or test \"$argv[1]\" = remove; or test \"$argv[1]\" = r; end",
+            "        if contains -- -l $argv; or contains -- --local $argv",
+            &format!("            {hook_cmd}"),
+            "        end",
             "    end",
             "end",
         ]
@@ -98,10 +104,13 @@ fn am_wrapper(shell: &Shells) -> String {
                 "am() {{\n  \
                 command am \"$@\"\n  \
                 case \"$1:$2\" in\n    \
-                profile:set) eval \"$({reload_cmd})\" ;;\n  \
+                profile:set|p:set|profile:s|p:s) eval \"$({reload_cmd})\" ;;\n  \
                 esac\n  \
-                case \"$*\" in\n    \
-                *-l*|*--local*) eval \"$({hook_cmd})\" ;;\n  \
+                case \"$1\" in\n    \
+                add|a|remove|r)\n      \
+                case \"$*\" in\n        \
+                *\\ -l\\ *|*\\ --local\\ *|*\\ -l|*\\ --local) eval \"$({hook_cmd})\" ;;\n      \
+                esac ;;\n  \
                 esac\n\
                 }}"
             )
