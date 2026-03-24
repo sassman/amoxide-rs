@@ -1,4 +1,5 @@
-use crate::model::{Column, Mode, TreeNode, TuiMessage, TuiModel};
+use crate::model::{AliasId, Column, ConfirmAction, Mode, MoveDestination, NodeKind, TreeNode, TuiMessage, TuiModel};
+use am::{AliasName, TomlAlias, ProjectAliases};
 
 pub fn update(model: &mut TuiModel, msg: TuiMessage) {
     match msg {
@@ -59,7 +60,220 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 }
             }
         }
+        TuiMessage::EnterMoveMode => {
+            if model.mode == Mode::Normal && !model.selected.is_empty() {
+                model.mode = Mode::Moving;
+                model.active_column = Column::Right;
+            }
+        }
+        TuiMessage::CancelMove => {
+            model.selected.clear();
+            model.mode = Mode::Normal;
+            model.active_column = Column::Left;
+        }
+        TuiMessage::SwitchColumn => {
+            if model.mode == Mode::Moving {
+                model.active_column = match model.active_column {
+                    Column::Left => Column::Right,
+                    Column::Right => Column::Left,
+                };
+            }
+        }
+        TuiMessage::ExecuteMove => {
+            if model.mode == Mode::Moving && model.active_column == Column::Right {
+                execute_move(model);
+            }
+        }
         _ => {} // other messages handled in later tasks
+    }
+}
+
+fn execute_move(model: &mut TuiModel) {
+    let dest_node = match model.dest_tree.get(model.dest_cursor) {
+        Some(node) => node.clone(),
+        None => return,
+    };
+
+    let destination = match dest_node.kind {
+        NodeKind::GlobalHeader => MoveDestination::Global,
+        NodeKind::ProjectHeader => MoveDestination::Project,
+        NodeKind::ProfileHeader => MoveDestination::Profile(dest_node.label.clone()),
+        _ => return,
+    };
+
+    // Filter out aliases that are already at the destination (same-source moves).
+    let aliases_to_move: Vec<AliasId> = model
+        .selected
+        .iter()
+        .filter(|id| !is_same_source(id, &destination))
+        .cloned()
+        .collect();
+
+    if aliases_to_move.is_empty() {
+        // All selected aliases are already at the destination — treat as no-op.
+        model.selected.clear();
+        model.mode = Mode::Normal;
+        model.active_column = Column::Left;
+        return;
+    }
+
+    // Check for collisions: aliases that already exist at the destination.
+    let collisions: Vec<AliasId> = aliases_to_move
+        .iter()
+        .filter(|id| alias_exists_at_dest(model, id, &destination))
+        .cloned()
+        .collect();
+
+    if collisions.is_empty() {
+        do_move(model, &aliases_to_move, &destination);
+    } else {
+        model.mode = Mode::Confirm(ConfirmAction::OverwriteAliases {
+            aliases: aliases_to_move,
+            destination,
+        });
+    }
+}
+
+fn is_same_source(id: &AliasId, dest: &MoveDestination) -> bool {
+    match (id, dest) {
+        (AliasId::Global { .. }, MoveDestination::Global) => true,
+        (AliasId::Project { .. }, MoveDestination::Project) => true,
+        (AliasId::Profile { profile_name, .. }, MoveDestination::Profile(dest_name)) => {
+            profile_name == dest_name
+        }
+        _ => false,
+    }
+}
+
+fn alias_exists_at_dest(model: &TuiModel, id: &AliasId, dest: &MoveDestination) -> bool {
+    let alias_name_str = match id {
+        AliasId::Global { alias_name }
+        | AliasId::Profile { alias_name, .. }
+        | AliasId::Project { alias_name } => alias_name.as_str(),
+    };
+    let key = AliasName::from(alias_name_str);
+    match dest {
+        MoveDestination::Global => model.app_model.config.aliases.contains_key(&key),
+        MoveDestination::Project => model
+            .project_aliases
+            .as_ref()
+            .is_some_and(|p| p.aliases.contains_key(&key)),
+        MoveDestination::Profile(name) => model
+            .app_model
+            .profile_config()
+            .get_profile_by_name(name)
+            .is_some_and(|p| p.aliases.contains_key(&key)),
+    }
+}
+
+fn do_move(model: &mut TuiModel, aliases: &[AliasId], dest: &MoveDestination) {
+    for alias_id in aliases {
+        move_single_alias(model, alias_id, dest);
+    }
+    save_all(model);
+    model.selected.clear();
+    model.mode = Mode::Normal;
+    model.active_column = Column::Left;
+    model.rebuild_tree();
+}
+
+fn move_single_alias(model: &mut TuiModel, alias_id: &AliasId, dest: &MoveDestination) {
+    // Read the alias from its source.
+    let (alias_name_str, toml_alias) = match alias_id {
+        AliasId::Global { alias_name } => {
+            let key = AliasName::from(alias_name.as_str());
+            let alias = model.app_model.config.aliases.get(&key).cloned();
+            (alias_name.clone(), alias)
+        }
+        AliasId::Profile {
+            profile_name,
+            alias_name,
+        } => {
+            let key = AliasName::from(alias_name.as_str());
+            let alias = model
+                .app_model
+                .profile_config()
+                .get_profile_by_name(profile_name)
+                .and_then(|p| p.aliases.get(&key).cloned());
+            (alias_name.clone(), alias)
+        }
+        AliasId::Project { alias_name } => {
+            let key = AliasName::from(alias_name.as_str());
+            let alias = model
+                .project_aliases
+                .as_ref()
+                .and_then(|p| p.aliases.get(&key).cloned());
+            (alias_name.clone(), alias)
+        }
+    };
+
+    let Some(toml_alias) = toml_alias else {
+        return;
+    };
+
+    let command = toml_alias.command().to_string();
+    let raw = matches!(&toml_alias, TomlAlias::Detailed(d) if d.raw);
+
+    // Remove from source.
+    match alias_id {
+        AliasId::Global { alias_name } => {
+            let _ = model.app_model.config.remove_alias(alias_name);
+        }
+        AliasId::Profile {
+            profile_name,
+            alias_name,
+        } => {
+            if let Some(profile) = model
+                .app_model
+                .profile_config_mut()
+                .get_profile_by_name_mut(profile_name)
+            {
+                let _ = profile.remove_alias(alias_name);
+            }
+        }
+        AliasId::Project { alias_name } => {
+            if let Some(proj) = model.project_aliases.as_mut() {
+                let key = AliasName::from(alias_name.as_str());
+                proj.aliases.remove(&key);
+            }
+        }
+    }
+
+    // Add to destination.
+    match dest {
+        MoveDestination::Global => {
+            model
+                .app_model
+                .config
+                .add_alias(alias_name_str, command, raw);
+        }
+        MoveDestination::Project => {
+            if let Some(proj) = model.project_aliases.as_mut() {
+                proj.add_alias(alias_name_str, command, raw);
+            } else {
+                // Create project aliases if they don't exist yet.
+                let mut proj = ProjectAliases::default();
+                proj.add_alias(alias_name_str, command, raw);
+                model.project_aliases = Some(proj);
+            }
+        }
+        MoveDestination::Profile(profile_name) => {
+            if let Some(profile) = model
+                .app_model
+                .profile_config_mut()
+                .get_profile_by_name_mut(profile_name)
+            {
+                let _ = profile.add_alias(alias_name_str, command, raw);
+            }
+        }
+    }
+}
+
+fn save_all(model: &TuiModel) {
+    let _ = model.app_model.config.save();
+    let _ = model.app_model.profile_config().save();
+    if let (Some(proj), Some(path)) = (&model.project_aliases, &model.project_path) {
+        let _ = proj.save(path);
     }
 }
 
@@ -219,5 +433,118 @@ mod tests {
         assert!(model.cursor > 0);
         update(&mut model, TuiMessage::JumpTop);
         assert_eq!(model.cursor, 0);
+    }
+
+    #[test]
+    fn test_enter_move_mode_with_selection() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        model.cursor = 1;
+        update(&mut model, TuiMessage::ToggleSelect);
+        update(&mut model, TuiMessage::EnterMoveMode);
+        assert_eq!(model.mode, Mode::Moving);
+        assert_eq!(model.active_column, Column::Right);
+    }
+
+    #[test]
+    fn test_enter_move_mode_without_selection_is_noop() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        update(&mut model, TuiMessage::EnterMoveMode);
+        assert_eq!(model.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn test_cancel_move_clears_selection() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        model.cursor = 1;
+        update(&mut model, TuiMessage::ToggleSelect);
+        update(&mut model, TuiMessage::EnterMoveMode);
+        update(&mut model, TuiMessage::CancelMove);
+        assert_eq!(model.mode, Mode::Normal);
+        assert!(model.selected.is_empty());
+        assert_eq!(model.active_column, Column::Left);
+    }
+
+    #[test]
+    fn test_switch_column_in_move_mode() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        model.cursor = 1;
+        update(&mut model, TuiMessage::ToggleSelect);
+        update(&mut model, TuiMessage::EnterMoveMode);
+        assert_eq!(model.active_column, Column::Right);
+        update(&mut model, TuiMessage::SwitchColumn);
+        assert_eq!(model.active_column, Column::Left);
+        update(&mut model, TuiMessage::SwitchColumn);
+        assert_eq!(model.active_column, Column::Right);
+    }
+
+    #[test]
+    fn test_switch_column_in_normal_mode_is_noop() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+        "#,
+        );
+        update(&mut model, TuiMessage::SwitchColumn);
+        assert_eq!(model.active_column, Column::Left);
+    }
+
+    #[test]
+    fn test_same_source_move_is_noop() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        model.cursor = 1;
+        update(&mut model, TuiMessage::ToggleSelect);
+        update(&mut model, TuiMessage::EnterMoveMode);
+        let git_idx = model
+            .dest_tree
+            .iter()
+            .position(|n| n.label == "git")
+            .unwrap();
+        model.dest_cursor = git_idx;
+        update(&mut model, TuiMessage::ExecuteMove);
+        assert_eq!(model.mode, Mode::Normal);
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("git")
+            .unwrap()
+            .aliases
+            .iter()
+            .any(|(n, _)| n.as_ref() == "gs"));
     }
 }
