@@ -179,4 +179,25 @@ mod tests {
         assert!(!output.contains("alias t")); // t not reloaded
         assert!(output.contains("\"b\"")); // tracking only has b
     }
+
+    #[test]
+    fn test_hook_loads_aliases_from_parent_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("src").join("deep");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\nt = \"make test\"\n",
+        )
+        .unwrap();
+
+        // Hook called from subdirectory — should find parent's .aliases
+        let output = generate_hook(&Shells::Fish, &sub, None).unwrap();
+        assert!(
+            output.contains("alias b \"make build\""),
+            "should load aliases from parent .aliases, got: {output}"
+        );
+        assert!(output.contains("alias t \"make test\""));
+        assert!(output.contains("_AM_PROJECT_ALIASES"));
+    }
 }
