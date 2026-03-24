@@ -60,6 +60,14 @@ impl AliasSet {
     pub fn is_empty(&self) -> bool {
         self.as_ref().is_empty()
     }
+
+    pub fn contains_key(&self, name: &AliasName) -> bool {
+        self.as_ref().contains_key(name)
+    }
+
+    pub fn get(&self, name: &AliasName) -> Option<&TomlAlias> {
+        self.as_ref().get(name)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
