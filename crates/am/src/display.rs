@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::dirs::relative_path;
 use crate::project::{ProjectAliases, ALIASES_FILE};
-use crate::{Profile, ProfileConfig, TomlAlias};
+use crate::{Profile, ProfileConfig};
 
 /// Render profiles + project aliases as a complete listing.
 pub fn render_listing(config: &ProfileConfig, active_name: &str, cwd: &Path) -> String {
@@ -21,10 +21,7 @@ pub fn render_listing(config: &ProfileConfig, active_name: &str, cwd: &Path) -> 
             output.push_str(&format!(" ({})", path.display()));
             for (alias_name, alias_value) in project.aliases.iter() {
                 let name = alias_name.as_ref();
-                let cmd = match alias_value {
-                    TomlAlias::Command(cmd) => cmd.as_str(),
-                    TomlAlias::Detailed(detail) => detail.command.as_str(),
-                };
+                let cmd = alias_value.command();
                 output.push_str(&format!("\n  {name} → {cmd}"));
             }
         }
@@ -120,10 +117,7 @@ fn render_node(
     } else {
         for (alias_name, alias_value) in profile.aliases.iter() {
             let name = alias_name.as_ref();
-            let cmd = match alias_value {
-                TomlAlias::Command(cmd) => cmd.as_str(),
-                TomlAlias::Detailed(detail) => detail.command.as_str(),
-            };
+            let cmd = alias_value.command();
             lines.push(format!("{alias_prefix}{name} → {cmd}"));
         }
     }
@@ -188,10 +182,7 @@ fn render_child(
     } else {
         for (alias_name, alias_value) in profile.aliases.iter() {
             let name = alias_name.as_ref();
-            let cmd = match alias_value {
-                TomlAlias::Command(cmd) => cmd.as_str(),
-                TomlAlias::Detailed(detail) => detail.command.as_str(),
-            };
+            let cmd = alias_value.command();
             lines.push(format!("{alias_prefix}{name} → {cmd}"));
         }
     }

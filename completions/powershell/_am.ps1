@@ -31,6 +31,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
+            [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -39,6 +40,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
             [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
+            [CompletionResult]::new('--raw', '--raw', [CompletionResultType]::ParameterName, 'Disable {{N}} template detection (treat command as literal)')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -142,6 +144,13 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;reload' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;help' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove an alias')
@@ -149,6 +158,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
+            [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -184,6 +194,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;hook' {
+            break
+        }
+        'am;help;reload' {
             break
         }
         'am;help;help' {

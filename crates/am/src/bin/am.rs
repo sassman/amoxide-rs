@@ -29,7 +29,10 @@ fn main() -> anyhow::Result<()> {
     let mut model = AppModel::default();
 
     // Don't log for commands whose stdout is eval'd by the shell
-    if !matches!(&cli.command, Commands::Init { .. } | Commands::Hook { .. }) {
+    if !matches!(
+        &cli.command,
+        Commands::Init { .. } | Commands::Hook { .. } | Commands::Reload { .. }
+    ) {
         setup_logging();
     }
 
@@ -37,6 +40,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Add(Alias {
             profile,
             local,
+            raw,
             name,
             command,
         }) => {
@@ -46,7 +50,7 @@ fn main() -> anyhow::Result<()> {
             };
 
             if *local {
-                add_local_alias(name, &alias_cmd)?;
+                add_local_alias(name, &alias_cmd, *raw)?;
                 Message::DoNothing
             } else {
                 let target = profile
@@ -57,7 +61,7 @@ fn main() -> anyhow::Result<()> {
                 info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
                 update(
                     &mut model,
-                    Message::AddAlias(name.clone(), alias_cmd, target),
+                    Message::AddAlias(name.clone(), alias_cmd, target, *raw),
                 )?;
                 Message::SaveProfiles
             }
@@ -115,6 +119,7 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Init { shell } => Message::InitShell(shell.clone()),
         Commands::Hook { shell } => Message::Hook(shell.clone()),
+        Commands::Reload { shell } => Message::Reload(shell.clone()),
     };
 
     while let Some(msg) = update(&mut model, message)? {
@@ -124,14 +129,14 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn add_local_alias(name: &str, command: &str) -> anyhow::Result<()> {
+fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
     let cwd = std::env::current_dir()?;
     let local_path = cwd.join(ALIASES_FILE);
 
     if local_path.exists() {
         // .aliases exists in CWD — add to it
         let mut project = ProjectAliases::load(&local_path)?;
-        project.add_alias(name.to_string(), command.to_string());
+        project.add_alias(name.to_string(), command.to_string(), raw);
         project.save(&local_path)?;
         println!("Added `{name}` to {ALIASES_FILE}");
         return Ok(());
@@ -143,7 +148,7 @@ fn add_local_alias(name: &str, command: &str) -> anyhow::Result<()> {
             match prompt_existing_aliases(&existing_path, &cwd)? {
                 Choice::Yes => {
                     let mut project = ProjectAliases::load(&existing_path)?;
-                    project.add_alias(name.to_string(), command.to_string());
+                    project.add_alias(name.to_string(), command.to_string(), raw);
                     project.save(&existing_path)?;
                     let rel = relative_path(&cwd, &existing_path);
                     println!("Added `{name}` to {}", rel.display());
@@ -160,7 +165,7 @@ fn add_local_alias(name: &str, command: &str) -> anyhow::Result<()> {
 
     // Create new .aliases in CWD
     let mut project = ProjectAliases::default();
-    project.add_alias(name.to_string(), command.to_string());
+    project.add_alias(name.to_string(), command.to_string(), raw);
     project.save(&local_path)?;
     println!("Created {ALIASES_FILE} with alias `{name}`");
     Ok(())

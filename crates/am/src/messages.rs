@@ -19,10 +19,11 @@ impl Display for AddAliasProfile {
 
 #[derive(Debug)]
 pub enum Message {
-    AddAlias(String, String, AddAliasProfile),
+    AddAlias(String, String, AddAliasProfile, bool),
     RemoveAlias(String, AddAliasProfile),
     InitShell(Shells),
     Hook(Shells),
+    Reload(Shells),
 
     ActivateProfile(String),
     RemoveProfile(String),

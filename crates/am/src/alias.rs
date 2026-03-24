@@ -71,27 +71,121 @@ pub enum TomlAlias {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AliasDetail {
-    pub name: String,
     pub command: String,
     pub description: Option<String>,
+    #[serde(default)]
+    pub raw: bool,
 }
 
-impl Eq for AliasDetail {}
+#[derive(Debug)]
+pub struct AliasEntry<'a> {
+    pub name: &'a str,
+    pub command: &'a str,
+    pub raw: bool,
+}
 
-impl PartialEq<AliasDetail> for AliasDetail {
-    fn eq(&self, other: &AliasDetail) -> bool {
-        self.name == other.name
+impl TomlAlias {
+    pub fn as_entry<'a>(&'a self, name: &'a str) -> AliasEntry<'a> {
+        AliasEntry {
+            name,
+            command: self.command(),
+            raw: matches!(self, TomlAlias::Detailed(d) if d.raw),
+        }
+    }
+
+    pub fn command(&self) -> &str {
+        match self {
+            TomlAlias::Command(cmd) => cmd,
+            TomlAlias::Detailed(d) => &d.command,
+        }
     }
 }
 
-impl Ord for AliasDetail {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.name.cmp(&other.name)
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl PartialOrd<AliasDetail> for AliasDetail {
-    fn partial_cmp(&self, other: &AliasDetail) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    #[test]
+    fn test_as_entry_simple() {
+        let alias = TomlAlias::Command("git status".to_string());
+        let entry = alias.as_entry("gs");
+        assert_eq!(entry.name, "gs");
+        assert_eq!(entry.command, "git status");
+        assert!(!entry.raw);
+    }
+
+    #[test]
+    fn test_as_entry_detailed_raw() {
+        let alias = TomlAlias::Detailed(AliasDetail {
+            command: "awk '{print {{1}}}'".to_string(),
+            description: None,
+            raw: true,
+        });
+        let entry = alias.as_entry("my-awk");
+        assert_eq!(entry.command, "awk '{print {{1}}}'");
+        assert!(entry.raw);
+    }
+
+    #[test]
+    fn test_as_entry_detailed_not_raw() {
+        let alias = TomlAlias::Detailed(AliasDetail {
+            command: "echo hi".to_string(),
+            description: Some("greeting".to_string()),
+            raw: false,
+        });
+        let entry = alias.as_entry("hi");
+        assert!(!entry.raw);
+    }
+
+    #[test]
+    fn test_command_accessor() {
+        assert_eq!(TomlAlias::Command("ls".to_string()).command(), "ls");
+        assert_eq!(
+            TomlAlias::Detailed(AliasDetail {
+                command: "echo hi".to_string(),
+                description: None,
+                raw: false,
+            })
+            .command(),
+            "echo hi"
+        );
+    }
+
+    #[test]
+    fn test_toml_roundtrip_detailed_with_raw() {
+        #[derive(Debug, serde::Deserialize)]
+        struct Wrapper {
+            aliases: std::collections::BTreeMap<AliasName, TomlAlias>,
+        }
+
+        let toml_str = r#"
+[aliases]
+gs = "git status"
+my-awk = { command = "awk '{print {{1}}}'", raw = true }
+fancy = { command = "echo hi", description = "A fancy alias" }
+"#;
+        let parsed: Wrapper = toml::from_str(toml_str).unwrap();
+        assert_eq!(parsed.aliases.len(), 3);
+
+        match &parsed.aliases[&AliasName::from("gs")] {
+            TomlAlias::Command(cmd) => assert_eq!(cmd, "git status"),
+            _ => panic!("expected Command"),
+        }
+
+        match &parsed.aliases[&AliasName::from("my-awk")] {
+            TomlAlias::Detailed(d) => {
+                assert!(d.raw);
+                assert_eq!(d.command, "awk '{print {{1}}}'");
+            }
+            _ => panic!("expected Detailed"),
+        }
+
+        match &parsed.aliases[&AliasName::from("fancy")] {
+            TomlAlias::Detailed(d) => {
+                assert!(!d.raw);
+                assert_eq!(d.description.as_deref(), Some("A fancy alias"));
+            }
+            _ => panic!("expected Detailed"),
+        }
     }
 }

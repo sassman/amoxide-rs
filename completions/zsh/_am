@@ -34,6 +34,7 @@ _arguments "${_arguments_options[@]}" : \
 '(-l --local)--profile=[Profile to add the alias to (defaults to active profile)]:PROFILE:_default' \
 '-l[Add to the project'\''s .aliases file instead of a profile]' \
 '--local[Add to the project'\''s .aliases file instead of a profile]' \
+'--raw[Disable {{N}} template detection (treat command as literal)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -174,6 +175,15 @@ _arguments "${_arguments_options[@]}" : \
 ':shell:(fish zsh)' \
 && ret=0
 ;;
+(reload)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell:(fish zsh)' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_am__help_commands" \
@@ -238,6 +248,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(reload)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -260,6 +274,7 @@ _am_commands() {
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
+'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'am commands' commands "$@"
@@ -278,6 +293,7 @@ _am__help_commands() {
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
+'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'am help commands' commands "$@"
@@ -336,6 +352,11 @@ _am__help__profile__remove_commands() {
 _am__help__profile__set_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile set commands' commands "$@"
+}
+(( $+functions[_am__help__reload_commands] )) ||
+_am__help__reload_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help reload commands' commands "$@"
 }
 (( $+functions[_am__help__remove_commands] )) ||
 _am__help__remove_commands() {
@@ -423,6 +444,11 @@ _am__profile__remove_commands() {
 _am__profile__set_commands() {
     local commands; commands=()
     _describe -t commands 'am profile set commands' commands "$@"
+}
+(( $+functions[_am__reload_commands] )) ||
+_am__reload_commands() {
+    local commands; commands=()
+    _describe -t commands 'am reload commands' commands "$@"
 }
 (( $+functions[_am__remove_commands] )) ||
 _am__remove_commands() {

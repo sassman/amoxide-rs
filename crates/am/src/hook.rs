@@ -2,7 +2,6 @@ use std::path::Path;
 
 use crate::project::ProjectAliases;
 use crate::shell::Shells;
-use crate::TomlAlias;
 
 /// Generate shell code for the cd hook.
 ///
@@ -34,11 +33,7 @@ pub fn generate_hook(
             let mut names: Vec<String> = Vec::new();
             for (alias_name, alias_value) in project.aliases.iter() {
                 let name = alias_name.as_ref();
-                let cmd = match alias_value {
-                    TomlAlias::Command(cmd) => cmd.as_str(),
-                    TomlAlias::Detailed(detail) => detail.command.as_str(),
-                };
-                lines.push(shell_impl.alias(name, cmd));
+                lines.push(shell_impl.alias(&alias_value.as_entry(name)));
                 names.push(name.to_string());
             }
             let names_csv = names.join(",");
@@ -120,8 +115,8 @@ mod tests {
         .unwrap();
 
         let output = generate_hook(&Shells::Zsh, dir.path(), Some("old")).unwrap();
-        assert!(output.contains("unalias old"));
-        assert!(output.contains("alias b=\"make build\""));
+        assert!(output.contains("unset -f old"));
+        assert!(output.contains("b() { make build \"$@\"; }"));
         assert!(output.contains("export _AM_PROJECT_ALIASES="));
     }
 }

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
-use super::{quote_cmd, Shell};
+use super::{has_template_args, quote_cmd, substitute_fish, Shell};
+use crate::alias::AliasEntry;
 
 #[derive(Debug, Default)]
 pub struct Fish;
@@ -10,8 +11,13 @@ impl Shell for Fish {
         format!("functions -e {alias_name}")
     }
 
-    fn alias(&self, alias_name: &str, command: &str) -> String {
-        format!("alias {alias_name} {}", quote_cmd(command),)
+    fn alias(&self, entry: &AliasEntry) -> String {
+        if !entry.raw && has_template_args(entry.command) {
+            let body = substitute_fish(entry.command);
+            format!("function {}\n    {}\nend", entry.name, body)
+        } else {
+            format!("alias {} {}", entry.name, quote_cmd(entry.command))
+        }
     }
 
     fn set_env(&self, var_name: &str, value: &str) -> String {
@@ -26,18 +32,64 @@ impl Shell for Fish {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::alias::AliasEntry;
+
+    fn simple<'a>(name: &'a str, cmd: &'a str) -> AliasEntry<'a> {
+        AliasEntry {
+            name,
+            command: cmd,
+            raw: false,
+        }
+    }
+
+    fn raw<'a>(name: &'a str, cmd: &'a str) -> AliasEntry<'a> {
+        AliasEntry {
+            name,
+            command: cmd,
+            raw: true,
+        }
+    }
 
     #[test]
-    fn test_alias_to_string_zsh() {
+    fn test_fish_simple_alias() {
         assert_eq!(
-            &Fish.alias("h", "'echo hello'"),
-            "alias h 'echo hello'",
-            "single quotes messed up"
+            Fish.alias(&simple("h", "'echo hello'")),
+            "alias h 'echo hello'"
         );
+        assert_eq!(
+            Fish.alias(&simple("h", "echo hello")),
+            "alias h \"echo hello\""
+        );
+    }
 
-        assert_eq!(&Fish.alias("h", "echo hello"), "alias h \"echo hello\"");
-        assert_eq!(&Fish.unalias("h"), "functions -e h");
-        assert_eq!(&Fish.set_env("FOO", "bar"), "set -gx FOO \"bar\"");
-        assert_eq!(&Fish.unset_env("FOO"), "set -e FOO");
+    #[test]
+    fn test_fish_parameterized() {
+        assert_eq!(
+            Fish.alias(&simple("cmf", "cm feat: {{@}}")),
+            "function cmf\n    cm feat: $argv\nend"
+        );
+        assert_eq!(
+            Fish.alias(&simple("x", "echo {{1}} and {{2}}")),
+            "function x\n    echo $argv[1] and $argv[2]\nend"
+        );
+    }
+
+    #[test]
+    fn test_fish_raw_skips_templates() {
+        assert_eq!(
+            Fish.alias(&raw("my-awk", "awk '{print {{1}}}'")),
+            "alias my-awk \"awk '{print {{1}}}'\""
+        );
+    }
+
+    #[test]
+    fn test_fish_unalias() {
+        assert_eq!(Fish.unalias("h"), "functions -e h");
+    }
+
+    #[test]
+    fn test_fish_env() {
+        assert_eq!(Fish.set_env("FOO", "bar"), "set -gx FOO \"bar\"");
+        assert_eq!(Fish.unset_env("FOO"), "set -e FOO");
     }
 }

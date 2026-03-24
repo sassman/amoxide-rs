@@ -1,4 +1,5 @@
 use super::{NixShell, Shell};
+use crate::alias::AliasEntry;
 
 #[derive(Debug, Default)]
 pub struct Zsh;
@@ -8,8 +9,8 @@ impl Shell for Zsh {
         NixShell.unalias(alias_name)
     }
 
-    fn alias(&self, alias_name: &str, command: &str) -> String {
-        NixShell.alias(alias_name, command)
+    fn alias(&self, entry: &AliasEntry) -> String {
+        NixShell.alias(entry)
     }
 
     fn set_env(&self, var_name: &str, value: &str) -> String {
