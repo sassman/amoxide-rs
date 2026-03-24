@@ -37,6 +37,9 @@ fn run_loop(terminal: &mut DefaultTerminal, model: &mut TuiModel) -> anyhow::Res
                 continue;
             }
             update(model, msg);
+            let area = terminal.size()?;
+            let visible_height = area.height.saturating_sub(1) as usize; // minus help bar
+            model.adjust_scroll(visible_height);
         }
     }
     Ok(())

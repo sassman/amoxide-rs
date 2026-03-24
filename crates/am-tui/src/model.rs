@@ -134,4 +134,27 @@ impl TuiModel {
         let tree = if self.active_column == Column::Left { &self.tree } else { &self.dest_tree };
         (0..=from).rev().find(|&i| tree[i].kind.is_navigable())
     }
+
+    pub fn adjust_scroll(&mut self, visible_height: usize) {
+        let cursor_line = self.estimate_line_for_cursor();
+        if cursor_line < self.scroll_offset {
+            self.scroll_offset = cursor_line;
+        } else if cursor_line >= self.scroll_offset + visible_height {
+            self.scroll_offset = cursor_line - visible_height + 1;
+        }
+    }
+
+    fn estimate_line_for_cursor(&self) -> usize {
+        let mut line = 0;
+        for (i, node) in self.tree.iter().enumerate() {
+            if i == self.cursor {
+                break;
+            }
+            line += match node.kind {
+                NodeKind::AliasItem => 3,
+                _ => 1,
+            };
+        }
+        line
+    }
 }
