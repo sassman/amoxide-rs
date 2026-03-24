@@ -16,8 +16,35 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
     frame.render_widget(help, chunks[0]);
 
+    let content_area = chunks[1];
+
+    match &model.mode {
+        Mode::Moving => {
+            let columns = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+                .split(content_area);
+
+            render_left_column(frame, model, columns[0]);
+            render_right_column(frame, model, columns[1]);
+        }
+        Mode::TextInput(text) => {
+            render_left_column(frame, model, content_area);
+            render_text_input(frame, text, content_area);
+        }
+        Mode::Confirm(action) => {
+            render_left_column(frame, model, content_area);
+            render_confirm(frame, action, content_area);
+        }
+        Mode::Normal => {
+            render_left_column(frame, model, content_area);
+        }
+    }
+}
+
+fn render_left_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
     let tree_lines = render_tree_lines(model);
-    let visible_height = chunks[1].height as usize;
+    let visible_height = area.height as usize;
     let start = model.scroll_offset;
     let end = (start + visible_height).min(tree_lines.len());
     let visible: Vec<Line> = if start < tree_lines.len() {
@@ -27,7 +54,92 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
     };
 
     let tree_widget = Paragraph::new(Text::from(visible));
-    frame.render_widget(tree_widget, chunks[1]);
+    frame.render_widget(tree_widget, area);
+}
+
+fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    lines.push(Line::from(Span::styled(
+        "  ──────────────────►",
+        Style::default().fg(Color::DarkGray),
+    )));
+    lines.push(Line::from(""));
+
+    for (i, node) in model.dest_tree.iter().enumerate() {
+        let is_cursor = i == model.dest_cursor && model.active_column == Column::Right;
+        let indent = "  ".repeat(node.depth as usize);
+        let marker = if is_cursor { "▸ " } else { "  " };
+
+        match &node.kind {
+            NodeKind::GlobalHeader => {
+                lines.push(Line::from(vec![
+                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw("🌐 "),
+                    Span::styled("global", Style::default().bold()),
+                ]));
+            }
+            NodeKind::ProjectHeader => {
+                lines.push(Line::from(vec![
+                    Span::raw(format!("{indent}{marker}")),
+                    Span::raw("📁 "),
+                    Span::styled("project (.aliases)", Style::default().bold()),
+                ]));
+            }
+            NodeKind::ProfileHeader => {
+                let icon = if node.is_active { "●" } else { "○" };
+                let active_tag = if node.is_active { " (active)" } else { "" };
+                lines.push(Line::from(vec![
+                    Span::raw(format!("{indent}{marker}")),
+                    Span::styled(
+                        format!("{icon} {}{active_tag}", node.label),
+                        Style::default().bold(),
+                    ),
+                ]));
+            }
+            NodeKind::AliasItem => {
+                // AliasItem nodes are skipped in the dest tree
+            }
+        }
+    }
+
+    frame.render_widget(Paragraph::new(Text::from(lines)), area);
+}
+
+fn render_text_input(frame: &mut Frame, text: &str, area: Rect) {
+    let input_area = Rect {
+        x: area.x,
+        y: area.y + area.height.saturating_sub(1),
+        width: area.width,
+        height: 1,
+    };
+    let display = format!("New profile: {text}█");
+    let widget = Paragraph::new(display).style(Style::default().fg(Color::White));
+    frame.render_widget(widget, input_area);
+}
+
+fn render_confirm(frame: &mut Frame, action: &ConfirmAction, area: Rect) {
+    let input_area = Rect {
+        x: area.x,
+        y: area.y + area.height.saturating_sub(1),
+        width: area.width,
+        height: 1,
+    };
+    let message = match action {
+        ConfirmAction::DeleteProfile(name) => {
+            format!("Delete profile \"{name}\"? [y/n]")
+        }
+        ConfirmAction::OverwriteAliases { aliases, destination } => {
+            let count = aliases.len();
+            let dest = match destination {
+                MoveDestination::Global => "global".to_string(),
+                MoveDestination::Project => "project".to_string(),
+                MoveDestination::Profile(name) => format!("profile \"{name}\""),
+            };
+            format!("Move {count} alias(es) to {dest}, overwriting duplicates? [y/n]")
+        }
+    };
+    let widget = Paragraph::new(message).style(Style::default().fg(Color::Yellow));
+    frame.render_widget(widget, input_area);
 }
 
 fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
