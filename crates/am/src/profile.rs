@@ -88,6 +88,28 @@ impl ProfileConfig {
         let i = existing_profile.unwrap();
         Ok(Response::ProfileAdded(i))
     }
+
+    pub fn remove_profile(&mut self, name: &str) -> Result<()> {
+        if name == "default" {
+            anyhow::bail!("Cannot remove the default profile");
+        }
+        let idx = self
+            .profiles
+            .iter()
+            .position(|p| p.name == name)
+            .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
+
+        // Resolve inheritance: re-parent dependents to the removed profile's parent
+        let new_parent = self.profiles[idx].inherits.clone();
+        for profile in &mut self.profiles {
+            if profile.inherits.as_deref() == Some(name) {
+                profile.inherits = new_parent.clone();
+            }
+        }
+
+        self.profiles.remove(idx);
+        Ok(())
+    }
 }
 
 impl ProfileConfig {
@@ -216,5 +238,89 @@ mod tests {
 
         assert_eq!(decoded.profiles[1].name, "work");
         assert_eq!(decoded.profiles[1].inherits, Some("default".to_string()));
+    }
+
+    #[test]
+    fn test_remove_profile() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "default"
+
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#})
+        .unwrap();
+
+        config.remove_profile("git").unwrap();
+        assert_eq!(config.len(), 1);
+        assert!(config.get_profile_by_name("git").is_none());
+    }
+
+    #[test]
+    fn test_remove_profile_reparents_dependents() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "base"
+
+            [[profiles]]
+            name = "git"
+            inherits = "base"
+
+            [[profiles]]
+            name = "rust"
+            inherits = "git"
+        "#})
+        .unwrap();
+
+        config.remove_profile("git").unwrap();
+        assert_eq!(config.len(), 2);
+        // rust should now inherit from base
+        let rust = config.get_profile_by_name("rust").unwrap();
+        assert_eq!(rust.inherits.as_deref(), Some("base"));
+    }
+
+    #[test]
+    fn test_remove_root_profile_clears_inherits() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "base"
+
+            [[profiles]]
+            name = "git"
+            inherits = "base"
+        "#})
+        .unwrap();
+
+        config.remove_profile("base").unwrap();
+        let git = config.get_profile_by_name("git").unwrap();
+        assert_eq!(git.inherits, None);
+    }
+
+    #[test]
+    fn test_cannot_remove_default_profile() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "default"
+        "#})
+        .unwrap();
+
+        let err = config.remove_profile("default").unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Cannot remove the default profile"));
+    }
+
+    #[test]
+    fn test_remove_nonexistent_profile() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "default"
+        "#})
+        .unwrap();
+
+        let err = config.remove_profile("nope").unwrap_err();
+        assert!(err.to_string().contains("not found"));
     }
 }

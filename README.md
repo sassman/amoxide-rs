@@ -1,6 +1,10 @@
 # The Alias-Manager
 
-> The alias-manager (`am`) is for the most lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
+<p align="center">
+  <img src="assets/banner.png" width="66%" alt="alias-manager banner" />
+</p>
+
+> The alias-manager (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
 
 Q: What does Globally mean?
 A: It's as a regular shell alias right now works - always present.
@@ -9,9 +13,48 @@ Q: What is Profile specific then?
 A: A Profile is simply a name like `node development` or `git stuff` under which aliases are collected - like a category of purpose for aliases.
 
 Q: What is then project specific?
-A: Really imagine a specific project, like you are working on this very rust backend - with project specific aliases.
+A: In a project context (locally) available, like you are working on this very rust backend - with project specific aliases.
 
 Note: Profiles can be composed upon another. Like your node profile should leverage some git aliases, then `node development -> git stuff` would cause they are loaded upwards the dependency tree.
+
+## Productivity Tip (Opinionated)
+
+I personally put *a lot* of aliases on the project level, so that I can be super lazy. 
+
+For example in this project I have:
+
+- installing the binary by `cargo install --path crates/am` becomes just `i`
+- running tests by `cargo test` becomes `t`
+- running lint checks by `cargo clippy --all-targets --all-features -- -D warning` becomes `l`
+
+Then if I find myself often doing the same things in several projects, like coding in rust, then introduce a profile for it. And a profile for `git stuff` or `k8s` and so on.
+
+Last mile, if I need specialization profiles a specific git workflow, I use profile inheritance.
+
+```
+# create the git profile first, with one alias
+am p a git
+am a -p gm git commit -S --signoff -m
+am a -p ga git add
+
+# create the git convential commit profile, that inherits from git
+am profile add -i git git-convential
+
+# now lets get specific with `gmf`
+am add gmf "gm feat: {{1}}"
+gmf "my feature"
+# → gm feat: my feature
+# → git commit -S --signoff -m feat: my feature
+```
+
+```sh
+am profile add rust
+
+## now adding the alias from above for the profile `rust`
+am add -p rust t cargo test
+am add -p rust l cargo clippy --all-targets --all-features -- -D warning
+```
+
 
 ## Setup
 
@@ -36,8 +79,8 @@ This does two things:
 ### Adding and removing aliases
 
 ```shell
-$ am add ll "ls -lha"
-$ am add gs "git status"
+$ am add "ll ls -lha"
+$ am add gs git status         # quotes on the command are optional
 $ am remove gs                 # remove from active profile
 $ am r gs                      # short form
 $ am remove -p rust ct         # remove from a specific profile
@@ -69,6 +112,10 @@ $ am profile add rust --inherits git
 # Set the active profile
 $ am profile set rust
 $ am p s rust                  # short form
+
+# Remove a profile (asks for confirmation if it has aliases)
+$ am profile remove rust
+$ am p r rust -f               # skip confirmation
 
 # Add aliases to a specific profile
 $ am add -p rust ct "cargo test"

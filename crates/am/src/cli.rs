@@ -42,8 +42,20 @@ pub enum Commands {
         action: Option<ProfileAction>,
     },
 
-    /// Print shell init code (eval in your shell rc file)
-    #[command(alias = "i")]
+    /// Print shell init code
+    ///
+    /// This outputs shell code that loads your profile aliases and installs
+    /// a cd hook for automatic project alias loading. Add one of these lines
+    /// to your shell's config file:
+    ///
+    ///   Fish        ~/.config/fish/config.fish    am init fish | source
+    ///   Zsh         ~/.zshrc                      eval "$(am init zsh)"
+    ///   Bash        ~/.bashrc                     eval "$(am init bash)"
+    ///   Nushell     ~/.config/nushell/config.nu   am init nu | source
+    ///   PowerShell  $PROFILE                      am init powershell | Invoke-Expression
+    ///
+    /// Note: Only fish and zsh are currently supported. Others are planned.
+    #[command(alias = "i", verbatim_doc_comment)]
     Init { shell: Shells },
 
     /// Internal: called by the cd hook to load/unload project aliases
@@ -69,6 +81,17 @@ pub enum ProfileAction {
     Set {
         /// Profile name
         name: String,
+    },
+
+    /// Remove a profile
+    #[command(alias = "r")]
+    Remove {
+        /// Profile name
+        name: String,
+
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        force: bool,
     },
 
     /// List all profiles

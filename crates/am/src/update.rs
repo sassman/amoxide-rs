@@ -133,5 +133,13 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
             model.config.active_profile = name;
             Ok(None)
         }
+        Message::RemoveProfile(name) => {
+            model.profile_config_mut().remove_profile(&name)?;
+            // If the removed profile was active, fall back to default
+            if model.config.active_profile == name {
+                model.config.active_profile = "default".to_string();
+            }
+            Ok(Some(Message::SaveProfiles))
+        }
     }
 }
