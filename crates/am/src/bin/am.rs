@@ -86,6 +86,31 @@ fn main() -> anyhow::Result<()> {
                 update(&mut model, Message::ActivateProfile(name.clone()))?;
                 Message::SaveConfig
             }
+            ProfileAction::Remove { name, force } => {
+                if !force {
+                    let profile = model
+                        .profile_config()
+                        .get_profile_by_name(name)
+                        .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
+                    if !profile.aliases.is_empty() {
+                        let count = profile.aliases.iter().count();
+                        eprint!(
+                            "Profile '{name}' has {count} alias{}. Remove? [y/N] ",
+                            if count == 1 { "" } else { "es" }
+                        );
+                        std::io::stderr().flush()?;
+                        let mut input = String::new();
+                        std::io::stdin().lock().read_line(&mut input)?;
+                        if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
+                            println!("Cancelled.");
+                            return Ok(());
+                        }
+                    }
+                }
+                update(&mut model, Message::RemoveProfile(name.clone()))?;
+                update(&mut model, Message::SaveProfiles)?;
+                Message::SaveConfig
+            }
             ProfileAction::List => Message::ListProfiles,
         },
         Commands::Init { shell } => Message::InitShell(shell.clone()),

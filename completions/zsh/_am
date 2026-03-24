@@ -97,6 +97,17 @@ _arguments "${_arguments_options[@]}" : \
 ':name -- Profile name:_default' \
 && ret=0
 ;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+'-f[Skip confirmation prompt]' \
+'--force[Skip confirmation prompt]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- Profile name:_default' \
+&& ret=0
+;;
 (list)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -125,6 +136,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (list)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -143,8 +158,8 @@ esac
 ;;
 (init)
 _arguments "${_arguments_options[@]}" : \
-'-h[Print help]' \
-'--help[Print help]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \
 '--version[Print version]' \
 ':shell:(fish zsh)' \
@@ -203,6 +218,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (list)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -239,7 +258,7 @@ _am_commands() {
 'remove:Remove an alias' \
 'ls:List all profiles and project aliases' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
-'init:Print shell init code (eval in your shell rc file)' \
+'init:Print shell init code' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -257,7 +276,7 @@ _am__help_commands() {
 'remove:Remove an alias' \
 'ls:List all profiles and project aliases' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
-'init:Print shell init code (eval in your shell rc file)' \
+'init:Print shell init code' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -293,6 +312,7 @@ _am__help__profile_commands() {
     local commands; commands=(
 'add:Add a new profile' \
 'set:Set the active profile' \
+'remove:Remove a profile' \
 'list:List all profiles' \
     )
     _describe -t commands 'am help profile commands' commands "$@"
@@ -306,6 +326,11 @@ _am__help__profile__add_commands() {
 _am__help__profile__list_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile list commands' commands "$@"
+}
+(( $+functions[_am__help__profile__remove_commands] )) ||
+_am__help__profile__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help profile remove commands' commands "$@"
 }
 (( $+functions[_am__help__profile__set_commands] )) ||
 _am__help__profile__set_commands() {
@@ -337,6 +362,7 @@ _am__profile_commands() {
     local commands; commands=(
 'add:Add a new profile' \
 'set:Set the active profile' \
+'remove:Remove a profile' \
 'list:List all profiles' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -352,6 +378,7 @@ _am__profile__help_commands() {
     local commands; commands=(
 'add:Add a new profile' \
 'set:Set the active profile' \
+'remove:Remove a profile' \
 'list:List all profiles' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -372,6 +399,11 @@ _am__profile__help__list_commands() {
     local commands; commands=()
     _describe -t commands 'am profile help list commands' commands "$@"
 }
+(( $+functions[_am__profile__help__remove_commands] )) ||
+_am__profile__help__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile help remove commands' commands "$@"
+}
 (( $+functions[_am__profile__help__set_commands] )) ||
 _am__profile__help__set_commands() {
     local commands; commands=()
@@ -381,6 +413,11 @@ _am__profile__help__set_commands() {
 _am__profile__list_commands() {
     local commands; commands=()
     _describe -t commands 'am profile list commands' commands "$@"
+}
+(( $+functions[_am__profile__remove_commands] )) ||
+_am__profile__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile remove commands' commands "$@"
 }
 (( $+functions[_am__profile__set_commands] )) ||
 _am__profile__set_commands() {

@@ -25,6 +25,7 @@ pub enum Message {
     Hook(Shells),
 
     ActivateProfile(String),
+    RemoveProfile(String),
     ListProfiles,
     CreateOrUpdateProfile(String, Option<String>),
     SaveProfiles,

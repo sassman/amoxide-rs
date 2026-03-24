@@ -64,6 +64,9 @@ _am() {
             am__help__profile,list)
                 cmd="am__help__profile__list"
                 ;;
+            am__help__profile,remove)
+                cmd="am__help__profile__remove"
+                ;;
             am__help__profile,set)
                 cmd="am__help__profile__set"
                 ;;
@@ -76,6 +79,9 @@ _am() {
             am__profile,list)
                 cmd="am__profile__list"
                 ;;
+            am__profile,remove)
+                cmd="am__profile__remove"
+                ;;
             am__profile,set)
                 cmd="am__profile__set"
                 ;;
@@ -87,6 +93,9 @@ _am() {
                 ;;
             am__profile__help,list)
                 cmd="am__profile__help__list"
+                ;;
+            am__profile__help,remove)
+                cmd="am__profile__help__remove"
                 ;;
             am__profile__help,set)
                 cmd="am__profile__help__set"
@@ -218,7 +227,7 @@ _am() {
             return 0
             ;;
         am__help__profile)
-            opts="add set list"
+            opts="add set remove list"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -246,6 +255,20 @@ _am() {
             return 0
             ;;
         am__help__profile__list)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__help__profile__remove)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -330,7 +353,7 @@ _am() {
             return 0
             ;;
         am__profile)
-            opts="-h -V --help --version add set list help"
+            opts="-h -V --help --version add set remove list help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -366,7 +389,7 @@ _am() {
             return 0
             ;;
         am__profile__help)
-            opts="add set list help"
+            opts="add set remove list help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -421,6 +444,20 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        am__profile__help__remove)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         am__profile__help__set)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -437,6 +474,20 @@ _am() {
             ;;
         am__profile__list)
             opts="-h -V --help --version"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__profile__remove)
+            opts="-f -h -V --force --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
