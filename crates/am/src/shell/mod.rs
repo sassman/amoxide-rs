@@ -1,5 +1,6 @@
 mod fish;
 mod nix;
+#[allow(clippy::module_inception)]
 mod shell;
 mod zsh;
 
