@@ -77,6 +77,10 @@ fn main() -> anyhow::Result<()> {
             Message::SaveProfiles
         }
         Commands::Ls => Message::ListProfiles,
+        Commands::Status => {
+            println!("{}", am::status::run_status());
+            Message::DoNothing
+        }
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
             ProfileAction::Add { name, inherits } => {
                 update(

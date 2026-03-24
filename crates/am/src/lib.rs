@@ -9,6 +9,7 @@ pub mod messages;
 pub mod profile;
 pub mod project;
 pub mod shell;
+pub mod status;
 pub mod update;
 
 pub use alias::*;

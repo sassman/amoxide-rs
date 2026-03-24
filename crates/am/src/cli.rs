@@ -35,6 +35,9 @@ pub enum Commands {
     #[command(alias = "l")]
     Ls,
 
+    /// Check if the shell is set up correctly
+    Status,
+
     /// Manage profiles (defaults to listing when no subcommand given)
     #[command(alias = "p")]
     Profile {
