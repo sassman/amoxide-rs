@@ -85,6 +85,7 @@ pub struct TuiModel {
     pub app_model: AppModel,
     pub project_aliases: Option<ProjectAliases>,
     pub project_path: Option<PathBuf>,
+    pub config_dir: Option<PathBuf>,
     pub tree: Vec<TreeNode>,
     pub cursor: usize,
     pub selected: BTreeSet<AliasId>,
@@ -105,7 +106,7 @@ impl TuiModel {
             None => None,
         };
         let mut model = Self {
-            app_model, project_aliases, project_path,
+            app_model, project_aliases, project_path, config_dir: None,
             tree: Vec::new(), cursor: 0, selected: BTreeSet::new(),
             mode: Mode::Normal, dest_tree: Vec::new(), dest_cursor: 0,
             active_column: Column::Left, scroll_offset: 0,

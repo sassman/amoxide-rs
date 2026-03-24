@@ -384,8 +384,13 @@ fn move_single_alias(model: &mut TuiModel, alias_id: &AliasId, dest: &MoveDestin
 }
 
 fn save_all(model: &TuiModel) {
-    let _ = model.app_model.config.save();
-    let _ = model.app_model.profile_config().save();
+    if let Some(ref dir) = model.config_dir {
+        let _ = model.app_model.config.save_to(dir);
+        let _ = model.app_model.profile_config().save_to(dir);
+    } else {
+        let _ = model.app_model.config.save();
+        let _ = model.app_model.profile_config().save();
+    }
     if let (Some(proj), Some(path)) = (&model.project_aliases, &model.project_path) {
         let _ = proj.save(path);
     }
@@ -437,10 +442,13 @@ mod tests {
             None,
             false,
         );
+        // Use a temp dir so save_all() never touches real config files
+        let temp_dir = std::env::temp_dir().join(format!("am-tui-test-{}", std::process::id()));
         TuiModel {
             app_model,
             project_aliases: None,
             project_path: None,
+            config_dir: Some(temp_dir),
             tree,
             cursor: 0,
             selected: BTreeSet::new(),
