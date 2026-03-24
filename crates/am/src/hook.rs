@@ -119,4 +119,64 @@ mod tests {
         assert!(output.contains("b() { make build \"$@\"; }"));
         assert!(output.contains("export _AM_PROJECT_ALIASES="));
     }
+
+    #[test]
+    fn test_hook_picks_up_added_alias() {
+        // Simulate: .aliases exists with one alias, then a second is added
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        // First hook call — loads b
+        let output = generate_hook(&Shells::Fish, dir.path(), None).unwrap();
+        assert!(output.contains("alias b \"make build\""));
+        assert!(!output.contains("alias t"));
+
+        // User runs `am add -l t "make test"` — file is updated
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\nt = \"make test\"\n",
+        )
+        .unwrap();
+
+        // Second hook call — should unload old and load both
+        let output = generate_hook(&Shells::Fish, dir.path(), Some("b")).unwrap();
+        assert!(output.contains("functions -e b")); // unload old
+        assert!(output.contains("alias b \"make build\"")); // reload b
+        assert!(output.contains("alias t \"make test\"")); // new alias t
+        assert!(output.contains("\"b,t\"")); // tracking updated
+    }
+
+    #[test]
+    fn test_hook_picks_up_removed_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\nt = \"make test\"\n",
+        )
+        .unwrap();
+
+        // First hook — loads both
+        let output = generate_hook(&Shells::Fish, dir.path(), None).unwrap();
+        assert!(output.contains("alias b"));
+        assert!(output.contains("alias t"));
+
+        // User removes t from .aliases
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        // Second hook — should unload old (b,t) and only load b
+        let output = generate_hook(&Shells::Fish, dir.path(), Some("b,t")).unwrap();
+        assert!(output.contains("functions -e b"));
+        assert!(output.contains("functions -e t")); // t unloaded
+        assert!(output.contains("alias b \"make build\"")); // b reloaded
+        assert!(!output.contains("alias t")); // t not reloaded
+        assert!(output.contains("\"b\"")); // tracking only has b
+    }
 }

@@ -72,24 +72,34 @@ pub fn generate_reload(
 
 fn am_wrapper(shell: &Shells) -> String {
     let shell_name = shell.to_string();
+    let reload_cmd = format!("command am reload {shell_name} | source");
+    let hook_cmd = format!("command am hook {shell_name} | source");
     match shell {
         Shells::Fish => [
-            "# am wrapper: reload aliases after profile switch",
+            "# am wrapper: reload after profile switch or local alias change",
             "function am --wraps=am",
             "    command am $argv",
             "    if test \"$argv[1]\" = profile -a \"$argv[2]\" = set",
-            &format!("        command am reload {shell_name} | source"),
+            &format!("        {reload_cmd}"),
+            "    else if contains -- -l $argv; or contains -- --local $argv",
+            &format!("        {hook_cmd}"),
             "    end",
             "end",
         ]
         .join("\n"),
-        Shells::Zsh => [
-            "# am wrapper: reload aliases after profile switch",
-            &format!(
-                "am() {{ command am \"$@\"; if [[ \"$1\" == profile && \"$2\" == set ]]; then eval \"$(command am reload {shell_name})\"; fi; }}"
-            ),
-        ]
-        .join("\n"),
+        Shells::Zsh => {
+            format!(
+                "am() {{\n  \
+                command am \"$@\"\n  \
+                case \"$1:$2\" in\n    \
+                profile:set) eval \"$({reload_cmd})\" ;;\n  \
+                esac\n  \
+                case \"$*\" in\n    \
+                *-l*|*--local*) eval \"$({hook_cmd})\" ;;\n  \
+                esac\n\
+                }}"
+            )
+        }
     }
 }
 
@@ -149,6 +159,9 @@ mod tests {
         let output = generate_init(&Shells::Fish, &profile);
         assert!(output.contains("function am --wraps=am"));
         assert!(output.contains("am reload fish"));
+        // wrapper also intercepts local alias changes
+        assert!(output.contains("--local"));
+        assert!(output.contains("am hook fish"));
     }
 
     #[test]
@@ -173,6 +186,8 @@ mod tests {
         let output = generate_init(&Shells::Zsh, &profile);
         assert!(output.contains("am()"));
         assert!(output.contains("am reload zsh"));
+        assert!(output.contains("--local"));
+        assert!(output.contains("am hook zsh"));
     }
 
     #[test]
