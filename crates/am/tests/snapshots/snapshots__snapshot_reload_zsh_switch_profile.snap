@@ -7,4 +7,4 @@ unset -f cm
 cm() { git commit -sm "$@"; }
 cmf() { cm feat: "$@"; }
 gs() { git status "$@"; }
-export _AM_PROFILE_ALIASES="cm,cmf,gs"
+export _AM_ALIASES="cm,cmf,gs"
