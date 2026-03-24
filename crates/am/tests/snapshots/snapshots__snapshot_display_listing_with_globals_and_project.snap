@@ -1,0 +1,12 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+global
+  ll → ls -lha
+
+● rust (active)
+  ct → cargo test
+
+📁 project aliases (.aliases)
+  b → make build

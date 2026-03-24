@@ -1,0 +1,7 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+functions -e old_a
+functions -e old_b
+set -e _AM_PROJECT_ALIASES
