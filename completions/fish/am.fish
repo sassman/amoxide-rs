@@ -37,10 +37,12 @@ complete -c am -n "__fish_am_needs_command" -f -a "reload" -d 'Internal: called 
 complete -c am -n "__fish_am_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c am -n "__fish_am_using_subcommand add" -s p -l profile -d 'Profile to add the alias to (defaults to active profile)' -r
 complete -c am -n "__fish_am_using_subcommand add" -s l -l local -d 'Add to the project\'s .aliases file instead of a profile'
+complete -c am -n "__fish_am_using_subcommand add" -s g -l global -d 'Add as a global alias (always loaded, independent of profile)'
 complete -c am -n "__fish_am_using_subcommand add" -l raw -d 'Disable {{N}} template detection (treat command as literal)'
 complete -c am -n "__fish_am_using_subcommand add" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand add" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand remove" -s p -l profile -d 'Profile to remove the alias from (defaults to active profile)' -r
+complete -c am -n "__fish_am_using_subcommand remove" -s g -l global -d 'Remove a global alias'
 complete -c am -n "__fish_am_using_subcommand remove" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand remove" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand ls" -s h -l help -d 'Print help'

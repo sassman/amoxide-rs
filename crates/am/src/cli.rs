@@ -24,8 +24,12 @@ pub enum Commands {
     #[command(alias = "r")]
     Remove {
         /// Profile to remove the alias from (defaults to active profile)
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with = "global")]
         profile: Option<String>,
+
+        /// Remove a global alias
+        #[arg(short, long)]
+        global: bool,
 
         /// The alias name to remove
         name: String,
@@ -109,12 +113,16 @@ pub enum ProfileAction {
 #[derive(Args)]
 pub struct Alias {
     /// Profile to add the alias to (defaults to active profile)
-    #[arg(short, long, conflicts_with = "local")]
+    #[arg(short, long, conflicts_with_all = ["local", "global"])]
     pub profile: Option<String>,
 
     /// Add to the project's .aliases file instead of a profile
-    #[arg(short, long)]
+    #[arg(short, long, conflicts_with = "global")]
     pub local: bool,
+
+    /// Add as a global alias (always loaded, independent of profile)
+    #[arg(short, long)]
+    pub global: bool,
 
     /// Disable {{N}} template detection (treat command as literal)
     #[arg(long)]

@@ -40,6 +40,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Add(Alias {
             profile,
             local,
+            global,
             raw,
             name,
             command,
@@ -49,7 +50,11 @@ fn main() -> anyhow::Result<()> {
                 None => bail!("No command provided. Usage: am add <name> <command...>"),
             };
 
-            if *local {
+            if *global {
+                model.config.add_alias(name.clone(), alias_cmd, *raw);
+                info!("Added global alias `{name}`");
+                Message::SaveConfig
+            } else if *local {
                 add_local_alias(name, &alias_cmd, *raw)?;
                 Message::DoNothing
             } else {
@@ -66,15 +71,25 @@ fn main() -> anyhow::Result<()> {
                 Message::SaveProfiles
             }
         }
-        Commands::Remove { profile, name } => {
-            let target = profile
-                .as_deref()
-                .map(|p| AddAliasProfile::Profile(p.to_owned()))
-                .unwrap_or(AddAliasProfile::ActiveProfile);
+        Commands::Remove {
+            profile,
+            global,
+            name,
+        } => {
+            if *global {
+                model.config.remove_alias(name)?;
+                info!("Removed global alias `{name}`");
+                Message::SaveConfig
+            } else {
+                let target = profile
+                    .as_deref()
+                    .map(|p| AddAliasProfile::Profile(p.to_owned()))
+                    .unwrap_or(AddAliasProfile::ActiveProfile);
 
-            info!("Removing alias `{name}` from {target}");
-            update(&mut model, Message::RemoveAlias(name.clone(), target))?;
-            Message::SaveProfiles
+                info!("Removing alias `{name}` from {target}");
+                update(&mut model, Message::RemoveAlias(name.clone(), target))?;
+                Message::SaveProfiles
+            }
         }
         Commands::Ls => Message::ListProfiles,
         Commands::Status => {

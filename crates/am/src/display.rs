@@ -3,11 +3,29 @@ use std::path::Path;
 
 use crate::dirs::relative_path;
 use crate::project::{ProjectAliases, ALIASES_FILE};
-use crate::{Profile, ProfileConfig};
+use crate::{AliasSet, Profile, ProfileConfig};
 
 /// Render profiles + project aliases as a complete listing.
-pub fn render_listing(config: &ProfileConfig, active_name: &str, cwd: &Path) -> String {
-    let mut output = render_profile_tree(config, active_name);
+pub fn render_listing(
+    global_aliases: &AliasSet,
+    config: &ProfileConfig,
+    active_name: &str,
+    cwd: &Path,
+) -> String {
+    let mut output = String::new();
+
+    // Global aliases
+    if !global_aliases.is_empty() {
+        output.push_str("global");
+        for (alias_name, alias_value) in global_aliases.iter() {
+            let name = alias_name.as_ref();
+            let cmd = alias_value.command();
+            output.push_str(&format!("\n  {name} → {cmd}"));
+        }
+        output.push_str("\n\n");
+    }
+
+    output.push_str(&render_profile_tree(config, active_name));
 
     match ProjectAliases::find(cwd) {
         Ok(Some(project)) if !project.aliases.is_empty() => {
@@ -373,7 +391,7 @@ mod tests {
         )
         .unwrap();
 
-        let output = render_listing(&config, "default", dir.path());
+        let output = render_listing(&AliasSet::default(), &config, "default", dir.path());
         assert!(output.contains("● default (active)"));
         assert!(output.contains("📁 project aliases"));
         assert!(output.contains("t → cargo test"));
@@ -387,7 +405,7 @@ mod tests {
         "#});
 
         let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(&config, "default", dir.path());
+        let output = render_listing(&AliasSet::default(), &config, "default", dir.path());
         assert!(output.contains("● default (active)"));
         assert!(!output.contains("📁"));
     }

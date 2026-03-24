@@ -41,6 +41,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
             [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Add as a global alias (always loaded, independent of profile)')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Add as a global alias (always loaded, independent of profile)')
             [CompletionResult]::new('--raw', '--raw', [CompletionResultType]::ParameterName, 'Disable {{N}} template detection (treat command as literal)')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
@@ -51,6 +53,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;remove' {
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
             [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Remove a global alias')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Remove a global alias')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')

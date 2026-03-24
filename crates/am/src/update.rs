@@ -86,7 +86,12 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
         }
         Message::ListProfiles => {
             let cwd = std::env::current_dir()?;
-            let output = render_listing(model.profile_config(), &model.config.active_profile, &cwd);
+            let output = render_listing(
+                &model.config.aliases,
+                model.profile_config(),
+                &model.config.active_profile,
+                &cwd,
+            );
             println!("{output}");
             Ok(None)
         }
@@ -112,7 +117,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
         }
         Message::InitShell(shell) => {
             let profile = model.get_active_profile();
-            let output = generate_init(&shell, profile);
+            let output = generate_init(&shell, &model.config.aliases, profile);
             print!("{output}");
             Ok(None)
         }
