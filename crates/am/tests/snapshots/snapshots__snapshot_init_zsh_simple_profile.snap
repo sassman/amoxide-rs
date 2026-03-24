@@ -4,7 +4,7 @@ expression: output
 ---
 gs() { git status "$@"; }
 ll() { ls -lha "$@"; }
-export _AM_PROFILE_ALIASES="gs,ll"
+export _AM_ALIASES="gs,ll"
 
 am() {
   command am "$@"

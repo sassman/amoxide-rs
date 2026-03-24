@@ -134,7 +134,12 @@ fn snapshot_init_fish_deep_chain() {
 fn snapshot_reload_fish_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_aliases("git-conventional");
-    let output = generate_reload(&Shells::Fish, &resolved, Some("gs,cm"));
+    let output = generate_reload(
+        &Shells::Fish,
+        &AliasSet::default(),
+        &resolved,
+        Some("gs,cm"),
+    );
     insta::assert_snapshot!(output);
 }
 
@@ -142,7 +147,7 @@ fn snapshot_reload_fish_switch_profile() {
 fn snapshot_reload_zsh_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_aliases("git-conventional");
-    let output = generate_reload(&Shells::Zsh, &resolved, Some("gs,cm"));
+    let output = generate_reload(&Shells::Zsh, &AliasSet::default(), &resolved, Some("gs,cm"));
     insta::assert_snapshot!(output);
 }
 

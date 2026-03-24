@@ -9,4 +9,4 @@ function cmf
     cm feat: $argv
 end
 alias gs "git status"
-set -gx _AM_PROFILE_ALIASES "cm,cmf,gs"
+set -gx _AM_ALIASES "cm,cmf,gs"

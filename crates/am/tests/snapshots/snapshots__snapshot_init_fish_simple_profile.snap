@@ -4,7 +4,7 @@ expression: output
 ---
 alias gs "git status"
 alias ll "ls -lha"
-set -gx _AM_PROFILE_ALIASES "gs,ll"
+set -gx _AM_ALIASES "gs,ll"
 
 # am wrapper: reload aliases after mutations
 function am --wraps=am
