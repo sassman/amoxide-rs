@@ -1,0 +1,10 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+unset -f gs
+unset -f cm
+cm() { git commit -sm "$@"; }
+cmf() { cm feat: "$@"; }
+gs() { git status "$@"; }
+export _AM_PROFILE_ALIASES="cm,cmf,gs"

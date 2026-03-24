@@ -1,0 +1,7 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+alias b "cargo build"
+alias t "cargo test"
+set -gx _AM_PROJECT_ALIASES "b,t"

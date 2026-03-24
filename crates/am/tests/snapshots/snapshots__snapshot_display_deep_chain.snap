@@ -1,0 +1,12 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+○ base
+│ ll → ls -lha
+│
+╰─○ git
+  │ gs → git status
+  │
+  ╰─● rust (active)
+      ct → cargo test

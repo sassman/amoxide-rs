@@ -1,0 +1,30 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+alias ct "cargo test"
+alias gs "git status"
+alias ll "ls -lha"
+set -gx _AM_PROFILE_ALIASES "ct,gs,ll"
+
+# am wrapper: reload after profile switch or local alias change
+function am --wraps=am
+    command am $argv
+    # reload after profile switch (handles short forms: p/profile, s/set)
+    if begin; test "$argv[1]" = profile; or test "$argv[1]" = p; end
+        if begin; test "$argv[2]" = set; or test "$argv[2]" = s; end
+            command am reload fish | source
+        end
+    # re-source hook after local alias change (only for add/a or remove/r)
+    else if begin; test "$argv[1]" = add; or test "$argv[1]" = a; or test "$argv[1]" = remove; or test "$argv[1]" = r; end
+        if contains -- -l $argv; or contains -- --local $argv
+            command am hook fish | source
+        end
+    end
+end
+
+# am cd hook
+function __am_hook --on-variable PWD
+    am hook fish | source
+end
+__am_hook

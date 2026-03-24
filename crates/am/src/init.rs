@@ -84,8 +84,15 @@ pub fn generate_reload(
 
 fn am_wrapper(shell: &Shells) -> String {
     let shell_name = shell.to_string();
-    let reload_cmd = format!("command am reload {shell_name} | source");
-    let hook_cmd = format!("command am hook {shell_name} | source");
+    // Fish: pipe to source. Zsh: wrap in eval "$()".
+    let (reload_fish, hook_fish) = (
+        format!("command am reload {shell_name} | source"),
+        format!("command am hook {shell_name} | source"),
+    );
+    let (reload_zsh, hook_zsh) = (
+        format!("command am reload {shell_name}"),
+        format!("command am hook {shell_name}"),
+    );
     match shell {
         Shells::Fish => [
             "# am wrapper: reload after profile switch or local alias change",
@@ -94,12 +101,12 @@ fn am_wrapper(shell: &Shells) -> String {
             "    # reload after profile switch (handles short forms: p/profile, s/set)",
             "    if begin; test \"$argv[1]\" = profile; or test \"$argv[1]\" = p; end",
             "        if begin; test \"$argv[2]\" = set; or test \"$argv[2]\" = s; end",
-            &format!("            {reload_cmd}"),
+            &format!("            {reload_fish}"),
             "        end",
             "    # re-source hook after local alias change (only for add/a or remove/r)",
             "    else if begin; test \"$argv[1]\" = add; or test \"$argv[1]\" = a; or test \"$argv[1]\" = remove; or test \"$argv[1]\" = r; end",
             "        if contains -- -l $argv; or contains -- --local $argv",
-            &format!("            {hook_cmd}"),
+            &format!("            {hook_fish}"),
             "        end",
             "    end",
             "end",
@@ -110,12 +117,12 @@ fn am_wrapper(shell: &Shells) -> String {
                 "am() {{\n  \
                 command am \"$@\"\n  \
                 case \"$1:$2\" in\n    \
-                profile:set|p:set|profile:s|p:s) eval \"$({reload_cmd})\" ;;\n  \
+                profile:set|p:set|profile:s|p:s) eval \"$({reload_zsh})\" ;;\n  \
                 esac\n  \
                 case \"$1\" in\n    \
                 add|a|remove|r)\n      \
                 case \"$*\" in\n        \
-                *\\ -l\\ *|*\\ --local\\ *|*\\ -l|*\\ --local) eval \"$({hook_cmd})\" ;;\n      \
+                *\\ -l\\ *|*\\ --local\\ *|*\\ -l|*\\ --local) eval \"$({hook_zsh})\" ;;\n      \
                 esac ;;\n  \
                 esac\n\
                 }}"

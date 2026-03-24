@@ -1,0 +1,12 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+functions -e gs
+functions -e cm
+alias cm "git commit -sm"
+function cmf
+    cm feat: $argv
+end
+alias gs "git status"
+set -gx _AM_PROFILE_ALIASES "cm,cmf,gs"
