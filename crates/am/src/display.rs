@@ -140,7 +140,7 @@ fn render_node(
         }
     }
 
-    // Print children
+    // Print children (with spacer line keeping tree connected)
     for (i, child) in kids.iter().enumerate() {
         let is_last = i == kids.len() - 1;
         let connector = if is_last { "╰─" } else { "├─" };
@@ -149,7 +149,7 @@ fn render_node(
         } else {
             format!("{prefix}│ ")
         };
-        // Print the connector line, then render child with its own prefix
+        lines.push(format!("{prefix}│"));
         render_child(
             child,
             children_of,
@@ -205,7 +205,7 @@ fn render_child(
         }
     }
 
-    // Recurse into children
+    // Recurse into children (with spacer line keeping tree connected)
     for (i, child) in kids.iter().enumerate() {
         let is_last = i == kids.len() - 1;
         let connector = if is_last { "╰─" } else { "├─" };
@@ -214,6 +214,7 @@ fn render_child(
         } else {
             format!("{content_prefix}│ ")
         };
+        lines.push(format!("{content_prefix}│"));
         render_child(
             child,
             children_of,
@@ -268,14 +269,11 @@ mod tests {
         let output = render_profile_tree(&config, "rust");
         let lines: Vec<&str> = output.lines().collect();
 
-        // git is root
         assert_eq!(lines[0], "○ git");
-        // git aliases have │ prefix (has children)
         assert_eq!(lines[1], "│ gs → git status");
-        // rust is child with connector
-        assert_eq!(lines[2], "╰─● rust (active)");
-        // rust aliases indented
-        assert_eq!(lines[3], "    ct → cargo test");
+        assert_eq!(lines[2], "│");
+        assert_eq!(lines[3], "╰─● rust (active)");
+        assert_eq!(lines[4], "    ct → cargo test");
     }
 
     #[test]
@@ -304,12 +302,12 @@ mod tests {
 
         assert_eq!(lines[0], "○ git");
         assert_eq!(lines[1], "│ gs → git status");
-        // node is first child (not last)
-        assert_eq!(lines[2], "├─○ node");
-        assert_eq!(lines[3], "│   nr → npm run");
-        // rust is last child
-        assert_eq!(lines[4], "╰─● rust (active)");
-        assert_eq!(lines[5], "    ct → cargo test");
+        assert_eq!(lines[2], "│");
+        assert_eq!(lines[3], "├─○ node");
+        assert_eq!(lines[4], "│   nr → npm run");
+        assert_eq!(lines[5], "│");
+        assert_eq!(lines[6], "╰─● rust (active)");
+        assert_eq!(lines[7], "    ct → cargo test");
     }
 
     #[test]
@@ -369,10 +367,12 @@ mod tests {
 
         assert_eq!(lines[0], "○ base");
         assert_eq!(lines[1], "│ (no aliases)");
-        assert_eq!(lines[2], "╰─○ git");
-        assert_eq!(lines[3], "  │ gs → git status");
-        assert_eq!(lines[4], "  ╰─● rust (active)");
-        assert_eq!(lines[5], "      ct → cargo test");
+        assert_eq!(lines[2], "│");
+        assert_eq!(lines[3], "╰─○ git");
+        assert_eq!(lines[4], "  │ gs → git status");
+        assert_eq!(lines[5], "  │");
+        assert_eq!(lines[6], "  ╰─● rust (active)");
+        assert_eq!(lines[7], "      ct → cargo test");
     }
 
     #[test]
