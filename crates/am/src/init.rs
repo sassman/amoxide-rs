@@ -85,7 +85,7 @@ fn am_wrapper(shell: &Shells) -> String {
             "# am wrapper: reload after profile switch or local alias change",
             "function am --wraps=am",
             "    command am $argv",
-            "    if test \"$argv[1]\" = profile -a \"$argv[2]\" = set",
+            "    if test \"$argv[1]\" = profile; and test \"$argv[2]\" = set",
             &format!("        {reload_cmd}"),
             "    else if contains -- -l $argv; or contains -- --local $argv",
             &format!("        {hook_cmd}"),
