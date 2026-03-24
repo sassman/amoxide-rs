@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use crate::config::Config;
 use crate::display::render_listing;
 use crate::hook::generate_hook;
-use crate::init::generate_init;
+use crate::init::{generate_init, generate_reload};
 use crate::{profile, AddAliasProfile, Message, Profile, ProfileConfig};
 
 pub struct AppModel {
@@ -50,7 +50,7 @@ impl AppModel {
 pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<Message>> {
     match message {
         Message::DoNothing => Ok(None),
-        Message::AddAlias(name, cmd, target) => {
+        Message::AddAlias(name, cmd, target, raw) => {
             let profile = match target {
                 AddAliasProfile::Profile(profile_name) => model
                     .profile_config_mut()
@@ -64,7 +64,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
                         .ok_or_else(|| anyhow!("Active profile not found: {active}"))?
                 }
             };
-            profile.add_alias(name, cmd)?;
+            profile.add_alias(name, cmd, raw)?;
             Ok(Some(Message::SaveProfiles))
         }
         Message::RemoveAlias(name, target) => {
@@ -114,6 +114,15 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
             let profile = model.get_active_profile();
             let output = generate_init(&shell, profile);
             print!("{output}");
+            Ok(None)
+        }
+        Message::Reload(shell) => {
+            let profile = model.get_active_profile();
+            let prev = std::env::var("_AM_PROFILE_ALIASES").ok();
+            let output = generate_reload(&shell, profile, prev.as_deref());
+            if !output.is_empty() {
+                print!("{output}");
+            }
             Ok(None)
         }
         Message::Hook(shell) => {

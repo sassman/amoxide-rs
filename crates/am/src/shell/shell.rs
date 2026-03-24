@@ -1,10 +1,12 @@
 use std::fmt::{Debug, Display};
+use std::sync::LazyLock;
 
 use clap::ValueEnum;
+use regex::Regex;
 
 pub trait Shell: Send + Sync + Debug {
     fn unalias(&self, alias_name: &str) -> String;
-    fn alias(&self, alias_name: &str, command: &str) -> String;
+    fn alias(&self, entry: &crate::alias::AliasEntry) -> String;
     fn set_env(&self, var_name: &str, value: &str) -> String;
     fn unset_env(&self, var_name: &str) -> String;
 }
@@ -73,4 +75,79 @@ pub fn quote_cmd(cmd: &str) -> String {
     };
 
     format!("{quotes}{cmd}{quotes}")
+}
+
+static TEMPLATE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{\{([1-9]|@)\}\}").unwrap());
+
+/// Returns true if the command contains valid template args like {{1}}, {{@}}.
+pub fn has_template_args(cmd: &str) -> bool {
+    TEMPLATE_RE.is_match(cmd)
+}
+
+/// Substitute {{N}} → $argv[N] and {{@}} → $argv for fish shell.
+pub fn substitute_fish(cmd: &str) -> String {
+    TEMPLATE_RE
+        .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
+            "@" => "$argv".to_string(),
+            n => format!("$argv[{n}]"),
+        })
+        .to_string()
+}
+
+/// Substitute {{N}} → "$N" and {{@}} → "$@" for bash/zsh.
+pub fn substitute_nix(cmd: &str) -> String {
+    TEMPLATE_RE
+        .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
+            "@" => "\"$@\"".to_string(),
+            n => format!("\"${n}\""),
+        })
+        .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_has_template_args_positive() {
+        assert!(has_template_args("cm feat: {{@}}"));
+        assert!(has_template_args("echo {{1}} and {{2}}"));
+        assert!(has_template_args("deploy {{1}}"));
+        assert!(has_template_args("mixed {{1}} and {{@}}"));
+    }
+
+    #[test]
+    fn test_has_template_args_negative() {
+        assert!(!has_template_args("git status"));
+        assert!(!has_template_args("echo {{abc}}"));
+        assert!(!has_template_args("echo {{ 1 }}"));
+        assert!(!has_template_args("echo {{0}}"));
+        assert!(!has_template_args("echo {{}}"));
+        assert!(!has_template_args("echo {{10}}"));
+    }
+
+    #[test]
+    fn test_substitute_fish() {
+        assert_eq!(substitute_fish("cm feat: {{@}}"), "cm feat: $argv");
+        assert_eq!(
+            substitute_fish("echo {{1}} and {{2}}"),
+            "echo $argv[1] and $argv[2]"
+        );
+    }
+
+    #[test]
+    fn test_substitute_nix() {
+        assert_eq!(substitute_nix("cm feat: {{@}}"), "cm feat: \"$@\"");
+        assert_eq!(
+            substitute_nix("echo {{1}} and {{2}}"),
+            "echo \"$1\" and \"$2\""
+        );
+    }
+
+    #[test]
+    fn test_substitute_leaves_invalid_templates() {
+        assert_eq!(substitute_fish("echo {{abc}}"), "echo {{abc}}");
+        assert_eq!(substitute_nix("echo {{abc}}"), "echo {{abc}}");
+        assert_eq!(substitute_fish("echo {{0}}"), "echo {{0}}");
+    }
 }

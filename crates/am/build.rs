@@ -4,11 +4,17 @@ use clap_complete::{
     generate_to,
 };
 
-include!("src/cli.rs");
-#[allow(unused_imports)]
+/// Minimal stub of the Shells enum for build-script shell-completion generation.
+/// The real implementation lives in src/shell/shell.rs.
 pub mod shell {
-    include!("src/shell/mod.rs");
+    #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
+    pub enum Shells {
+        Fish,
+        Zsh,
+    }
 }
+
+include!("src/cli.rs");
 
 fn main() {
     let mut cmd = Cli::command();

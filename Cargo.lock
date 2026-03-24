@@ -22,6 +22,7 @@ dependencies = [
  "env_logger",
  "indoc",
  "log",
+ "regex",
  "serde",
  "tempfile",
  "toml",

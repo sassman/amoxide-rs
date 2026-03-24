@@ -27,26 +27,6 @@ For example in this project I have:
 - running tests by `cargo test` becomes `t`
 - running lint checks by `cargo clippy --all-targets --all-features -- -D warning` becomes `l`
 
-Then if I find myself often doing the same things in several projects, like coding in rust, then introduce a profile for it. And a profile for `git stuff` or `k8s` and so on.
-
-Last mile, if I need specialization profiles a specific git workflow, I use profile inheritance.
-
-```
-# create the git profile first, with one alias
-am p a git
-am a -p gm git commit -S --signoff -m
-am a -p ga git add
-
-# create the git convential commit profile, that inherits from git
-am profile add -i git git-convential
-
-# now lets get specific with `gmf`
-am add gmf "gm feat: {{1}}"
-gmf "my feature"
-# → gm feat: my feature
-# → git commit -S --signoff -m feat: my feature
-```
-
 ```sh
 am profile add rust
 
@@ -55,6 +35,25 @@ am add -p rust t cargo test
 am add -p rust l cargo clippy --all-targets --all-features -- -D warning
 ```
 
+Then if I find myself often doing the same things in several projects, like coding in rust, then introduce a profile for it. And a profile for `git stuff` or `k8s` and so on.
+
+Last mile, if I need specialization profiles a specific git workflow, I use profile inheritance.
+
+```sh
+# create the git profile first, with one alias
+am p a git
+am a -p gm git commit -S --signoff -m
+
+# create the git convential commit profile, that inherits from git
+am profile add git-conventional --inherits git
+
+# now lets get specific with `gmf`
+am add -p git-conventional gmf "gm feat: {{@}}"
+
+gmf "my feature"
+# → gm feat: my feature
+# → git commit -S --signoff -m feat: my feature
+```
 
 ## Setup
 
@@ -95,6 +94,31 @@ $ am a l ls -lha
 #    | |       +---- this is alias command `ls -lha`
 #    | +---- this is the alias name `l`
 #    +---- this is the verb `add`
+```
+
+### Parameterized aliases
+
+Aliases can use `{{1}}`, `{{2}}`, ... for positional arguments and `{{@}}` for all arguments:
+
+```shell
+# Compose aliases with argument templates
+am add -p git cm "git commit -S --signoff -m {{@}}"
+am add -p git-conventional cmf "cm feat: {{@}}"
+
+cmf my feature description
+# → cm feat: my feature description
+# → git commit -S --signoff -m feat: my feature description
+
+# Positional arguments
+am add greet "echo Hello {{1}}, welcome to {{2}}"
+greet Alice Wonderland
+# → echo Hello Alice, welcome to Wonderland
+```
+
+If your command literally contains `{{N}}` (e.g., in awk), use `--raw` to disable template detection:
+
+```shell
+am add --raw my-awk "awk '{print {{1}}}'"
 ```
 
 ### Profiles

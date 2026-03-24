@@ -61,6 +61,10 @@ pub enum Commands {
     /// Internal: called by the cd hook to load/unload project aliases
     #[command(hide = true)]
     Hook { shell: Shells },
+
+    /// Internal: called by the am wrapper to reload profile aliases after switching
+    #[command(hide = true)]
+    Reload { shell: Shells },
 }
 
 #[derive(Subcommand)]
@@ -108,6 +112,10 @@ pub struct Alias {
     /// Add to the project's .aliases file instead of a profile
     #[arg(short, long)]
     pub local: bool,
+
+    /// Disable {{N}} template detection (treat command as literal)
+    #[arg(long)]
+    pub raw: bool,
 
     /// The alias name
     pub name: String,

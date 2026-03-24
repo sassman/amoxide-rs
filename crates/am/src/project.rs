@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::dirs::home_dir;
-use crate::{AliasName, AliasSet, TomlAlias};
+use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 pub const ALIASES_FILE: &str = ".aliases";
 
@@ -64,9 +64,18 @@ impl ProjectAliases {
         Ok(())
     }
 
-    pub fn add_alias(&mut self, name: String, command: String) {
+    pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
         let key: AliasName = name.into();
-        self.aliases.insert(key, TomlAlias::Command(command));
+        let alias = if raw {
+            TomlAlias::Detailed(AliasDetail {
+                command,
+                description: None,
+                raw: true,
+            })
+        } else {
+            TomlAlias::Command(command)
+        };
+        self.aliases.insert(key, alias);
     }
 }
 
@@ -146,7 +155,7 @@ mod tests {
         let path = dir.path().join(".aliases");
 
         let mut project = ProjectAliases::default();
-        project.add_alias("t".to_string(), "cargo test".to_string());
+        project.add_alias("t".to_string(), "cargo test".to_string(), false);
         project.save(&path).unwrap();
 
         let loaded = ProjectAliases::load(&path).unwrap();

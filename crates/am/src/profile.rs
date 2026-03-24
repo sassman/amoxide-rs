@@ -4,7 +4,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::dirs::config_dir;
-use crate::{AliasName, AliasSet, Result, TomlAlias};
+use crate::{AliasDetail, AliasName, AliasSet, Result, TomlAlias};
 
 const CONFIG_FILE: &str = "profiles.toml";
 
@@ -199,10 +199,18 @@ impl Profile {
         }
     }
 
-    pub fn add_alias(&mut self, name: String, command: String) -> Result<()> {
-        let name: AliasName = name.into();
-        let alias = TomlAlias::Command(command);
-        self.aliases.insert(name, alias);
+    pub fn add_alias(&mut self, name: String, command: String, raw: bool) -> Result<()> {
+        let key: AliasName = name.into();
+        let alias = if raw {
+            TomlAlias::Detailed(AliasDetail {
+                command,
+                description: None,
+                raw: true,
+            })
+        } else {
+            TomlAlias::Command(command)
+        };
+        self.aliases.insert(key, alias);
         Ok(())
     }
 
