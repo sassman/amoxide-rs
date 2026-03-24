@@ -82,77 +82,26 @@ pub fn generate_reload(
     lines.join("\n")
 }
 
+const WRAPPER_FISH: &str = include_str!("shell_scripts/wrapper.fish");
+const WRAPPER_ZSH: &str = include_str!("shell_scripts/wrapper.zsh");
+const HOOK_FISH: &str = include_str!("shell_scripts/hook.fish");
+const HOOK_ZSH: &str = include_str!("shell_scripts/hook.zsh");
+
+fn shell_script(template: &str, shell: &Shells) -> String {
+    template.replace("__SHELL__", &shell.to_string())
+}
+
 fn am_wrapper(shell: &Shells) -> String {
-    let shell_name = shell.to_string();
-    // Fish: pipe to source. Zsh: wrap in eval "$()".
-    let (reload_fish, hook_fish) = (
-        format!("command am reload {shell_name} | source"),
-        format!("command am hook {shell_name} | source"),
-    );
-    let (reload_zsh, hook_zsh) = (
-        format!("command am reload {shell_name}"),
-        format!("command am hook {shell_name}"),
-    );
     match shell {
-        Shells::Fish => [
-            "# am wrapper: reload aliases after mutations",
-            "function am --wraps=am",
-            "    command am $argv",
-            "    # profile switch → reload profile aliases",
-            "    if begin; test \"$argv[1]\" = profile; or test \"$argv[1]\" = p; end",
-            "        if begin; test \"$argv[2]\" = set; or test \"$argv[2]\" = s; end",
-            &format!("            {reload_fish}"),
-            "        end",
-            "    else if begin; test \"$argv[1]\" = add; or test \"$argv[1]\" = a; or test \"$argv[1]\" = remove; or test \"$argv[1]\" = r; end",
-            "        if contains -- -l $argv; or contains -- --local $argv",
-            "            # local alias change → reload project aliases",
-            &format!("            {hook_fish}"),
-            "        else",
-            "            # profile alias change (including -p) → reload profile aliases",
-            &format!("            {reload_fish}"),
-            "        end",
-            "    end",
-            "end",
-        ]
-        .join("\n"),
-        Shells::Zsh => {
-            format!(
-                "am() {{\n  \
-                command am \"$@\"\n  \
-                case \"$1:$2\" in\n    \
-                profile:set|p:set|profile:s|p:s) eval \"$({reload_zsh})\" ;;\n  \
-                esac\n  \
-                case \"$1\" in\n    \
-                add|a|remove|r)\n      \
-                case \"$*\" in\n        \
-                *\\ -l\\ *|*\\ --local\\ *|*\\ -l|*\\ --local) eval \"$({hook_zsh})\" ;;\n        \
-                *) eval \"$({reload_zsh})\" ;;\n      \
-                esac ;;\n  \
-                esac\n\
-                }}"
-            )
-        }
+        Shells::Fish => shell_script(WRAPPER_FISH, shell),
+        Shells::Zsh => shell_script(WRAPPER_ZSH, shell),
     }
 }
 
 fn cd_hook_setup(shell: &Shells) -> String {
-    let shell_name = shell.to_string();
     match shell {
-        Shells::Fish => [
-            "# am cd hook",
-            "function __am_hook --on-variable PWD",
-            &format!("    am hook {shell_name} | source"),
-            "end",
-            "__am_hook",
-        ]
-        .join("\n"),
-        Shells::Zsh => [
-            "# am cd hook",
-            &format!("__am_hook() {{ eval \"$(am hook {shell_name})\"; }}"),
-            "chpwd_functions+=(__am_hook)",
-            "__am_hook",
-        ]
-        .join("\n"),
+        Shells::Fish => shell_script(HOOK_FISH, shell),
+        Shells::Zsh => shell_script(HOOK_ZSH, shell),
     }
 }
 
