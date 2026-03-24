@@ -215,14 +215,14 @@ fn snapshot_hook_fish_leaving_project() {
 #[test]
 fn snapshot_display_inheritance_tree() {
     let config = git_conventional_config();
-    let output = render_profile_tree(&config, "git-conventional");
+    let output = render_profile_tree(&config, Some("git-conventional"));
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_display_deep_chain() {
     let config = deep_chain_config();
-    let output = render_profile_tree(&config, "rust");
+    let output = render_profile_tree(&config, Some("rust"));
     insta::assert_snapshot!(output);
 }
 
@@ -246,6 +246,6 @@ fn snapshot_display_listing_with_globals_and_project() {
     )
     .unwrap();
 
-    let output = render_listing(&globals, &config, "rust", dir.path());
+    let output = render_listing(&globals, &config, Some("rust"), dir.path());
     insta::assert_snapshot!(output);
 }
