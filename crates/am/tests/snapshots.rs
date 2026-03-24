@@ -151,6 +151,48 @@ fn snapshot_reload_zsh_switch_profile() {
     insta::assert_snapshot!(output);
 }
 
+#[test]
+fn snapshot_reload_fish_after_global_add() {
+    // Simulates: user had profile aliases loaded, then adds a global alias
+    let globals = aliases(&[("ll", "ls -lha")]);
+    let config = git_conventional_config();
+    let resolved = config.resolve_aliases("git-conventional");
+    let output = generate_reload(
+        &Shells::Fish,
+        &globals,
+        &resolved,
+        Some("cm,cmf,gs"), // previously tracked aliases
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_reload_fish_globals_only_no_profile() {
+    // No active profile, only globals
+    let globals = aliases(&[("ll", "ls -lha"), ("gs", "git status")]);
+    let output = generate_reload(&Shells::Fish, &globals, &AliasSet::default(), Some("old"));
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_reload_zsh_after_global_add() {
+    let globals = aliases(&[("ll", "ls -lha")]);
+    let config = git_conventional_config();
+    let resolved = config.resolve_aliases("git-conventional");
+    let output = generate_reload(&Shells::Zsh, &globals, &resolved, Some("cm,cmf,gs"));
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_init_fish_globals_and_inherited_profile() {
+    // Full scenario: globals + inherited profile
+    let globals = aliases(&[("ll", "ls -lha")]);
+    let config = git_conventional_config();
+    let resolved = config.resolve_aliases("git-conventional");
+    let output = generate_init(&Shells::Fish, &globals, &resolved);
+    insta::assert_snapshot!(output);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Hook snapshots
 // ═══════════════════════════════════════════════════════════════════════
