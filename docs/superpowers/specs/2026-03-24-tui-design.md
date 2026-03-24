@@ -6,6 +6,8 @@ A minimalistic, borderless TUI for managing aliases and profiles interactively. 
 
 The TUI provides a unified tree view of all profiles and project aliases, allowing users to navigate, select, move, create, and delete aliases and profiles — like a midnight commander for alias management.
 
+The codebase has three alias scopes: **global** (in `config.toml`, always loaded), **profile** (in `profiles.toml`, loaded per active profile), and **project** (in `.aliases` files, loaded per directory). The TUI covers all three.
+
 ## Visual Design
 
 ### Aesthetic
@@ -17,11 +19,16 @@ The TUI provides a unified tree view of all profiles and project aliases, allowi
 
 ### Single Column (Normal Mode)
 
-One unified tree showing project aliases and all profiles with their aliases:
+One unified tree showing global aliases, project aliases, and all profiles with their aliases:
 
 ```
   am tui                                                q quit  ␣ select  m move  n new  x delete  s activate
 
+  🌐 global
+  │
+  │  ll
+  │  ls -lha
+  │
   📁 project (.aliases)
   │
   │  t
@@ -49,11 +56,13 @@ One unified tree showing project aliases and all profiles with their aliases:
        git add
 ```
 
+- `🌐` icon for global aliases node
 - `📁` icon for project aliases node
 - `●` for active profile, `○` for inactive profiles
 - Tree connectors (`│`, `├─`, `╰─`) link everything into one continuous tree
 - Profile inheritance shown via nesting (child profiles indented under parent)
 - All profiles expanded by default
+- Order: global → project → profiles (tree)
 
 ### Two Column (Moving Mode)
 
@@ -62,6 +71,11 @@ Appears when aliases are selected and user presses `m`:
 ```
   am tui                                                q quit  ␣ select  m move  n new  x delete  s activate
 
+  🌐 global
+  │
+  │  ll
+  │  ls -lha
+  │
   📁 project (.aliases)
   │
   │  t
@@ -70,15 +84,15 @@ Appears when aliases are selected and user presses `m`:
   │  b
   │  ./x.py build
   │
-  ● rust (active)                                       📁 project (.aliases)
+  ● rust (active)                                       🌐 global
   │                                                     │
-  │  ▸ gs                          ──────────────────►  ● rust (active)
+  │  ▸ gs                          ──────────────────►  📁 project (.aliases)
   │    git status                                       │
-  │                                                     ├─○ node
+  │                                                     ● rust (active)
   │  ■ ct                                               │
-  │    cargo test                                       ╰─○ git
-  │
-  ├─○ node
+  │    cargo test                                       ├─○ node
+  │                                                     │
+  ├─○ node                                              ╰─○ git
   │
   │     nr
   │     npm run
@@ -94,6 +108,14 @@ Appears when aliases are selected and user presses `m`:
 - Arrow between columns indicates move direction
 - Right column is an exact structural mirror of the left tree (same order, same nodes)
 
+### Help Bar
+
+The help bar at the top is **mode-aware**:
+
+- **Normal mode:** `q quit  ␣ select  m move  n new  x delete  s activate`
+- **Moving mode:** `Esc cancel  ↑↓ navigate  Enter move here  Tab switch column`
+- **TextInput mode:** `Esc cancel  Enter confirm`
+
 ### Symbols
 
 | Symbol | Meaning |
@@ -102,6 +124,7 @@ Appears when aliases are selected and user presses `m`:
 | `■` | Selected alias |
 | `●` | Active profile |
 | `○` | Inactive profile |
+| `🌐` | Global aliases node |
 | `📁` | Project aliases node |
 
 ## Interaction Model
@@ -112,27 +135,27 @@ Appears when aliases are selected and user presses `m`:
 
 | Key | Action |
 |-----|--------|
-| `j` / `↓` | Move cursor down |
-| `k` / `↑` | Move cursor up |
+| `j` / `↓` | Move cursor down (next navigable node) |
+| `k` / `↑` | Move cursor up (previous navigable node) |
 | `g` / `Home` | Jump to top |
 | `G` / `End` | Jump to bottom |
 
-**Selection & Moving:**
+**Selection & Moving (Normal and Moving mode):**
 
 | Key | Action |
 |-----|--------|
-| `space` | Toggle select alias under cursor (alias items only) |
+| `space` | Toggle select alias under cursor (alias items only, no-op on headers) |
 | `m` | Enter Moving mode — right column appears, focus moves right (no-op if nothing selected) |
-| `Enter` | Execute move to destination under cursor (right column only) |
+| `Enter` | Execute move to destination under cursor (Moving mode, right column only) |
 | `Esc` | Cancel move / clear selection, return to Normal mode |
-| `Tab` | Switch focus between columns (Moving mode only) |
+| `Tab` | Switch focus between columns (Moving mode only, no-op in Normal mode) |
 
-**Management:**
+**Management (Normal mode only):**
 
 | Key | Action |
 |-----|--------|
-| `n` | Create new profile (inline text input at bottom) |
-| `x` | Delete item under cursor — alias (any) or profile (header only) |
+| `n` | Create new profile (inline text input at bottom). Disabled in Moving mode. |
+| `x` | Delete item under cursor — alias (any) or profile (header only). Shows confirmation for profiles. |
 | `s` | Set profile under cursor as active (profile headers only) |
 
 **General:**
@@ -143,8 +166,18 @@ Appears when aliases are selected and user presses `m`:
 
 ### Cursor Behavior
 
-- Cursor skips non-interactive gaps (empty lines, tree connectors) — jumps between alias items and profile/project headers only
-- After a move: selection clears, right column disappears, tree rebuilds, cursor stays near its previous position
+Two concepts govern cursor interaction with tree nodes:
+
+- **Navigable:** cursor can land on this node. Applies to alias items and profile/project headers. Whitespace gaps and tree connector lines are skipped.
+- **Selectable:** `space` can mark this node for a move. Applies to alias items only — headers are navigable but not selectable.
+
+The cursor always jumps to the next/previous navigable node, skipping decorative rows.
+
+After a move or delete: tree rebuilds, cursor repositions to the nearest navigable node to where it was.
+
+### Scrolling
+
+If the tree is taller than the terminal viewport, the view scrolls to keep the cursor visible. A `scroll_offset` in the model tracks the top visible line. The viewport follows the cursor — when the cursor moves past the visible area, the viewport shifts to keep it centered or near-edge.
 
 ### Mode Transitions
 
@@ -152,6 +185,10 @@ Appears when aliases are selected and user presses `m`:
 Normal ──(space to select, then m)──► Moving ──(Enter)──► Normal
   ▲                                      │
   └──────────(Esc)───────────────────────┘
+
+Normal ──(n)──► TextInput ──(Enter)──► Normal
+  ▲                  │
+  └────(Esc)─────────┘
 ```
 
 ## Operations
@@ -171,18 +208,20 @@ Normal ──(space to select, then m)──► Moving ──(Enter)──► No
 
 - `x` on an alias item removes it from its profile/project
 - Persists immediately
+- No confirmation prompt (single alias, easily re-added)
 
 ### Delete Profile
 
-- `x` on a profile header deletes the profile and all its aliases
+- `x` on a profile header shows a confirmation prompt ("Delete profile 'name' and all its aliases? y/n")
+- If confirmed: deletes the profile and all its aliases
 - Dependents (child profiles) are re-parented to the deleted profile's parent
-- Deleting the currently active profile clears the active marker (no active profile — only global/project aliases remain)
-- No special-cased "default" profile — any profile can be deleted
+- Deleting the currently active profile clears the active marker (no active profile — only global and project aliases remain)
+- No special-cased profiles — any profile can be deleted
 
 ### Create Profile
 
 - `n` triggers an inline text input at the bottom of the screen
-- Enter a name, press `Enter` to create
+- Enter a name, press `Enter` to create, `Esc` to cancel
 - New profile appears in the tree immediately
 - Created as a root-level profile (no inheritance)
 
@@ -210,42 +249,96 @@ crates/am/src/
 ### Data Model
 
 ```rust
+/// Identifies an alias by its scope and name — survives tree rebuilds.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
+enum AliasId {
+    Global { alias_name: String },
+    Profile { profile_name: String, alias_name: String },
+    Project { alias_name: String },
+}
+
 struct TuiModel {
-    app_model: AppModel,          // existing profiles, config, project aliases
-    tree: Vec<TreeNode>,          // flattened tree for rendering/navigation
-    cursor: usize,                // index into flattened tree
-    selected: BTreeSet<usize>,    // multi-select set (alias indices)
-    mode: Mode,                   // Normal | Moving | TextInput
-    dest_tree: Vec<TreeNode>,     // right column tree (headers only)
-    dest_cursor: usize,           // cursor in destination column
-    active_column: Column,        // Left | Right
+    app_model: AppModel,           // existing profiles, config, project aliases
+    tree: Vec<TreeNode>,           // flattened tree for rendering/navigation
+    cursor: usize,                 // raw index into Vec<TreeNode>; navigation skips non-navigable nodes
+    selected: BTreeSet<AliasId>,   // multi-select set (identity-based, survives rebuilds)
+    mode: Mode,                    // Normal | Moving | TextInput | Confirm
+    dest_tree: Vec<TreeNode>,      // right column tree (headers only)
+    dest_cursor: usize,            // cursor in destination column
+    active_column: Column,         // Left | Right
+    scroll_offset: usize,          // viewport top line for scrolling
 }
 
 struct TreeNode {
-    kind: NodeKind,               // ProfileHeader | AliasItem | ProjectHeader
-    depth: u16,                   // indentation level
-    profile_name: Option<String>, // owning profile
-    alias_name: Option<String>,   // for AliasItem
-    alias_command: Option<String>,// for AliasItem
-    is_active: bool,              // active profile marker
-    selectable: bool,             // only alias items
+    kind: NodeKind,                // ProfileHeader | AliasItem | ProjectHeader
+    depth: u16,                    // indentation level
+    profile_name: Option<String>,  // owning profile (None for project nodes)
+    alias_name: Option<String>,    // for AliasItem
+    alias_command: Option<String>, // for AliasItem
+    is_active: bool,               // active profile marker
 }
 
 enum NodeKind {
-    ProfileHeader,
-    AliasItem,
-    ProjectHeader,
+    GlobalHeader,    // navigable, not selectable
+    ProfileHeader,   // navigable, not selectable
+    AliasItem,       // navigable and selectable
+    ProjectHeader,   // navigable, not selectable
 }
 
 enum Mode {
     Normal,
     Moving,
-    TextInput(String),            // for new profile name
+    TextInput(String),             // new profile name being typed
+    Confirm(ConfirmAction),        // awaiting y/n
+}
+
+enum ConfirmAction {
+    DeleteProfile(String),
+    OverwriteAliases(Vec<AliasId>, String),  // aliases to move, destination
 }
 
 enum Column {
     Left,
     Right,
+}
+```
+
+### TuiMessage Enum
+
+```rust
+enum TuiMessage {
+    // Navigation
+    CursorUp,
+    CursorDown,
+    JumpTop,
+    JumpBottom,
+
+    // Selection
+    ToggleSelect,          // space — toggle alias under cursor
+    EnterMoveMode,         // m — show right column
+    ExecuteMove,           // Enter — move selected to destination
+    CancelMove,            // Esc — back to Normal
+
+    // Column
+    SwitchColumn,          // Tab
+
+    // Management
+    StartCreateProfile,    // n — enter TextInput mode
+    DeleteItem,            // x — delete alias or profile under cursor
+    SetActive,             // s — set profile as active
+
+    // TextInput
+    TextInputChar(char),
+    TextInputConfirm,      // Enter in TextInput mode
+    TextInputCancel,       // Esc in TextInput mode
+
+    // Confirm
+    ConfirmYes,
+    ConfirmNo,
+
+    // System
+    Quit,
+    Resize(u16, u16),      // terminal resized — re-check minimum size
 }
 ```
 
@@ -271,10 +364,13 @@ enum Column {
 
 ### Terminal Size
 
-If the terminal is too narrow (below ~60 columns) or too short, exit immediately with an error message asking for more terminal space. No cramped fallback layout.
+- Minimum terminal size: 60 columns, 15 rows
+- If the terminal is below minimum at startup, exit immediately with an error message asking for more space
+- If the terminal is resized below minimum during use, exit with the same error message
+- No cramped fallback layout
 
 ### Project Aliases
 
 - If no `.aliases` file exists in the cwd ancestry, the `📁 project` node does not appear in the tree
-- Moving an alias to the project node when no `.aliases` file exists creates the file automatically
+- Moving an alias to the project node when no `.aliases` file exists creates the file in the **current working directory**
 - Project alias discovery follows existing behavior: walks up from cwd, stops before `$HOME`
