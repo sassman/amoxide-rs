@@ -183,8 +183,14 @@ If the tree is taller than the terminal viewport, the view scrolls to keep the c
 
 ```
 Normal ──(space to select, then m)──► Moving ──(Enter)──► Normal
-  ▲                                      │
-  └──────────(Esc)───────────────────────┘
+  ▲                                      │       │
+  └──────────(Esc)───────────────────────┘       │
+                                                  ▼
+Normal ◄──(y/n)── Confirm ◄──(name collision)────┘
+
+Normal ──(x on profile)──► Confirm ──(y)──► Normal
+  ▲                            │
+  └─────────(n)────────────────┘
 
 Normal ──(n)──► TextInput ──(Enter)──► Normal
   ▲                  │
@@ -195,9 +201,9 @@ Normal ──(n)──► TextInput ──(Enter)──► Normal
 
 ### Move Alias
 
-1. Select one or more aliases from anywhere in the tree (multi-select across profiles and project)
+1. Select one or more aliases from anywhere in the tree (multi-select across global, profiles, and project)
 2. Press `m` — right column appears with destination tree
-3. Navigate to destination profile/project header in right column
+3. Navigate to destination header in right column (global, any profile, or project)
 4. Press `Enter` — aliases are removed from source and added to destination
 5. **Name collision:** If destination already has an alias with the same name, show a confirmation prompt before overwriting
 6. **Same source/destination:** No-op, silent — no error message
@@ -270,12 +276,12 @@ struct TuiModel {
 }
 
 struct TreeNode {
-    kind: NodeKind,                // ProfileHeader | AliasItem | ProjectHeader
+    kind: NodeKind,                // GlobalHeader | ProfileHeader | AliasItem | ProjectHeader
     depth: u16,                    // indentation level
-    profile_name: Option<String>,  // owning profile (None for project nodes)
-    alias_name: Option<String>,    // for AliasItem
-    alias_command: Option<String>, // for AliasItem
-    is_active: bool,               // active profile marker
+    alias_id: Option<AliasId>,     // for AliasItem nodes — full identity for move/delete operations
+    alias_command: Option<String>, // for AliasItem — displayed as dimmed second line
+    is_active: bool,               // active profile marker (ProfileHeader only)
+    label: String,                 // display text: profile name, alias name, or "project (.aliases)"
 }
 
 enum NodeKind {
@@ -351,7 +357,7 @@ enum TuiMessage {
 ### Integration with Existing Code
 
 - `TuiModel` wraps `AppModel` — reuses all existing profile/alias/project CRUD operations
-- Move = `remove_alias()` from source + `add_alias()` to destination + `save()`
+- Move = `remove_alias()` from source + `add_alias()` to destination + `save()`. For global aliases, this uses `Config::add_alias`/`remove_alias` + `Config::save`. For profile aliases, `Profile::add_alias`/`remove_alias` + `ProfileConfig::save`. For project aliases, `ProjectAliases` methods.
 - `Commands` enum gets a new `Tui` variant
 - `messages.rs` gets `Message::LaunchTui` that calls `tui::run()`
 
@@ -369,8 +375,15 @@ enum TuiMessage {
 - If the terminal is resized below minimum during use, exit with the same error message
 - No cramped fallback layout
 
-### Project Aliases
+### Node Visibility
 
-- If no `.aliases` file exists in the cwd ancestry, the `📁 project` node does not appear in the tree
-- Moving an alias to the project node when no `.aliases` file exists creates the file in the **current working directory**
-- Project alias discovery follows existing behavior: walks up from cwd, stops before `$HOME`
+- **Global node (`🌐`):** Hidden when `Config.aliases` is empty. Appears once a global alias exists (e.g. moved there from another scope).
+- **Project node (`📁`):** Hidden when no `.aliases` file exists in the cwd ancestry. Moving an alias to the project node when no file exists creates it in the **current working directory**.
+- **Profile nodes:** Always visible, even when empty (they can receive aliases via move).
+- Project alias discovery follows existing behavior: walks up from cwd, stops before `$HOME`.
+
+## Out of Scope (V1)
+
+- **Creating aliases** from within the TUI. Use `am add` from the CLI. The TUI focuses on reorganization (move, delete) and profile management (create, delete, activate).
+- **Renaming aliases** within the TUI.
+- **Editing alias commands** within the TUI.
