@@ -116,15 +116,19 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
             Ok(None)
         }
         Message::InitShell(shell) => {
-            let profile = model.get_active_profile();
-            let output = generate_init(&shell, &model.config.aliases, profile);
+            let resolved = model
+                .profile_config()
+                .resolve_aliases(&model.config.active_profile);
+            let output = generate_init(&shell, &model.config.aliases, &resolved);
             print!("{output}");
             Ok(None)
         }
         Message::Reload(shell) => {
-            let profile = model.get_active_profile();
+            let resolved = model
+                .profile_config()
+                .resolve_aliases(&model.config.active_profile);
             let prev = std::env::var("_AM_PROFILE_ALIASES").ok();
-            let output = generate_reload(&shell, profile, prev.as_deref());
+            let output = generate_reload(&shell, &resolved, prev.as_deref());
             if !output.is_empty() {
                 print!("{output}");
             }

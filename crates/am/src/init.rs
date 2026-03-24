@@ -1,8 +1,14 @@
 use crate::shell::Shells;
-use crate::{AliasSet, Profile};
+use crate::AliasSet;
 
-/// Generate the complete shell init script for the given shell and active profile.
-pub fn generate_init(shell: &Shells, global_aliases: &AliasSet, profile: &Profile) -> String {
+/// Generate the complete shell init script.
+/// `global_aliases` — always loaded, independent of profile.
+/// `profile_aliases` — resolved alias set (including inherited aliases).
+pub fn generate_init(
+    shell: &Shells,
+    global_aliases: &AliasSet,
+    profile_aliases: &AliasSet,
+) -> String {
     let shell_impl = shell.clone().as_shell();
     let mut lines: Vec<String> = Vec::new();
 
@@ -12,9 +18,9 @@ pub fn generate_init(shell: &Shells, global_aliases: &AliasSet, profile: &Profil
         lines.push(shell_impl.alias(&alias_value.as_entry(name)));
     }
 
-    // Emit alias definitions from the active profile
+    // Emit profile aliases (already resolved with inheritance)
     let mut alias_names: Vec<String> = Vec::new();
-    for (alias_name, alias_value) in profile.aliases.iter() {
+    for (alias_name, alias_value) in profile_aliases.iter() {
         let name = alias_name.as_ref();
         lines.push(shell_impl.alias(&alias_value.as_entry(name)));
         alias_names.push(name.to_string());
@@ -37,10 +43,10 @@ pub fn generate_init(shell: &Shells, global_aliases: &AliasSet, profile: &Profil
 }
 
 /// Generate shell code to reload profile aliases after a profile switch.
-/// Unloads old aliases, loads new ones, updates the tracking env var.
+/// `profile_aliases` — resolved alias set (including inherited aliases).
 pub fn generate_reload(
     shell: &Shells,
-    profile: &Profile,
+    profile_aliases: &AliasSet,
     previous_aliases: Option<&str>,
 ) -> String {
     let shell_impl = shell.clone().as_shell();
@@ -56,9 +62,9 @@ pub fn generate_reload(
         lines.push(shell_impl.unalias(alias_name));
     }
 
-    // Load new profile aliases
+    // Load new profile aliases (already resolved with inheritance)
     let mut alias_names: Vec<String> = Vec::new();
-    for (alias_name, alias_value) in profile.aliases.iter() {
+    for (alias_name, alias_value) in profile_aliases.iter() {
         let name = alias_name.as_ref();
         lines.push(shell_impl.alias(&alias_value.as_entry(name)));
         alias_names.push(name.to_string());
@@ -142,36 +148,40 @@ fn cd_hook_setup(shell: &Shells) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Profile;
+    use crate::{AliasName, TomlAlias};
 
-    fn test_profile() -> Profile {
-        let mut p = Profile::new("test".to_string(), None);
-        p.add_alias("ll".to_string(), "ls -lha".to_string(), false)
-            .unwrap();
-        p.add_alias("gs".to_string(), "git status".to_string(), false)
-            .unwrap();
-        p
+    fn test_aliases() -> AliasSet {
+        let mut aliases = AliasSet::default();
+        aliases.insert(
+            AliasName::from("ll"),
+            TomlAlias::Command("ls -lha".to_string()),
+        );
+        aliases.insert(
+            AliasName::from("gs"),
+            TomlAlias::Command("git status".to_string()),
+        );
+        aliases
     }
 
     #[test]
     fn test_fish_init_contains_aliases() {
-        let profile = test_profile();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
         assert!(output.contains("alias gs \"git status\""));
         assert!(output.contains("alias ll \"ls -lha\""));
     }
 
     #[test]
     fn test_fish_init_tracks_profile_aliases() {
-        let profile = test_profile();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
         assert!(output.contains("_AM_PROFILE_ALIASES"));
     }
 
     #[test]
     fn test_fish_init_contains_wrapper() {
-        let profile = test_profile();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
         assert!(output.contains("function am --wraps=am"));
         assert!(output.contains("am reload fish"));
         // wrapper also intercepts local alias changes
@@ -181,24 +191,24 @@ mod tests {
 
     #[test]
     fn test_fish_init_contains_cd_hook() {
-        let profile = test_profile();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
         assert!(output.contains("--on-variable PWD"));
         assert!(output.contains("am hook fish"));
     }
 
     #[test]
     fn test_zsh_init_contains_aliases() {
-        let profile = test_profile();
-        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &aliases);
         assert!(output.contains("gs() { git status \"$@\"; }"));
         assert!(output.contains("ll() { ls -lha \"$@\"; }"));
     }
 
     #[test]
     fn test_zsh_init_contains_wrapper() {
-        let profile = test_profile();
-        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &aliases);
         assert!(output.contains("am()"));
         assert!(output.contains("am reload zsh"));
         assert!(output.contains("--local"));
@@ -207,24 +217,23 @@ mod tests {
 
     #[test]
     fn test_zsh_init_contains_cd_hook() {
-        let profile = test_profile();
-        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &aliases);
         assert!(output.contains("chpwd_functions"));
         assert!(output.contains("am hook zsh"));
     }
 
     #[test]
     fn test_init_empty_profile_no_tracking_var() {
-        let profile = Profile::new("empty".to_string(), None);
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &profile);
+        let output = generate_init(&Shells::Fish, &AliasSet::default(), &AliasSet::default());
         assert!(output.contains("__am_hook"));
         assert!(!output.contains("_AM_PROFILE_ALIASES"));
     }
 
     #[test]
     fn test_reload_unloads_old_and_loads_new() {
-        let new_profile = test_profile();
-        let output = generate_reload(&Shells::Fish, &new_profile, Some("old1,old2"));
+        let aliases = test_aliases();
+        let output = generate_reload(&Shells::Fish, &aliases, Some("old1,old2"));
         // unloads old
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("functions -e old2"));
@@ -237,16 +246,16 @@ mod tests {
 
     #[test]
     fn test_reload_zsh_unloads_with_unset_f() {
-        let new_profile = test_profile();
-        let output = generate_reload(&Shells::Zsh, &new_profile, Some("old1"));
+        let aliases = test_aliases();
+        let output = generate_reload(&Shells::Zsh, &aliases, Some("old1"));
         assert!(output.contains("unset -f old1"));
         assert!(output.contains("gs() { git status \"$@\"; }"));
     }
 
     #[test]
     fn test_reload_no_previous() {
-        let new_profile = test_profile();
-        let output = generate_reload(&Shells::Fish, &new_profile, None);
+        let aliases = test_aliases();
+        let output = generate_reload(&Shells::Fish, &aliases, None);
         // no unalias lines
         assert!(!output.contains("functions -e"));
         // has new aliases
@@ -255,8 +264,7 @@ mod tests {
 
     #[test]
     fn test_reload_to_empty_profile_clears_tracking() {
-        let empty = Profile::new("empty".to_string(), None);
-        let output = generate_reload(&Shells::Fish, &empty, Some("old1"));
+        let output = generate_reload(&Shells::Fish, &AliasSet::default(), Some("old1"));
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("set -e _AM_PROFILE_ALIASES"));
     }
@@ -269,8 +277,7 @@ mod tests {
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
 
-        let profile = Profile::new("empty".to_string(), None);
-        let output = generate_init(&Shells::Fish, &globals, &profile);
+        let output = generate_init(&Shells::Fish, &globals, &AliasSet::default());
         assert!(output.contains("alias ll \"ls -lha\""));
     }
 
@@ -282,8 +289,8 @@ mod tests {
             crate::TomlAlias::Command("global cmd".to_string()),
         );
 
-        let profile = test_profile();
-        let output = generate_init(&Shells::Fish, &globals, &profile);
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Fish, &globals, &aliases);
         let gl_pos = output.find("gl").unwrap();
         let gs_pos = output.find("gs").unwrap();
         assert!(

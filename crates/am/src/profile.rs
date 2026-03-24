@@ -51,6 +51,38 @@ impl ProfileConfig {
     pub fn is_empty(&self) -> bool {
         self.profiles.is_empty()
     }
+
+    /// Resolve the full alias set for a profile by walking up its inheritance chain.
+    /// Parent aliases are loaded first, child aliases override parents.
+    pub fn resolve_aliases(&self, profile_name: &str) -> AliasSet {
+        let mut chain = Vec::new();
+        let mut current = profile_name;
+
+        // Walk up the chain, collecting profiles (child first)
+        let mut visited = std::collections::HashSet::new();
+        loop {
+            if !visited.insert(current.to_string()) {
+                break; // circular inheritance guard
+            }
+            let Some(profile) = self.get_profile_by_name(current) else {
+                break;
+            };
+            chain.push(profile);
+            match &profile.inherits {
+                Some(parent) => current = parent,
+                None => break,
+            }
+        }
+
+        // Merge aliases: parent first, child overrides
+        let mut resolved = AliasSet::default();
+        for profile in chain.into_iter().rev() {
+            for (name, alias) in profile.aliases.iter() {
+                resolved.insert(name.clone(), alias.clone());
+            }
+        }
+        resolved
+    }
 }
 
 pub enum Response {
@@ -330,5 +362,107 @@ mod tests {
 
         let err = config.remove_profile("nope").unwrap_err();
         assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_resolve_aliases_single_profile() {
+        let config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+            gp = "git push"
+        "#})
+        .unwrap();
+
+        let resolved = config.resolve_aliases("git");
+        assert_eq!(resolved.iter().count(), 2);
+    }
+
+    #[test]
+    fn test_resolve_aliases_with_inheritance() {
+        let config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+            gp = "git push"
+
+            [[profiles]]
+            name = "rust"
+            inherits = "git"
+            [profiles.aliases]
+            ct = "cargo test"
+        "#})
+        .unwrap();
+
+        let resolved = config.resolve_aliases("rust");
+        assert_eq!(resolved.iter().count(), 3); // gs, gp from git + ct from rust
+                                                // Verify specific aliases are present
+        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "gs"));
+        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "gp"));
+        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "ct"));
+    }
+
+    #[test]
+    fn test_resolve_aliases_child_overrides_parent() {
+        let config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "base"
+            [profiles.aliases]
+            t = "base test"
+
+            [[profiles]]
+            name = "child"
+            inherits = "base"
+            [profiles.aliases]
+            t = "child test"
+        "#})
+        .unwrap();
+
+        let resolved = config.resolve_aliases("child");
+        assert_eq!(resolved.iter().count(), 1);
+        assert_eq!(resolved.iter().next().unwrap().1.command(), "child test");
+    }
+
+    #[test]
+    fn test_resolve_aliases_deep_chain() {
+        let config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "base"
+            [profiles.aliases]
+            a = "from base"
+
+            [[profiles]]
+            name = "mid"
+            inherits = "base"
+            [profiles.aliases]
+            b = "from mid"
+
+            [[profiles]]
+            name = "leaf"
+            inherits = "mid"
+            [profiles.aliases]
+            c = "from leaf"
+        "#})
+        .unwrap();
+
+        let resolved = config.resolve_aliases("leaf");
+        assert_eq!(resolved.iter().count(), 3);
+        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "a"));
+        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "b"));
+        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "c"));
+    }
+
+    #[test]
+    fn test_resolve_aliases_nonexistent_profile() {
+        let config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "default"
+        "#})
+        .unwrap();
+
+        let resolved = config.resolve_aliases("nonexistent");
+        assert!(resolved.is_empty());
     }
 }
