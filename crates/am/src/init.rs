@@ -82,10 +82,10 @@ pub fn generate_reload(
     lines.join("\n")
 }
 
-const WRAPPER_FISH: &str = include_str!("shell_scripts/wrapper.fish");
-const WRAPPER_ZSH: &str = include_str!("shell_scripts/wrapper.zsh");
-const HOOK_FISH: &str = include_str!("shell_scripts/hook.fish");
-const HOOK_ZSH: &str = include_str!("shell_scripts/hook.zsh");
+const WRAPPER_FISH: &str = include_str!("shell_wrappers/wrapper.fish");
+const WRAPPER_ZSH: &str = include_str!("shell_wrappers/wrapper.zsh");
+const HOOK_FISH: &str = include_str!("shell_wrappers/hook.fish");
+const HOOK_ZSH: &str = include_str!("shell_wrappers/hook.zsh");
 
 fn shell_script(template: &str, shell: &Shells) -> String {
     template.replace("__SHELL__", &shell.to_string())
