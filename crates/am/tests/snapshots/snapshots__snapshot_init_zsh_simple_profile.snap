@@ -15,6 +15,7 @@ am() {
     add|a|remove|r)
       case "$*" in
         *\ -l\ *|*\ --local\ *|*\ -l|*\ --local) eval "$(command am hook zsh)" ;;
+        *) eval "$(command am reload zsh)" ;;
       esac ;;
   esac
 }

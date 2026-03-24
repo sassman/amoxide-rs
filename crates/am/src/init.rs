@@ -95,18 +95,21 @@ fn am_wrapper(shell: &Shells) -> String {
     );
     match shell {
         Shells::Fish => [
-            "# am wrapper: reload after profile switch or local alias change",
+            "# am wrapper: reload aliases after mutations",
             "function am --wraps=am",
             "    command am $argv",
-            "    # reload after profile switch (handles short forms: p/profile, s/set)",
+            "    # profile switch → reload profile aliases",
             "    if begin; test \"$argv[1]\" = profile; or test \"$argv[1]\" = p; end",
             "        if begin; test \"$argv[2]\" = set; or test \"$argv[2]\" = s; end",
             &format!("            {reload_fish}"),
             "        end",
-            "    # re-source hook after local alias change (only for add/a or remove/r)",
             "    else if begin; test \"$argv[1]\" = add; or test \"$argv[1]\" = a; or test \"$argv[1]\" = remove; or test \"$argv[1]\" = r; end",
             "        if contains -- -l $argv; or contains -- --local $argv",
+            "            # local alias change → reload project aliases",
             &format!("            {hook_fish}"),
+            "        else",
+            "            # profile alias change (including -p) → reload profile aliases",
+            &format!("            {reload_fish}"),
             "        end",
             "    end",
             "end",
@@ -122,7 +125,8 @@ fn am_wrapper(shell: &Shells) -> String {
                 case \"$1\" in\n    \
                 add|a|remove|r)\n      \
                 case \"$*\" in\n        \
-                *\\ -l\\ *|*\\ --local\\ *|*\\ -l|*\\ --local) eval \"$({hook_zsh})\" ;;\n      \
+                *\\ -l\\ *|*\\ --local\\ *|*\\ -l|*\\ --local) eval \"$({hook_zsh})\" ;;\n        \
+                *) eval \"$({reload_zsh})\" ;;\n      \
                 esac ;;\n  \
                 esac\n\
                 }}"
