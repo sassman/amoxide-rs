@@ -239,18 +239,28 @@ Normal ──(n)──► TextInput ──(Enter)──► Normal
 
 ## Architecture
 
-### Module Structure
+### Crate Structure
+
+The TUI lives in a **separate crate** (`am-tui`) to keep the `am` binary lean. The `am` binary runs on every `cd` (hook) and shell startup (init), so startup latency is critical — ratatui/crossterm must not be linked into it.
 
 ```
-crates/am/src/
-├── tui/
-│   ├── mod.rs          // pub fn run() -> Result<()>
-│   ├── model.rs        // TuiModel, TreeNode, NodeKind, Mode, Column
-│   ├── update.rs       // TuiMessage handling, state transitions
-│   ├── view.rs         // ratatui rendering (tree, columns, help bar)
-│   ├── tree.rs         // build/rebuild flattened tree from AppModel
-│   └── input.rs        // crossterm keypress → TuiMessage mapping
+crates/
+├── am/                 # existing — lib.rs (core types) + bin/am.rs (CLI)
+└── am-tui/             # new — separate binary, depends on am (lib)
+    ├── Cargo.toml      # depends on am, ratatui, crossterm
+    └── src/
+        ├── main.rs     # entry point: loads AppModel, calls run()
+        ├── app.rs      // pub fn run(model: AppModel) -> Result<()>
+        ├── model.rs    // TuiModel, TreeNode, NodeKind, Mode, Column
+        ├── update.rs   // TuiMessage handling, state transitions
+        ├── view.rs     // ratatui rendering (tree, columns, help bar)
+        ├── tree.rs     // build/rebuild flattened tree from AppModel
+        └── input.rs    // crossterm keypress → TuiMessage mapping
 ```
+
+Users install both: `cargo install am am-tui`
+
+The `am` CLI does **not** depend on `am-tui` at compile time. No feature flags, no cycle.
 
 ### Data Model
 
@@ -356,15 +366,23 @@ enum TuiMessage {
 
 ### Integration with Existing Code
 
-- `TuiModel` wraps `AppModel` — reuses all existing profile/alias/project CRUD operations
+- `TuiModel` wraps `AppModel` — reuses all existing profile/alias/project CRUD operations from the `am` library crate
 - Move = `remove_alias()` from source + `add_alias()` to destination + `save()`. For global aliases, this uses `Config::add_alias`/`remove_alias` + `Config::save`. For profile aliases, `Profile::add_alias`/`remove_alias` + `ProfileConfig::save`. For project aliases, `ProjectAliases` methods.
-- `Commands` enum gets a new `Tui` variant
-- `messages.rs` gets `Message::LaunchTui` that calls `tui::run()`
+- The `am` CLI gains no new code or dependencies for the TUI. Users run `am-tui` directly.
 
-### New Dependencies
+### Dependencies (am-tui crate only)
 
+- `am` — core library (workspace dependency)
 - `ratatui` — terminal UI rendering
 - `crossterm` — terminal backend and input events
+
+### Binary Startup Latency
+
+The `am` binary's startup time must not regress. As part of the implementation:
+
+1. **Baseline measurement** before adding `am-tui` — measure `am hook fish` and `am init fish` with `hyperfine`
+2. **Post-implementation measurement** — confirm `am` binary is unchanged (no new dependencies linked)
+3. Target: `am` commands should complete in under **5ms** for hook/init paths
 
 ## Constraints
 
