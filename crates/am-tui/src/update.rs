@@ -759,4 +759,78 @@ mod tests {
             .get_profile_by_name("git")
             .is_some());
     }
+
+    // --- Task 9: Create Profile + Set Active ---
+
+    #[test]
+    fn test_start_create_profile_enters_text_input() {
+        let mut model = test_model("profiles = []");
+        update(&mut model, TuiMessage::StartCreateProfile);
+        assert_eq!(model.mode, Mode::TextInput(String::new()));
+    }
+
+    #[test]
+    fn test_text_input_confirm_creates_profile() {
+        let mut model = test_model("profiles = []");
+        update(&mut model, TuiMessage::StartCreateProfile);
+        for c in "newprof".chars() {
+            update(&mut model, TuiMessage::TextInputChar(c));
+        }
+        update(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(model.mode, Mode::Normal);
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("newprof")
+            .is_some());
+    }
+
+    #[test]
+    fn test_text_input_cancel() {
+        let mut model = test_model("profiles = []");
+        update(&mut model, TuiMessage::StartCreateProfile);
+        for c in "newprof".chars() {
+            update(&mut model, TuiMessage::TextInputChar(c));
+        }
+        update(&mut model, TuiMessage::TextInputCancel);
+        assert_eq!(model.mode, Mode::Normal);
+        // Profile should NOT have been created
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("newprof")
+            .is_none());
+    }
+
+    #[test]
+    fn test_text_input_empty_confirm_is_noop() {
+        let mut model = test_model("profiles = []");
+        update(&mut model, TuiMessage::StartCreateProfile);
+        // Confirm immediately without typing anything
+        update(&mut model, TuiMessage::TextInputConfirm);
+        // Mode must remain TextInput (empty buffer — no-op)
+        assert_eq!(model.mode, Mode::TextInput(String::new()));
+        assert_eq!(model.app_model.profile_config().len(), 0);
+    }
+
+    #[test]
+    fn test_set_active_profile() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+
+            [[profiles]]
+            name = "rust"
+        "#,
+        );
+        let rust_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "rust")
+            .unwrap();
+        model.cursor = rust_idx;
+        update(&mut model, TuiMessage::SetActive);
+        assert_eq!(model.app_model.config.active_profile.as_deref(), Some("rust"));
+    }
 }
