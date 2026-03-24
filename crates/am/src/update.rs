@@ -13,11 +13,7 @@ pub struct AppModel {
 
 impl Default for AppModel {
     fn default() -> Self {
-        let mut profile_config = ProfileConfig::load().unwrap();
-        if profile_config.get_default_profile().is_none() {
-            profile_config.add_default_profile().unwrap();
-        }
-
+        let profile_config = ProfileConfig::load().unwrap();
         let config = Config::load().unwrap_or_default();
 
         Self {
@@ -36,14 +32,11 @@ impl AppModel {
         &self.profile_config
     }
 
-    pub fn get_active_profile(&self) -> &Profile {
-        self.profile_config
-            .get_profile_by_name(&self.config.active_profile)
-            .unwrap_or_else(|| {
-                self.profile_config
-                    .get_default_profile()
-                    .expect("default profile must exist")
-            })
+    pub fn get_active_profile(&self) -> Option<&Profile> {
+        self.config
+            .active_profile
+            .as_deref()
+            .and_then(|name| self.profile_config.get_profile_by_name(name))
     }
 }
 
@@ -51,36 +44,12 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
     match message {
         Message::DoNothing => Ok(None),
         Message::AddAlias(name, cmd, target, raw) => {
-            let profile = match target {
-                AddAliasProfile::Profile(profile_name) => model
-                    .profile_config_mut()
-                    .get_profile_by_name_mut(&profile_name)
-                    .ok_or_else(|| anyhow!("Profile not found: {profile_name}"))?,
-                AddAliasProfile::ActiveProfile => {
-                    let active = model.config.active_profile.clone();
-                    model
-                        .profile_config_mut()
-                        .get_profile_by_name_mut(&active)
-                        .ok_or_else(|| anyhow!("Active profile not found: {active}"))?
-                }
-            };
+            let profile = resolve_profile_mut(model, &target)?;
             profile.add_alias(name, cmd, raw)?;
             Ok(Some(Message::SaveProfiles))
         }
         Message::RemoveAlias(name, target) => {
-            let profile = match target {
-                AddAliasProfile::Profile(profile_name) => model
-                    .profile_config_mut()
-                    .get_profile_by_name_mut(&profile_name)
-                    .ok_or_else(|| anyhow!("Profile not found: {profile_name}"))?,
-                AddAliasProfile::ActiveProfile => {
-                    let active = model.config.active_profile.clone();
-                    model
-                        .profile_config_mut()
-                        .get_profile_by_name_mut(&active)
-                        .ok_or_else(|| anyhow!("Active profile not found: {active}"))?
-                }
-            };
+            let profile = resolve_profile_mut(model, &target)?;
             profile.remove_alias(&name)?;
             Ok(Some(Message::SaveProfiles))
         }
@@ -89,7 +58,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
             let output = render_listing(
                 &model.config.aliases,
                 model.profile_config(),
-                &model.config.active_profile,
+                model.config.active_profile.as_deref(),
                 &cwd,
             );
             println!("{output}");
@@ -98,11 +67,11 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
         Message::CreateOrUpdateProfile(name, inherits) => {
             match model.profile_config_mut().add_profile(&name, &inherits)? {
                 profile::Response::ProfileAdded(_) => {
-                    model.config.active_profile = name;
+                    model.config.active_profile = Some(name);
                     Ok(Some(Message::SaveProfiles))
                 }
                 profile::Response::ProfileActivated(_) => {
-                    model.config.active_profile = name;
+                    model.config.active_profile = Some(name);
                     Ok(None)
                 }
             }
@@ -117,16 +86,22 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
         }
         Message::InitShell(shell) => {
             let resolved = model
-                .profile_config()
-                .resolve_aliases(&model.config.active_profile);
+                .config
+                .active_profile
+                .as_deref()
+                .map(|name| model.profile_config().resolve_aliases(name))
+                .unwrap_or_default();
             let output = generate_init(&shell, &model.config.aliases, &resolved);
             print!("{output}");
             Ok(None)
         }
         Message::Reload(shell) => {
             let resolved = model
-                .profile_config()
-                .resolve_aliases(&model.config.active_profile);
+                .config
+                .active_profile
+                .as_deref()
+                .map(|name| model.profile_config().resolve_aliases(name))
+                .unwrap_or_default();
             let prev = std::env::var("_AM_PROFILE_ALIASES").ok();
             let output = generate_reload(&shell, &resolved, prev.as_deref());
             if !output.is_empty() {
@@ -148,16 +123,37 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
                 .profile_config()
                 .get_profile_by_name(&name)
                 .ok_or(anyhow!("Profile '{name}' does not exist."))?;
-            model.config.active_profile = name;
+            model.config.active_profile = Some(name);
             Ok(None)
         }
         Message::RemoveProfile(name) => {
             model.profile_config_mut().remove_profile(&name)?;
-            // If the removed profile was active, fall back to default
-            if model.config.active_profile == name {
-                model.config.active_profile = "default".to_string();
+            if model.config.active_profile.as_deref() == Some(&name) {
+                model.config.active_profile = None;
             }
             Ok(Some(Message::SaveProfiles))
+        }
+    }
+}
+
+fn resolve_profile_mut<'a>(
+    model: &'a mut AppModel,
+    target: &AddAliasProfile,
+) -> anyhow::Result<&'a mut Profile> {
+    match target {
+        AddAliasProfile::Profile(profile_name) => model
+            .profile_config_mut()
+            .get_profile_by_name_mut(profile_name)
+            .ok_or_else(|| anyhow!("Profile not found: {profile_name}")),
+        AddAliasProfile::ActiveProfile => {
+            let active =
+                model.config.active_profile.clone().ok_or_else(|| {
+                    anyhow!("No active profile. Use -p <profile> or -g for global.")
+                })?;
+            model
+                .profile_config_mut()
+                .get_profile_by_name_mut(&active)
+                .ok_or_else(|| anyhow!("Active profile not found: {active}"))
         }
     }
 }

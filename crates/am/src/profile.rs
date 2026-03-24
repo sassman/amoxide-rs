@@ -14,16 +14,6 @@ pub struct ProfileConfig {
 }
 
 impl ProfileConfig {
-    /// Get the default profile
-    pub fn get_default_profile(&self) -> Option<&Profile> {
-        self.get_profile_by_name("default")
-    }
-
-    /// Get the default profile mutable
-    pub fn get_default_profile_mut(&mut self) -> Option<&mut Profile> {
-        self.get_profile_by_name_mut("default")
-    }
-
     /// Get a profile by name
     pub fn get_profile_by_name(&self, name: &str) -> Option<&Profile> {
         self.profiles.iter().find(|p| p.name == name)
@@ -96,12 +86,6 @@ impl ProfileConfig {
         self.profiles.iter()
     }
 
-    /// Add the default profile if it doesn't exist
-    pub fn add_default_profile(&mut self) -> Result<Response> {
-        let p = Profile::default();
-        self.add_profile(&p.name, &None)
-    }
-
     pub fn add_profile(&mut self, name: &str, inherits: &Option<String>) -> Result<Response> {
         let name = name.to_string();
         let mut existing_profile = self.profiles.binary_search_by(|p1| p1.name.cmp(&name));
@@ -122,9 +106,6 @@ impl ProfileConfig {
     }
 
     pub fn remove_profile(&mut self, name: &str) -> Result<()> {
-        if name == "default" {
-            anyhow::bail!("Cannot remove the default profile");
-        }
         let idx = self
             .profiles
             .iter()
@@ -153,14 +134,7 @@ impl ProfileConfig {
 
         let toml_str = std::fs::read_to_string(profile_config_file)?;
         let mut decoded: ProfileConfig = toml::from_str(&toml_str)?;
-
-        if decoded.get_default_profile().is_none() {
-            let default_profile = Profile::default();
-            decoded.profiles.push(default_profile);
-        }
-
         decoded.profiles.sort();
-
         Ok(decoded)
     }
 
@@ -209,16 +183,6 @@ impl Eq for Profile {}
 impl Ord for Profile {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.name.cmp(&other.name)
-    }
-}
-
-impl Default for Profile {
-    fn default() -> Self {
-        Self {
-            name: "default".to_string(),
-            inherits: None,
-            aliases: Default::default(),
-        }
     }
 }
 
@@ -336,20 +300,6 @@ mod tests {
         config.remove_profile("base").unwrap();
         let git = config.get_profile_by_name("git").unwrap();
         assert_eq!(git.inherits, None);
-    }
-
-    #[test]
-    fn test_cannot_remove_default_profile() {
-        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "default"
-        "#})
-        .unwrap();
-
-        let err = config.remove_profile("default").unwrap_err();
-        assert!(err
-            .to_string()
-            .contains("Cannot remove the default profile"));
     }
 
     #[test]

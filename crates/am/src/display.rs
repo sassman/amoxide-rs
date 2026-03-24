@@ -9,7 +9,7 @@ use crate::{AliasSet, Profile, ProfileConfig};
 pub fn render_listing(
     global_aliases: &AliasSet,
     config: &ProfileConfig,
-    active_name: &str,
+    active_name: Option<&str>,
     cwd: &Path,
 ) -> String {
     let mut output = String::new();
@@ -53,7 +53,7 @@ pub fn render_listing(
 ///
 /// Profiles that inherit from another are shown nested under their parent.
 /// The active profile is marked with `●`, others with `○`.
-pub fn render_profile_tree(config: &ProfileConfig, active_name: &str) -> String {
+pub fn render_profile_tree(config: &ProfileConfig, active_name: Option<&str>) -> String {
     let profiles: Vec<&Profile> = config.iter().collect();
 
     // Build parent -> children mapping
@@ -98,12 +98,12 @@ pub fn render_profile_tree(config: &ProfileConfig, active_name: &str) -> String 
 fn render_node(
     profile: &Profile,
     children_of: &BTreeMap<&str, Vec<&Profile>>,
-    active_name: &str,
+    active_name: Option<&str>,
     prefix: &str,
     is_root: bool,
     lines: &mut Vec<String>,
 ) {
-    let is_active = profile.name == active_name;
+    let is_active = active_name == Some(profile.name.as_str());
     let marker = if is_active { "●" } else { "○" };
     let active_tag = if is_active { " (active)" } else { "" };
 
@@ -165,13 +165,13 @@ fn render_node(
 fn render_child(
     profile: &Profile,
     children_of: &BTreeMap<&str, Vec<&Profile>>,
-    active_name: &str,
+    active_name: Option<&str>,
     parent_prefix: &str,
     connector: &str,
     content_prefix: &str,
     lines: &mut Vec<String>,
 ) {
-    let is_active = profile.name == active_name;
+    let is_active = active_name == Some(profile.name.as_str());
     let marker = if is_active { "●" } else { "○" };
     let active_tag = if is_active { " (active)" } else { "" };
 
@@ -246,7 +246,7 @@ mod tests {
             ll = "ls -lha"
         "#});
 
-        let output = render_profile_tree(&config, "default");
+        let output = render_profile_tree(&config, Some("default"));
         assert!(output.contains("● default (active)"));
         assert!(output.contains("  ll → ls -lha"));
     }
@@ -266,7 +266,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_profile_tree(&config, "rust");
+        let output = render_profile_tree(&config, Some("rust"));
         let lines: Vec<&str> = output.lines().collect();
 
         assert_eq!(lines[0], "○ git");
@@ -297,7 +297,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_profile_tree(&config, "rust");
+        let output = render_profile_tree(&config, Some("rust"));
         let lines: Vec<&str> = output.lines().collect();
 
         assert_eq!(lines[0], "○ git");
@@ -317,7 +317,7 @@ mod tests {
             name = "empty"
         "#});
 
-        let output = render_profile_tree(&config, "empty");
+        let output = render_profile_tree(&config, Some("empty"));
         assert!(output.contains("● empty (active)"));
         assert!(output.contains("(no aliases)"));
     }
@@ -336,7 +336,7 @@ mod tests {
             gs = "git status"
         "#});
 
-        let output = render_profile_tree(&config, "default");
+        let output = render_profile_tree(&config, Some("default"));
         // Should have blank line between root trees
         assert!(output.contains("● default (active)"));
         assert!(output.contains("○ git"));
@@ -362,7 +362,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_profile_tree(&config, "rust");
+        let output = render_profile_tree(&config, Some("rust"));
         let lines: Vec<&str> = output.lines().collect();
 
         assert_eq!(lines[0], "○ base");
@@ -391,7 +391,7 @@ mod tests {
         )
         .unwrap();
 
-        let output = render_listing(&AliasSet::default(), &config, "default", dir.path());
+        let output = render_listing(&AliasSet::default(), &config, Some("default"), dir.path());
         assert!(output.contains("● default (active)"));
         assert!(output.contains("📁 project aliases"));
         assert!(output.contains("t → cargo test"));
@@ -405,7 +405,7 @@ mod tests {
         "#});
 
         let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(&AliasSet::default(), &config, "default", dir.path());
+        let output = render_listing(&AliasSet::default(), &config, Some("default"), dir.path());
         assert!(output.contains("● default (active)"));
         assert!(!output.contains("📁"));
     }

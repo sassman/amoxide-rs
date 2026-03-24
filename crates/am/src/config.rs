@@ -6,20 +6,11 @@ use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 const CONFIG_FILE: &str = "config.toml";
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Config {
-    pub active_profile: String,
+    pub active_profile: Option<String>,
     #[serde(default)]
     pub aliases: AliasSet,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            active_profile: "default".to_string(),
-            aliases: AliasSet::default(),
-        }
-    }
 }
 
 impl Config {
@@ -82,7 +73,7 @@ mod tests {
     fn test_default_config_when_no_file() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::load_from(dir.path()).unwrap();
-        assert_eq!(config.active_profile, "default");
+        assert_eq!(config.active_profile, None);
         assert!(config.aliases.is_empty());
     }
 
@@ -90,14 +81,14 @@ mod tests {
     fn test_save_and_load_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config {
-            active_profile: "rust".to_string(),
+            active_profile: Some("rust".to_string()),
             aliases: AliasSet::default(),
         };
         config.add_alias("ll".to_string(), "ls -lha".to_string(), false);
         config.save_to(dir.path()).unwrap();
 
         let loaded = Config::load_from(dir.path()).unwrap();
-        assert_eq!(loaded.active_profile, "rust");
+        assert_eq!(loaded.active_profile, Some("rust".to_string()));
         assert_eq!(loaded.aliases.iter().count(), 1);
     }
 
@@ -122,7 +113,7 @@ mod tests {
     fn test_backwards_compat_no_aliases_section() {
         let toml_str = r#"active_profile = "rust""#;
         let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.active_profile, "rust");
+        assert_eq!(config.active_profile, Some("rust".to_string()));
         assert!(config.aliases.is_empty());
     }
 }
