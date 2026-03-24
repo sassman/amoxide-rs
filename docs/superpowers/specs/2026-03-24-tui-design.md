@@ -373,8 +373,7 @@ enum TuiMessage {
 ### Dependencies (am-tui crate only)
 
 - `am` — core library (workspace dependency)
-- `ratatui` — terminal UI rendering
-- `crossterm` — terminal backend and input events
+- `ratatui` — terminal UI rendering (includes crossterm as its backend)
 
 ### Binary Startup Latency
 
