@@ -1,0 +1,18 @@
+# am wrapper: reload aliases after mutations
+function am --wraps=am
+    command am $argv
+    # profile switch → reload profile aliases
+    if begin; test "$argv[1]" = profile; or test "$argv[1]" = p; end
+        if begin; test "$argv[2]" = set; or test "$argv[2]" = s; end
+            command am reload __SHELL__ | source
+        end
+    else if begin; test "$argv[1]" = add; or test "$argv[1]" = a; or test "$argv[1]" = remove; or test "$argv[1]" = r; end
+        if contains -- -l $argv; or contains -- --local $argv
+            # local alias change → reload project aliases
+            command am hook __SHELL__ | source
+        else
+            # profile alias change (including -p) → reload profile aliases
+            command am reload __SHELL__ | source
+        end
+    end
+end
