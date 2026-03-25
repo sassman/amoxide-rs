@@ -238,14 +238,10 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 ]));
             }
             NodeKind::AliasItem => {
-                // Aliases are nested inside their parent header.
-                // content_prefix is the parent's continuation (e.g. "│ " or "  ").
-                // Aliases branch within that space with their own ├─/╰─.
                 let is_last_alias = model.tree.get(i + 1)
                     .map_or(true, |next| next.kind != NodeKind::AliasItem);
 
                 let arm = if is_last_alias { "╰─" } else { "├─" };
-                let continuation = if is_last_alias { "  " } else { "│ " };
 
                 let marker = if is_cursor {
                     "▸ "
@@ -264,43 +260,63 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Style::default().fg(TEXT_PRIMARY)
                 };
 
-                // Alias name: content_prefix + padding + arm + marker + name
-                // The 2-char padding aligns the alias arm under the parent's label text
                 let marker_style = if is_selected {
                     Style::default().fg(SELECTED_ACCENT)
                 } else {
                     Style::default().fg(conn)
                 };
-                lines.push(Line::from(vec![
-                    Span::styled(format!("{}  {arm}", node.content_prefix), Style::default().fg(conn)),
-                    Span::styled(marker.to_string(), marker_style),
-                    Span::styled(node.label.clone(), name_style),
-                ]));
 
-                // Command line: content_prefix + padding + continuation + indent + command
-                if let Some(ref cmd) = node.alias_command {
+                if model.compact {
+                    // Compact: single line "prefix  arm marker name → command"
+                    let cmd_text = node.alias_command.as_deref().unwrap_or("");
                     let cmd_style = if is_cursor {
-                        Style::default().fg(TEXT_PRIMARY)
+                        Style::default().fg(TEXT_MUTED)
                     } else if is_selected {
                         Style::default().fg(SELECTED_ACCENT_MUTED)
                     } else {
                         Style::default().fg(TEXT_MUTED)
                     };
                     lines.push(Line::from(vec![
-                        Span::styled(format!("{}  {continuation}  ", node.content_prefix), Style::default().fg(conn)),
-                        Span::styled(cmd.clone(), cmd_style),
+                        Span::styled(format!("{}  {arm}", node.content_prefix), Style::default().fg(conn)),
+                        Span::styled(marker.to_string(), marker_style),
+                        Span::styled(node.label.clone(), name_style),
+                        Span::styled(" → ", Style::default().fg(TEXT_MUTED)),
+                        Span::styled(cmd_text.to_string(), cmd_style),
                     ]));
+                } else {
+                    // Spacious: name line + command line + separator
+                    let continuation = if is_last_alias { "  " } else { "│ " };
+
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("{}  {arm}", node.content_prefix), Style::default().fg(conn)),
+                        Span::styled(marker.to_string(), marker_style),
+                        Span::styled(node.label.clone(), name_style),
+                    ]));
+
+                    if let Some(ref cmd) = node.alias_command {
+                        let cmd_style = if is_cursor {
+                            Style::default().fg(TEXT_PRIMARY)
+                        } else if is_selected {
+                            Style::default().fg(SELECTED_ACCENT_MUTED)
+                        } else {
+                            Style::default().fg(TEXT_MUTED)
+                        };
+                        lines.push(Line::from(vec![
+                            Span::styled(format!("{}  {continuation}  ", node.content_prefix), Style::default().fg(conn)),
+                            Span::styled(cmd.clone(), cmd_style),
+                        ]));
+                    }
+
+                    if !is_last_alias {
+                        lines.push(Line::from(Span::styled(
+                            format!("{}  │", node.content_prefix),
+                            Style::default().fg(TREE_CONNECTOR),
+                        )));
+                    }
                 }
 
-                if !is_last_alias {
-                    // Separator between sibling aliases
-                    lines.push(Line::from(Span::styled(
-                        format!("{}  │", node.content_prefix),
-                        Style::default().fg(TREE_CONNECTOR),
-                    )));
-                } else {
-                    // After last alias in a group, add a blank line with trunk connector
-                    // if another section follows (for visual breathing room)
+                // Breathing room between sections (both modes)
+                if is_last_alias {
                     let next_is_header = model.tree.get(i + 1).is_some_and(|n| {
                         matches!(n.kind, NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader)
                     });
@@ -328,7 +344,8 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled("m", Style::default().fg(GOLD)), Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("n", Style::default().fg(GOLD)), Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("x", Style::default().fg(GOLD)), Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("s", Style::default().fg(GOLD)), Span::styled(" activate", Style::default().fg(TEXT_MUTED)),
+            Span::styled("s", Style::default().fg(GOLD)), Span::styled(" activate  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("c", Style::default().fg(GOLD)), Span::styled(" compact", Style::default().fg(TEXT_MUTED)),
         ]),
         Mode::Moving => Line::from(vec![
             Span::raw("  "),

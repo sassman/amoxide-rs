@@ -260,6 +260,10 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 model.rebuild_tree();
             }
         }
+        TuiMessage::ToggleCompact => {
+            model.compact = !model.compact;
+            model.scroll_offset = 0;
+        }
         _ => {} // remaining messages (Quit, Resize) handled at the app layer
     }
 }
@@ -559,6 +563,7 @@ mod tests {
             dest_cursor: 0,
             active_column: Column::Left,
             scroll_offset: 0,
+            compact: false,
         }
     }
 
