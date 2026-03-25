@@ -26,7 +26,7 @@ Note: Profiles can be composed upon another. Like your node profile should lever
 
 ## Productivity Tip (Opinionated)
 
-I personally put *very often* aliases on the project level, so that I can be super lazy but specific in this context. 
+I personally start with **project-local aliases**, so I can be super lazy in the context I'm working in.
 
 For example in this project I have:
 
@@ -34,44 +34,54 @@ For example in this project I have:
 - running tests by `cargo test` becomes `t`
 - running lint checks by `cargo clippy --all-targets --all-features -- -D warning` becomes `l`
 
-With the CLI this would be done:
+**Step 1 — Start local.** Add project aliases with `-l`:
+
+```sh
+am add -l t cargo test
+#  ^^^  ^^ ^ ^--------^
+#   |    | |       |
+#   |    | |       +---- the command to alias
+#   |    | +---- the alias name
+#   |    +---- local (writes to .aliases in this directory)
+#   +---- adding an alias
+
+am add -l l cargo clippy --all-targets --all-features -- -D warning
+am add -l i cargo install --path crates/am
+```
+
+These aliases live in a `.aliases` file in the project root and are loaded/unloaded automatically on `cd`.
+
+**Step 2 — Extract a profile.** After a while I notice `t` and `l` are the same in every Rust project. Time to extract them into a reusable profile:
 
 ```sh
 am profile add rust
-
-# now adding the aliases from above for the profile `rust`
 am add -p rust t cargo test
-#   ^^^  ^^^^^^ ^  ^--------^
-#    |      |   |       |
-#    |      |   |       +---- the command to alias
-#    |      |   +---- the alias name
-#    |      +---- target profile
-#    +---- the verb `add`
-
 am add -p rust l cargo clippy --all-targets --all-features -- -D warning
+
+# activate it
+am profile set rust
 ```
 
-> Tip: all verbs have short forms to save typing, e.g. `am a -p rust t cargo test` or `am p a rust`.
+Now `t` and `l` are available everywhere (not just this project). The project `.aliases` keeps only project-specific ones like `i`.
 
-Then if I find myself often doing the same things in several projects, like coding in rust, then introduce a profile for it. And a profile for `git stuff` or `k8s` and so on.
-
-Last mile, if I need specialization profiles for a specific git workflow, I use profile inheritance.
+**Step 3 — Compose with inheritance.** I also want git aliases everywhere, and a specialized git-conventional profile on top:
 
 ```sh
-# create the git profile first, with one alias
+# git profile with a signing commit alias
 am profile add git
 am add -p git gm "git commit -S --signoff -m"
 
-# create the git conventional commit profile, that inherits from git
+# git-conventional inherits from git, adds a shortcut
 am profile add git-conventional --inherits git
-
-# now lets get specific with `gmf`
 am add -p git-conventional gmf "gm feat: {{@}}"
 
+# now using it
 gmf "my feature"
 # → gm feat: my feature
 # → git commit -S --signoff -m feat: my feature
 ```
+
+> Tip: all verbs have short forms to save typing, e.g. `am a -l t cargo test` or `am p a rust`.
 
 > Note: the subcommand `am tui` (`cargo install amoxide-tui`) simplifies this a lot.
 
