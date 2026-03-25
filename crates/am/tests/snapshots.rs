@@ -193,6 +193,88 @@ fn snapshot_init_fish_globals_and_inherited_profile() {
     insta::assert_snapshot!(output);
 }
 
+#[test]
+fn snapshot_reload_after_inheritance_removed() {
+    // Scenario: rust inherited from git (had gs,cm,ct loaded)
+    // Now inheritance is cleared — only rust's own aliases should remain
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+        cm = "git commit -sm"
+
+        [[profiles]]
+        name = "rust"
+        [profiles.aliases]
+        ct = "cargo test"
+    "#});
+    // rust no longer inherits from git
+    let resolved = config.resolve_aliases("rust");
+    // Previously tracked: cm,ct,gs (git's + rust's aliases were all loaded)
+    let output = generate_reload(
+        &Shells::Fish,
+        &AliasSet::default(),
+        &resolved,
+        Some("cm,ct,gs"),
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_reload_after_parent_profile_removed() {
+    // Scenario: git-conventional inherited from git, git is removed
+    // git-conventional is re-parented to None, only its own aliases remain
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git-conventional"
+        [profiles.aliases]
+        cmf = "cm feat: {{@}}"
+    "#});
+    // git was removed, git-conventional has no parent now
+    let resolved = config.resolve_aliases("git-conventional");
+    // Previously tracked: cm,cmf,gs (git's + git-conventional's were loaded)
+    let output = generate_reload(
+        &Shells::Fish,
+        &AliasSet::default(),
+        &resolved,
+        Some("cm,cmf,gs"),
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_reload_after_inheritance_changed() {
+    // Scenario: rust inherited from git, now changed to inherit from base
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "base"
+        [profiles.aliases]
+        ll = "ls -lha"
+
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+
+        [[profiles]]
+        name = "rust"
+        inherits = "base"
+        [profiles.aliases]
+        ct = "cargo test"
+    "#});
+    let resolved = config.resolve_aliases("rust");
+    // Previously tracked: ct,gs (from rust + git)
+    // Now should have: ct,ll (from rust + base)
+    let output = generate_reload(
+        &Shells::Fish,
+        &AliasSet::default(),
+        &resolved,
+        Some("ct,gs"),
+    );
+    insta::assert_snapshot!(output);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Hook snapshots
 // ═══════════════════════════════════════════════════════════════════════

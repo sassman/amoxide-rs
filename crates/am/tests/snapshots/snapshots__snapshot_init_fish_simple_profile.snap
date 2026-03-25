@@ -9,6 +9,10 @@ set -gx _AM_ALIASES "gs,ll"
 # am wrapper: reload aliases after mutations
 function am --wraps=am
     command am $argv
+    set -l am_status $status
+    if test $am_status -ne 0
+        return $am_status
+    end
     # profile mutation → reload aliases
     if begin; test "$argv[1]" = profile; or test "$argv[1]" = p; end
         if begin; test "$argv[2]" = set; or test "$argv[2]" = s; or test "$argv[2]" = add; or test "$argv[2]" = a; or test "$argv[2]" = remove; or test "$argv[2]" = r; end

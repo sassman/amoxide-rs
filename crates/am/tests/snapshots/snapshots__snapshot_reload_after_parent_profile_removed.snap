@@ -1,0 +1,11 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+functions -e cm
+functions -e cmf
+functions -e gs
+function cmf
+    cm feat: $argv
+end
+set -gx _AM_ALIASES "cmf"
