@@ -1,5 +1,5 @@
-use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use crate::model::{Mode, TuiMessage};
+use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
 pub fn map_event(event: &Event, mode: &Mode) -> Option<TuiMessage> {
     match event {

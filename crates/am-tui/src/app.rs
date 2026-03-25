@@ -1,9 +1,9 @@
-use ratatui::crossterm::event;
-use ratatui::DefaultTerminal;
 use crate::input::map_event;
-use crate::model::{TuiModel, TuiMessage, MIN_WIDTH, MIN_HEIGHT};
+use crate::model::{TuiMessage, TuiModel, MIN_HEIGHT, MIN_WIDTH};
 use crate::update::update;
 use crate::view::draw;
+use ratatui::crossterm::event;
+use ratatui::DefaultTerminal;
 
 pub fn run() -> anyhow::Result<()> {
     check_terminal_size()?;

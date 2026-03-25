@@ -1,5 +1,8 @@
-use crate::model::{AliasField, AliasId, AliasTarget, Column, ConfirmAction, Mode, MoveDestination, NodeKind, TextInputState, TreeNode, TuiMessage, TuiModel};
-use amoxide::{AliasName, TomlAlias, ProjectAliases};
+use crate::model::{
+    AliasField, AliasId, AliasTarget, Column, ConfirmAction, Mode, MoveDestination, NodeKind,
+    TextInputState, TreeNode, TuiMessage, TuiModel,
+};
+use amoxide::{AliasName, ProjectAliases, TomlAlias};
 
 pub fn update(model: &mut TuiModel, msg: TuiMessage) {
     match msg {
@@ -150,7 +153,10 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     save_all(model);
                     model.rebuild_tree();
                 }
-                ConfirmAction::OverwriteAliases { aliases, destination } => {
+                ConfirmAction::OverwriteAliases {
+                    aliases,
+                    destination,
+                } => {
                     do_move(model, &aliases, &destination);
                 }
             }
@@ -182,31 +188,50 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
         TuiMessage::TextInputChar(c) => {
             if let Mode::TextInput(ref mut state) = model.mode {
                 match state {
-                    TextInputState::NewProfile(buf) => { buf.push(c); }
-                    TextInputState::NewAlias { name, command, active_field, .. } => {
-                        match active_field {
-                            AliasField::Name => { name.push(c); }
-                            AliasField::Command => { command.push(c); }
-                        }
+                    TextInputState::NewProfile(buf) => {
+                        buf.push(c);
                     }
+                    TextInputState::NewAlias {
+                        name,
+                        command,
+                        active_field,
+                        ..
+                    } => match active_field {
+                        AliasField::Name => {
+                            name.push(c);
+                        }
+                        AliasField::Command => {
+                            command.push(c);
+                        }
+                    },
                 }
             }
         }
         TuiMessage::TextInputBackspace => {
             if let Mode::TextInput(ref mut state) = model.mode {
                 match state {
-                    TextInputState::NewProfile(buf) => { buf.pop(); }
-                    TextInputState::NewAlias { name, command, active_field, .. } => {
-                        match active_field {
-                            AliasField::Name => { name.pop(); }
-                            AliasField::Command => { command.pop(); }
-                        }
+                    TextInputState::NewProfile(buf) => {
+                        buf.pop();
                     }
+                    TextInputState::NewAlias {
+                        name,
+                        command,
+                        active_field,
+                        ..
+                    } => match active_field {
+                        AliasField::Name => {
+                            name.pop();
+                        }
+                        AliasField::Command => {
+                            command.pop();
+                        }
+                    },
                 }
             }
         }
         TuiMessage::TextInputSwitchField => {
-            if let Mode::TextInput(TextInputState::NewAlias { active_field, .. }) = &mut model.mode {
+            if let Mode::TextInput(TextInputState::NewAlias { active_field, .. }) = &mut model.mode
+            {
                 *active_field = match active_field {
                     AliasField::Name => AliasField::Command,
                     AliasField::Command => AliasField::Name,
@@ -223,15 +248,28 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     if name.is_empty() {
                         return;
                     }
-                    if model.app_model.profile_config().get_profile_by_name(&name).is_some() {
+                    if model
+                        .app_model
+                        .profile_config()
+                        .get_profile_by_name(&name)
+                        .is_some()
+                    {
                         return;
                     }
-                    let _ = model.app_model.profile_config_mut().add_profile(&name, &None);
+                    let _ = model
+                        .app_model
+                        .profile_config_mut()
+                        .add_profile(&name, &None);
                     save_all(model);
                     model.rebuild_tree();
                     model.mode = Mode::Normal;
                 }
-                TextInputState::NewAlias { name, command, target, .. } => {
+                TextInputState::NewAlias {
+                    name,
+                    command,
+                    target,
+                    ..
+                } => {
                     let name = name.trim().to_string();
                     let command = command.trim().to_string();
                     if name.is_empty() || command.is_empty() {
@@ -242,15 +280,23 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                             model.app_model.config.add_alias(name, command, false);
                         }
                         AliasTarget::Profile(profile_name) => {
-                            if let Some(p) = model.app_model.profile_config_mut().get_profile_by_name_mut(profile_name) {
+                            if let Some(p) = model
+                                .app_model
+                                .profile_config_mut()
+                                .get_profile_by_name_mut(profile_name)
+                            {
                                 let _ = p.add_alias(name, command, false);
                             }
                         }
                         AliasTarget::Project => {
-                            let project = model.project_aliases.get_or_insert_with(ProjectAliases::default);
+                            let project = model
+                                .project_aliases
+                                .get_or_insert_with(ProjectAliases::default);
                             project.add_alias(name, command, false);
                             if model.project_path.is_none() {
-                                model.project_path = Some(std::env::current_dir().unwrap_or_default().join(".aliases"));
+                                model.project_path = Some(
+                                    std::env::current_dir().unwrap_or_default().join(".aliases"),
+                                );
                             }
                         }
                     }
@@ -332,8 +378,15 @@ fn delete_alias(model: &mut TuiModel, alias_id: &AliasId) {
         AliasId::Global { alias_name } => {
             let _ = model.app_model.config.remove_alias(alias_name);
         }
-        AliasId::Profile { profile_name, alias_name } => {
-            if let Some(p) = model.app_model.profile_config_mut().get_profile_by_name_mut(profile_name) {
+        AliasId::Profile {
+            profile_name,
+            alias_name,
+        } => {
+            if let Some(p) = model
+                .app_model
+                .profile_config_mut()
+                .get_profile_by_name_mut(profile_name)
+            {
                 let _ = p.remove_alias(alias_name);
             }
         }
@@ -512,7 +565,9 @@ fn resolve_alias_target(model: &TuiModel) -> Option<AliasTarget> {
             // Derive target from the alias's scope
             match &node.alias_id {
                 Some(AliasId::Global { .. }) => Some(AliasTarget::Global),
-                Some(AliasId::Profile { profile_name, .. }) => Some(AliasTarget::Profile(profile_name.clone())),
+                Some(AliasId::Profile { profile_name, .. }) => {
+                    Some(AliasTarget::Profile(profile_name.clone()))
+                }
                 Some(AliasId::Project { .. }) => Some(AliasTarget::Project),
                 None => None,
             }
@@ -559,8 +614,8 @@ mod tests {
     use super::*;
     use crate::model::{Mode, TuiMessage, TuiModel};
     use crate::tree::{build_dest_tree_from_parts, build_tree_from_parts};
-    use amoxide::{Config, ProfileConfig};
     use amoxide::update::AppModel;
+    use amoxide::{Config, ProfileConfig};
     use std::collections::BTreeSet;
 
     fn test_model(profiles_toml: &str) -> TuiModel {
@@ -651,7 +706,11 @@ mod tests {
             gs = "git status"
         "#,
         );
-        let alias_idx = model.tree.iter().position(|n| n.kind == NodeKind::AliasItem).unwrap();
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
         model.cursor = alias_idx;
         update(&mut model, TuiMessage::ToggleSelect);
         assert_eq!(model.selected.len(), 1);
@@ -705,7 +764,11 @@ mod tests {
             gs = "git status"
         "#,
         );
-        let alias_idx = model.tree.iter().position(|n| n.kind == NodeKind::AliasItem).unwrap();
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
         model.cursor = alias_idx;
         update(&mut model, TuiMessage::ToggleSelect);
         update(&mut model, TuiMessage::EnterMoveMode);
@@ -737,7 +800,11 @@ mod tests {
             gs = "git status"
         "#,
         );
-        let alias_idx = model.tree.iter().position(|n| n.kind == NodeKind::AliasItem).unwrap();
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
         model.cursor = alias_idx;
         update(&mut model, TuiMessage::ToggleSelect);
         update(&mut model, TuiMessage::EnterMoveMode);
@@ -757,7 +824,11 @@ mod tests {
             gs = "git status"
         "#,
         );
-        let alias_idx = model.tree.iter().position(|n| n.kind == NodeKind::AliasItem).unwrap();
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
         model.cursor = alias_idx;
         update(&mut model, TuiMessage::ToggleSelect);
         update(&mut model, TuiMessage::EnterMoveMode);
@@ -790,7 +861,11 @@ mod tests {
             gs = "git status"
         "#,
         );
-        let alias_idx = model.tree.iter().position(|n| n.kind == NodeKind::AliasItem).unwrap();
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
         model.cursor = alias_idx;
         update(&mut model, TuiMessage::ToggleSelect);
         update(&mut model, TuiMessage::EnterMoveMode);
@@ -916,7 +991,10 @@ mod tests {
     fn test_start_create_profile_enters_text_input() {
         let mut model = test_model("profiles = []");
         update(&mut model, TuiMessage::StartCreateProfile);
-        assert_eq!(model.mode, Mode::TextInput(TextInputState::NewProfile(String::new())));
+        assert_eq!(
+            model.mode,
+            Mode::TextInput(TextInputState::NewProfile(String::new()))
+        );
     }
 
     #[test]
@@ -959,7 +1037,10 @@ mod tests {
         // Confirm immediately without typing anything
         update(&mut model, TuiMessage::TextInputConfirm);
         // Mode must remain TextInput (empty buffer — no-op)
-        assert_eq!(model.mode, Mode::TextInput(TextInputState::NewProfile(String::new())));
+        assert_eq!(
+            model.mode,
+            Mode::TextInput(TextInputState::NewProfile(String::new()))
+        );
         assert_eq!(model.app_model.profile_config().len(), 0);
     }
 
@@ -981,6 +1062,9 @@ mod tests {
             .unwrap();
         model.cursor = rust_idx;
         update(&mut model, TuiMessage::SetActive);
-        assert_eq!(model.app_model.config.active_profile.as_deref(), Some("rust"));
+        assert_eq!(
+            model.app_model.config.active_profile.as_deref(),
+            Some("rust")
+        );
     }
 }

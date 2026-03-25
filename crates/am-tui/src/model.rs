@@ -1,13 +1,20 @@
-use std::collections::BTreeSet;
-use std::path::PathBuf;
 use amoxide::update::AppModel;
 use amoxide::ProjectAliases;
+use std::collections::BTreeSet;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum AliasId {
-    Global { alias_name: String },
-    Profile { profile_name: String, alias_name: String },
-    Project { alias_name: String },
+    Global {
+        alias_name: String,
+    },
+    Profile {
+        profile_name: String,
+        alias_name: String,
+    },
+    Project {
+        alias_name: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +37,6 @@ impl NodeKind {
 #[derive(Debug, Clone)]
 pub struct TreeNode {
     pub kind: NodeKind,
-    pub depth: u16,
     pub alias_id: Option<AliasId>,
     pub alias_command: Option<String>,
     pub is_active: bool,
@@ -98,13 +104,28 @@ pub enum Column {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TuiMessage {
-    CursorUp, CursorDown, JumpTop, JumpBottom,
-    ToggleSelect, EnterMoveMode, ExecuteMove, CancelMove,
+    CursorUp,
+    CursorDown,
+    JumpTop,
+    JumpBottom,
+    ToggleSelect,
+    EnterMoveMode,
+    ExecuteMove,
+    CancelMove,
     SwitchColumn,
-    StartCreateProfile, StartAddAlias, DeleteItem, SetActive,
-    TextInputChar(char), TextInputBackspace, TextInputConfirm, TextInputCancel, TextInputSwitchField,
-    ConfirmYes, ConfirmNo,
-    Quit, Resize(u16, u16),
+    StartCreateProfile,
+    StartAddAlias,
+    DeleteItem,
+    SetActive,
+    TextInputChar(char),
+    TextInputBackspace,
+    TextInputConfirm,
+    TextInputCancel,
+    TextInputSwitchField,
+    ConfirmYes,
+    ConfirmNo,
+    Quit,
+    Resize(u16, u16),
 }
 
 pub const MIN_WIDTH: u16 = 60;
@@ -135,10 +156,18 @@ impl TuiModel {
             None => None,
         };
         let mut model = Self {
-            app_model, project_aliases, project_path, config_dir: None,
-            tree: Vec::new(), cursor: 0, selected: BTreeSet::new(),
-            mode: Mode::Normal, dest_tree: Vec::new(), dest_cursor: 0,
-            active_column: Column::Left, scroll_offset: 0,
+            app_model,
+            project_aliases,
+            project_path,
+            config_dir: None,
+            tree: Vec::new(),
+            cursor: 0,
+            selected: BTreeSet::new(),
+            mode: Mode::Normal,
+            dest_tree: Vec::new(),
+            dest_cursor: 0,
+            active_column: Column::Left,
+            scroll_offset: 0,
         };
         model.rebuild_tree();
         Ok(model)
@@ -146,7 +175,8 @@ impl TuiModel {
 
     pub fn rebuild_tree(&mut self) {
         self.tree = crate::tree::build_tree(&self.app_model, self.project_aliases.as_ref());
-        self.dest_tree = crate::tree::build_dest_tree(&self.app_model, self.project_aliases.is_some());
+        self.dest_tree =
+            crate::tree::build_dest_tree(&self.app_model, self.project_aliases.is_some());
         if !self.tree.is_empty() {
             if self.cursor >= self.tree.len() {
                 self.cursor = self.tree.len() - 1;
@@ -156,13 +186,12 @@ impl TuiModel {
     }
 
     pub fn next_navigable(&self, from: usize) -> Option<usize> {
-        let tree = if self.active_column == Column::Left { &self.tree } else { &self.dest_tree };
+        let tree = if self.active_column == Column::Left {
+            &self.tree
+        } else {
+            &self.dest_tree
+        };
         (from..tree.len()).find(|&i| tree[i].kind.is_navigable())
-    }
-
-    pub fn prev_navigable(&self, from: usize) -> Option<usize> {
-        let tree = if self.active_column == Column::Left { &self.tree } else { &self.dest_tree };
-        (0..=from).rev().find(|&i| tree[i].kind.is_navigable())
     }
 
     pub fn adjust_scroll(&mut self, visible_height: usize) {
@@ -182,7 +211,7 @@ impl TuiModel {
             let target = cursor_line + padding + 1;
             self.scroll_offset = target.saturating_sub(visible_height);
             // Align to chunk boundary (round up)
-            self.scroll_offset = ((self.scroll_offset + chunk - 1) / chunk) * chunk;
+            self.scroll_offset = self.scroll_offset.div_ceil(chunk) * chunk;
         }
     }
 
@@ -197,7 +226,10 @@ impl TuiModel {
             // Account for blank separator line after last alias before a header
             if node.kind == NodeKind::AliasItem {
                 let next_is_header = self.tree.get(i + 1).is_some_and(|n| {
-                    matches!(n.kind, NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader)
+                    matches!(
+                        n.kind,
+                        NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader
+                    )
                 });
                 if next_is_header {
                     line += 1;
