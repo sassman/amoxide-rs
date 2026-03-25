@@ -2,7 +2,7 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-global
+🌐 global
   ll → ls -lha
 
 ● rust (active)

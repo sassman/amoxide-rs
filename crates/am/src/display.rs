@@ -16,7 +16,7 @@ pub fn render_listing(
 
     // Global aliases
     if !global_aliases.is_empty() {
-        output.push_str("global");
+        output.push_str("🌐 global");
         for (alias_name, alias_value) in global_aliases.iter() {
             let name = alias_name.as_ref();
             let cmd = alias_value.command();
