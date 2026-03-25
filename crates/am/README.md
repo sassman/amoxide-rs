@@ -61,4 +61,4 @@ See [amoxide-tui on crates.io](https://crates.io/crates/amoxide-tui) for details
 
 ## Documentation
 
-Full documentation with examples: [GitHub](https://github.com/d34dl0ck/alias-manager-rs)
+Full documentation with examples: [GitHub](https://github.com/sassman/amoxide-rs)
