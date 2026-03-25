@@ -18,12 +18,12 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(0)])
+        .constraints([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0)])
         .split(area);
 
     frame.render_widget(help, chunks[0]);
 
-    let content_area = chunks[1];
+    let content_area = chunks[2];
 
     match &model.mode {
         Mode::Moving => {
