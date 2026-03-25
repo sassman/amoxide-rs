@@ -357,7 +357,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 };
                 lines.push(Line::from(vec![
                     Span::styled(
-                        format!("{}  {arm}", node.content_prefix),
+                        format!("{}{arm}", node.content_prefix),
                         Style::default().fg(conn),
                     ),
                     Span::styled(marker.to_string(), marker_style),
