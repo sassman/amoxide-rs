@@ -1,7 +1,10 @@
 [workspace]
 changelog_update = true
-git_tag_enable = false
+git_tag_enable = true
 publish = false
+
+# release-plz creates tags per crate: amoxide-v0.1.0, amoxide-tui-v0.1.0
+# Publishing is handled by the release.yml workflow, not release-plz
 
 [changelog]
 header = """
@@ -23,7 +26,6 @@ body = """
 """
 trim = true
 protect_breaking_commits = false
-tag_pattern = "v[0-9].*"
 sort_commits = "newest"
 
 commit_parsers = [
