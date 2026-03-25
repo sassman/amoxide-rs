@@ -14,7 +14,7 @@ fn map_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
         return Some(TuiMessage::Quit);
     }
     match mode {
-        Mode::Normal | Mode::Moving => map_normal_key(key, mode),
+        Mode::Normal | Mode::Moving | Mode::Inheriting(_) => map_normal_key(key, mode),
         Mode::TextInput(_) => map_text_input_key(key),
         Mode::Confirm(_) => map_confirm_key(key),
     }
@@ -28,9 +28,11 @@ fn map_normal_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Char('G') | KeyCode::End => Some(TuiMessage::JumpBottom),
         KeyCode::Char(' ') => Some(TuiMessage::ToggleSelect),
         KeyCode::Char('m') => Some(TuiMessage::EnterMoveMode),
+        KeyCode::Enter if matches!(mode, Mode::Inheriting(_)) => Some(TuiMessage::ExecuteInherit),
         KeyCode::Enter => Some(TuiMessage::ExecuteMove),
         KeyCode::Esc => Some(TuiMessage::CancelMove),
         KeyCode::Tab => Some(TuiMessage::SwitchColumn),
+        KeyCode::Char('i') if *mode == Mode::Normal => Some(TuiMessage::StartInherit),
         KeyCode::Char('a') if *mode == Mode::Normal => Some(TuiMessage::StartAddAlias),
         KeyCode::Char('n') if *mode == Mode::Normal => Some(TuiMessage::StartCreateProfile),
         KeyCode::Char('x') if *mode == Mode::Normal => Some(TuiMessage::DeleteItem),

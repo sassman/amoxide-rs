@@ -51,6 +51,15 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
             render_left_column(frame, model, columns[0]);
             render_right_column(frame, model, columns[1]);
         }
+        Mode::Inheriting(profile_name) => {
+            let columns = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+                .split(content_area);
+
+            render_left_column(frame, model, columns[0]);
+            render_inherit_column(frame, model, profile_name, columns[1]);
+        }
         Mode::TextInput(state) => {
             render_left_column(frame, model, content_area);
             render_text_input(frame, state, content_area);
@@ -147,6 +156,47 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
             }
             NodeKind::AliasItem => {}
         }
+    }
+
+    frame.render_widget(Paragraph::new(Text::from(lines)), area);
+}
+
+fn render_inherit_column(frame: &mut Frame, model: &TuiModel, profile_name: &str, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    lines.push(Line::from(Span::styled(
+        format!("→ Set parent for \"{profile_name}\""),
+        Style::default().fg(HEADER_DEFAULT).bold(),
+    )));
+    lines.push(Line::from(""));
+
+    // Show only profile headers from dest_tree
+    for (i, node) in model.dest_tree.iter().enumerate() {
+        if node.kind != NodeKind::ProfileHeader {
+            continue;
+        }
+        let is_cursor = i == model.dest_cursor && model.active_column == Column::Right;
+        let marker = if is_cursor { "▸ " } else { "  " };
+        let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+
+        let icon = if node.is_active { "●" } else { "○" };
+        let active_tag = if node.is_active { " (active)" } else { "" };
+        let is_self = node.label == profile_name;
+        let color = if is_self {
+            TEXT_MUTED // dim the profile itself — can't self-inherit
+        } else if is_cursor || node.is_active {
+            GOLD
+        } else {
+            HEADER_DEFAULT
+        };
+
+        lines.push(Line::from(vec![
+            Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
+            Span::styled(format!("{icon} "), Style::default().fg(if is_self { TEXT_MUTED } else if is_cursor || node.is_active { GOLD } else { TEXT_MUTED })),
+            Span::styled(
+                format!("{}{active_tag}", node.label),
+                Style::default().fg(color).bold(),
+            ),
+        ]));
     }
 
     frame.render_widget(Paragraph::new(Text::from(lines)), area);
@@ -407,7 +457,18 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled("x", Style::default().fg(GOLD)),
             Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("s", Style::default().fg(GOLD)),
-            Span::styled(" activate", Style::default().fg(TEXT_MUTED)),
+            Span::styled(" activate  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("i", Style::default().fg(GOLD)),
+            Span::styled(" inherit", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::Inheriting(_) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("↑↓", Style::default().fg(GOLD)),
+            Span::styled(" navigate  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" set parent", Style::default().fg(TEXT_MUTED)),
         ]),
         Mode::Moving => Line::from(vec![
             Span::raw("  "),
