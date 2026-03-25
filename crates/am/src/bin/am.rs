@@ -136,6 +136,18 @@ fn main() -> anyhow::Result<()> {
             }
             ProfileAction::List => Message::ListProfiles,
         },
+        Commands::Tui => {
+            use std::process::Command;
+            let status = Command::new("am-tui").status();
+            match status {
+                Ok(s) => std::process::exit(s.code().unwrap_or(0)),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    eprintln!("am-tui is not installed. Install it with:\n\n  cargo install am-tui\n");
+                    std::process::exit(1);
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
         Commands::Init { shell } => Message::InitShell(shell.clone()),
         Commands::Hook { shell } => Message::Hook(shell.clone()),
         Commands::Reload { shell } => Message::Reload(shell.clone()),
