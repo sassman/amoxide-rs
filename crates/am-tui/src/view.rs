@@ -84,31 +84,36 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
     for (i, node) in model.dest_tree.iter().enumerate() {
         let is_cursor = i == model.dest_cursor && model.active_column == Column::Right;
         let marker = if is_cursor { "▸ " } else { "  " };
+        let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
 
         match &node.kind {
             NodeKind::GlobalHeader => {
+                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(TREE_CONNECTOR)),
                     Span::raw("🌐 "),
-                    Span::styled("global", Style::default().fg(GOLD).bold()),
+                    Span::styled("global", Style::default().fg(label_color).bold()),
                 ]));
             }
             NodeKind::ProjectHeader => {
+                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(TREE_CONNECTOR)),
+                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
                     Span::raw("📁 "),
-                    Span::styled("project (.aliases)", Style::default().fg(GOLD).bold()),
+                    Span::styled("project (.aliases)", Style::default().fg(label_color).bold()),
                 ]));
             }
             NodeKind::ProfileHeader => {
                 let icon = if node.is_active { "●" } else { "○" };
                 let active_tag = if node.is_active { " (active)" } else { "" };
+                let color = if is_cursor { GOLD } else if node.is_active { GOLD } else { HEADER_DEFAULT };
+                let icon_color = if is_cursor || node.is_active { GOLD } else { TEXT_MUTED };
 
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(TREE_CONNECTOR)),
+                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
+                    Span::styled(format!("{icon} "), Style::default().fg(icon_color)),
                     Span::styled(
-                        format!("{icon} {}{active_tag}", node.label),
-                        Style::default().fg(GOLD).bold(),
+                        format!("{}{active_tag}", node.label),
+                        Style::default().fg(color).bold(),
                     ),
                 ]));
             }
