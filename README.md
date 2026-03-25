@@ -24,7 +24,7 @@ A: In a project context (locally) available, like you are working on this very r
 Note: Profiles can be composed upon another. Like your node profile should leverage some git aliases, then `node development -> git stuff` would cause they are loaded upwards the dependency tree.
 
 
-## Productivity Tip (Opinionated)
+## Productivity Tip / TL;DR (Opinionated)
 
 I personally start with **project-local aliases**, so I can be super lazy in the context I'm working in.
 
@@ -62,6 +62,8 @@ am add -p rust l cargo clippy --all-targets --all-features -- -D warning
 am profile set rust
 ```
 
+> :bulb: Tip: `am tui` allows to move the aliases from project to profile level (by select and `m`)
+
 Now `t` and `l` are available everywhere (not just this project). The project `.aliases` keeps only project-specific ones like `i`.
 
 **Step 3 — Compose with inheritance.** I also want git aliases everywhere, and a specialized git-conventional profile on top:
@@ -81,9 +83,9 @@ gmf "my feature"
 # → git commit -S --signoff -m feat: my feature
 ```
 
-> Tip: all verbs have short forms to save typing, e.g. `am a -l t cargo test` or `am p a rust`.
+> :bulb: Tip: all verbs have short forms to save typing, e.g. `am a -l t cargo test` or `am p a rust`.
 
-> Note: the subcommand `am tui` (`cargo install amoxide-tui`) simplifies this a lot.
+> :bulb: Tip: the subcommand `am tui` (`cargo install amoxide-tui`) simplifies this a lot.
 
 ## Screenshots
 
