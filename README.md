@@ -55,6 +55,15 @@ gmf "my feature"
 # → git commit -S --signoff -m feat: my feature
 ```
 
+## Installation
+
+```shell
+cargo install amoxide          # installs the `am` binary
+cargo install amoxide-tui      # installs the `am-tui` interactive interface (optional)
+```
+
+The crate is called `amoxide`, but the binary it installs is simply `am` (short for amoxide).
+
 ## Setup
 
 Add one line to your shell config:

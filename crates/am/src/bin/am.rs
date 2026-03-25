@@ -3,7 +3,7 @@ use env_logger::Builder;
 use log::info;
 use std::io::{BufRead, Write};
 
-use am::{
+use amoxide::{
     cli::*,
     dirs::relative_path,
     project::{ProjectAliases, ALIASES_FILE},
@@ -93,7 +93,7 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Ls => Message::ListProfiles,
         Commands::Status => {
-            println!("{}", am::status::run_status());
+            println!("{}", amoxide::status::run_status());
             Message::DoNothing
         }
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
@@ -142,7 +142,7 @@ fn main() -> anyhow::Result<()> {
             match status {
                 Ok(s) => std::process::exit(s.code().unwrap_or(0)),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    eprintln!("am-tui is not installed. Install it with:\n\n  cargo install am-tui\n");
+                    eprintln!("am-tui is not installed. Install it with:\n\n  cargo install amoxide-tui\n");
                     std::process::exit(1);
                 }
                 Err(e) => return Err(e.into()),

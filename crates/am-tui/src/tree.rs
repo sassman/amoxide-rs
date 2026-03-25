@@ -1,5 +1,5 @@
-use am::update::AppModel;
-use am::{AliasSet, ProfileConfig, ProjectAliases};
+use amoxide::update::AppModel;
+use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 use crate::model::{AliasId, NodeKind, TreeNode};
 
 // ---------------------------------------------------------------------------
@@ -347,7 +347,7 @@ fn emit_dest_profile_node(
 mod tests {
     use super::*;
     use crate::model::{AliasId, NodeKind};
-    use am::{AliasSet, Config, ProfileConfig, ProjectAliases};
+    use amoxide::{AliasSet, Config, ProfileConfig, ProjectAliases};
 
     #[test]
     fn test_build_tree_empty() {

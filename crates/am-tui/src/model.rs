@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use am::update::AppModel;
-use am::ProjectAliases;
+use amoxide::update::AppModel;
+use amoxide::ProjectAliases;
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum AliasId {

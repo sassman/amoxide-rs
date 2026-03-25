@@ -178,6 +178,14 @@ _arguments "${_arguments_options[@]}" : \
 ':shell:(fish zsh)' \
 && ret=0
 ;;
+(tui)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -260,6 +268,10 @@ esac
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(tui)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -290,6 +302,7 @@ _am_commands() {
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
+'tui:Launch the interactive TUI for managing aliases and profiles' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -310,6 +323,7 @@ _am__help_commands() {
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
+'tui:Launch the interactive TUI for managing aliases and profiles' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -385,6 +399,11 @@ _am__help__remove_commands() {
 _am__help__status_commands() {
     local commands; commands=()
     _describe -t commands 'am help status commands' commands "$@"
+}
+(( $+functions[_am__help__tui_commands] )) ||
+_am__help__tui_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help tui commands' commands "$@"
 }
 (( $+functions[_am__hook_commands] )) ||
 _am__hook_commands() {
@@ -482,6 +501,11 @@ _am__remove_commands() {
 _am__status_commands() {
     local commands; commands=()
     _describe -t commands 'am status commands' commands "$@"
+}
+(( $+functions[_am__tui_commands] )) ||
+_am__tui_commands() {
+    local commands; commands=()
+    _describe -t commands 'am tui commands' commands "$@"
 }
 
 if [ "$funcstack[1]" = "_am" ]; then

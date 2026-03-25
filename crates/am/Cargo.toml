@@ -1,8 +1,12 @@
 [package]
-name = "am"
+name = "amoxide"
 version = "0.1.0"
 edition = "2021"
 publish = false
+
+[[bin]]
+name = "am"
+path = "src/bin/am.rs"
 
 [dependencies]
 anyhow = "1.0"

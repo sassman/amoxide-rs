@@ -1,5 +1,5 @@
 use crate::model::{AliasField, AliasId, AliasTarget, Column, ConfirmAction, Mode, MoveDestination, NodeKind, TextInputState, TreeNode, TuiMessage, TuiModel};
-use am::{AliasName, TomlAlias, ProjectAliases};
+use amoxide::{AliasName, TomlAlias, ProjectAliases};
 
 pub fn update(model: &mut TuiModel, msg: TuiMessage) {
     match msg {
@@ -339,7 +339,7 @@ fn delete_alias(model: &mut TuiModel, alias_id: &AliasId) {
         }
         AliasId::Project { alias_name } => {
             if let Some(ref mut p) = model.project_aliases {
-                let key = am::AliasName::from(alias_name.as_str());
+                let key = amoxide::AliasName::from(alias_name.as_str());
                 p.aliases.remove(&key);
             }
         }
@@ -559,8 +559,8 @@ mod tests {
     use super::*;
     use crate::model::{Mode, TuiMessage, TuiModel};
     use crate::tree::{build_dest_tree_from_parts, build_tree_from_parts};
-    use am::{Config, ProfileConfig};
-    use am::update::AppModel;
+    use amoxide::{Config, ProfileConfig};
+    use amoxide::update::AppModel;
     use std::collections::BTreeSet;
 
     fn test_model(profiles_toml: &str) -> TuiModel {
