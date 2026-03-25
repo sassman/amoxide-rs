@@ -18,6 +18,12 @@ function am --wraps=am
     if test $am_status -ne 0
         return $am_status
     end
+    # tui may have changed anything → always reload after
+    if begin; test "$argv[1]" = tui; or test "$argv[1]" = t; end
+        command am reload fish | source
+        command am hook fish | source
+        return
+    end
     # profile mutation → reload aliases
     if begin; test "$argv[1]" = profile; or test "$argv[1]" = p; end
         if begin; test "$argv[2]" = set; or test "$argv[2]" = s; or test "$argv[2]" = add; or test "$argv[2]" = a; or test "$argv[2]" = remove; or test "$argv[2]" = r; end

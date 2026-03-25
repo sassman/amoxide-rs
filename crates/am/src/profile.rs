@@ -443,7 +443,9 @@ mod tests {
         .unwrap();
 
         // Update rust to inherit from git
-        config.add_profile("rust", &Some("git".to_string())).unwrap();
+        config
+            .add_profile("rust", &Some("git".to_string()))
+            .unwrap();
         let rust = config.get_profile_by_name("rust").unwrap();
         assert_eq!(rust.inherits.as_deref(), Some("git"));
     }

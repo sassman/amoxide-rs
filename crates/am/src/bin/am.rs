@@ -97,7 +97,11 @@ fn main() -> anyhow::Result<()> {
             Message::DoNothing
         }
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
-            ProfileAction::Add { name, inherits, no_inherits } => {
+            ProfileAction::Add {
+                name,
+                inherits,
+                no_inherits,
+            } => {
                 if *no_inherits {
                     model.profile_config_mut().clear_inherits(name)?;
                     update(&mut model, Message::SaveProfiles)?;
@@ -146,10 +150,11 @@ fn main() -> anyhow::Result<()> {
             use std::process::Command;
             let status = Command::new("am-tui").status();
             match status {
-                Ok(s) => std::process::exit(s.code().unwrap_or(0)),
+                Ok(s) if s.success() => Message::DoNothing,
+                Ok(s) => anyhow::bail!("am-tui exited with status {}", s.code().unwrap_or(1)),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                     eprintln!("am-tui is not installed. Install it with:\n\n  cargo install amoxide-tui\n");
-                    std::process::exit(1);
+                    anyhow::bail!("am-tui not found");
                 }
                 Err(e) => return Err(e.into()),
             }
