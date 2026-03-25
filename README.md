@@ -38,11 +38,11 @@ For example in this project I have:
 
 ```sh
 am add -l t cargo test
-#  ^^^  ^^ ^ ^--------^
-#   |    | |       |
-#   |    | |       +---- the command to alias
-#   |    | +---- the alias name
-#   |    +---- local (writes to .aliases in this directory)
+#  ^^^ ^^ ^ ^--------^
+#   |   | |       |
+#   |   | |       +---- the command to alias
+#   |   | +---- the alias name
+#   |   +---- local (writes to .aliases in this directory)
 #   +---- adding an alias
 
 am add -l l cargo clippy --all-targets --all-features -- -D warning
