@@ -88,8 +88,12 @@ impl ProfileConfig {
 
     pub fn add_profile(&mut self, name: &str, inherits: &Option<String>) -> Result<Response> {
         let name = name.to_string();
-        let mut existing_profile = self.profiles.binary_search_by(|p1| p1.name.cmp(&name));
+        let existing_profile = self.profiles.binary_search_by(|p1| p1.name.cmp(&name));
         if let Ok(i) = existing_profile {
+            // Profile exists — update inheritance if provided
+            if inherits.is_some() {
+                self.profiles[i].inherits = inherits.clone();
+            }
             return Ok(Response::ProfileActivated(i));
         }
 
@@ -97,12 +101,20 @@ impl ProfileConfig {
         let profile = Profile::new(name, inherits.clone());
         self.profiles.push(profile.clone());
         self.profiles.sort();
-        existing_profile = self
+        let i = self
             .profiles
-            .binary_search_by(|p1| p1.name.cmp(&profile_name));
-
-        let i = existing_profile.unwrap();
+            .binary_search_by(|p1| p1.name.cmp(&profile_name))
+            .unwrap();
         Ok(Response::ProfileAdded(i))
+    }
+
+    /// Remove inheritance from an existing profile.
+    pub fn clear_inherits(&mut self, name: &str) -> Result<()> {
+        let profile = self
+            .get_profile_by_name_mut(name)
+            .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
+        profile.inherits = None;
+        Ok(())
     }
 
     pub fn remove_profile(&mut self, name: &str) -> Result<()> {
@@ -417,5 +429,69 @@ mod tests {
 
         let resolved = config.resolve_aliases("nonexistent");
         assert!(resolved.is_empty());
+    }
+
+    #[test]
+    fn test_add_profile_updates_inheritance_on_existing() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "git"
+
+            [[profiles]]
+            name = "rust"
+        "#})
+        .unwrap();
+
+        // Update rust to inherit from git
+        config.add_profile("rust", &Some("git".to_string())).unwrap();
+        let rust = config.get_profile_by_name("rust").unwrap();
+        assert_eq!(rust.inherits.as_deref(), Some("git"));
+    }
+
+    #[test]
+    fn test_add_profile_no_inheritance_change_when_none_provided() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "rust"
+            inherits = "git"
+
+            [[profiles]]
+            name = "git"
+        "#})
+        .unwrap();
+
+        // Add without --inherits should not clear existing inheritance
+        config.add_profile("rust", &None).unwrap();
+        let rust = config.get_profile_by_name("rust").unwrap();
+        assert_eq!(rust.inherits.as_deref(), Some("git"));
+    }
+
+    #[test]
+    fn test_clear_inherits() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "git"
+
+            [[profiles]]
+            name = "rust"
+            inherits = "git"
+        "#})
+        .unwrap();
+
+        config.clear_inherits("rust").unwrap();
+        let rust = config.get_profile_by_name("rust").unwrap();
+        assert_eq!(rust.inherits, None);
+    }
+
+    #[test]
+    fn test_clear_inherits_nonexistent_profile() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "git"
+        "#})
+        .unwrap();
+
+        let err = config.clear_inherits("nope").unwrap_err();
+        assert!(err.to_string().contains("not found"));
     }
 }
