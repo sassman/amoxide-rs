@@ -181,9 +181,16 @@ fn emit_profile_node(
 ) {
     let is_active = active_profile == Some(profile_name);
     let kids = children_of.get(profile_name).cloned().unwrap_or_default();
+    let has_children = !kids.is_empty();
 
-    // The node's content_prefix is the continuation prefix passed from the parent.
-    // This is what vertical lines under this node use.
+    // If this profile has child profiles, its own aliases need a "│ " continuation
+    // to visually connect to the children below. Otherwise use the parent's content_prefix.
+    let own_content_prefix = if has_children {
+        format!("{content_prefix}│ ")
+    } else {
+        format!("{content_prefix}  ")
+    };
+
     nodes.push(TreeNode {
         kind: NodeKind::ProfileHeader,
         alias_id: None,
@@ -191,7 +198,7 @@ fn emit_profile_node(
         is_active,
         label: profile_name.to_string(),
         prefix: header_connector.to_string(),
-        content_prefix: content_prefix.to_string(),
+        content_prefix: own_content_prefix.clone(),
     });
 
     if let Some(profile) = profiles.get_profile_by_name(profile_name) {
@@ -206,7 +213,7 @@ fn emit_profile_node(
                 is_active: false,
                 label: name.to_string(),
                 prefix: String::new(),
-                content_prefix: content_prefix.to_string(),
+                content_prefix: own_content_prefix.clone(),
             });
         }
     }
