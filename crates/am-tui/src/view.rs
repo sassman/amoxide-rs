@@ -8,6 +8,7 @@ const TEXT_PRIMARY: Color = Color::Rgb(210, 210, 213);   // #d2d2d5
 const TEXT_MUTED: Color = Color::Rgb(100, 100, 103);     // #646467
 const GOLD: Color = Color::Rgb(220, 220, 100);           // #dcdc64
 const GOLD_FADED: Color = Color::Rgb(130, 130, 60);      // #82823c
+const HEADER_DEFAULT: Color = Color::Rgb(190, 185, 170); // warm beige for inactive headers
 const TREE_CONNECTOR: Color = Color::Rgb(70, 70, 73);    // dim connector lines
 const TREE_CONNECTOR_ACTIVE: Color = Color::Rgb(150, 150, 80); // brighter connectors for cursor row
 
@@ -208,19 +209,21 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
             NodeKind::GlobalHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
                 let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
                 lines.push(Line::from(vec![
                     Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
                     Span::raw("🌐 "),
-                    Span::styled("global", Style::default().fg(GOLD).bold()),
+                    Span::styled("global", Style::default().fg(label_color).bold()),
                 ]));
             }
             NodeKind::ProjectHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
                 let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
                 lines.push(Line::from(vec![
                     Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
                     Span::raw("📁 "),
-                    Span::styled("project (.aliases)", Style::default().fg(GOLD).bold()),
+                    Span::styled("project (.aliases)", Style::default().fg(label_color).bold()),
                 ]));
             }
             NodeKind::ProfileHeader => {
@@ -243,14 +246,14 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 }
 
                 let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+                let color = if is_cursor { GOLD } else if node.is_active { GOLD } else { HEADER_DEFAULT };
                 let icon_color = if is_cursor || node.is_active { GOLD } else { TEXT_MUTED };
-                let label_color = if is_cursor || node.is_active { GOLD } else { TEXT_PRIMARY };
                 lines.push(Line::from(vec![
                     Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
                     Span::styled(format!("{icon} "), Style::default().fg(icon_color)),
                     Span::styled(
                         format!("{}{active_tag}", node.label),
-                        Style::default().fg(label_color).bold(),
+                        Style::default().fg(color).bold(),
                     ),
                 ]));
             }
