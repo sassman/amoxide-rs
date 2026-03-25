@@ -26,6 +26,10 @@ cargo install amoxide-tui      # the `am-tui` interactive TUI
 <!-- Screenshot rendered on GitHub, not on crates.io -->
 ![am-tui screenshot](https://raw.githubusercontent.com/d34dl0ck/alias-manager-rs/main/assets/am-tui-2.png)
 
+## Shell Support
+
+Fish is fully supported and tested. Zsh is supported but not yet tested. Other shells are not yet implemented. See [amoxide](https://crates.io/crates/amoxide) for details.
+
 ## Documentation
 
 Full documentation with CLI examples and setup instructions: [GitHub](https://github.com/d34dl0ck/alias-manager-rs)

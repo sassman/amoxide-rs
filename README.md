@@ -82,6 +82,14 @@ cargo install amoxide-tui      # installs the `am-tui` interactive interface (op
 
 The crate is called `amoxide`, but the binary it installs is simply `am` (short for amoxide).
 
+## Shell Support
+
+| Shell | Status |
+|-------|--------|
+| Fish | Fully supported and tested |
+| Zsh | Supported, not yet tested |
+| Bash, Nushell, PowerShell | Not yet implemented |
+
 ## Setup
 
 Add one line to your shell config:
