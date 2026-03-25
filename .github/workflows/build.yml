@@ -153,7 +153,10 @@ jobs:
       - name: publish dry run
         run: |
           cargo publish --dry-run -p amoxide
-          cargo package -p amoxide-tui
+          # amoxide-tui: cargo publish --dry-run would verify against the stale
+          # crates.io amoxide. The workspace `cargo check` job already verifies
+          # compilation. Here we just ensure the tarball is well-formed.
+          cargo package --no-verify -p amoxide-tui
 
   docs:
     name: docs
