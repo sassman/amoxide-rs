@@ -270,7 +270,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     // Compact: single line "prefix  arm marker name → command"
                     let cmd_text = node.alias_command.as_deref().unwrap_or("");
                     let cmd_style = if is_cursor {
-                        Style::default().fg(TEXT_MUTED)
+                        Style::default().fg(HEADER_DEFAULT)
                     } else if is_selected {
                         Style::default().fg(SELECTED_ACCENT_MUTED)
                     } else {
