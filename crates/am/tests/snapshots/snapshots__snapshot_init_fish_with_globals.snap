@@ -5,6 +5,7 @@ expression: output
 alias ll "ls -lha"
 alias ct "cargo test"
 set -gx _AM_ALIASES "ct,ll"
+set -e _AM_PROFILE_ALIASES
 
 # am wrapper: reload aliases after mutations
 function am --wraps=am

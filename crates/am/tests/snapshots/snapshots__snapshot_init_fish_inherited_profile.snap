@@ -8,6 +8,7 @@ function cmf
 end
 alias gs "git status"
 set -gx _AM_ALIASES "cm,cmf,gs"
+set -e _AM_PROFILE_ALIASES
 
 # am wrapper: reload aliases after mutations
 function am --wraps=am

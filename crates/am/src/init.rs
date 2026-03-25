@@ -38,6 +38,8 @@ pub fn generate_init(
         all_names.dedup();
         lines.push(shell_impl.set_env("_AM_ALIASES", &all_names.join(",")));
     }
+    // Clean up legacy tracking var from older versions
+    lines.push(shell_impl.unset_env("_AM_PROFILE_ALIASES"));
 
     // Wrapper function
     lines.push(String::new());

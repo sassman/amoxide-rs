@@ -5,6 +5,7 @@ expression: output
 gs() { git status "$@"; }
 ll() { ls -lha "$@"; }
 export _AM_ALIASES="gs,ll"
+unset _AM_PROFILE_ALIASES
 
 am() {
   command am "$@"
