@@ -35,7 +35,6 @@ fn map_normal_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Char('n') if *mode == Mode::Normal => Some(TuiMessage::StartCreateProfile),
         KeyCode::Char('x') if *mode == Mode::Normal => Some(TuiMessage::DeleteItem),
         KeyCode::Char('s') if *mode == Mode::Normal => Some(TuiMessage::SetActive),
-        KeyCode::Char('c') => Some(TuiMessage::ToggleCompact),
         KeyCode::Char('q') => Some(TuiMessage::Quit),
         _ => None,
     }

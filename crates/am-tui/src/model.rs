@@ -104,7 +104,6 @@ pub enum TuiMessage {
     StartCreateProfile, StartAddAlias, DeleteItem, SetActive,
     TextInputChar(char), TextInputBackspace, TextInputConfirm, TextInputCancel, TextInputSwitchField,
     ConfirmYes, ConfirmNo,
-    ToggleCompact,
     Quit, Resize(u16, u16),
 }
 
@@ -124,7 +123,6 @@ pub struct TuiModel {
     pub dest_cursor: usize,
     pub active_column: Column,
     pub scroll_offset: usize,
-    pub compact: bool,
 }
 
 impl TuiModel {
@@ -140,7 +138,7 @@ impl TuiModel {
             app_model, project_aliases, project_path, config_dir: None,
             tree: Vec::new(), cursor: 0, selected: BTreeSet::new(),
             mode: Mode::Normal, dest_tree: Vec::new(), dest_cursor: 0,
-            active_column: Column::Left, scroll_offset: 0, compact: false,
+            active_column: Column::Left, scroll_offset: 0,
         };
         model.rebuild_tree();
         Ok(model)
@@ -172,7 +170,7 @@ impl TuiModel {
         // An alias takes 3 rendered lines (name + command + separator).
         // Scroll in chunks of 3 and keep at least 1 line of padding at edges.
         let padding = 1;
-        let chunk = if self.compact { 1 } else { 4 };
+        let chunk = 1;
 
         if cursor_line < self.scroll_offset + padding {
             // Cursor too close to top — scroll up by a chunk
@@ -189,19 +187,22 @@ impl TuiModel {
     }
 
     fn estimate_line_for_cursor(&self) -> usize {
+        // Each node renders as 1 line (compact style), plus separator lines between sections
         let mut line = 0;
         for (i, node) in self.tree.iter().enumerate() {
             if i == self.cursor {
                 break;
             }
-            line += if self.compact {
-                1 // all nodes take 1 line in compact mode
-            } else {
-                match node.kind {
-                    NodeKind::AliasItem => 3, // name + command + separator
-                    _ => 1,
+            line += 1;
+            // Account for blank separator line after last alias before a header
+            if node.kind == NodeKind::AliasItem {
+                let next_is_header = self.tree.get(i + 1).is_some_and(|n| {
+                    matches!(n.kind, NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader)
+                });
+                if next_is_header {
+                    line += 1;
                 }
-            };
+            }
         }
         line
     }
