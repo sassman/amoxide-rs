@@ -1,0 +1,31 @@
+# amoxide-tui
+
+Interactive TUI for [amoxide](https://crates.io/crates/amoxide) — navigate, add, move, and delete aliases and profiles visually.
+
+## Install
+
+```shell
+cargo install amoxide-tui
+```
+
+This installs the `am-tui` binary. You can also launch it via `am tui` if `amoxide` is installed.
+
+## Requires amoxide
+
+This crate extends `amoxide` (the `am` CLI) with an interactive terminal interface. It reads and writes the same configuration files. Install both:
+
+```shell
+cargo install amoxide          # the `am` CLI
+cargo install amoxide-tui      # the `am-tui` interactive TUI
+```
+
+## Screenshot
+
+`am-tui` lets you browse profiles, aliases, and manage them with keyboard shortcuts:
+
+<!-- Screenshot rendered on GitHub, not on crates.io -->
+![am-tui screenshot](https://raw.githubusercontent.com/d34dl0ck/alias-manager-rs/main/assets/am-tui-2.png)
+
+## Documentation
+
+Full documentation with CLI examples and setup instructions: [GitHub](https://github.com/d34dl0ck/alias-manager-rs)

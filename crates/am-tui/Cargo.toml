@@ -3,7 +3,9 @@ name = "amoxide-tui"
 description = "Interactive TUI for amoxide — manage aliases and profiles visually"
 version.workspace = true
 edition.workspace = true
-publish.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
 
 [[bin]]
 name = "am-tui"

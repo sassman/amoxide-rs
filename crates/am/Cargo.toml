@@ -3,7 +3,9 @@ name = "amoxide"
 description = "Shell alias manager — manage aliases globally via profiles or per-project"
 version.workspace = true
 edition.workspace = true
-publish.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
 
 [[bin]]
 name = "am"
