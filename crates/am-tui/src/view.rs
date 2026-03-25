@@ -11,8 +11,9 @@ const GOLD_FADED: Color = Color::Rgb(130, 130, 60);      // #82823c
 const HEADER_DEFAULT: Color = Color::Rgb(190, 185, 170); // warm beige for inactive headers
 const TREE_CONNECTOR: Color = Color::Rgb(70, 70, 73);    // dim connector lines
 const TREE_CONNECTOR_ACTIVE: Color = Color::Rgb(150, 150, 80); // brighter connectors for cursor row
-const RUBY: Color = Color::Rgb(220, 160, 165);            // #dca0a5 — selected alias names (white-ish ruby)
-const RUBY_MUTED: Color = Color::Rgb(140, 55, 60);       // #8c373c — selected alias commands/connectors
+const SELECTED_ACCENT: Color = Color::Rgb(208, 136, 74);  // #d0884a — warm orange for selected ■ marker/connectors
+const SELECTED_ACCENT_MUTED: Color = Color::Rgb(154, 101, 53); // #9a6535 — muted orange for selected commands
+const SELECTED_TEXT: Color = Color::Rgb(232, 232, 234);   // #e8e8ea — bright white for selected alias names
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
@@ -247,19 +248,25 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     "  "
                 };
 
-                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else if is_selected { RUBY_MUTED } else { TREE_CONNECTOR };
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else if is_selected { SELECTED_ACCENT_MUTED } else { TREE_CONNECTOR };
                 let name_style = if is_cursor {
                     Style::default().fg(GOLD).bold()
                 } else if is_selected {
-                    Style::default().fg(RUBY).bold()
+                    Style::default().fg(SELECTED_TEXT).bold()
                 } else {
                     Style::default().fg(TEXT_PRIMARY)
                 };
 
                 // Alias name: content_prefix + padding + arm + marker + name
                 // The 2-char padding aligns the alias arm under the parent's label text
+                let marker_style = if is_selected {
+                    Style::default().fg(SELECTED_ACCENT)
+                } else {
+                    Style::default().fg(conn)
+                };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}  {arm}{marker}", node.content_prefix), Style::default().fg(conn)),
+                    Span::styled(format!("{}  {arm}", node.content_prefix), Style::default().fg(conn)),
+                    Span::styled(marker.to_string(), marker_style),
                     Span::styled(node.label.clone(), name_style),
                 ]));
 
@@ -268,7 +275,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     let cmd_style = if is_cursor {
                         Style::default().fg(TEXT_PRIMARY)
                     } else if is_selected {
-                        Style::default().fg(RUBY_MUTED)
+                        Style::default().fg(SELECTED_ACCENT_MUTED)
                     } else {
                         Style::default().fg(TEXT_MUTED)
                     };
