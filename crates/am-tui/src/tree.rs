@@ -3,7 +3,7 @@ use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 use crate::model::{AliasId, NodeKind, TreeNode};
 
 // ---------------------------------------------------------------------------
-// Public façades
+// Public facades
 // ---------------------------------------------------------------------------
 
 pub fn build_tree(app_model: &AppModel, project: Option<&ProjectAliases>) -> Vec<TreeNode> {
@@ -151,6 +151,21 @@ pub fn build_tree_from_parts(
     nodes
 }
 
+/// Compute the connector prefix and content prefix for a child node.
+fn child_prefixes(parent_cp: &str, is_last: bool) -> (String, String) {
+    let connector = if is_last {
+        format!("{parent_cp}╰─")
+    } else {
+        format!("{parent_cp}├─")
+    };
+    let content = if is_last {
+        format!("{parent_cp}  ")
+    } else {
+        format!("{parent_cp}│ ")
+    };
+    (connector, content)
+}
+
 /// Emit a profile header + its aliases + recurse into children.
 /// `header_connector` is the `├─` or `╰─` for this node's header line.
 /// `content_prefix` is the prefix for lines underneath (aliases, child connectors).
@@ -199,27 +214,10 @@ fn emit_profile_node(
     }
 
     for (i, child) in kids.iter().enumerate() {
-        let is_last = i == kids.len() - 1;
-        let connector = if is_last {
-            format!("{content_prefix}╰─")
-        } else {
-            format!("{content_prefix}├─")
-        };
-        let child_cp = if is_last {
-            format!("{content_prefix}  ")
-        } else {
-            format!("{content_prefix}│ ")
-        };
-
+        let (connector, child_cp) = child_prefixes(content_prefix, i == kids.len() - 1);
         emit_profile_node(
-            child,
-            children_of,
-            active_profile,
-            profiles,
-            depth + 1,
-            &connector,
-            &child_cp,
-            nodes,
+            child, children_of, active_profile, profiles,
+            depth + 1, &connector, &child_cp, nodes,
         );
     }
 }
@@ -321,17 +319,7 @@ fn emit_dest_profile_node(
     });
 
     for (i, child) in kids.iter().enumerate() {
-        let is_last = i == kids.len() - 1;
-        let connector = if is_last {
-            format!("{content_prefix}╰─")
-        } else {
-            format!("{content_prefix}├─")
-        };
-        let child_cp = if is_last {
-            format!("{content_prefix}  ")
-        } else {
-            format!("{content_prefix}│ ")
-        };
+        let (connector, child_cp) = child_prefixes(content_prefix, i == kids.len() - 1);
         emit_dest_profile_node(
             child, children_of, active_profile, depth + 1,
             &connector, &child_cp, nodes,
@@ -349,10 +337,88 @@ mod tests {
     use crate::model::{AliasId, NodeKind};
     use amoxide::{AliasSet, Config, ProfileConfig, ProjectAliases};
 
+    /// Builder for constructing test configurations with a fluent API.
+    struct TestConfigBuilder {
+        config: Config,
+        profiles_toml: String,
+        project: Option<ProjectAliases>,
+    }
+
+    impl TestConfigBuilder {
+        fn new() -> Self {
+            Self {
+                config: Config::default(),
+                profiles_toml: String::new(),
+                project: None,
+            }
+        }
+
+        fn global_alias(mut self, name: &str, cmd: &str) -> Self {
+            self.config.add_alias(name.into(), cmd.into(), false);
+            self
+        }
+
+        fn profile(mut self, name: &str) -> Self {
+            self.profiles_toml.push_str(&format!(
+                "\n[[profiles]]\nname = \"{name}\"\n"
+            ));
+            self
+        }
+
+        fn profile_with_parent(mut self, name: &str, parent: &str) -> Self {
+            self.profiles_toml.push_str(&format!(
+                "\n[[profiles]]\nname = \"{name}\"\ninherits = \"{parent}\"\n"
+            ));
+            self
+        }
+
+        fn alias(mut self, name: &str, cmd: &str) -> Self {
+            // Appends alias to the last profile in the toml
+            self.profiles_toml.push_str(&format!(
+                "[profiles.aliases]\n{name} = \"{cmd}\"\n"
+            ));
+            self
+        }
+
+        fn project_alias(mut self, name: &str, cmd: &str) -> Self {
+            self.project
+                .get_or_insert_with(ProjectAliases::default)
+                .add_alias(name.into(), cmd.into(), false);
+            self
+        }
+
+        fn build_tree(&self) -> Vec<TreeNode> {
+            let profiles: ProfileConfig = if self.profiles_toml.is_empty() {
+                ProfileConfig::default()
+            } else {
+                toml::from_str(&self.profiles_toml).unwrap()
+            };
+            build_tree_from_parts(
+                &self.config.aliases,
+                &profiles,
+                None,
+                self.project.as_ref(),
+            )
+        }
+
+        fn build_dest_tree(&self) -> Vec<TreeNode> {
+            let profiles: ProfileConfig = if self.profiles_toml.is_empty() {
+                ProfileConfig::default()
+            } else {
+                toml::from_str(&self.profiles_toml).unwrap()
+            };
+            build_dest_tree_from_parts(
+                &self.config.aliases,
+                &profiles,
+                None,
+                self.project.is_some(),
+            )
+        }
+    }
+
     #[test]
     fn test_build_tree_empty() {
-        // Global is always the root with no prefix
-        let tree = build_tree_from_parts(&AliasSet::default(), &ProfileConfig::default(), None, None);
+        let tree = TestConfigBuilder::new().build_tree();
         assert_eq!(tree.len(), 1);
         assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
         assert_eq!(tree[0].prefix, "");
@@ -360,12 +426,12 @@ mod tests {
 
     #[test]
     fn test_build_tree_global_only() {
-        let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
-        let tree = build_tree_from_parts(&config.aliases, &ProfileConfig::default(), None, None);
+        let tree = TestConfigBuilder::new()
+            .global_alias("ll", "ls -lha")
+            .build_tree();
         assert_eq!(tree.len(), 2);
         assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
-        assert_eq!(tree[0].prefix, ""); // root, no connector
+        assert_eq!(tree[0].prefix, "");
         assert_eq!(tree[1].kind, NodeKind::AliasItem);
         assert_eq!(tree[1].label, "ll");
         assert_eq!(tree[1].alias_id, Some(AliasId::Global { alias_name: "ll".into() }));
@@ -373,20 +439,10 @@ mod tests {
 
     #[test]
     fn test_build_tree_profiles_with_inheritance() {
-        let profiles: ProfileConfig = toml::from_str(r#"
-            [[profiles]]
-            name = "git"
-            [profiles.aliases]
-            gs = "git status"
-
-            [[profiles]]
-            name = "rust"
-            inherits = "git"
-            [profiles.aliases]
-            ct = "cargo test"
-        "#).unwrap();
-
-        let tree = build_tree_from_parts(&AliasSet::default(), &profiles, None, None);
+        let tree = TestConfigBuilder::new()
+            .profile("git").alias("gs", "git status")
+            .profile_with_parent("rust", "git").alias("ct", "cargo test")
+            .build_tree();
         let headers: Vec<_> = tree.iter().filter(|n| n.kind == NodeKind::ProfileHeader).collect();
         assert_eq!(headers.len(), 2);
         assert_eq!(headers[0].label, "git");
@@ -396,9 +452,9 @@ mod tests {
 
     #[test]
     fn test_build_tree_with_project() {
-        let mut project = ProjectAliases::default();
-        project.add_alias("t".into(), "./x.py test".into(), false);
-        let tree = build_tree_from_parts(&AliasSet::default(), &ProfileConfig::default(), None, Some(&project));
+        let tree = TestConfigBuilder::new()
+            .project_alias("t", "./x.py test")
+            .build_tree();
         let headers: Vec<_> = tree.iter().filter(|n| n.kind == NodeKind::ProjectHeader).collect();
         assert_eq!(headers.len(), 1);
         let aliases: Vec<_> = tree.iter().filter(|n| n.kind == NodeKind::AliasItem).collect();
@@ -408,15 +464,11 @@ mod tests {
 
     #[test]
     fn test_build_tree_ordering_global_project_profiles() {
-        let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
-        let profiles: ProfileConfig = toml::from_str(r#"
-            [[profiles]]
-            name = "rust"
-        "#).unwrap();
-        let mut project = ProjectAliases::default();
-        project.add_alias("t".into(), "cargo test".into(), false);
-        let tree = build_tree_from_parts(&config.aliases, &profiles, None, Some(&project));
+        let tree = TestConfigBuilder::new()
+            .global_alias("ll", "ls -lha")
+            .project_alias("t", "cargo test")
+            .profile("rust")
+            .build_tree();
         let header_kinds: Vec<_> = tree.iter()
             .filter(|n| matches!(n.kind, NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader))
             .map(|n| n.kind.clone())
@@ -426,46 +478,32 @@ mod tests {
 
     #[test]
     fn test_build_tree_all_connected() {
-        let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
-        let profiles: ProfileConfig = toml::from_str(r#"
-            [[profiles]]
-            name = "rust"
-        "#).unwrap();
-        let mut project = ProjectAliases::default();
-        project.add_alias("t".into(), "cargo test".into(), false);
-        let tree = build_tree_from_parts(&config.aliases, &profiles, None, Some(&project));
+        let tree = TestConfigBuilder::new()
+            .global_alias("ll", "ls -lha")
+            .project_alias("t", "cargo test")
+            .profile("rust")
+            .build_tree();
 
-        // Global = root (no prefix)
         assert_eq!(tree[0].prefix, "");
         assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
 
-        // ll alias = child of global, ├─ (project + rust follow)
         let ll = tree.iter().find(|n| n.label == "ll").unwrap();
         assert_eq!(ll.kind, NodeKind::AliasItem);
 
-        // Project = child of global, ├─ (rust follows)
         let proj = tree.iter().find(|n| n.kind == NodeKind::ProjectHeader).unwrap();
         assert_eq!(proj.prefix, "├─");
 
-        // Rust = child of global, ╰─ (last child)
         let rust = tree.iter().find(|n| n.kind == NodeKind::ProfileHeader).unwrap();
         assert_eq!(rust.prefix, "╰─");
     }
 
     #[test]
     fn test_build_dest_tree_headers_only() {
-        let profiles: ProfileConfig = toml::from_str(r#"
-            [[profiles]]
-            name = "git"
-            [profiles.aliases]
-            gs = "git status"
-
-            [[profiles]]
-            name = "rust"
-            inherits = "git"
-        "#).unwrap();
-        let dest = build_dest_tree_from_parts(&AliasSet::default(), &profiles, None, true);
+        let dest = TestConfigBuilder::new()
+            .project_alias("t", "cargo test")
+            .profile("git").alias("gs", "git status")
+            .profile_with_parent("rust", "git")
+            .build_dest_tree();
         assert!(dest.iter().all(|n| n.kind != NodeKind::AliasItem));
         let headers: Vec<_> = dest.iter().filter(|n| n.kind == NodeKind::ProfileHeader).collect();
         assert_eq!(headers.len(), 2);

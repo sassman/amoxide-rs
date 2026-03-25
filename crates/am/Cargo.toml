@@ -1,8 +1,9 @@
 [package]
 name = "amoxide"
-version = "0.1.0"
-edition = "2021"
-publish = false
+description = "Shell alias manager — manage aliases globally via profiles or per-project"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
 
 [[bin]]
 name = "am"

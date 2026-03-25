@@ -1,8 +1,9 @@
 [package]
 name = "amoxide-tui"
-version = "0.1.0"
-edition = "2021"
-publish = false
+description = "Interactive TUI for amoxide — manage aliases and profiles visually"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
 
 [[bin]]
 name = "am-tui"
@@ -10,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 amoxide = { path = "../am" }
-ratatui = "0.29"
+ratatui = "0.30"
 anyhow = "1.0"
 
 [dev-dependencies]
