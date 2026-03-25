@@ -9,12 +9,12 @@ const TEXT_MUTED: Color = Color::Rgb(100, 100, 103);     // #646467
 const GOLD: Color = Color::Rgb(220, 220, 100);           // #dcdc64
 const GOLD_FADED: Color = Color::Rgb(130, 130, 60);      // #82823c
 const TREE_CONNECTOR: Color = Color::Rgb(70, 70, 73);    // dim connector lines
+const CURSOR_BG: Color = Color::Rgb(45, 45, 40);         // subtle warm highlight for cursor row
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
 
-    let help_text = help_bar_text(&model.mode);
-    let help = Paragraph::new(help_text).style(Style::default().fg(TEXT_MUTED));
+    let help = Paragraph::new(help_bar(&model.mode));
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -173,18 +173,30 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
         match &node.kind {
             NodeKind::GlobalHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
+                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
+                let label_style = if is_cursor {
+                    Style::default().fg(GOLD).bold().bg(CURSOR_BG)
+                } else {
+                    Style::default().fg(GOLD).bold()
+                };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(TREE_CONNECTOR)),
-                    Span::raw("🌐 "),
-                    Span::styled("global", Style::default().fg(GOLD).bold()),
+                    Span::styled(format!("{}{marker}", node.prefix), bg.fg(TREE_CONNECTOR)),
+                    Span::styled("🌐 ", bg),
+                    Span::styled("global", label_style),
                 ]));
             }
             NodeKind::ProjectHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
+                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
+                let label_style = if is_cursor {
+                    Style::default().fg(GOLD).bold().bg(CURSOR_BG)
+                } else {
+                    Style::default().fg(GOLD).bold()
+                };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(TREE_CONNECTOR)),
-                    Span::raw("📁 "),
-                    Span::styled("project (.aliases)", Style::default().fg(GOLD).bold()),
+                    Span::styled(format!("{}{marker}", node.prefix), bg.fg(TREE_CONNECTOR)),
+                    Span::styled("📁 ", bg),
+                    Span::styled("project (.aliases)", label_style),
                 ]));
             }
             NodeKind::ProfileHeader => {
@@ -206,13 +218,15 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     lines.push(Line::from(Span::styled(connector_line, Style::default().fg(TREE_CONNECTOR))));
                 }
 
+                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
                 let icon_color = if node.is_active { GOLD } else { TEXT_MUTED };
+                let label_color = if is_cursor { GOLD } else if node.is_active { GOLD } else { TEXT_PRIMARY };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(TREE_CONNECTOR)),
-                    Span::styled(format!("{icon} "), Style::default().fg(icon_color)),
+                    Span::styled(format!("{}{marker}", node.prefix), bg.fg(TREE_CONNECTOR)),
+                    Span::styled(format!("{icon} "), bg.fg(icon_color)),
                     Span::styled(
                         format!("{}{active_tag}", node.label),
-                        Style::default().fg(if node.is_active { GOLD } else { TEXT_PRIMARY }).bold(),
+                        bg.fg(label_color).bold(),
                     ),
                 ]));
             }
@@ -232,10 +246,11 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     "  "
                 };
 
+                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
                 let name_style = if is_selected {
-                    Style::default().fg(GOLD)
+                    bg.fg(GOLD).bold()
                 } else if is_cursor {
-                    Style::default().fg(TEXT_PRIMARY)
+                    bg.fg(GOLD).bold()
                 } else {
                     Style::default().fg(TEXT_PRIMARY)
                 };
@@ -256,15 +271,20 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 };
 
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{alias_prefix}{marker}"), Style::default().fg(TREE_CONNECTOR)),
+                    Span::styled(format!("{alias_prefix}{marker}"), bg.fg(TREE_CONNECTOR)),
                     Span::styled(node.label.clone(), name_style),
                 ]));
 
-                // Command line (dimmed)
+                // Command line — prominent when cursor is on this alias
                 if let Some(ref cmd) = node.alias_command {
+                    let cmd_style = if is_cursor {
+                        bg.fg(TEXT_PRIMARY)
+                    } else {
+                        Style::default().fg(TEXT_MUTED)
+                    };
                     lines.push(Line::from(vec![
-                        Span::styled(format!("{cmd_prefix}  "), Style::default().fg(TREE_CONNECTOR)),
-                        Span::styled(cmd.clone(), Style::default().fg(TEXT_MUTED)),
+                        Span::styled(format!("{cmd_prefix}  "), if is_cursor { bg.fg(TREE_CONNECTOR) } else { Style::default().fg(TREE_CONNECTOR) }),
+                        Span::styled(cmd.clone(), cmd_style),
                     ]));
                 }
 
@@ -282,11 +302,33 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
     lines
 }
 
-fn help_bar_text(mode: &Mode) -> String {
+fn help_bar(mode: &Mode) -> Line<'static> {
     match mode {
-        Mode::Normal => "  q quit  ␣ select  m move  n new  x delete  s activate".into(),
-        Mode::Moving => "  Esc cancel  ↑↓ navigate  Enter move here  Tab switch column".into(),
-        Mode::TextInput(_) => "  Esc cancel  Enter confirm".into(),
-        Mode::Confirm(_) => "  y confirm  n cancel".into(),
+        Mode::Normal => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("q", Style::default().fg(GOLD)), Span::styled(" quit  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("␣", Style::default().fg(GOLD)), Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("m", Style::default().fg(GOLD)), Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("n", Style::default().fg(GOLD)), Span::styled(" new  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("x", Style::default().fg(GOLD)), Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("s", Style::default().fg(GOLD)), Span::styled(" activate", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::Moving => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)), Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("↑↓", Style::default().fg(GOLD)), Span::styled(" navigate  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)), Span::styled(" move here  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Tab", Style::default().fg(GOLD)), Span::styled(" switch column", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::TextInput(_) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)), Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)), Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::Confirm(_) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("y", Style::default().fg(GOLD)), Span::styled(" confirm  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("n", Style::default().fg(GOLD)), Span::styled(" cancel", Style::default().fg(TEXT_MUTED)),
+        ]),
     }
 }
