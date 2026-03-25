@@ -1,4 +1,4 @@
-# amoxide (am) - the alias manager
+<h1 align="center">amoxide (am) - alias manager oxidized</h1>
 
 <p align="center">
   <img src="assets/banner.png" width="50%" alt="amoxide banner" />
