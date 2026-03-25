@@ -165,6 +165,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             ])
         }
     };
+    frame.render_widget(ratatui::widgets::Clear, input_area);
     frame.render_widget(Paragraph::new(prompt), input_area);
 }
 
@@ -190,6 +191,7 @@ fn render_confirm(frame: &mut Frame, action: &ConfirmAction, area: Rect) {
         }
     };
     let widget = Paragraph::new(message).style(Style::default().fg(GOLD));
+    frame.render_widget(ratatui::widgets::Clear, input_area);
     frame.render_widget(widget, input_area);
 }
 
