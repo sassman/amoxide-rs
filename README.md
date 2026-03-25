@@ -1,7 +1,7 @@
 # amoxide (am) - the alias manager
 
 <p align="center">
-  <img src="assets/banner.png" width="66%" alt="amoxide banner" />
+  <img src="assets/banner.png" width="50%" alt="amoxide banner" />
 </p>
 
 > amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
@@ -19,6 +19,14 @@ Q: What is then project specific?
 A: In a project context (locally) available, like you are working on this very rust backend - with project specific aliases.
 
 Note: Profiles can be composed upon another. Like your node profile should leverage some git aliases, then `node development -> git stuff` would cause they are loaded upwards the dependency tree.
+
+## Interactive TUI
+
+Launch the interactive terminal UI with `am tui` to navigate, select, move, add, and delete aliases visually:
+
+<p align="center">
+  <img src="assets/am-tui-2.png" width="80%" alt="amoxide TUI" />
+</p>
 
 ## Productivity Tip (Opinionated)
 
@@ -41,6 +49,10 @@ am add -p rust l cargo clippy --all-targets --all-features -- -D warning
 Then if I find myself often doing the same things in several projects, like coding in rust, then introduce a profile for it. And a profile for `git stuff` or `k8s` and so on.
 
 Last mile, if I need specialization profiles a specific git workflow, I use profile inheritance.
+
+<p align="center">
+  <img src="assets/am-ls.png" width="70%" alt="am ls output" />
+</p>
 
 ```sh
 # create the git profile first, with one alias
