@@ -11,9 +11,6 @@
 </p>
 
 > amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
->
-> Install: `cargo install amoxide` — the binary is called `am`.
-> For the interactive TUI: `cargo install amoxide-tui` — the binary is called `am-tui`, or launch via `am tui`.
 
 Q: What does Globally mean?
 A: It's as a regular shell alias right now works - always present.
@@ -29,13 +26,15 @@ Note: Profiles can be composed upon another. Like your node profile should lever
 
 ## Productivity Tip (Opinionated)
 
-I personally put *a lot* of aliases on the project level, so that I can be super lazy. 
+I personally put *very often* aliases on the project level, so that I can be super lazy but specific in this context. 
 
 For example in this project I have:
 
 - installing the binary by `cargo install --path crates/am` becomes just `i`
 - running tests by `cargo test` becomes `t`
 - running lint checks by `cargo clippy --all-targets --all-features -- -D warning` becomes `l`
+
+With the cli this would be done:
 
 ```sh
 am profile add rust
@@ -64,6 +63,8 @@ gmf "my feature"
 # → gm feat: my feature
 # → git commit -S --signoff -m feat: my feature
 ```
+
+Note: the subcommadn `am tui` (cargo install amoxide-tui) simplifies this a lot.
 
 ## Screenshots
 
