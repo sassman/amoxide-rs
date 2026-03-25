@@ -255,14 +255,14 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Style::default().fg(TEXT_PRIMARY)
                 };
 
-                // Alias name: content_prefix + arm + marker + name
-                // e.g. "│ ├─  gs" — nested inside the parent
+                // Alias name: content_prefix + padding + arm + marker + name
+                // The 2-char padding aligns the alias arm under the parent's label text
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{arm}{marker}", node.content_prefix), Style::default().fg(conn)),
+                    Span::styled(format!("{}  {arm}{marker}", node.content_prefix), Style::default().fg(conn)),
                     Span::styled(node.label.clone(), name_style),
                 ]));
 
-                // Command line: content_prefix + continuation + indent + command
+                // Command line: content_prefix + padding + continuation + indent + command
                 if let Some(ref cmd) = node.alias_command {
                     let cmd_style = if is_cursor {
                         Style::default().fg(TEXT_PRIMARY)
@@ -270,7 +270,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                         Style::default().fg(TEXT_MUTED)
                     };
                     lines.push(Line::from(vec![
-                        Span::styled(format!("{}{continuation}  ", node.content_prefix), Style::default().fg(conn)),
+                        Span::styled(format!("{}  {continuation}  ", node.content_prefix), Style::default().fg(conn)),
                         Span::styled(cmd.clone(), cmd_style),
                     ]));
                 }
@@ -278,7 +278,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 if !is_last_alias {
                     // Separator between sibling aliases
                     lines.push(Line::from(Span::styled(
-                        format!("{}│", node.content_prefix),
+                        format!("{}  │", node.content_prefix),
                         Style::default().fg(TREE_CONNECTOR),
                     )));
                 } else {
