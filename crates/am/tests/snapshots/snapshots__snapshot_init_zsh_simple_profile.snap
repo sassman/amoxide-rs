@@ -27,3 +27,520 @@ am() {
 __am_hook() { eval "$(am hook zsh)"; }
 chpwd_functions+=(__am_hook)
 __am_hook
+
+#compdef am
+
+autoload -U is-at-least
+
+_am() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_am_commands" \
+"*::: :->am" \
+&& ret=0
+    case $state in
+    (am)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global)-p+[Profile to add the alias to (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Profile to add the alias to (defaults to active profile)]:PROFILE:_default' \
+'(-g --global)-l[Add to the project'\''s .aliases file instead of a profile]' \
+'(-g --global)--local[Add to the project'\''s .aliases file instead of a profile]' \
+'-g[Add as a global alias (always loaded, independent of profile)]' \
+'--global[Add as a global alias (always loaded, independent of profile)]' \
+'--raw[Disable {{N}} template detection (treat command as literal)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- The alias name:_default' \
+'*::command -- The command to alias:_default' \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+'(-g --global)-p+[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
+'(-g --global)--profile=[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
+'-g[Remove a global alias]' \
+'--global[Remove a global alias]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- The alias name to remove:_default' \
+&& ret=0
+;;
+(ls)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
+(profile)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_am__profile_commands" \
+"*::: :->profile" \
+&& ret=0
+
+    case $state in
+    (profile)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-profile-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+'(--no-inherits)-i+[Base profile to inherit from]:INHERITS:_default' \
+'(--no-inherits)--inherits=[Base profile to inherit from]:INHERITS:_default' \
+'--no-inherits[Remove inheritance from this profile]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- Profile name:_default' \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- Profile name:_default' \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+'-f[Skip confirmation prompt]' \
+'--force[Skip confirmation prompt]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- Profile name:_default' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_am__profile__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-profile-help-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(init)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell:(fish zsh)' \
+&& ret=0
+;;
+(tui)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
+(hook)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell:(fish zsh)' \
+&& ret=0
+;;
+(reload)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell:(fish zsh)' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_am__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-help-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(ls)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(profile)
+_arguments "${_arguments_options[@]}" : \
+":: :_am__help__profile_commands" \
+"*::: :->profile" \
+&& ret=0
+
+    case $state in
+    (profile)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-help-profile-command-$line[1]:"
+        case $line[1] in
+            (add)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(init)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(tui)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(hook)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reload)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_am_commands] )) ||
+_am_commands() {
+    local commands; commands=(
+'add:Add a new alias' \
+'remove:Remove an alias' \
+'ls:List all profiles and project aliases' \
+'status:Check if the shell is set up correctly' \
+'profile:Manage profiles (defaults to listing when no subcommand given)' \
+'init:Print shell init code' \
+'tui:Launch the interactive TUI for managing aliases and profiles' \
+'hook:Internal\: called by the cd hook to load/unload project aliases' \
+'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am commands' commands "$@"
+}
+(( $+functions[_am__add_commands] )) ||
+_am__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'am add commands' commands "$@"
+}
+(( $+functions[_am__help_commands] )) ||
+_am__help_commands() {
+    local commands; commands=(
+'add:Add a new alias' \
+'remove:Remove an alias' \
+'ls:List all profiles and project aliases' \
+'status:Check if the shell is set up correctly' \
+'profile:Manage profiles (defaults to listing when no subcommand given)' \
+'init:Print shell init code' \
+'tui:Launch the interactive TUI for managing aliases and profiles' \
+'hook:Internal\: called by the cd hook to load/unload project aliases' \
+'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am help commands' commands "$@"
+}
+(( $+functions[_am__help__add_commands] )) ||
+_am__help__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help add commands' commands "$@"
+}
+(( $+functions[_am__help__help_commands] )) ||
+_am__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help help commands' commands "$@"
+}
+(( $+functions[_am__help__hook_commands] )) ||
+_am__help__hook_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help hook commands' commands "$@"
+}
+(( $+functions[_am__help__init_commands] )) ||
+_am__help__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help init commands' commands "$@"
+}
+(( $+functions[_am__help__ls_commands] )) ||
+_am__help__ls_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help ls commands' commands "$@"
+}
+(( $+functions[_am__help__profile_commands] )) ||
+_am__help__profile_commands() {
+    local commands; commands=(
+'add:Add a new profile, or update inheritance of an existing one' \
+'set:Set the active profile' \
+'remove:Remove a profile' \
+'list:List all profiles' \
+    )
+    _describe -t commands 'am help profile commands' commands "$@"
+}
+(( $+functions[_am__help__profile__add_commands] )) ||
+_am__help__profile__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help profile add commands' commands "$@"
+}
+(( $+functions[_am__help__profile__list_commands] )) ||
+_am__help__profile__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help profile list commands' commands "$@"
+}
+(( $+functions[_am__help__profile__remove_commands] )) ||
+_am__help__profile__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help profile remove commands' commands "$@"
+}
+(( $+functions[_am__help__profile__set_commands] )) ||
+_am__help__profile__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help profile set commands' commands "$@"
+}
+(( $+functions[_am__help__reload_commands] )) ||
+_am__help__reload_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help reload commands' commands "$@"
+}
+(( $+functions[_am__help__remove_commands] )) ||
+_am__help__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help remove commands' commands "$@"
+}
+(( $+functions[_am__help__status_commands] )) ||
+_am__help__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help status commands' commands "$@"
+}
+(( $+functions[_am__help__tui_commands] )) ||
+_am__help__tui_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help tui commands' commands "$@"
+}
+(( $+functions[_am__hook_commands] )) ||
+_am__hook_commands() {
+    local commands; commands=()
+    _describe -t commands 'am hook commands' commands "$@"
+}
+(( $+functions[_am__init_commands] )) ||
+_am__init_commands() {
+    local commands; commands=()
+    _describe -t commands 'am init commands' commands "$@"
+}
+(( $+functions[_am__ls_commands] )) ||
+_am__ls_commands() {
+    local commands; commands=()
+    _describe -t commands 'am ls commands' commands "$@"
+}
+(( $+functions[_am__profile_commands] )) ||
+_am__profile_commands() {
+    local commands; commands=(
+'add:Add a new profile, or update inheritance of an existing one' \
+'set:Set the active profile' \
+'remove:Remove a profile' \
+'list:List all profiles' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am profile commands' commands "$@"
+}
+(( $+functions[_am__profile__add_commands] )) ||
+_am__profile__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile add commands' commands "$@"
+}
+(( $+functions[_am__profile__help_commands] )) ||
+_am__profile__help_commands() {
+    local commands; commands=(
+'add:Add a new profile, or update inheritance of an existing one' \
+'set:Set the active profile' \
+'remove:Remove a profile' \
+'list:List all profiles' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am profile help commands' commands "$@"
+}
+(( $+functions[_am__profile__help__add_commands] )) ||
+_am__profile__help__add_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile help add commands' commands "$@"
+}
+(( $+functions[_am__profile__help__help_commands] )) ||
+_am__profile__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile help help commands' commands "$@"
+}
+(( $+functions[_am__profile__help__list_commands] )) ||
+_am__profile__help__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile help list commands' commands "$@"
+}
+(( $+functions[_am__profile__help__remove_commands] )) ||
+_am__profile__help__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile help remove commands' commands "$@"
+}
+(( $+functions[_am__profile__help__set_commands] )) ||
+_am__profile__help__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile help set commands' commands "$@"
+}
+(( $+functions[_am__profile__list_commands] )) ||
+_am__profile__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile list commands' commands "$@"
+}
+(( $+functions[_am__profile__remove_commands] )) ||
+_am__profile__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile remove commands' commands "$@"
+}
+(( $+functions[_am__profile__set_commands] )) ||
+_am__profile__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'am profile set commands' commands "$@"
+}
+(( $+functions[_am__reload_commands] )) ||
+_am__reload_commands() {
+    local commands; commands=()
+    _describe -t commands 'am reload commands' commands "$@"
+}
+(( $+functions[_am__remove_commands] )) ||
+_am__remove_commands() {
+    local commands; commands=()
+    _describe -t commands 'am remove commands' commands "$@"
+}
+(( $+functions[_am__status_commands] )) ||
+_am__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'am status commands' commands "$@"
+}
+(( $+functions[_am__tui_commands] )) ||
+_am__tui_commands() {
+    local commands; commands=()
+    _describe -t commands 'am tui commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_am" ]; then
+    _am "$@"
+else
+    compdef _am am
+fi

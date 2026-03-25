@@ -5,6 +5,8 @@ const WRAPPER_FISH: &str = include_str!("shell_wrappers/wrapper.fish");
 const WRAPPER_ZSH: &str = include_str!("shell_wrappers/wrapper.zsh");
 const HOOK_FISH: &str = include_str!("shell_wrappers/hook.fish");
 const HOOK_ZSH: &str = include_str!("shell_wrappers/hook.zsh");
+const COMPLETIONS_FISH: &str = include_str!("../../../completions/fish/am.fish");
+const COMPLETIONS_ZSH: &str = include_str!("../../../completions/zsh/_am");
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
@@ -48,6 +50,10 @@ pub fn generate_init(
     // cd hook for project aliases
     lines.push(String::new());
     lines.push(cd_hook_setup(shell));
+
+    // Shell completions
+    lines.push(String::new());
+    lines.push(completions(shell));
 
     lines.join("\n")
 }
@@ -117,6 +123,13 @@ fn cd_hook_setup(shell: &Shells) -> String {
     match shell {
         Shells::Fish => shell_script(HOOK_FISH, shell),
         Shells::Zsh => shell_script(HOOK_ZSH, shell),
+    }
+}
+
+fn completions(shell: &Shells) -> String {
+    match shell {
+        Shells::Fish => COMPLETIONS_FISH.to_string(),
+        Shells::Zsh => COMPLETIONS_ZSH.to_string(),
     }
 }
 

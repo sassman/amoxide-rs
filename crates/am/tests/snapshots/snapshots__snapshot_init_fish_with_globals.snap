@@ -35,3 +35,101 @@ function __am_hook --on-variable PWD
     am hook fish | source
 end
 __am_hook
+
+# Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
+function __fish_am_global_optspecs
+	string join \n h/help V/version
+end
+
+function __fish_am_needs_command
+	# Figure out if the current invocation already has a command.
+	set -l cmd (commandline -opc)
+	set -e cmd[1]
+	argparse -s (__fish_am_global_optspecs) -- $cmd 2>/dev/null
+	or return
+	if set -q argv[1]
+		# Also print the command, so this can be used to figure out what it is.
+		echo $argv[1]
+		return 1
+	end
+	return 0
+end
+
+function __fish_am_using_subcommand
+	set -l cmd (__fish_am_needs_command)
+	test -z "$cmd"
+	and return 1
+	contains -- $cmd[1] $argv
+end
+
+complete -c am -n "__fish_am_needs_command" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_needs_command" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_needs_command" -f -a "add" -d 'Add a new alias'
+complete -c am -n "__fish_am_needs_command" -f -a "remove" -d 'Remove an alias'
+complete -c am -n "__fish_am_needs_command" -f -a "ls" -d 'List all profiles and project aliases'
+complete -c am -n "__fish_am_needs_command" -f -a "status" -d 'Check if the shell is set up correctly'
+complete -c am -n "__fish_am_needs_command" -f -a "profile" -d 'Manage profiles (defaults to listing when no subcommand given)'
+complete -c am -n "__fish_am_needs_command" -f -a "init" -d 'Print shell init code'
+complete -c am -n "__fish_am_needs_command" -f -a "tui" -d 'Launch the interactive TUI for managing aliases and profiles'
+complete -c am -n "__fish_am_needs_command" -f -a "hook" -d 'Internal: called by the cd hook to load/unload project aliases'
+complete -c am -n "__fish_am_needs_command" -f -a "reload" -d 'Internal: called by the am wrapper to reload profile aliases after switching'
+complete -c am -n "__fish_am_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_am_using_subcommand add" -s p -l profile -d 'Profile to add the alias to (defaults to active profile)' -r
+complete -c am -n "__fish_am_using_subcommand add" -s l -l local -d 'Add to the project\'s .aliases file instead of a profile'
+complete -c am -n "__fish_am_using_subcommand add" -s g -l global -d 'Add as a global alias (always loaded, independent of profile)'
+complete -c am -n "__fish_am_using_subcommand add" -l raw -d 'Disable {{N}} template detection (treat command as literal)'
+complete -c am -n "__fish_am_using_subcommand add" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand add" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand remove" -s p -l profile -d 'Profile to remove the alias from (defaults to active profile)' -r
+complete -c am -n "__fish_am_using_subcommand remove" -s g -l global -d 'Remove a global alias'
+complete -c am -n "__fish_am_using_subcommand remove" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand remove" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand ls" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand ls" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand status" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand status" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subcommand_from add set remove list help" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subcommand_from add set remove list help" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subcommand_from add set remove list help" -f -a "add" -d 'Add a new profile, or update inheritance of an existing one'
+complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subcommand_from add set remove list help" -f -a "set" -d 'Set the active profile'
+complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subcommand_from add set remove list help" -f -a "remove" -d 'Remove a profile'
+complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subcommand_from add set remove list help" -f -a "list" -d 'List all profiles'
+complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subcommand_from add set remove list help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from add" -s i -l inherits -d 'Base profile to inherit from' -r
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from add" -l no-inherits -d 'Remove inheritance from this profile'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from add" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from add" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from set" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from set" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from remove" -s f -l force -d 'Skip confirmation prompt'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from remove" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from remove" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from list" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from list" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "add" -d 'Add a new profile, or update inheritance of an existing one'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "set" -d 'Set the active profile'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "remove" -d 'Remove a profile'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "list" -d 'List all profiles'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_am_using_subcommand init" -s h -l help -d 'Print help (see more with \'--help\')'
+complete -c am -n "__fish_am_using_subcommand init" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand tui" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand tui" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand hook" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand hook" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand reload" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand reload" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "add" -d 'Add a new alias'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "remove" -d 'Remove an alias'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "ls" -d 'List all profiles and project aliases'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "status" -d 'Check if the shell is set up correctly'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "profile" -d 'Manage profiles (defaults to listing when no subcommand given)'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "init" -d 'Print shell init code'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "tui" -d 'Launch the interactive TUI for managing aliases and profiles'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "hook" -d 'Internal: called by the cd hook to load/unload project aliases'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "reload" -d 'Internal: called by the am wrapper to reload profile aliases after switching'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init tui hook reload help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_am_using_subcommand help; and __fish_seen_subcommand_from profile" -f -a "add" -d 'Add a new profile, or update inheritance of an existing one'
+complete -c am -n "__fish_am_using_subcommand help; and __fish_seen_subcommand_from profile" -f -a "set" -d 'Set the active profile'
+complete -c am -n "__fish_am_using_subcommand help; and __fish_seen_subcommand_from profile" -f -a "remove" -d 'Remove a profile'
+complete -c am -n "__fish_am_using_subcommand help; and __fish_seen_subcommand_from profile" -f -a "list" -d 'List all profiles'
