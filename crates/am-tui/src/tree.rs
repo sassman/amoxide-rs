@@ -38,7 +38,6 @@ pub fn build_tree_from_parts(
 ) -> Vec<TreeNode> {
     let mut nodes: Vec<TreeNode> = Vec::new();
 
-    // Collect all top-level siblings: global (always), project (if has aliases), root profiles.
     let has_project = project.is_some_and(|p| !p.aliases.is_empty());
 
     // Build profile hierarchy info.
@@ -60,51 +59,55 @@ pub fn build_tree_from_parts(
         children.sort_unstable();
     }
 
-    // Count total top-level siblings.
-    let total_siblings = 1 /* global */ + if has_project { 1 } else { 0 } + roots.len();
-    let mut sibling_idx = 0;
+    // Global is the ROOT of the entire tree. Everything else is a child of global.
+    // Children of global: global aliases, project (if present), root profiles.
 
-    // --- Global (always first sibling) ---
-    {
-        let is_last = sibling_idx == total_siblings - 1;
+    // Count children of global root.
+    let global_alias_count = global_aliases.iter().count();
+    let child_count = global_alias_count + if has_project { 1 } else { 0 } + roots.len();
+
+    // Global root — no prefix (it IS the root).
+    nodes.push(TreeNode {
+        kind: NodeKind::GlobalHeader,
+        depth: 0,
+        alias_id: None,
+        alias_command: None,
+        is_active: false,
+        label: "global".to_string(),
+        prefix: String::new(),
+        content_prefix: String::new(),
+    });
+
+    let mut child_idx = 0;
+
+    // Global aliases are direct children of global root.
+    for (name, alias) in global_aliases.iter() {
+        let is_last = child_idx == child_count - 1;
         let connector = if is_last { "╰─" } else { "├─" };
         let content_prefix = if is_last { "  " } else { "│ " };
-
         nodes.push(TreeNode {
-            kind: NodeKind::GlobalHeader,
-            depth: 0,
-            alias_id: None,
-            alias_command: None,
+            kind: NodeKind::AliasItem,
+            depth: 1,
+            alias_id: Some(AliasId::Global { alias_name: name.to_string() }),
+            alias_command: Some(alias.command().to_string()),
             is_active: false,
-            label: "global".to_string(),
-            prefix: connector.to_string(),
+            label: name.to_string(),
+            prefix: String::new(),
             content_prefix: content_prefix.to_string(),
         });
-        for (name, alias) in global_aliases.iter() {
-            nodes.push(TreeNode {
-                kind: NodeKind::AliasItem,
-                depth: 1,
-                alias_id: Some(AliasId::Global { alias_name: name.to_string() }),
-                alias_command: Some(alias.command().to_string()),
-                is_active: false,
-                label: name.to_string(),
-                prefix: String::new(),
-                content_prefix: content_prefix.to_string(),
-            });
-        }
-        sibling_idx += 1;
+        child_idx += 1;
     }
 
-    // --- Project (if has aliases) ---
+    // Project is a child of global root.
     if has_project {
         let proj = project.unwrap();
-        let is_last = sibling_idx == total_siblings - 1;
+        let is_last = child_idx == child_count - 1;
         let connector = if is_last { "╰─" } else { "├─" };
         let content_prefix = if is_last { "  " } else { "│ " };
 
         nodes.push(TreeNode {
             kind: NodeKind::ProjectHeader,
-            depth: 0,
+            depth: 1,
             alias_id: None,
             alias_command: None,
             is_active: false,
@@ -115,7 +118,7 @@ pub fn build_tree_from_parts(
         for (name, alias) in proj.aliases.iter() {
             nodes.push(TreeNode {
                 kind: NodeKind::AliasItem,
-                depth: 1,
+                depth: 2,
                 alias_id: Some(AliasId::Project { alias_name: name.to_string() }),
                 alias_command: Some(alias.command().to_string()),
                 is_active: false,
@@ -124,23 +127,23 @@ pub fn build_tree_from_parts(
                 content_prefix: content_prefix.to_string(),
             });
         }
-        sibling_idx += 1;
+        child_idx += 1;
     }
 
-    // --- Root profiles (remaining siblings) ---
+    // Root profiles are children of global root.
     for (i, root) in roots.iter().enumerate() {
-        let is_last = sibling_idx + i == total_siblings - 1;
+        let is_last = child_idx + i == child_count - 1;
         let connector = if is_last { "╰─" } else { "├─" };
-        let child_content_prefix = if is_last { "  " } else { "│ " };
+        let child_cp = if is_last { "  " } else { "│ " };
 
         emit_profile_node(
             root,
             &children_of,
             active_profile,
             profiles,
-            0,
+            1,
             connector,
-            child_content_prefix,
+            child_cp,
             &mut nodes,
         );
     }
@@ -251,47 +254,44 @@ pub fn build_dest_tree_from_parts(
         children.sort_unstable();
     }
 
-    let total_siblings = 1 + if has_project { 1 } else { 0 } + roots.len();
-    let mut sibling_idx = 0;
+    // Global is the root — same structure as main tree but headers only.
+    let child_count = if has_project { 1 } else { 0 } + roots.len();
 
-    // Global
-    {
-        let is_last = sibling_idx == total_siblings - 1;
-        let connector = if is_last { "╰─" } else { "├─" };
-        nodes.push(TreeNode {
-            kind: NodeKind::GlobalHeader,
-            depth: 0,
-            alias_id: None, alias_command: None, is_active: false,
-            label: "global".to_string(),
-            prefix: connector.to_string(),
-            content_prefix: if is_last { "  " } else { "│ " }.to_string(),
-        });
-        sibling_idx += 1;
-    }
+    nodes.push(TreeNode {
+        kind: NodeKind::GlobalHeader,
+        depth: 0,
+        alias_id: None, alias_command: None, is_active: false,
+        label: "global".to_string(),
+        prefix: String::new(),
+        content_prefix: String::new(),
+    });
+
+    let mut child_idx = 0;
 
     // Project
     if has_project {
-        let is_last = sibling_idx == total_siblings - 1;
+        let is_last = child_idx == child_count - 1;
         let connector = if is_last { "╰─" } else { "├─" };
+        let cp = if is_last { "  " } else { "│ " };
         nodes.push(TreeNode {
             kind: NodeKind::ProjectHeader,
-            depth: 0,
+            depth: 1,
             alias_id: None, alias_command: None, is_active: false,
             label: "project (.aliases)".to_string(),
             prefix: connector.to_string(),
-            content_prefix: if is_last { "  " } else { "│ " }.to_string(),
+            content_prefix: cp.to_string(),
         });
-        sibling_idx += 1;
+        child_idx += 1;
     }
 
     // Root profiles
     for (i, root) in roots.iter().enumerate() {
-        let is_last = sibling_idx + i == total_siblings - 1;
+        let is_last = child_idx + i == child_count - 1;
         let connector = if is_last { "╰─" } else { "├─" };
         let child_cp = if is_last { "  " } else { "│ " };
 
         emit_dest_profile_node(
-            root, &children_of, active_profile, 0,
+            root, &children_of, active_profile, 1,
             connector, child_cp, &mut nodes,
         );
     }
@@ -351,11 +351,11 @@ mod tests {
 
     #[test]
     fn test_build_tree_empty() {
+        // Global is always the root with no prefix
         let tree = build_tree_from_parts(&AliasSet::default(), &ProfileConfig::default(), None, None);
         assert_eq!(tree.len(), 1);
         assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
-        // Global is the only sibling, so it gets ╰─
-        assert_eq!(tree[0].prefix, "╰─");
+        assert_eq!(tree[0].prefix, "");
     }
 
     #[test]
@@ -365,7 +365,7 @@ mod tests {
         let tree = build_tree_from_parts(&config.aliases, &ProfileConfig::default(), None, None);
         assert_eq!(tree.len(), 2);
         assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
-        assert_eq!(tree[0].prefix, "╰─");
+        assert_eq!(tree[0].prefix, ""); // root, no connector
         assert_eq!(tree[1].kind, NodeKind::AliasItem);
         assert_eq!(tree[1].label, "ll");
         assert_eq!(tree[1].alias_id, Some(AliasId::Global { alias_name: "ll".into() }));
@@ -436,19 +436,21 @@ mod tests {
         project.add_alias("t".into(), "cargo test".into(), false);
         let tree = build_tree_from_parts(&config.aliases, &profiles, None, Some(&project));
 
-        // Global = ├─ (not last, 2 more siblings follow)
-        assert_eq!(tree[0].prefix, "├─");
-        assert_eq!(tree[0].content_prefix, "│ ");
+        // Global = root (no prefix)
+        assert_eq!(tree[0].prefix, "");
+        assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
 
-        // Project = ├─ (not last, rust follows)
+        // ll alias = child of global, ├─ (project + rust follow)
+        let ll = tree.iter().find(|n| n.label == "ll").unwrap();
+        assert_eq!(ll.kind, NodeKind::AliasItem);
+
+        // Project = child of global, ├─ (rust follows)
         let proj = tree.iter().find(|n| n.kind == NodeKind::ProjectHeader).unwrap();
         assert_eq!(proj.prefix, "├─");
-        assert_eq!(proj.content_prefix, "│ ");
 
-        // Rust = ╰─ (last sibling)
+        // Rust = child of global, ╰─ (last child)
         let rust = tree.iter().find(|n| n.kind == NodeKind::ProfileHeader).unwrap();
         assert_eq!(rust.prefix, "╰─");
-        assert_eq!(rust.content_prefix, "  ");
     }
 
     #[test]

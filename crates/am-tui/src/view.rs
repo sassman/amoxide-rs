@@ -194,13 +194,13 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
 
         match &node.kind {
             NodeKind::GlobalHeader => {
-                let marker = if is_cursor { "▸ " } else { "  " };
-                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+                let marker = if is_cursor { "▸" } else { "" };
                 let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
                     Span::raw("🌐 "),
                     Span::styled("global", Style::default().fg(label_color).bold()),
+                    if is_cursor { Span::styled(format!(" {marker}"), Style::default().fg(conn)) } else { Span::raw("") },
                 ]));
             }
             NodeKind::ProjectHeader => {
