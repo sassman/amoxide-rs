@@ -9,7 +9,7 @@ const TEXT_MUTED: Color = Color::Rgb(100, 100, 103);     // #646467
 const GOLD: Color = Color::Rgb(220, 220, 100);           // #dcdc64
 const GOLD_FADED: Color = Color::Rgb(130, 130, 60);      // #82823c
 const TREE_CONNECTOR: Color = Color::Rgb(70, 70, 73);    // dim connector lines
-const CURSOR_BG: Color = Color::Rgb(45, 45, 40);         // subtle warm highlight for cursor row
+const TREE_CONNECTOR_ACTIVE: Color = Color::Rgb(150, 150, 80); // brighter connectors for cursor row
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
@@ -173,30 +173,20 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
         match &node.kind {
             NodeKind::GlobalHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
-                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
-                let label_style = if is_cursor {
-                    Style::default().fg(GOLD).bold().bg(CURSOR_BG)
-                } else {
-                    Style::default().fg(GOLD).bold()
-                };
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), bg.fg(TREE_CONNECTOR)),
-                    Span::styled("🌐 ", bg),
-                    Span::styled("global", label_style),
+                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
+                    Span::raw("🌐 "),
+                    Span::styled("global", Style::default().fg(GOLD).bold()),
                 ]));
             }
             NodeKind::ProjectHeader => {
                 let marker = if is_cursor { "▸ " } else { "  " };
-                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
-                let label_style = if is_cursor {
-                    Style::default().fg(GOLD).bold().bg(CURSOR_BG)
-                } else {
-                    Style::default().fg(GOLD).bold()
-                };
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), bg.fg(TREE_CONNECTOR)),
-                    Span::styled("📁 ", bg),
-                    Span::styled("project (.aliases)", label_style),
+                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
+                    Span::raw("📁 "),
+                    Span::styled("project (.aliases)", Style::default().fg(GOLD).bold()),
                 ]));
             }
             NodeKind::ProfileHeader => {
@@ -218,15 +208,15 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     lines.push(Line::from(Span::styled(connector_line, Style::default().fg(TREE_CONNECTOR))));
                 }
 
-                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
-                let icon_color = if node.is_active { GOLD } else { TEXT_MUTED };
-                let label_color = if is_cursor { GOLD } else if node.is_active { GOLD } else { TEXT_PRIMARY };
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+                let icon_color = if is_cursor || node.is_active { GOLD } else { TEXT_MUTED };
+                let label_color = if is_cursor || node.is_active { GOLD } else { TEXT_PRIMARY };
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{}{marker}", node.prefix), bg.fg(TREE_CONNECTOR)),
-                    Span::styled(format!("{icon} "), bg.fg(icon_color)),
+                    Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
+                    Span::styled(format!("{icon} "), Style::default().fg(icon_color)),
                     Span::styled(
                         format!("{}{active_tag}", node.label),
-                        bg.fg(label_color).bold(),
+                        Style::default().fg(label_color).bold(),
                     ),
                 ]));
             }
@@ -246,11 +236,9 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     "  "
                 };
 
-                let bg = if is_cursor { Style::default().bg(CURSOR_BG) } else { Style::default() };
-                let name_style = if is_selected {
-                    bg.fg(GOLD).bold()
-                } else if is_cursor {
-                    bg.fg(GOLD).bold()
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+                let name_style = if is_selected || is_cursor {
+                    Style::default().fg(GOLD).bold()
                 } else {
                     Style::default().fg(TEXT_PRIMARY)
                 };
@@ -271,19 +259,19 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 };
 
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{alias_prefix}{marker}"), bg.fg(TREE_CONNECTOR)),
+                    Span::styled(format!("{alias_prefix}{marker}"), Style::default().fg(conn)),
                     Span::styled(node.label.clone(), name_style),
                 ]));
 
                 // Command line — prominent when cursor is on this alias
                 if let Some(ref cmd) = node.alias_command {
                     let cmd_style = if is_cursor {
-                        bg.fg(TEXT_PRIMARY)
+                        Style::default().fg(TEXT_PRIMARY)
                     } else {
                         Style::default().fg(TEXT_MUTED)
                     };
                     lines.push(Line::from(vec![
-                        Span::styled(format!("{cmd_prefix}  "), if is_cursor { bg.fg(TREE_CONNECTOR) } else { Style::default().fg(TREE_CONNECTOR) }),
+                        Span::styled(format!("{cmd_prefix}  "), Style::default().fg(conn)),
                         Span::styled(cmd.clone(), cmd_style),
                     ]));
                 }
