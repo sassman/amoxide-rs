@@ -4,6 +4,12 @@
   <img src="assets/banner.png" width="50%" alt="amoxide banner" />
 </p>
 
+<p align="center">
+  <a href="https://crates.io/crates/amoxide"><img src="https://img.shields.io/crates/v/amoxide.svg" alt="amoxide on crates.io"/></a>
+  <a href="https://crates.io/crates/amoxide-tui"><img src="https://img.shields.io/crates/v/amoxide-tui.svg" alt="amoxide-tui on crates.io"/></a>
+  <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
+</p>
+
 > amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
 >
 > Install: `cargo install amoxide` — the binary is called `am`.

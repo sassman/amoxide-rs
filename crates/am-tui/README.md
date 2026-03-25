@@ -1,5 +1,10 @@
 # amoxide-tui
 
+<p align="center">
+  <a href="https://crates.io/crates/amoxide-tui"><img src="https://img.shields.io/crates/v/amoxide-tui.svg" alt="crates.io"/></a>
+  <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
+</p>
+
 Interactive TUI for [amoxide](https://crates.io/crates/amoxide) — navigate, add, move, and delete aliases and profiles visually.
 
 ## Install

@@ -5,6 +5,6 @@ members = ["crates/am", "crates/am-tui"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
-repository = "https://github.com/d34dl0ck/alias-manager-rs"
+license = "GPL-3.0-only"
+repository = "https://github.com/sassman/amoxide-rs"
 publish = false

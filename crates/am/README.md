@@ -1,5 +1,10 @@
 # amoxide
 
+<p align="center">
+  <a href="https://crates.io/crates/amoxide"><img src="https://img.shields.io/crates/v/amoxide.svg" alt="crates.io"/></a>
+  <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
+</p>
+
 Shell alias manager — manage aliases globally via profiles or per-project via `.aliases` files.
 
 The crate is called `amoxide`, but the binary it installs is simply `am`.
