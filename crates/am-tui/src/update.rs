@@ -62,9 +62,9 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     // Header: toggle all aliases inside this container
                     let child_ids = collect_child_aliases(model, model.cursor);
                     if !child_ids.is_empty() {
-                        // If all are already selected, deselect all. Otherwise select all.
-                        let all_selected = child_ids.iter().all(|id| model.selected.contains(id));
-                        if all_selected {
+                        // If any are selected, deselect all. Otherwise select all.
+                        let any_selected = child_ids.iter().any(|id| model.selected.contains(id));
+                        if any_selected {
                             for id in &child_ids {
                                 model.selected.remove(id);
                             }
