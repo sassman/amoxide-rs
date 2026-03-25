@@ -97,6 +97,12 @@ This does two things:
 1. Loads aliases from your active profile into the current shell
 2. Installs a cd hook that automatically loads/unloads project aliases (from `.aliases` files) when you change directories
 
+To verify the setup is correct, run:
+
+```shell
+am status
+```
+
 ## Usage by Example
 
 ### Adding and removing aliases
