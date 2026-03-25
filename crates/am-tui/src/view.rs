@@ -241,22 +241,33 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Style::default()
                 };
 
-                // Name line: content_prefix + marker + name
+                // Check if this is the last alias before a non-alias node
+                let is_last_alias = model.tree.get(i + 1)
+                    .map_or(true, |next| next.kind != NodeKind::AliasItem);
+
+                let arm = if is_last_alias { "╰─" } else { "├─" };
+                let arm_continuation = if is_last_alias { "  " } else { "│ " };
+
+                // Name line: content_prefix + arm + marker + name
                 lines.push(Line::from(vec![
-                    Span::raw(format!("{}{marker}", node.content_prefix)),
+                    Span::raw(format!("{}{arm}{marker}", node.content_prefix)),
                     Span::styled(node.label.clone(), name_style),
                 ]));
 
-                // Command line: content_prefix + extra indent + command (dimmed)
+                // Command line: content_prefix + arm_continuation + command (dimmed)
                 if let Some(ref cmd) = node.alias_command {
                     lines.push(Line::from(vec![
-                        Span::raw(format!("{}  ", node.content_prefix)),
+                        Span::raw(format!("{}{arm_continuation}  ", node.content_prefix)),
                         Span::styled(cmd.clone(), Style::default().fg(Color::DarkGray)),
                     ]));
                 }
 
-                // Blank separator line (using content_prefix for vertical connector)
-                lines.push(Line::from(Span::raw(node.content_prefix.clone())));
+                // Blank separator line
+                if !is_last_alias {
+                    lines.push(Line::from(Span::raw(format!("{}│", node.content_prefix))));
+                } else {
+                    lines.push(Line::from(Span::raw(node.content_prefix.clone())));
+                }
             }
         }
     }
