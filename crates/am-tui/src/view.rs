@@ -11,8 +11,8 @@ const GOLD_FADED: Color = Color::Rgb(130, 130, 60);      // #82823c
 const HEADER_DEFAULT: Color = Color::Rgb(190, 185, 170); // warm beige for inactive headers
 const TREE_CONNECTOR: Color = Color::Rgb(70, 70, 73);    // dim connector lines
 const TREE_CONNECTOR_ACTIVE: Color = Color::Rgb(150, 150, 80); // brighter connectors for cursor row
-const RUBY: Color = Color::Rgb(200, 70, 80);             // #c84650 — selected aliases
-const RUBY_MUTED: Color = Color::Rgb(140, 55, 60);       // #8c373c — selected alias commands
+const RUBY: Color = Color::Rgb(220, 160, 165);            // #dca0a5 — selected alias names (white-ish ruby)
+const RUBY_MUTED: Color = Color::Rgb(140, 55, 60);       // #8c373c — selected alias commands/connectors
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();

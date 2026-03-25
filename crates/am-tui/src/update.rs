@@ -61,7 +61,20 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
             }
         }
         TuiMessage::EnterMoveMode => {
-            if model.mode == Mode::Normal && !model.selected.is_empty() {
+            if model.mode != Mode::Normal {
+                return;
+            }
+            // If nothing selected, auto-select the alias under cursor
+            if model.selected.is_empty() {
+                if let Some(node) = model.tree.get(model.cursor) {
+                    if node.kind.is_selectable() {
+                        if let Some(ref id) = node.alias_id {
+                            model.selected.insert(id.clone());
+                        }
+                    }
+                }
+            }
+            if !model.selected.is_empty() {
                 model.mode = Mode::Moving;
                 model.active_column = Column::Right;
             }
