@@ -90,8 +90,7 @@ pub fn build_tree_from_parts(
 
     // Count all children branching from global
     let global_alias_count = global_aliases.iter().count();
-    let total_children =
-        global_alias_count + if has_project { 1 } else { 0 } + roots.len();
+    let total_children = global_alias_count + if has_project { 1 } else { 0 } + roots.len();
 
     // --- Global root (no prefix, no connector) ---
     nodes.push(TreeNode {

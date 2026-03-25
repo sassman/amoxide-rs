@@ -427,7 +427,7 @@ _am() {
             return 0
             ;;
         am__profile__add)
-            opts="-i -h -V --inherits --help --version <NAME>"
+            opts="-i -h -V --inherits --no-inherits --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

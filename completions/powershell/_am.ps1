@@ -81,7 +81,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
-            [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile')
+            [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile, or update inheritance of an existing one')
             [CompletionResult]::new('set', 'set', [CompletionResultType]::ParameterValue, 'Set the active profile')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove a profile')
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all profiles')
@@ -91,6 +91,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;profile;add' {
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Base profile to inherit from')
             [CompletionResult]::new('--inherits', '--inherits', [CompletionResultType]::ParameterName, 'Base profile to inherit from')
+            [CompletionResult]::new('--no-inherits', '--no-inherits', [CompletionResultType]::ParameterName, 'Remove inheritance from this profile')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -121,7 +122,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;profile;help' {
-            [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile')
+            [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile, or update inheritance of an existing one')
             [CompletionResult]::new('set', 'set', [CompletionResultType]::ParameterValue, 'Set the active profile')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove a profile')
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all profiles')
@@ -197,7 +198,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;profile' {
-            [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile')
+            [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile, or update inheritance of an existing one')
             [CompletionResult]::new('set', 'set', [CompletionResultType]::ParameterValue, 'Set the active profile')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove a profile')
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all profiles')

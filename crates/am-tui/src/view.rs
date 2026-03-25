@@ -176,7 +176,11 @@ fn render_inherit_column(frame: &mut Frame, model: &TuiModel, profile_name: &str
         }
         let is_cursor = i == model.dest_cursor && model.active_column == Column::Right;
         let marker = if is_cursor { "▸ " } else { "  " };
-        let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
+        let conn = if is_cursor {
+            TREE_CONNECTOR_ACTIVE
+        } else {
+            TREE_CONNECTOR
+        };
 
         let icon = if node.is_active { "●" } else { "○" };
         let active_tag = if node.is_active { " (active)" } else { "" };
@@ -190,8 +194,20 @@ fn render_inherit_column(frame: &mut Frame, model: &TuiModel, profile_name: &str
         };
 
         lines.push(Line::from(vec![
-            Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(conn)),
-            Span::styled(format!("{icon} "), Style::default().fg(if is_self { TEXT_MUTED } else if is_cursor || node.is_active { GOLD } else { TEXT_MUTED })),
+            Span::styled(
+                format!("{}{marker}", node.prefix),
+                Style::default().fg(conn),
+            ),
+            Span::styled(
+                format!("{icon} "),
+                Style::default().fg(if is_self {
+                    TEXT_MUTED
+                } else if is_cursor || node.is_active {
+                    GOLD
+                } else {
+                    TEXT_MUTED
+                }),
+            ),
             Span::styled(
                 format!("{}{active_tag}", node.label),
                 Style::default().fg(color).bold(),

@@ -92,8 +92,9 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
-'-i+[Base profile to inherit from]:INHERITS:_default' \
-'--inherits=[Base profile to inherit from]:INHERITS:_default' \
+'(--no-inherits)-i+[Base profile to inherit from]:INHERITS:_default' \
+'(--no-inherits)--inherits=[Base profile to inherit from]:INHERITS:_default' \
+'--no-inherits[Remove inheritance from this profile]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -358,7 +359,7 @@ _am__help__ls_commands() {
 (( $+functions[_am__help__profile_commands] )) ||
 _am__help__profile_commands() {
     local commands; commands=(
-'add:Add a new profile' \
+'add:Add a new profile, or update inheritance of an existing one' \
 'set:Set the active profile' \
 'remove:Remove a profile' \
 'list:List all profiles' \
@@ -423,7 +424,7 @@ _am__ls_commands() {
 (( $+functions[_am__profile_commands] )) ||
 _am__profile_commands() {
     local commands; commands=(
-'add:Add a new profile' \
+'add:Add a new profile, or update inheritance of an existing one' \
 'set:Set the active profile' \
 'remove:Remove a profile' \
 'list:List all profiles' \
@@ -439,7 +440,7 @@ _am__profile__add_commands() {
 (( $+functions[_am__profile__help_commands] )) ||
 _am__profile__help_commands() {
     local commands; commands=(
-'add:Add a new profile' \
+'add:Add a new profile, or update inheritance of an existing one' \
 'set:Set the active profile' \
 'remove:Remove a profile' \
 'list:List all profiles' \
