@@ -1,10 +1,13 @@
-# The Alias-Manager
+# amoxide (am) - the alias manager
 
 <p align="center">
-  <img src="assets/banner.png" width="66%" alt="alias-manager banner" />
+  <img src="assets/banner.png" width="50%" alt="amoxide banner" />
 </p>
 
-> The alias-manager (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
+> amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
+>
+> Install: `cargo install amoxide` — the binary is called `am`.
+> For the interactive TUI: `cargo install amoxide-tui` — the binary is called `am-tui`, or launch via `am tui`.
 
 Q: What does Globally mean?
 A: It's as a regular shell alias right now works - always present.
@@ -16,6 +19,7 @@ Q: What is then project specific?
 A: In a project context (locally) available, like you are working on this very rust backend - with project specific aliases.
 
 Note: Profiles can be composed upon another. Like your node profile should leverage some git aliases, then `node development -> git stuff` would cause they are loaded upwards the dependency tree.
+
 
 ## Productivity Tip (Opinionated)
 
@@ -55,6 +59,29 @@ gmf "my feature"
 # → git commit -S --signoff -m feat: my feature
 ```
 
+## Screenshots
+
+- `am tui` launches the tui to navigate, select, move, add, and delete aliases visually:
+
+<p align="center">
+  <img src="assets/am-tui-2.png" alt="am tui" />
+</p>
+
+- `am ls` the regular cli
+
+<p align="center">
+  <img src="assets/am-ls.png" alt="am ls" />
+</p>
+
+## Installation
+
+```shell
+cargo install amoxide          # installs the `am` binary
+cargo install amoxide-tui      # installs the `am-tui` interactive interface (optional)
+```
+
+The crate is called `amoxide`, but the binary it installs is simply `am` (short for amoxide).
+
 ## Setup
 
 Add one line to your shell config:
@@ -72,6 +99,12 @@ eval "$(am init zsh)"
 This does two things:
 1. Loads aliases from your active profile into the current shell
 2. Installs a cd hook that automatically loads/unloads project aliases (from `.aliases` files) when you change directories
+
+To verify the setup is correct, run:
+
+```shell
+am status
+```
 
 ## Usage by Example
 

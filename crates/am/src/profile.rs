@@ -139,9 +139,12 @@ impl ProfileConfig {
     }
 
     pub fn save(&self) -> Result<()> {
-        let config_dir = config_dir();
+        self.save_to(&config_dir())
+    }
+
+    pub fn save_to(&self, config_dir: &std::path::Path) -> Result<()> {
         if !config_dir.exists() {
-            std::fs::create_dir_all(&config_dir)?;
+            std::fs::create_dir_all(config_dir)?;
         }
         let profile_config_file = config_dir.join(CONFIG_FILE);
         let toml_str = toml::to_string(self)?;

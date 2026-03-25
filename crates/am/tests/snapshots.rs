@@ -1,8 +1,8 @@
-use am::display::{render_listing, render_profile_tree};
-use am::hook::generate_hook;
-use am::init::{generate_init, generate_reload};
-use am::shell::Shells;
-use am::{AliasName, AliasSet, ProfileConfig, TomlAlias};
+use amoxide::display::{render_listing, render_profile_tree};
+use amoxide::hook::generate_hook;
+use amoxide::init::{generate_init, generate_reload};
+use amoxide::shell::Shells;
+use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
 use indoc::indoc;
 use std::fs;
 

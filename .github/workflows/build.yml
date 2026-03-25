@@ -102,8 +102,8 @@ jobs:
       - name: smoke tests
         shell: bash
         run: |
-          cargo run -- --version
-          cargo run -- --help
+          cargo run --bin am -- --version
+          cargo run --bin am -- --help
 
   coverage:
     name: code coverage
@@ -162,7 +162,10 @@ jobs:
           default: true
           profile: minimal
       - uses: mozilla-actions/sccache-action@v0.0.9
-      - run: cargo publish --dry-run
+      - name: publish dry run (amoxide first, then amoxide-tui)
+        run: |
+          cargo publish --dry-run -p amoxide
+          cargo publish --dry-run -p amoxide-tui
 
   docs:
     name: docs

@@ -65,6 +65,10 @@ pub enum Commands {
     #[command(alias = "i", verbatim_doc_comment)]
     Init { shell: Shells },
 
+    /// Launch the interactive TUI for managing aliases and profiles
+    #[command(alias = "t")]
+    Tui,
+
     /// Internal: called by the cd hook to load/unload project aliases
     #[command(hide = true)]
     Hook { shell: Shells },

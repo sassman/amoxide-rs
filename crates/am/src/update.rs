@@ -24,6 +24,10 @@ impl Default for AppModel {
 }
 
 impl AppModel {
+    pub fn new(config: Config, profile_config: ProfileConfig) -> Self {
+        Self { config, profile_config }
+    }
+
     pub fn profile_config_mut(&mut self) -> &mut ProfileConfig {
         &mut self.profile_config
     }
