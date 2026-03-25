@@ -20,13 +20,6 @@ A: In a project context (locally) available, like you are working on this very r
 
 Note: Profiles can be composed upon another. Like your node profile should leverage some git aliases, then `node development -> git stuff` would cause they are loaded upwards the dependency tree.
 
-## Interactive TUI
-
-Launch the interactive terminal UI with `am tui` to navigate, select, move, add, and delete aliases visually:
-
-<p align="center">
-  <img src="assets/am-tui-2.png" width="80%" alt="amoxide TUI" />
-</p>
 
 ## Productivity Tip (Opinionated)
 
@@ -50,10 +43,6 @@ Then if I find myself often doing the same things in several projects, like codi
 
 Last mile, if I need specialization profiles a specific git workflow, I use profile inheritance.
 
-<p align="center">
-  <img src="assets/am-ls.png" width="70%" alt="am ls output" />
-</p>
-
 ```sh
 # create the git profile first, with one alias
 am p a git
@@ -69,6 +58,20 @@ gmf "my feature"
 # → gm feat: my feature
 # → git commit -S --signoff -m feat: my feature
 ```
+
+## Screenshots
+
+- `am tui` launches the tui to navigate, select, move, add, and delete aliases visually:
+
+<p align="center">
+  <img src="assets/am-tui-2.png" alt="am tui" />
+</p>
+
+- `am ls` the regular cli
+
+<p align="center">
+  <img src="assets/am-ls.png" alt="am ls" />
+</p>
 
 ## Installation
 
