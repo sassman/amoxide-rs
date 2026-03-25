@@ -150,10 +150,10 @@ jobs:
         with:
           toolchain: stable
       - uses: mozilla-actions/sccache-action@v0.0.9
-      - name: publish dry run (amoxide first, then amoxide-tui)
+      - name: publish dry run
         run: |
           cargo publish --dry-run -p amoxide
-          cargo publish --dry-run -p amoxide-tui
+          cargo package -p amoxide-tui
 
   docs:
     name: docs
