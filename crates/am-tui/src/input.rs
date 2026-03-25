@@ -31,6 +31,7 @@ fn map_normal_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Enter => Some(TuiMessage::ExecuteMove),
         KeyCode::Esc => Some(TuiMessage::CancelMove),
         KeyCode::Tab => Some(TuiMessage::SwitchColumn),
+        KeyCode::Char('a') if *mode == Mode::Normal => Some(TuiMessage::StartAddAlias),
         KeyCode::Char('n') if *mode == Mode::Normal => Some(TuiMessage::StartCreateProfile),
         KeyCode::Char('x') if *mode == Mode::Normal => Some(TuiMessage::DeleteItem),
         KeyCode::Char('s') if *mode == Mode::Normal => Some(TuiMessage::SetActive),
@@ -43,6 +44,7 @@ fn map_text_input_key(key: &KeyEvent) -> Option<TuiMessage> {
     match key.code {
         KeyCode::Enter => Some(TuiMessage::TextInputConfirm),
         KeyCode::Esc => Some(TuiMessage::TextInputCancel),
+        KeyCode::Tab => Some(TuiMessage::TextInputSwitchField),
         KeyCode::Backspace => Some(TuiMessage::TextInputBackspace),
         KeyCode::Char(c) => Some(TuiMessage::TextInputChar(c)),
         _ => None,

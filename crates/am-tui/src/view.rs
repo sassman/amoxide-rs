@@ -23,7 +23,12 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
     frame.render_widget(help, chunks[0]);
 
-    let content_area = chunks[2];
+    // Add 1-column padding on left and right
+    let padded = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)])
+        .split(chunks[2]);
+    let content_area = padded[1];
 
     match &model.mode {
         Mode::Moving => {
@@ -35,9 +40,9 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
             render_left_column(frame, model, columns[0]);
             render_right_column(frame, model, columns[1]);
         }
-        Mode::TextInput(text) => {
+        Mode::TextInput(state) => {
             render_left_column(frame, model, content_area);
-            render_text_input(frame, text, content_area);
+            render_text_input(frame, state, content_area);
         }
         Mode::Confirm(action) => {
             render_left_column(frame, model, content_area);
@@ -123,18 +128,47 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
     frame.render_widget(Paragraph::new(Text::from(lines)), area);
 }
 
-fn render_text_input(frame: &mut Frame, text: &str, area: Rect) {
+fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
     let input_area = Rect {
         x: area.x,
         y: area.y + area.height.saturating_sub(1),
         width: area.width,
         height: 1,
     };
-    let prompt = Line::from(vec![
-        Span::styled("  New profile: ", Style::default().fg(GOLD)),
-        Span::styled(text, Style::default().fg(TEXT_PRIMARY)),
-        Span::styled("█", Style::default().fg(TEXT_PRIMARY)),
-    ]);
+    let prompt = match state {
+        TextInputState::NewProfile(text) => Line::from(vec![
+            Span::styled("  New profile: ", Style::default().fg(GOLD)),
+            Span::styled(text.as_str(), Style::default().fg(TEXT_PRIMARY)),
+            Span::styled("█", Style::default().fg(TEXT_PRIMARY)),
+        ]),
+        TextInputState::NewAlias { name, command, active_field, target } => {
+            let target_label = match target {
+                AliasTarget::Global => "global",
+                AliasTarget::Project => "project",
+                AliasTarget::Profile(p) => p.as_str(),
+            };
+            let name_style = if *active_field == AliasField::Name {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let cmd_style = if *active_field == AliasField::Command {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let cursor_after_name = *active_field == AliasField::Name;
+            let cursor_after_cmd = *active_field == AliasField::Command;
+            Line::from(vec![
+                Span::styled(format!("  [{target_label}] "), Style::default().fg(GOLD)),
+                Span::styled(name.as_str(), name_style),
+                if cursor_after_name { Span::styled("█", Style::default().fg(TEXT_PRIMARY)) } else { Span::raw("") },
+                Span::styled(" = ", Style::default().fg(TEXT_MUTED)),
+                Span::styled(command.as_str(), cmd_style),
+                if cursor_after_cmd { Span::styled("█", Style::default().fg(TEXT_PRIMARY)) } else { Span::raw("") },
+            ])
+        }
+    };
     frame.render_widget(Paragraph::new(prompt), input_area);
 }
 
@@ -295,9 +329,10 @@ fn help_bar(mode: &Mode) -> Line<'static> {
         Mode::Normal => Line::from(vec![
             Span::raw("  "),
             Span::styled("q", Style::default().fg(GOLD)), Span::styled(" quit  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("a", Style::default().fg(GOLD)), Span::styled(" add  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("␣", Style::default().fg(GOLD)), Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("m", Style::default().fg(GOLD)), Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("n", Style::default().fg(GOLD)), Span::styled(" new  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("n", Style::default().fg(GOLD)), Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("x", Style::default().fg(GOLD)), Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("s", Style::default().fg(GOLD)), Span::styled(" activate", Style::default().fg(TEXT_MUTED)),
         ]),
@@ -308,8 +343,14 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled("Enter", Style::default().fg(GOLD)), Span::styled(" move here  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Tab", Style::default().fg(GOLD)), Span::styled(" switch column", Style::default().fg(TEXT_MUTED)),
         ]),
-        Mode::TextInput(_) => Line::from(vec![
+        Mode::TextInput(TextInputState::NewProfile(_)) => Line::from(vec![
             Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)), Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)), Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::TextInput(TextInputState::NewAlias { .. }) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Tab", Style::default().fg(GOLD)), Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Esc", Style::default().fg(GOLD)), Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Enter", Style::default().fg(GOLD)), Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
         ]),

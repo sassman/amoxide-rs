@@ -44,17 +44,17 @@ pub fn build_tree_from_parts(
     let mut nodes: Vec<TreeNode> = Vec::new();
 
     // Determine which top-level sections exist so we know which is "last".
-    let has_global = !global_aliases.is_empty();
     let has_project = project.is_some_and(|p| !p.aliases.is_empty());
     let has_profiles = profiles.iter().next().is_some();
 
     // A top-level section's content_prefix uses "│ " if more sections follow,
     // or "  " if it is the last section.
-    let global_is_last = has_global && !has_project && !has_profiles;
+    // Global is always present (sticky at top).
+    let global_is_last = !has_project && !has_profiles;
     let project_is_last = has_project && !has_profiles;
 
-    // --- Global section ---
-    if has_global {
+    // --- Global section (always visible) ---
+    {
         let content_prefix = if global_is_last { "  " } else { "│ " }.to_string();
         nodes.push(TreeNode {
             kind: NodeKind::GlobalHeader,
@@ -404,8 +404,10 @@ mod tests {
 
     #[test]
     fn test_build_tree_empty() {
+        // Global header is always present even with no aliases
         let tree = build_tree_from_parts(&AliasSet::default(), &ProfileConfig::default(), None, None);
-        assert!(tree.is_empty());
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
     }
 
     #[test]

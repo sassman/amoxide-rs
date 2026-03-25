@@ -43,10 +43,34 @@ pub struct TreeNode {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum AliasField {
+    Name,
+    Command,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AliasTarget {
+    Global,
+    Profile(String),
+    Project,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TextInputState {
+    NewProfile(String),
+    NewAlias {
+        name: String,
+        command: String,
+        active_field: AliasField,
+        target: AliasTarget,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
     Normal,
     Moving,
-    TextInput(String),
+    TextInput(TextInputState),
     Confirm(ConfirmAction),
 }
 
@@ -77,8 +101,8 @@ pub enum TuiMessage {
     CursorUp, CursorDown, JumpTop, JumpBottom,
     ToggleSelect, EnterMoveMode, ExecuteMove, CancelMove,
     SwitchColumn,
-    StartCreateProfile, DeleteItem, SetActive,
-    TextInputChar(char), TextInputBackspace, TextInputConfirm, TextInputCancel,
+    StartCreateProfile, StartAddAlias, DeleteItem, SetActive,
+    TextInputChar(char), TextInputBackspace, TextInputConfirm, TextInputCancel, TextInputSwitchField,
     ConfirmYes, ConfirmNo,
     Quit, Resize(u16, u16),
 }
