@@ -13,7 +13,7 @@ name = "am-tui"
 path = "src/main.rs"
 
 [dependencies]
-amoxide = { path = "../am" }
+amoxide = { path = "../am", version = "0.1" }
 ratatui = "0.30"
 anyhow = "1.0"
 
