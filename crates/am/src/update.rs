@@ -109,10 +109,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
                 .as_deref()
                 .map(|name| model.profile_config().resolve_aliases(name))
                 .unwrap_or_default();
-            // Check both current and legacy var names for backwards compatibility
-            let prev = std::env::var("_AM_ALIASES")
-                .or_else(|_| std::env::var("_AM_PROFILE_ALIASES"))
-                .ok();
+            let prev = std::env::var("_AM_ALIASES").ok();
             let output = generate_reload(&shell, &model.config.aliases, &resolved, prev.as_deref());
             if !output.is_empty() {
                 print!("{output}");
