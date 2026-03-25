@@ -34,24 +34,33 @@ For example in this project I have:
 - running tests by `cargo test` becomes `t`
 - running lint checks by `cargo clippy --all-targets --all-features -- -D warning` becomes `l`
 
-With the cli this would be done:
+With the CLI this would be done:
 
 ```sh
 am profile add rust
 
-## now adding the alias from above for the profile `rust`
+# now adding the aliases from above for the profile `rust`
 am add -p rust t cargo test
+#   ^^^  ^^^^^^ ^  ^--------^
+#    |      |   |       |
+#    |      |   |       +---- the command to alias
+#    |      |   +---- the alias name
+#    |      +---- target profile
+#    +---- the verb `add`
+
 am add -p rust l cargo clippy --all-targets --all-features -- -D warning
 ```
 
+> Tip: all verbs have short forms to save typing, e.g. `am a -p rust t cargo test` or `am p a rust`.
+
 Then if I find myself often doing the same things in several projects, like coding in rust, then introduce a profile for it. And a profile for `git stuff` or `k8s` and so on.
 
-Last mile, if I need specialization profiles a specific git workflow, I use profile inheritance.
+Last mile, if I need specialization profiles for a specific git workflow, I use profile inheritance.
 
 ```sh
 # create the git profile first, with one alias
-am p a git
-am a -p gm git commit -S --signoff -m
+am profile add git
+am add -p git gm "git commit -S --signoff -m"
 
 # create the git conventional commit profile, that inherits from git
 am profile add git-conventional --inherits git
@@ -64,7 +73,7 @@ gmf "my feature"
 # → git commit -S --signoff -m feat: my feature
 ```
 
-Note: the subcommadn `am tui` (cargo install amoxide-tui) simplifies this a lot.
+> Note: the subcommand `am tui` (`cargo install amoxide-tui`) simplifies this a lot.
 
 ## Screenshots
 
