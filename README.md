@@ -48,7 +48,7 @@ Last mile, if I need specialization profiles a specific git workflow, I use prof
 am p a git
 am a -p gm git commit -S --signoff -m
 
-# create the git convential commit profile, that inherits from git
+# create the git conventional commit profile, that inherits from git
 am profile add git-conventional --inherits git
 
 # now lets get specific with `gmf`

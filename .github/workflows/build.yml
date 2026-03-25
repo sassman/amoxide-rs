@@ -21,8 +21,6 @@ concurrency:
 
 env:
   CARGO_INCREMENTAL: 0
-  SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: "sccache"
 
 jobs:
   typos:
@@ -47,10 +45,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          default: true
-          profile: minimal
           components: clippy, rustfmt
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - run: cargo check
 
   lint:
@@ -69,10 +64,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          default: true
-          profile: minimal
           components: clippy, rustfmt
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - run: cargo ${{ matrix['cargo-cmd'] }}
 
   tests:
@@ -90,9 +82,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-          default: true
-          profile: minimal
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: cargo test
         shell: bash
         run: cargo test --verbose --all --locked
@@ -108,16 +97,12 @@ jobs:
   coverage:
     name: code coverage
     runs-on: ubuntu-latest
-    env:
-      RUSTC_WRAPPER: ""
     steps:
       - uses: actions/checkout@v4
       - name: setup | rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
-          default: true
-          profile: minimal
           components: clippy, rustfmt
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -141,9 +126,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          default: true
-          profile: minimal
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: audit
         uses: actions-rs/audit-check@v1
         continue-on-error: true
@@ -159,9 +141,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          default: true
-          profile: minimal
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: publish dry run (amoxide first, then amoxide-tui)
         run: |
           cargo publish --dry-run -p amoxide
@@ -176,9 +155,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          default: true
-          profile: minimal
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: check documentation
         env:
           RUSTDOCFLAGS: -D warnings
