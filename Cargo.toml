@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["crates/am", "crates/am-tui"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0"
+repository = "https://github.com/sassman/amoxide-rs"
