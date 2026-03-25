@@ -5,8 +5,8 @@ const WRAPPER_FISH: &str = include_str!("shell_wrappers/wrapper.fish");
 const WRAPPER_ZSH: &str = include_str!("shell_wrappers/wrapper.zsh");
 const HOOK_FISH: &str = include_str!("shell_wrappers/hook.fish");
 const HOOK_ZSH: &str = include_str!("shell_wrappers/hook.zsh");
-const COMPLETIONS_FISH: &str = include_str!("../../../completions/fish/am.fish");
-const COMPLETIONS_ZSH: &str = include_str!("../../../completions/zsh/_am");
+const COMPLETIONS_FISH: &str = include_str!(concat!(env!("OUT_DIR"), "/am.fish"));
+const COMPLETIONS_ZSH: &str = include_str!(concat!(env!("OUT_DIR"), "/_am"));
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.

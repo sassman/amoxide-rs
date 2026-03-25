@@ -79,12 +79,12 @@ pub fn quote_cmd(cmd: &str) -> String {
 
 static TEMPLATE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{\{([1-9]|@)\}\}").unwrap());
 
-/// Returns true if the command contains valid template args like {{1}}, {{@}}.
+/// Returns true if the command contains valid template args like `{{1}}`, `{{@}}`.
 pub fn has_template_args(cmd: &str) -> bool {
     TEMPLATE_RE.is_match(cmd)
 }
 
-/// Substitute {{N}} → $argv[N] and {{@}} → $argv for fish shell.
+/// Substitute `{{N}}` → `$argv[N]` and `{{@}}` → `$argv` for fish shell.
 pub fn substitute_fish(cmd: &str) -> String {
     TEMPLATE_RE
         .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
@@ -94,7 +94,7 @@ pub fn substitute_fish(cmd: &str) -> String {
         .to_string()
 }
 
-/// Substitute {{N}} → "$N" and {{@}} → "$@" for bash/zsh.
+/// Substitute `{{N}}` → `"$N"` and `{{@}}` → `"$@"` for bash/zsh.
 pub fn substitute_nix(cmd: &str) -> String {
     TEMPLATE_RE
         .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
