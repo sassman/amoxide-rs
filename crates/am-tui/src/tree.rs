@@ -128,7 +128,7 @@ pub fn build_tree_from_parts(
         let proj = project.unwrap();
         let is_last = child_idx == total_children - 1;
         let connector = if is_last { "╰─" } else { "├─" };
-        let cp = if is_last { "  " } else { "│ " };
+        let cp = if is_last { "    " } else { "│   " };
 
         nodes.push(TreeNode {
             kind: NodeKind::ProjectHeader,
