@@ -1,10 +1,13 @@
-# The Alias-Manager
+# amoxide (am) - the alias manager
 
 <p align="center">
-  <img src="assets/banner.png" width="66%" alt="alias-manager banner" />
+  <img src="assets/banner.png" width="66%" alt="amoxide banner" />
 </p>
 
-> The alias-manager (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
+> amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
+>
+> Install: `cargo install amoxide` — the binary is called `am`.
+> For the interactive TUI: `cargo install amoxide-tui` — the binary is called `am-tui`, or launch via `am tui`.
 
 Q: What does Globally mean?
 A: It's as a regular shell alias right now works - always present.
