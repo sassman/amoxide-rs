@@ -167,10 +167,22 @@ impl TuiModel {
 
     pub fn adjust_scroll(&mut self, visible_height: usize) {
         let cursor_line = self.estimate_line_for_cursor();
-        if cursor_line < self.scroll_offset {
-            self.scroll_offset = cursor_line;
-        } else if cursor_line >= self.scroll_offset + visible_height {
-            self.scroll_offset = cursor_line - visible_height + 1;
+        // An alias takes 3 rendered lines (name + command + separator).
+        // Scroll in chunks of 3 and keep at least 1 line of padding at edges.
+        let padding = 1;
+        let chunk = 3;
+
+        if cursor_line < self.scroll_offset + padding {
+            // Cursor too close to top — scroll up by a chunk
+            self.scroll_offset = cursor_line.saturating_sub(padding);
+            // Align to chunk boundary
+            self.scroll_offset = (self.scroll_offset / chunk) * chunk;
+        } else if cursor_line + padding >= self.scroll_offset + visible_height {
+            // Cursor too close to bottom — scroll down by a chunk
+            let target = cursor_line + padding + 1;
+            self.scroll_offset = target.saturating_sub(visible_height);
+            // Align to chunk boundary (round up)
+            self.scroll_offset = ((self.scroll_offset + chunk - 1) / chunk) * chunk;
         }
     }
 
