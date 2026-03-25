@@ -101,19 +101,6 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
                 let icon = if node.is_active { "●" } else { "○" };
                 let active_tag = if node.is_active { " (active)" } else { "" };
 
-                if !node.prefix.is_empty() {
-                    let connector_line = if node.prefix.ends_with("├─") {
-                        let parent_cp = &node.prefix[..node.prefix.len() - "├─".len()];
-                        format!("{parent_cp}│")
-                    } else if node.prefix.ends_with("╰─") {
-                        let parent_cp = &node.prefix[..node.prefix.len() - "╰─".len()];
-                        format!("{parent_cp}│")
-                    } else {
-                        node.content_prefix.clone()
-                    };
-                    lines.push(Line::from(Span::styled(connector_line, Style::default().fg(TREE_CONNECTOR))));
-                }
-
                 lines.push(Line::from(vec![
                     Span::styled(format!("{}{marker}", node.prefix), Style::default().fg(TREE_CONNECTOR)),
                     Span::styled(
@@ -231,20 +218,6 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 let marker = if is_cursor { "▸ " } else { "  " };
                 let active_tag = if node.is_active { " (active)" } else { "" };
 
-                // Connector line before child profiles
-                if !node.prefix.is_empty() {
-                    let connector_line = if node.prefix.ends_with("├─") {
-                        let parent_cp = &node.prefix[..node.prefix.len() - "├─".len()];
-                        format!("{parent_cp}│")
-                    } else if node.prefix.ends_with("╰─") {
-                        let parent_cp = &node.prefix[..node.prefix.len() - "╰─".len()];
-                        format!("{parent_cp}│")
-                    } else {
-                        node.content_prefix.clone()
-                    };
-                    lines.push(Line::from(Span::styled(connector_line, Style::default().fg(TREE_CONNECTOR))));
-                }
-
                 let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
                 let color = if is_cursor { GOLD } else if node.is_active { GOLD } else { HEADER_DEFAULT };
                 let icon_color = if is_cursor || node.is_active { GOLD } else { TEXT_MUTED };
@@ -258,7 +231,9 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 ]));
             }
             NodeKind::AliasItem => {
-                // Aliases branch off the parent's vertical line: ├─ or ╰─
+                // Aliases are nested inside their parent header.
+                // content_prefix is the parent's continuation (e.g. "│ " or "  ").
+                // Aliases branch within that space with their own ├─/╰─.
                 let is_last_alias = model.tree.get(i + 1)
                     .map_or(true, |next| next.kind != NodeKind::AliasItem);
 
@@ -280,27 +255,14 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Style::default().fg(TEXT_PRIMARY)
                 };
 
-                // Name line: parent_prefix │ arm marker name
-                // The content_prefix already ends with the parent's vertical connector.
-                // We replace the trailing "│ " with the arm character.
-                let alias_prefix = if node.content_prefix.ends_with("│ ") {
-                    format!("{}{arm}", &node.content_prefix[..node.content_prefix.len() - "│ ".len()])
-                } else {
-                    format!("{}{arm}", node.content_prefix)
-                };
-
-                let cmd_prefix = if node.content_prefix.ends_with("│ ") {
-                    format!("{}{continuation}", &node.content_prefix[..node.content_prefix.len() - "│ ".len()])
-                } else {
-                    format!("{}{continuation}", node.content_prefix)
-                };
-
+                // Alias name: content_prefix + arm + marker + name
+                // e.g. "│ ├─  gs" — nested inside the parent
                 lines.push(Line::from(vec![
-                    Span::styled(format!("{alias_prefix}{marker}"), Style::default().fg(conn)),
+                    Span::styled(format!("{}{arm}{marker}", node.content_prefix), Style::default().fg(conn)),
                     Span::styled(node.label.clone(), name_style),
                 ]));
 
-                // Command line — prominent when cursor is on this alias
+                // Command line: content_prefix + continuation + indent + command
                 if let Some(ref cmd) = node.alias_command {
                     let cmd_style = if is_cursor {
                         Style::default().fg(TEXT_PRIMARY)
@@ -308,17 +270,29 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                         Style::default().fg(TEXT_MUTED)
                     };
                     lines.push(Line::from(vec![
-                        Span::styled(format!("{cmd_prefix}  "), Style::default().fg(conn)),
+                        Span::styled(format!("{}{continuation}  ", node.content_prefix), Style::default().fg(conn)),
                         Span::styled(cmd.clone(), cmd_style),
                     ]));
                 }
 
-                // Separator — keep the vertical going if not last
                 if !is_last_alias {
+                    // Separator between sibling aliases
                     lines.push(Line::from(Span::styled(
-                        format!("{}│", &cmd_prefix[..cmd_prefix.len().saturating_sub(continuation.len())]),
+                        format!("{}│", node.content_prefix),
                         Style::default().fg(TREE_CONNECTOR),
                     )));
+                } else {
+                    // After last alias in a group, add a blank line with trunk connector
+                    // if another section follows (for visual breathing room)
+                    let next_is_header = model.tree.get(i + 1).is_some_and(|n| {
+                        matches!(n.kind, NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader)
+                    });
+                    if next_is_header {
+                        lines.push(Line::from(Span::styled(
+                            node.content_prefix.clone(),
+                            Style::default().fg(TREE_CONNECTOR),
+                        )));
+                    }
                 }
             }
         }
