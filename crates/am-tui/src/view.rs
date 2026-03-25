@@ -76,8 +76,8 @@ fn render_left_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
     let mut lines: Vec<Line<'static>> = Vec::new();
     lines.push(Line::from(Span::styled(
-        "  ──────────────────►",
-        Style::default().fg(TREE_CONNECTOR),
+        "→ Move to",
+        Style::default().fg(HEADER_DEFAULT).bold(),
     )));
     lines.push(Line::from(""));
 
