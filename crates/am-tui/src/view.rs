@@ -11,6 +11,8 @@ const GOLD_FADED: Color = Color::Rgb(130, 130, 60);      // #82823c
 const HEADER_DEFAULT: Color = Color::Rgb(190, 185, 170); // warm beige for inactive headers
 const TREE_CONNECTOR: Color = Color::Rgb(70, 70, 73);    // dim connector lines
 const TREE_CONNECTOR_ACTIVE: Color = Color::Rgb(150, 150, 80); // brighter connectors for cursor row
+const RUBY: Color = Color::Rgb(200, 70, 80);             // #c84650 — selected aliases
+const RUBY_MUTED: Color = Color::Rgb(140, 55, 60);       // #8c373c — selected alias commands
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
@@ -245,9 +247,11 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     "  "
                 };
 
-                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { TREE_CONNECTOR };
-                let name_style = if is_selected || is_cursor {
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else if is_selected { RUBY_MUTED } else { TREE_CONNECTOR };
+                let name_style = if is_cursor {
                     Style::default().fg(GOLD).bold()
+                } else if is_selected {
+                    Style::default().fg(RUBY).bold()
                 } else {
                     Style::default().fg(TEXT_PRIMARY)
                 };
@@ -263,6 +267,8 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 if let Some(ref cmd) = node.alias_command {
                     let cmd_style = if is_cursor {
                         Style::default().fg(TEXT_PRIMARY)
+                    } else if is_selected {
+                        Style::default().fg(RUBY_MUTED)
                     } else {
                         Style::default().fg(TEXT_MUTED)
                     };
