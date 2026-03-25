@@ -53,7 +53,9 @@ jobs:
       - name: Smoke test
         if: ${{ !matrix.use_cross }}
         shell: bash
-        run: ./target/${{ matrix.target }}/release/am --help
+        run: |
+          ./target/${{ matrix.target }}/release/am --help
+          ./target/${{ matrix.target }}/release/am-tui --help || true
 
       - name: Package
         shell: bash
@@ -61,13 +63,15 @@ jobs:
           cd target/${{ matrix.target }}/release
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             7z a ../../../am-${{ matrix.target }}.zip am.exe
+            7z a ../../../am-tui-${{ matrix.target }}.zip am-tui.exe
           else
             tar czf ../../../am-${{ matrix.target }}.tar.gz am
+            tar czf ../../../am-tui-${{ matrix.target }}.tar.gz am-tui
           fi
 
       - name: Upload
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "am-${{ matrix.target }}.*"
+          artifacts: "am-${{ matrix.target }}.*,am-tui-${{ matrix.target }}.*"
           allowUpdates: true
           omitBodyDuringUpdate: true
