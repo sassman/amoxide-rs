@@ -237,7 +237,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 } else if is_cursor {
                     Style::default().fg(TEXT_PRIMARY)
                 } else {
-                    Style::default().fg(GOLD_FADED)
+                    Style::default().fg(TEXT_PRIMARY)
                 };
 
                 // Name line: parent_prefix │ arm marker name
