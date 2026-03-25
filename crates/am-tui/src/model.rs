@@ -170,7 +170,7 @@ impl TuiModel {
         // An alias takes 3 rendered lines (name + command + separator).
         // Scroll in chunks of 3 and keep at least 1 line of padding at edges.
         let padding = 1;
-        let chunk = 3;
+        let chunk = 4;
 
         if cursor_line < self.scroll_offset + padding {
             // Cursor too close to top — scroll up by a chunk
