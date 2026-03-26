@@ -1,4 +1,4 @@
-use crate::model::{AliasId, NodeKind, TreeNode};
+use crate::model::{AliasId, NodeKind, TreeNode, TREE_BRANCH, TREE_LAST, TREE_SPACE, TREE_TRUNK};
 use amoxide::update::AppModel;
 use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 
@@ -77,7 +77,7 @@ pub fn build_tree_from_parts(
     // --- Global aliases ---
     for (name, alias) in global_aliases.iter() {
         let is_last = child_idx == active_zone_children - 1;
-        let cp = if is_last { "  " } else { "│ " };
+        let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
         nodes.push(TreeNode {
             kind: NodeKind::AliasItem,
             alias_id: Some(AliasId::Global {
@@ -103,8 +103,8 @@ pub fn build_tree_from_parts(
         let remaining_active = active_names.len() - i - 1;
         let is_last = remaining_active == 0 && !has_project;
         let _ = is_last_in_zone; // suppress
-        let connector = if is_last { "╰─" } else { "├─" };
-        let cp = if is_last { "  " } else { "│ " };
+        let connector = if is_last { TREE_LAST } else { TREE_BRANCH };
+        let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
 
         nodes.push(TreeNode {
             kind: NodeKind::ProfileHeader,
@@ -138,7 +138,7 @@ pub fn build_tree_from_parts(
     // --- Project (last in active zone) ---
     if has_project {
         let proj = project.unwrap();
-        let connector = "╰─";
+        let connector = TREE_LAST;
         let cp = "    ";
 
         nodes.push(TreeNode {
@@ -238,8 +238,8 @@ pub fn build_dest_tree_from_parts(
     for (i, profile_name) in active_names.iter().enumerate() {
         let remaining = active_names.len() - i - 1;
         let is_last = remaining == 0 && !has_project;
-        let connector = if is_last { "╰─" } else { "├─" };
-        let cp = if is_last { "  " } else { "│ " };
+        let connector = if is_last { TREE_LAST } else { TREE_BRANCH };
+        let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
 
         nodes.push(TreeNode {
             kind: NodeKind::ProfileHeader,
@@ -262,8 +262,8 @@ pub fn build_dest_tree_from_parts(
             alias_command: None,
             is_active: false,
             label: "project (.aliases)".to_string(),
-            prefix: "╰─".to_string(),
-            content_prefix: "  ".to_string(),
+            prefix: TREE_LAST.to_string(),
+            content_prefix: TREE_SPACE.to_string(),
         });
     }
 
@@ -502,12 +502,12 @@ mod tests {
             .find(|n| n.kind == NodeKind::ProfileHeader && n.label == "rust")
             .unwrap();
         // Rust is last active profile with no project — gets ╰─
-        assert_eq!(rust.prefix, "╰─");
+        assert_eq!(rust.prefix, TREE_LAST);
         assert!(rust.is_active);
 
         // Global alias has trunk continuation since active profile follows
         let ll = tree.iter().find(|n| n.label == "ll").unwrap();
-        assert_eq!(ll.content_prefix, "│ ");
+        assert_eq!(ll.content_prefix, TREE_TRUNK);
     }
 
     #[test]
@@ -536,10 +536,10 @@ mod tests {
             .unwrap();
 
         // git is active, not last — ├─
-        assert_eq!(git.prefix, "├─");
+        assert_eq!(git.prefix, TREE_BRANCH);
         assert!(git.is_active);
         // rust is active, last active, no project — ╰─
-        assert_eq!(rust.prefix, "╰─");
+        assert_eq!(rust.prefix, TREE_LAST);
         assert!(rust.is_active);
         // node is inactive — no connector
         assert_eq!(node.prefix, "");
@@ -559,14 +559,14 @@ mod tests {
             .find(|n| n.kind == NodeKind::ProfileHeader && n.label == "rust")
             .unwrap();
         // Rust is last active but project follows — ├─
-        assert_eq!(rust.prefix, "├─");
+        assert_eq!(rust.prefix, TREE_BRANCH);
 
         let proj = tree
             .iter()
             .find(|n| n.kind == NodeKind::ProjectHeader)
             .unwrap();
         // Project is always last in active zone — ╰─
-        assert_eq!(proj.prefix, "╰─");
+        assert_eq!(proj.prefix, TREE_LAST);
     }
 
     #[test]

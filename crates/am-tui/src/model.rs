@@ -132,6 +132,23 @@ pub enum TuiMessage {
 pub const MIN_WIDTH: u16 = 60;
 pub const MIN_HEIGHT: u16 = 15;
 
+// Tree connector characters
+pub const TREE_BRANCH: &str = "├─";
+pub const TREE_LAST: &str = "╰─";
+pub const TREE_TRUNK: &str = "│ ";
+pub const TREE_SPACE: &str = "  ";
+
+// Icons
+pub const ICON_GLOBAL: &str = "🌐 ";
+pub const ICON_PROJECT: &str = "📁 ";
+pub const ICON_ACTIVE: &str = "●";
+pub const ICON_INACTIVE: &str = "○";
+
+// Cursor and selection markers
+pub const MARKER_CURSOR: &str = "▸ ";
+pub const MARKER_SELECTED: &str = "■ ";
+pub const MARKER_NONE: &str = "  ";
+
 pub struct TuiModel {
     pub app_model: AppModel,
     pub project_aliases: Option<ProjectAliases>,
