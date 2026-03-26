@@ -142,6 +142,7 @@ jobs:
 
   publish-dry-run:
     name: publish dry run
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
