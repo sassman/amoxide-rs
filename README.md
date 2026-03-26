@@ -21,7 +21,7 @@
 - Q: What is then "project-specific"?
 - A: An alias is only available in a project context or "locally". Like you are working on a very project that needs it's own aliases
 
-> :bulp: Note: Profiles can inherit from another. Like your node profile should leverage some git aliases, then `node development "inherits" git stuff` would load all aliases upwards the dependency tree.
+> :bulb: Note: You can activate multiple profiles simultaneously. Later-activated profiles override earlier ones for conflicting alias names. Think of it as layers.
 
 
 ## Productivity Tip / TL;DR (Opinionated)
@@ -59,28 +59,26 @@ am add -p rust t cargo test
 am add -p rust l cargo clippy --all-targets --all-features -- -D warning
 
 # activate it
-am profile set rust
+am profile use rust
 ```
 
 > :bulb: Tip: `am tui` allows to move the aliases from project to profile level (by select and `m`)
 
 Now `t` and `l` are available everywhere (not just this project). The project `.aliases` keeps only project-specific ones like `i`.
 
-**Step 3 — Compose with inheritance.** I also want git aliases everywhere, and a specialized git-conventional profile on top:
+**Step 3 — Compose with multiple profiles.** I also want git aliases everywhere. Just activate both:
 
 ```sh
 # git profile with a signing commit alias
 am profile add git
 am add -p git gm "git commit -S --signoff -m"
 
-# git-conventional inherits from git, adds a shortcut
-am profile add git-conventional --inherits git
-am add -p git-conventional gmf "gm feat: {{@}}"
+# activate both — git first, rust second (rust overrides git for conflicts)
+am profile use git
+am profile use rust
 
-# now using it
-gmf "my feature"
-# → gm feat: my feature
-# → git commit -S --signoff -m feat: my feature
+# or set git as priority 1 explicitly
+am p u git -n 1
 ```
 
 > :bulb: Tip: all verbs have short forms to save typing, e.g. `am a -l t cargo test` or `am p a rust`.
@@ -147,7 +145,7 @@ eval "$(am init zsh)"
 ```
 
 This does two things:
-1. Loads aliases from your active profile into the current shell
+1. Loads aliases from your active profiles into the current shell
 2. Installs a cd hook that automatically loads/unloads project aliases (from `.aliases` files) when you change directories
 
 To verify the setup is correct, run:
@@ -206,19 +204,19 @@ am add --raw my-awk "awk '{print {{1}}}'"
 
 ### Profiles
 
-Profiles let you group aliases by context (e.g., `rust`, `node`, `git`):
+Profiles let you group aliases by context (e.g., `rust`, `node`, `git`). You can activate multiple profiles simultaneously:
 
 ```shell
 # Add a profile
 $ am profile add rust
 $ am p a rust                  # short form
 
-# Add a profile that inherits from another
-$ am profile add rust --inherits git
+# Activate a profile (toggle on/off)
+$ am profile use rust
+$ am p u rust                  # short form
 
-# Set the active profile
-$ am profile set rust
-$ am p s rust                  # short form
+# Activate at a specific priority (1 = highest)
+$ am profile use git -n 1
 
 # Remove a profile (asks for confirmation if it has aliases)
 $ am profile remove rust
@@ -234,35 +232,27 @@ $ am profile list              # explicit
 $ am l                         # shortest form
 ```
 
-The active profile's aliases are loaded on every shell start via `am init`.
+Active profiles' aliases are loaded on every shell start via `am init`. Later-activated profiles override earlier ones for conflicting alias names.
 
-Listing profiles shows a tree with inheritance:
-
-```
-○ git
-│ gs → git status
-│ gp → git push
-│
-├─○ node
-│   nr → npm run
-│
-╰─● rust (active)
-    ct → cargo test
-    cb → cargo build
-```
-
-If you're inside a project with a `.aliases` file, the listing also shows those:
+Listing shows active profiles connected by a tree trunk, inactive profiles below:
 
 ```
-○ git
-│ gs → git status
+🌐 global
+│ helo → echo hello world global
 │
-╰─● rust (active)
-    ct → cargo test
-
-📁 project aliases (.aliases)
+├─● git (active: 1)
+│ gm → git commit -S --signoff -m
+│
+├─● rust (active: 2)
+│ ct → cargo test
+│ cb → cargo build
+│
+╰─📁 project aliases (.aliases)
   t → ./x.py test
   b → ./x.py build
+
+○ node
+  nr → npm run
 ```
 
 ### Project aliases (`.aliases` file)

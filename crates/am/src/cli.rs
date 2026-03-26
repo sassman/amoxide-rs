@@ -2,9 +2,10 @@ pub use clap::{Args, Parser, Subcommand};
 
 use crate::shell::Shells;
 
-/// The Alias-Manager
+/// amoxide — the alias manager
 ///
-/// Manage your shell aliases — globally via profiles or per-project via .aliases files.
+/// Manage your shell aliases — globally, via profiles, or per-project via .aliases files.
+/// Activate multiple profiles simultaneously with `am profile use`.
 #[derive(Parser)]
 #[command(name = "am")]
 #[command(about = "The Alias-Manager", long_about = None, version, author)]
