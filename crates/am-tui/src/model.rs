@@ -76,7 +76,6 @@ pub enum TextInputState {
 pub enum Mode {
     Normal,
     Moving,
-    Inheriting(String), // profile name being re-parented
     TextInput(TextInputState),
     Confirm(ConfirmAction),
 }
@@ -116,10 +115,9 @@ pub enum TuiMessage {
     SwitchColumn,
     StartCreateProfile,
     StartAddAlias,
-    StartInherit,
-    ExecuteInherit,
     DeleteItem,
-    SetActive,
+    UseProfile,
+    UseProfileWithPriority(usize),
     TextInputChar(char),
     TextInputBackspace,
     TextInputConfirm,

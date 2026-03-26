@@ -147,9 +147,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
             match action {
                 ConfirmAction::DeleteProfile(name) => {
                     let _ = model.app_model.profile_config_mut().remove_profile(&name);
-                    if model.app_model.config.active_profile.as_deref() == Some(name.as_str()) {
-                        model.app_model.config.active_profile = None;
-                    }
+                    model.app_model.config.active_profiles.retain(|p| p != &name);
                     save_all(model);
                     model.rebuild_tree();
                 }
@@ -259,7 +257,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     let _ = model
                         .app_model
                         .profile_config_mut()
-                        .add_profile(&name, &None);
+                        .add_profile(&name);
                     save_all(model);
                     model.rebuild_tree();
                     model.mode = Mode::Normal;
@@ -309,7 +307,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
         TuiMessage::TextInputCancel => {
             model.mode = Mode::Normal;
         }
-        TuiMessage::SetActive => {
+        TuiMessage::UseProfile => {
             if model.mode != Mode::Normal {
                 return;
             }
@@ -318,73 +316,24 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 None => return,
             };
             if node.kind == NodeKind::ProfileHeader {
-                model.app_model.config.active_profile = Some(node.label.clone());
+                model.app_model.config.toggle_profile(node.label.clone());
                 save_all(model);
                 model.rebuild_tree();
             }
         }
-        TuiMessage::StartInherit => {
+        TuiMessage::UseProfileWithPriority(n) => {
             if model.mode != Mode::Normal {
                 return;
             }
             let node = match model.tree.get(model.cursor) {
-                Some(n) => n.clone(),
+                Some(n_node) => n_node.clone(),
                 None => return,
             };
-            if node.kind != NodeKind::ProfileHeader {
-                return;
+            if node.kind == NodeKind::ProfileHeader {
+                model.app_model.config.use_profile_at(node.label.clone(), n);
+                save_all(model);
+                model.rebuild_tree();
             }
-            // If profile already inherits, toggle it off
-            let profile = model
-                .app_model
-                .profile_config()
-                .get_profile_by_name(&node.label);
-            if let Some(p) = profile {
-                if p.inherits.is_some() {
-                    model
-                        .app_model
-                        .profile_config_mut()
-                        .clear_inherits(&node.label)
-                        .ok();
-                    save_all(model);
-                    model.rebuild_tree();
-                    return;
-                }
-            }
-            // No current inheritance — enter Inheriting mode
-            model.mode = Mode::Inheriting(node.label.clone());
-            model.active_column = Column::Right;
-            // Snap to first ProfileHeader in dest tree
-            model.dest_cursor = model
-                .dest_tree
-                .iter()
-                .position(|n| n.kind == NodeKind::ProfileHeader)
-                .unwrap_or(0);
-        }
-        TuiMessage::ExecuteInherit => {
-            let child_name = match &model.mode {
-                Mode::Inheriting(name) => name.clone(),
-                _ => return,
-            };
-            let dest_node = match model.dest_tree.get(model.dest_cursor) {
-                Some(n) => n.clone(),
-                None => return,
-            };
-            if dest_node.kind != NodeKind::ProfileHeader {
-                return;
-            }
-            // Don't allow self-inheritance
-            if dest_node.label == child_name {
-                return;
-            }
-            let _ = model
-                .app_model
-                .profile_config_mut()
-                .add_profile(&child_name, &Some(dest_node.label.clone()));
-            save_all(model);
-            model.mode = Mode::Normal;
-            model.active_column = Column::Left;
-            model.rebuild_tree();
         }
         _ => {} // remaining messages (Quit, Resize) handled at the app layer
     }
@@ -688,13 +637,13 @@ mod tests {
         let tree = build_tree_from_parts(
             &app_model.config.aliases,
             app_model.profile_config(),
-            None,
+            &app_model.config.active_profiles,
             None,
         );
         let dest_tree = build_dest_tree_from_parts(
             &app_model.config.aliases,
             app_model.profile_config(),
-            None,
+            &app_model.config.active_profiles,
             false,
         );
         // Use a temp dir so save_all() never touches real config files
@@ -1108,7 +1057,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_active_profile() {
+    fn test_toggle_active_profile() {
         let mut model = test_model(
             r#"
             [[profiles]]
@@ -1124,10 +1073,52 @@ mod tests {
             .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "rust")
             .unwrap();
         model.cursor = rust_idx;
-        update(&mut model, TuiMessage::SetActive);
+        update(&mut model, TuiMessage::UseProfile);
+        assert!(model.app_model.config.is_active("rust"));
+        // Toggle again to deactivate
+        // After rebuild, find rust again (position may have changed)
+        let rust_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "rust")
+            .unwrap();
+        model.cursor = rust_idx;
+        update(&mut model, TuiMessage::UseProfile);
+        assert!(!model.app_model.config.is_active("rust"));
+    }
+
+    #[test]
+    fn test_use_profile_with_priority() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+
+            [[profiles]]
+            name = "rust"
+        "#,
+        );
+        // Activate git first
+        let git_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "git")
+            .unwrap();
+        model.cursor = git_idx;
+        update(&mut model, TuiMessage::UseProfile);
+        assert!(model.app_model.config.is_active("git"));
+
+        // Now activate rust at priority 1
+        let rust_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "rust")
+            .unwrap();
+        model.cursor = rust_idx;
+        update(&mut model, TuiMessage::UseProfileWithPriority(1));
         assert_eq!(
-            model.app_model.config.active_profile.as_deref(),
-            Some("rust")
+            model.app_model.config.active_profiles,
+            vec!["rust".to_string(), "git".to_string()]
         );
     }
 }
