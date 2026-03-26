@@ -99,24 +99,18 @@ fn main() -> anyhow::Result<()> {
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
             ProfileAction::Add {
                 name,
-                inherits,
-                no_inherits,
+                inherits: _,
+                no_inherits: _,
             } => {
-                if *no_inherits {
-                    model.profile_config_mut().clear_inherits(name)?;
-                    update(&mut model, Message::SaveProfiles)?;
-                    Message::SaveConfig
-                } else {
-                    update(
-                        &mut model,
-                        Message::CreateOrUpdateProfile(name.clone(), inherits.clone()),
-                    )?;
-                    update(&mut model, Message::SaveProfiles)?;
-                    Message::SaveConfig
-                }
+                update(
+                    &mut model,
+                    Message::CreateProfile(name.clone()),
+                )?;
+                update(&mut model, Message::SaveProfiles)?;
+                Message::SaveConfig
             }
             ProfileAction::Set { name } => {
-                update(&mut model, Message::ActivateProfile(name.clone()))?;
+                update(&mut model, Message::ToggleProfile(name.clone()))?;
                 Message::SaveConfig
             }
             ProfileAction::Remove { name, force } => {

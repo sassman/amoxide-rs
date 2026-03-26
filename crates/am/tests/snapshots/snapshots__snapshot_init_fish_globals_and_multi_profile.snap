@@ -1,5 +1,6 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 212
 expression: output
 ---
 alias ll "ls -lha"

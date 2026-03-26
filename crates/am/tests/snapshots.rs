@@ -20,7 +20,7 @@ fn aliases(pairs: &[(&str, &str)]) -> AliasSet {
     set
 }
 
-// ─── Test bed: git → git-conventional inheritance ───────────────────────
+// ─── Test bed: git + git-conventional as separate profiles ──────────────
 
 fn git_conventional_config() -> ProfileConfig {
     profiles(indoc! {r#"
@@ -35,13 +35,12 @@ fn git_conventional_config() -> ProfileConfig {
 
         [[profiles]]
         name = "git-conventional"
-        inherits = "git"
         [profiles.aliases]
         cmf = "cm feat: {{@}}"
     "#})
 }
 
-// ─── Test bed: deep chain base → git → rust ─────────────────────────────
+// ─── Test bed: base, git, rust as separate profiles ─────────────────────
 
 fn deep_chain_config() -> ProfileConfig {
     profiles(indoc! {r#"
@@ -52,13 +51,11 @@ fn deep_chain_config() -> ProfileConfig {
 
         [[profiles]]
         name = "git"
-        inherits = "base"
         [profiles.aliases]
         gs = "git status"
 
         [[profiles]]
         name = "rust"
-        inherits = "git"
         [profiles.aliases]
         ct = "cargo test"
     "#})
@@ -77,7 +74,7 @@ fn snapshot_init_fish_simple_profile() {
         ll = "ls -lha"
         gs = "git status"
     "#});
-    let resolved = config.resolve_aliases("default");
+    let resolved = config.resolve_active_aliases(&["default".to_string()]);
     let output = generate_init(&Shells::Fish, &AliasSet::default(), &resolved);
     insta::assert_snapshot!(output);
 }
@@ -91,7 +88,7 @@ fn snapshot_init_zsh_simple_profile() {
         ll = "ls -lha"
         gs = "git status"
     "#});
-    let resolved = config.resolve_aliases("default");
+    let resolved = config.resolve_active_aliases(&["default".to_string()]);
     let output = generate_init(&Shells::Zsh, &AliasSet::default(), &resolved);
     insta::assert_snapshot!(output);
 }
@@ -105,15 +102,18 @@ fn snapshot_init_powershell_simple_profile() {
         ll = "ls -lha"
         gs = "git status"
     "#});
-    let resolved = config.resolve_aliases("default");
+    let resolved = config.resolve_active_aliases(&["default".to_string()]);
     let output = generate_init(&Shells::Powershell, &AliasSet::default(), &resolved);
     insta::assert_snapshot!(output);
 }
 
 #[test]
-fn snapshot_init_fish_inherited_profile() {
+fn snapshot_init_fish_multi_profile() {
     let config = git_conventional_config();
-    let resolved = config.resolve_aliases("git-conventional");
+    let resolved = config.resolve_active_aliases(&[
+        "git".to_string(),
+        "git-conventional".to_string(),
+    ]);
     let output = generate_init(&Shells::Fish, &AliasSet::default(), &resolved);
     insta::assert_snapshot!(output);
 }
@@ -127,7 +127,7 @@ fn snapshot_init_fish_with_globals() {
         ct = "cargo test"
     "#});
     let globals = aliases(&[("ll", "ls -lha")]);
-    let resolved = config.resolve_aliases("rust");
+    let resolved = config.resolve_active_aliases(&["rust".to_string()]);
     let output = generate_init(&Shells::Fish, &globals, &resolved);
     insta::assert_snapshot!(output);
 }
@@ -135,7 +135,11 @@ fn snapshot_init_fish_with_globals() {
 #[test]
 fn snapshot_init_fish_deep_chain() {
     let config = deep_chain_config();
-    let resolved = config.resolve_aliases("rust");
+    let resolved = config.resolve_active_aliases(&[
+        "base".to_string(),
+        "git".to_string(),
+        "rust".to_string(),
+    ]);
     let output = generate_init(&Shells::Fish, &AliasSet::default(), &resolved);
     insta::assert_snapshot!(output);
 }
@@ -147,7 +151,10 @@ fn snapshot_init_fish_deep_chain() {
 #[test]
 fn snapshot_reload_fish_switch_profile() {
     let config = git_conventional_config();
-    let resolved = config.resolve_aliases("git-conventional");
+    let resolved = config.resolve_active_aliases(&[
+        "git".to_string(),
+        "git-conventional".to_string(),
+    ]);
     let output = generate_reload(
         &Shells::Fish,
         &AliasSet::default(),
@@ -160,7 +167,10 @@ fn snapshot_reload_fish_switch_profile() {
 #[test]
 fn snapshot_reload_zsh_switch_profile() {
     let config = git_conventional_config();
-    let resolved = config.resolve_aliases("git-conventional");
+    let resolved = config.resolve_active_aliases(&[
+        "git".to_string(),
+        "git-conventional".to_string(),
+    ]);
     let output = generate_reload(&Shells::Zsh, &AliasSet::default(), &resolved, Some("gs,cm"));
     insta::assert_snapshot!(output);
 }
@@ -183,7 +193,10 @@ fn snapshot_reload_fish_after_global_add() {
     // Simulates: user had profile aliases loaded, then adds a global alias
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
-    let resolved = config.resolve_aliases("git-conventional");
+    let resolved = config.resolve_active_aliases(&[
+        "git".to_string(),
+        "git-conventional".to_string(),
+    ]);
     let output = generate_reload(
         &Shells::Fish,
         &globals,
@@ -205,25 +218,31 @@ fn snapshot_reload_fish_globals_only_no_profile() {
 fn snapshot_reload_zsh_after_global_add() {
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
-    let resolved = config.resolve_aliases("git-conventional");
+    let resolved = config.resolve_active_aliases(&[
+        "git".to_string(),
+        "git-conventional".to_string(),
+    ]);
     let output = generate_reload(&Shells::Zsh, &globals, &resolved, Some("cm,cmf,gs"));
     insta::assert_snapshot!(output);
 }
 
 #[test]
-fn snapshot_init_fish_globals_and_inherited_profile() {
-    // Full scenario: globals + inherited profile
+fn snapshot_init_fish_globals_and_multi_profile() {
+    // Full scenario: globals + multiple active profiles
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
-    let resolved = config.resolve_aliases("git-conventional");
+    let resolved = config.resolve_active_aliases(&[
+        "git".to_string(),
+        "git-conventional".to_string(),
+    ]);
     let output = generate_init(&Shells::Fish, &globals, &resolved);
     insta::assert_snapshot!(output);
 }
 
 #[test]
-fn snapshot_reload_after_inheritance_removed() {
-    // Scenario: rust inherited from git (had gs,cm,ct loaded)
-    // Now inheritance is cleared — only rust's own aliases should remain
+fn snapshot_reload_after_profile_removed() {
+    // Scenario: rust profile had its own aliases, then was removed from active set
+    // Now only git's aliases should remain
     let config = profiles(indoc! {r#"
         [[profiles]]
         name = "git"
@@ -236,8 +255,8 @@ fn snapshot_reload_after_inheritance_removed() {
         [profiles.aliases]
         ct = "cargo test"
     "#});
-    // rust no longer inherits from git
-    let resolved = config.resolve_aliases("rust");
+    // rust is no longer in the active set
+    let resolved = config.resolve_active_aliases(&["git".to_string()]);
     // Previously tracked: cm,ct,gs (git's + rust's aliases were all loaded)
     let output = generate_reload(
         &Shells::Fish,
@@ -250,16 +269,15 @@ fn snapshot_reload_after_inheritance_removed() {
 
 #[test]
 fn snapshot_reload_after_parent_profile_removed() {
-    // Scenario: git-conventional inherited from git, git is removed
-    // git-conventional is re-parented to None, only its own aliases remain
+    // Scenario: git was removed, git-conventional is now standalone
     let config = profiles(indoc! {r#"
         [[profiles]]
         name = "git-conventional"
         [profiles.aliases]
         cmf = "cm feat: {{@}}"
     "#});
-    // git was removed, git-conventional has no parent now
-    let resolved = config.resolve_aliases("git-conventional");
+    // git was removed, only git-conventional active
+    let resolved = config.resolve_active_aliases(&["git-conventional".to_string()]);
     // Previously tracked: cm,cmf,gs (git's + git-conventional's were loaded)
     let output = generate_reload(
         &Shells::Fish,
@@ -271,8 +289,8 @@ fn snapshot_reload_after_parent_profile_removed() {
 }
 
 #[test]
-fn snapshot_reload_after_inheritance_changed() {
-    // Scenario: rust inherited from git, now changed to inherit from base
+fn snapshot_reload_after_active_set_changed() {
+    // Scenario: previously had git+rust active, now changed to base+rust
     let config = profiles(indoc! {r#"
         [[profiles]]
         name = "base"
@@ -286,11 +304,13 @@ fn snapshot_reload_after_inheritance_changed() {
 
         [[profiles]]
         name = "rust"
-        inherits = "base"
         [profiles.aliases]
         ct = "cargo test"
     "#});
-    let resolved = config.resolve_aliases("rust");
+    let resolved = config.resolve_active_aliases(&[
+        "base".to_string(),
+        "rust".to_string(),
+    ]);
     // Previously tracked: ct,gs (from rust + git)
     // Now should have: ct,ll (from rust + base)
     let output = generate_reload(
@@ -386,16 +406,22 @@ fn snapshot_hook_fish_leaving_project() {
 // ═══════════════════════════════════════════════════════════════════════
 
 #[test]
-fn snapshot_display_inheritance_tree() {
+fn snapshot_display_profile_list() {
     let config = git_conventional_config();
-    let output = render_profile_tree(&config, Some("git-conventional"));
+    let output = render_profile_tree(
+        &config,
+        &["git-conventional".to_string()],
+    );
     insta::assert_snapshot!(output);
 }
 
 #[test]
-fn snapshot_display_deep_chain() {
+fn snapshot_display_multi_active() {
     let config = deep_chain_config();
-    let output = render_profile_tree(&config, Some("rust"));
+    let output = render_profile_tree(
+        &config,
+        &["base".to_string(), "rust".to_string()],
+    );
     insta::assert_snapshot!(output);
 }
 
@@ -419,6 +445,11 @@ fn snapshot_display_listing_with_globals_and_project() {
     )
     .unwrap();
 
-    let output = render_listing(&globals, &config, Some("rust"), dir.path());
+    let output = render_listing(
+        &globals,
+        &config,
+        &["rust".to_string()],
+        dir.path(),
+    );
     insta::assert_snapshot!(output);
 }

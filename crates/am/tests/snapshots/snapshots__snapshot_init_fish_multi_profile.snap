@@ -1,5 +1,6 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 104
 expression: output
 ---
 alias cm "git commit -sm"

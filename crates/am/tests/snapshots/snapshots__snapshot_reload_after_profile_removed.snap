@@ -1,9 +1,11 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 240
 expression: output
 ---
 functions -e cm
 functions -e ct
 functions -e gs
-alias ct "cargo test"
-set -gx _AM_ALIASES "ct"
+alias cm "git commit -sm"
+alias gs "git status"
+set -gx _AM_ALIASES "cm,gs"

@@ -1,0 +1,14 @@
+---
+source: crates/am/tests/snapshots.rs
+assertion_line: 371
+expression: output
+---
+○ default
+  (no aliases)
+
+○ git
+  cm → git commit -sm
+  gs → git status
+
+● git-conventional (active)
+  cmf → cm feat: {{@}}
