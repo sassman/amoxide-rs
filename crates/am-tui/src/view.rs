@@ -321,12 +321,12 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     .get(i + 1)
                     .is_none_or(|next| next.kind != NodeKind::AliasItem);
 
-                let arm = if is_last_alias { "+-" } else { "|-" };
+                let arm = if is_last_alias { "╰─" } else { "├─" };
 
                 let marker = if is_cursor {
-                    "| "
+                    "▸ "
                 } else if is_selected {
-                    "# "
+                    "■ "
                 } else {
                     "  "
                 };

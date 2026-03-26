@@ -34,7 +34,7 @@ fn run_loop(terminal: &mut DefaultTerminal, model: &mut TuiModel) -> anyhow::Res
         let timeout = match pending_use {
             Some(instant) => {
                 let elapsed = instant.elapsed();
-                let deadline = std::time::Duration::from_millis(1500);
+                let deadline = std::time::Duration::from_millis(300);
                 if elapsed >= deadline {
                     // Timeout expired — send plain toggle
                     update(model, TuiMessage::UseProfile);
