@@ -125,9 +125,6 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
-'(--no-inherits)-i+[Base profile to inherit from]:INHERITS:_default' \
-'(--no-inherits)--inherits=[Base profile to inherit from]:INHERITS:_default' \
-'--no-inherits[Remove inheritance from this profile]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -135,8 +132,10 @@ _arguments "${_arguments_options[@]}" : \
 ':name -- Profile name:_default' \
 && ret=0
 ;;
-(set)
+(use)
 _arguments "${_arguments_options[@]}" : \
+'-n+[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
+'--priority=[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -179,7 +178,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(set)
+(use)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -291,7 +290,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(set)
+(use)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -407,8 +406,8 @@ _am__help__ls_commands() {
 (( $+functions[_am__help__profile_commands] )) ||
 _am__help__profile_commands() {
     local commands; commands=(
-'add:Add a new profile, or update inheritance of an existing one' \
-'set:Set the active profile' \
+'add:Add a new profile' \
+'use:Toggle a profile as active/inactive, optionally at a specific priority' \
 'remove:Remove a profile' \
 'list:List all profiles' \
     )
@@ -429,10 +428,10 @@ _am__help__profile__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile remove commands' commands "$@"
 }
-(( $+functions[_am__help__profile__set_commands] )) ||
-_am__help__profile__set_commands() {
+(( $+functions[_am__help__profile__use_commands] )) ||
+_am__help__profile__use_commands() {
     local commands; commands=()
-    _describe -t commands 'am help profile set commands' commands "$@"
+    _describe -t commands 'am help profile use commands' commands "$@"
 }
 (( $+functions[_am__help__reload_commands] )) ||
 _am__help__reload_commands() {
@@ -477,8 +476,8 @@ _am__ls_commands() {
 (( $+functions[_am__profile_commands] )) ||
 _am__profile_commands() {
     local commands; commands=(
-'add:Add a new profile, or update inheritance of an existing one' \
-'set:Set the active profile' \
+'add:Add a new profile' \
+'use:Toggle a profile as active/inactive, optionally at a specific priority' \
 'remove:Remove a profile' \
 'list:List all profiles' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -493,8 +492,8 @@ _am__profile__add_commands() {
 (( $+functions[_am__profile__help_commands] )) ||
 _am__profile__help_commands() {
     local commands; commands=(
-'add:Add a new profile, or update inheritance of an existing one' \
-'set:Set the active profile' \
+'add:Add a new profile' \
+'use:Toggle a profile as active/inactive, optionally at a specific priority' \
 'remove:Remove a profile' \
 'list:List all profiles' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -521,10 +520,10 @@ _am__profile__help__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am profile help remove commands' commands "$@"
 }
-(( $+functions[_am__profile__help__set_commands] )) ||
-_am__profile__help__set_commands() {
+(( $+functions[_am__profile__help__use_commands] )) ||
+_am__profile__help__use_commands() {
     local commands; commands=()
-    _describe -t commands 'am profile help set commands' commands "$@"
+    _describe -t commands 'am profile help use commands' commands "$@"
 }
 (( $+functions[_am__profile__list_commands] )) ||
 _am__profile__list_commands() {
@@ -536,10 +535,10 @@ _am__profile__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am profile remove commands' commands "$@"
 }
-(( $+functions[_am__profile__set_commands] )) ||
-_am__profile__set_commands() {
+(( $+functions[_am__profile__use_commands] )) ||
+_am__profile__use_commands() {
     local commands; commands=()
-    _describe -t commands 'am profile set commands' commands "$@"
+    _describe -t commands 'am profile use commands' commands "$@"
 }
 (( $+functions[_am__reload_commands] )) ||
 _am__reload_commands() {

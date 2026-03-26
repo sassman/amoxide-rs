@@ -97,20 +97,17 @@ fn main() -> anyhow::Result<()> {
             Message::DoNothing
         }
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
-            ProfileAction::Add {
-                name,
-                inherits: _,
-                no_inherits: _,
-            } => {
-                update(
-                    &mut model,
-                    Message::CreateProfile(name.clone()),
-                )?;
+            ProfileAction::Add { name } => {
+                update(&mut model, Message::CreateProfile(name.clone()))?;
                 update(&mut model, Message::SaveProfiles)?;
                 Message::SaveConfig
             }
-            ProfileAction::Set { name } => {
-                update(&mut model, Message::ToggleProfile(name.clone()))?;
+            ProfileAction::Use { name, priority } => {
+                let msg = match priority {
+                    Some(n) => Message::UseProfileAt(name.clone(), *n),
+                    None => Message::ToggleProfile(name.clone()),
+                };
+                update(&mut model, msg)?;
                 Message::SaveConfig
             }
             ProfileAction::Remove { name, force } => {
