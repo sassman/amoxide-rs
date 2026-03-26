@@ -39,7 +39,7 @@ am add -l b "make build"             # project-local alias (.aliases file)
 ## Features
 
 - **Global aliases** (`-g`) — always loaded, independent of profile
-- **Profiles** with inheritance — group aliases by context (rust, git, node)
+- **Multiple active profiles** — group aliases by context (rust, git, node), activate several at once
 - **Project aliases** (`.aliases` files) — auto-loaded on `cd`, like direnv for aliases
 - **Parameterized aliases** — `{{1}}`, `{{@}}` template syntax for composable commands
 - **Shell completions** — included in `am init` output
