@@ -24,10 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      # Publishes all workspace crates that have new versions
-      - uses: katyo/publish-crates@v2
-        with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Extract crate from tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          CRATE="${TAG%-v*}"
+          echo "crate=$CRATE" >> "$GITHUB_OUTPUT"
+      - name: Publish ${{ steps.tag.outputs.crate }}
+        run: cargo publish -p ${{ steps.tag.outputs.crate }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   release:
     name: GitHub Release
