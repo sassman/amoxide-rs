@@ -174,7 +174,7 @@ pub fn build_tree_from_parts(
             is_active: false,
             label: profile_name.to_string(),
             prefix: String::new(),
-            content_prefix: " ".to_string(),
+            content_prefix: TREE_SPACE.to_string(),
         });
 
         if let Some(profile) = profiles.get_profile_by_name(profile_name) {
@@ -189,7 +189,7 @@ pub fn build_tree_from_parts(
                     is_active: false,
                     label: name.to_string(),
                     prefix: String::new(),
-                    content_prefix: " ".to_string(),
+                    content_prefix: TREE_SPACE.to_string(),
                 });
             }
         }
