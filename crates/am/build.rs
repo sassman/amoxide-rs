@@ -10,6 +10,7 @@ pub mod shell {
     #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
     pub enum Shells {
         Fish,
+        Powershell,
         Zsh,
     }
 }

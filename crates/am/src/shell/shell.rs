@@ -19,7 +19,7 @@ pub enum Shells {
     // Ksh,
     // Nushell,
     // Posix,
-    // Powershell,
+    Powershell,
     // Xonsh,
     Zsh,
     // #[cfg(windows)]
@@ -41,7 +41,7 @@ impl Display for Shells {
             // Shells::Ksh => write!(f, "ksh"),
             // Shells::Nushell => write!(f, "nushell"),
             // Shells::Posix => write!(f, "posix"),
-            // Shells::Powershell => write!(f, "powershell"),
+            Shells::Powershell => write!(f, "powershell"),
             // Shells::Xonsh => write!(f, "xonsh"),
             Shells::Zsh => write!(f, "zsh"),
         }
@@ -60,7 +60,7 @@ impl From<Shells> for Box<dyn Shell> {
             Shells::Zsh => Box::from(super::zsh::Zsh),
             // Shells::Bash => Box::from(super::bash::Bash),
             Shells::Fish => Box::from(super::fish::Fish),
-            // Shells::PowerShell => Box::from(super::powershell::PowerShell),
+            Shells::Powershell => Box::from(super::powershell::PowerShell),
             // #[cfg(windows)]
             // Shells::Cmd => Box::from(super::windows_cmd::WindowsCmd),
         }
@@ -90,6 +90,19 @@ pub fn substitute_fish(cmd: &str) -> String {
         .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
             "@" => "$argv".to_string(),
             n => format!("$argv[{n}]"),
+        })
+        .to_string()
+}
+
+/// Substitute `{{N}}` → `$($args[N-1])` and `{{@}}` → `$args` for PowerShell.
+pub fn substitute_powershell(cmd: &str) -> String {
+    TEMPLATE_RE
+        .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
+            "@" => "$args".to_string(),
+            n => {
+                let idx: usize = n.parse::<usize>().unwrap() - 1;
+                format!("$($args[{idx}])")
+            }
         })
         .to_string()
 }
@@ -145,9 +158,22 @@ mod tests {
     }
 
     #[test]
+    fn test_substitute_powershell() {
+        assert_eq!(
+            substitute_powershell("cm feat: {{@}}"),
+            "cm feat: $args"
+        );
+        assert_eq!(
+            substitute_powershell("echo {{1}} and {{2}}"),
+            "echo $($args[0]) and $($args[1])"
+        );
+    }
+
+    #[test]
     fn test_substitute_leaves_invalid_templates() {
         assert_eq!(substitute_fish("echo {{abc}}"), "echo {{abc}}");
         assert_eq!(substitute_nix("echo {{abc}}"), "echo {{abc}}");
+        assert_eq!(substitute_powershell("echo {{abc}}"), "echo {{abc}}");
         assert_eq!(substitute_fish("echo {{0}}"), "echo {{0}}");
     }
 }

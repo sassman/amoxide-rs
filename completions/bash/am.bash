@@ -371,7 +371,7 @@ _am() {
             return 0
             ;;
         am__hook)
-            opts="-h -V --help --version fish zsh"
+            opts="-h -V --help --version fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -385,7 +385,7 @@ _am() {
             return 0
             ;;
         am__init)
-            opts="-h -V --help --version fish zsh"
+            opts="-h -V --help --version fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -575,7 +575,7 @@ _am() {
             return 0
             ;;
         am__reload)
-            opts="-h -V --help --version fish zsh"
+            opts="-h -V --help --version fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -1,0 +1,10 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+Remove-Item -ErrorAction SilentlyContinue Function:gs
+Remove-Item -ErrorAction SilentlyContinue Function:cm
+function cm { git commit -sm @args }
+function cmf { cm feat: $args }
+function gs { git status @args }
+$env:_AM_ALIASES = "cm,cmf,gs"

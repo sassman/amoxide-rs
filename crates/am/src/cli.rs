@@ -59,9 +59,9 @@ pub enum Commands {
     ///   Zsh         ~/.zshrc                      eval "$(am init zsh)"
     ///   Bash        ~/.bashrc                     eval "$(am init bash)"
     ///   Nushell     ~/.config/nushell/config.nu   am init nu | source
-    ///   PowerShell  $PROFILE                      am init powershell | Invoke-Expression
+    ///   PowerShell  $PROFILE                      Invoke-Expression (am init powershell)
     ///
-    /// Note: Only fish and zsh are currently supported. Others are planned.
+    /// Note: Only fish, zsh, and powershell are currently supported. Others are planned.
     #[command(alias = "i", verbatim_doc_comment)]
     Init { shell: Shells },
 
