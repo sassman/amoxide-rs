@@ -1,4 +1,4 @@
-use amoxide::display::{render_listing, render_profile_tree};
+use amoxide::display::{render_listing, render_profiles};
 use amoxide::hook::generate_hook;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::shell::Shells;
@@ -408,7 +408,7 @@ fn snapshot_hook_fish_leaving_project() {
 #[test]
 fn snapshot_display_profile_list() {
     let config = git_conventional_config();
-    let output = render_profile_tree(
+    let output = render_profiles(
         &config,
         &["git-conventional".to_string()],
     );
@@ -418,7 +418,7 @@ fn snapshot_display_profile_list() {
 #[test]
 fn snapshot_display_multi_active() {
     let config = deep_chain_config();
-    let output = render_profile_tree(
+    let output = render_profiles(
         &config,
         &["base".to_string(), "rust".to_string()],
     );

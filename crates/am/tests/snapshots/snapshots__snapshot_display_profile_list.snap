@@ -1,14 +1,13 @@
 ---
 source: crates/am/tests/snapshots.rs
-assertion_line: 371
 expression: output
 ---
+● git-conventional (active: 1)
+  cmf → cm feat: {{@}}
+
 ○ default
   (no aliases)
 
 ○ git
   cm → git commit -sm
   gs → git status
-
-● git-conventional (active)
-  cmf → cm feat: {{@}}

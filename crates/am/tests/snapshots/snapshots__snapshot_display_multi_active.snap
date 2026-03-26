@@ -1,13 +1,12 @@
 ---
 source: crates/am/tests/snapshots.rs
-assertion_line: 381
 expression: output
 ---
-● base (active)
+● base (active: 1)
   ll → ls -lha
+
+● rust (active: 2)
+  ct → cargo test
 
 ○ git
   gs → git status
-
-● rust (active)
-  ct → cargo test
