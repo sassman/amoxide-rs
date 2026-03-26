@@ -258,11 +258,12 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
             NodeKind::GlobalHeader => {
                 let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
                 lines.push(Line::from(vec![
+                    Span::raw("🌐 "),
                     Span::styled("global", Style::default().fg(label_color).bold()),
                 ]));
             }
             NodeKind::ProjectHeader => {
-                let marker = if is_cursor { "| " } else { "  " };
+                let marker = if is_cursor { "▸ " } else { "  " };
                 let conn = if is_cursor {
                     TREE_CONNECTOR_ACTIVE
                 } else {
@@ -274,6 +275,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                         format!("{}{marker}", node.prefix),
                         Style::default().fg(conn),
                     ),
+                    Span::raw("📁 "),
                     Span::styled(
                         "project (.aliases)",
                         Style::default().fg(label_color).bold(),
@@ -282,7 +284,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
             }
             NodeKind::ProfileHeader => {
                 let icon = if node.is_active { "●" } else { "○" };
-                let marker = if is_cursor { "| " } else { "  " };
+                let marker = if is_cursor { "▸ " } else { "  " };
                 let active_tag = match model.app_model.config.activation_order(&node.label) {
                     Some(n) => format!(" (active: {n})"),
                     None => String::new(),
