@@ -10,18 +10,18 @@
   <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
 </p>
 
-> amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific.
+> amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific. It loads context specific relevant aliases automatically.
 
-Q: What does Globally mean?
-A: It's as a regular shell alias right now works - always present.
+- Q: What does "globally" mean?
+- A: A global alias is a regular shell alias that is always and everywhere present
 
-Q: What is Profile specific then?
-A: A Profile is simply a name like `node development` or `git stuff` under which aliases are collected - like a category of purpose for aliases.
+- Q: What is "profile-specific" then?
+- A: A profile is simply a name like `node development` or `git stuff` under which aliases are collected - like a category for aliases
 
-Q: What is then project specific?
-A: In a project context (locally) available, like you are working on this very rust backend - with project specific aliases.
+- Q: What is then "project-specific"?
+- A: An alias is only available in a project context or "locally". Like you are working on a very project that needs it's own aliases
 
-Note: Profiles can be composed upon another. Like your node profile should leverage some git aliases, then `node development -> git stuff` would cause they are loaded upwards the dependency tree.
+> :bulp: Note: Profiles can inherit from another. Like your node profile should leverage some git aliases, then `node development "inherits" git stuff` would load all aliases upwards the dependency tree.
 
 
 ## Productivity Tip / TL;DR (Opinionated)
