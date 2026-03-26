@@ -72,22 +72,20 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
             println!("{output}");
             Ok(None)
         }
-        Message::CreateProfile(name) => {
-            match model.profile_config_mut().add_profile(&name)? {
-                profile::Response::ProfileAdded(_) => {
-                    if !model.config.active_profiles.contains(&name) {
-                        model.config.active_profiles.push(name);
-                    }
-                    Ok(Some(Message::SaveProfiles))
+        Message::CreateProfile(name) => match model.profile_config_mut().add_profile(&name)? {
+            profile::Response::ProfileAdded(_) => {
+                if !model.config.active_profiles.contains(&name) {
+                    model.config.active_profiles.push(name);
                 }
-                profile::Response::ProfileActivated(_) => {
-                    if !model.config.active_profiles.contains(&name) {
-                        model.config.active_profiles.push(name);
-                    }
-                    Ok(None)
-                }
+                Ok(Some(Message::SaveProfiles))
             }
-        }
+            profile::Response::ProfileActivated(_) => {
+                if !model.config.active_profiles.contains(&name) {
+                    model.config.active_profiles.push(name);
+                }
+                Ok(None)
+            }
+        },
         Message::SaveProfiles => {
             model.profile_config().save()?;
             Ok(None)
@@ -109,8 +107,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
                 .profile_config()
                 .resolve_active_aliases(&model.config.active_profiles);
             let prev = std::env::var("_AM_ALIASES").ok();
-            let output =
-                generate_reload(&shell, &model.config.aliases, &resolved, prev.as_deref());
+            let output = generate_reload(&shell, &model.config.aliases, &resolved, prev.as_deref());
             if !output.is_empty() {
                 print!("{output}");
             }
@@ -159,9 +156,12 @@ fn resolve_profile_mut<'a>(
             .get_profile_by_name_mut(profile_name)
             .ok_or_else(|| anyhow!("Profile not found: {profile_name}")),
         AddAliasProfile::ActiveProfile => {
-            let active = model.config.active_profiles.last().cloned().ok_or_else(|| {
-                anyhow!("No active profile. Use -p <profile> or -g for global.")
-            })?;
+            let active = model
+                .config
+                .active_profiles
+                .last()
+                .cloned()
+                .ok_or_else(|| anyhow!("No active profile. Use -p <profile> or -g for global."))?;
             model
                 .profile_config_mut()
                 .get_profile_by_name_mut(&active)

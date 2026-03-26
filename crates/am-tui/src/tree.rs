@@ -94,11 +94,10 @@ pub fn build_tree_from_parts(
 
     // --- Active profiles (in activation order) ---
     for (i, profile_name) in active_names.iter().enumerate() {
-        let is_last_in_zone =
-            child_idx + (active_names.len() - i - 1) + usize::from(has_project)
-                == active_zone_children - 1
-                && !has_project
-                && i == active_names.len() - 1;
+        let is_last_in_zone = child_idx + (active_names.len() - i - 1) + usize::from(has_project)
+            == active_zone_children - 1
+            && !has_project
+            && i == active_names.len() - 1;
         // Simpler: compute directly
         let remaining_active = active_names.len() - i - 1;
         let is_last = remaining_active == 0 && !has_project;
@@ -439,7 +438,10 @@ mod tests {
         assert_eq!(headers.len(), 2);
         for h in &headers {
             assert!(!h.is_active, "profile {} should be inactive", h.label);
-            assert_eq!(h.prefix, "", "inactive profile should have no connector prefix");
+            assert_eq!(
+                h.prefix, "",
+                "inactive profile should have no connector prefix"
+            );
         }
     }
 
@@ -486,7 +488,10 @@ mod tests {
             .map(|n| n.label.as_str())
             .collect();
         // Order: global, rust (active), project, node (inactive)
-        assert_eq!(header_labels, vec!["global", "rust", "project (.aliases)", "node"]);
+        assert_eq!(
+            header_labels,
+            vec!["global", "rust", "project (.aliases)", "node"]
+        );
     }
 
     #[test]

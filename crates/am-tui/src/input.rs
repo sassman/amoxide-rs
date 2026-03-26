@@ -35,9 +35,9 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Char('a') => Some(TuiMessage::StartAddAlias),
         KeyCode::Char('n') => Some(TuiMessage::StartCreateProfile),
         KeyCode::Char('x') => Some(TuiMessage::DeleteItem),
-        KeyCode::Char(c @ '1'..='9') => {
-            Some(TuiMessage::UseProfileWithPriority(c as usize - '0' as usize))
-        }
+        KeyCode::Char(c @ '1'..='9') => Some(TuiMessage::UseProfileWithPriority(
+            c as usize - '0' as usize,
+        )),
         KeyCode::Char('q') => Some(TuiMessage::Quit),
         _ => None,
     }

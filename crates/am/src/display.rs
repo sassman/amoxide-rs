@@ -74,8 +74,7 @@ pub fn render_listing(
             .map(|idx| idx + 1)
             .unwrap_or(0);
 
-        let is_last_active_item =
-            i == active_ordered.len() - 1 && project.is_none();
+        let is_last_active_item = i == active_ordered.len() - 1 && project.is_none();
 
         let connector = if is_last_active_item {
             "\u{2570}\u{2500}"
@@ -84,7 +83,10 @@ pub fn render_listing(
         };
         let trunk = if is_last_active_item { " " } else { "\u{2502}" };
 
-        output.push_str(&format!("\n{connector}\u{25cf} {} (active: {order})", profile.name));
+        output.push_str(&format!(
+            "\n{connector}\u{25cf} {} (active: {order})",
+            profile.name
+        ));
 
         for (alias_name, alias_value) in profile.aliases.iter() {
             let name = alias_name.as_ref();
@@ -232,10 +234,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_profiles(
-            &config,
-            &["git".to_string(), "rust".to_string()],
-        );
+        let output = render_profiles(&config, &["git".to_string(), "rust".to_string()]);
         assert!(output.contains("● git (active: 1)"));
         assert!(output.contains("● rust (active: 2)"));
     }
@@ -259,10 +258,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_profiles(
-            &config,
-            &["rust".to_string()],
-        );
+        let output = render_profiles(&config, &["rust".to_string()]);
         // Active first
         assert!(output.contains("● rust (active: 1)"));
         // Inactive alphabetical
@@ -296,15 +292,13 @@ mod tests {
         "#});
 
         let mut globals = AliasSet::default();
-        globals.insert("ll".into(), crate::TomlAlias::Command("ls -lha".to_string()));
+        globals.insert(
+            "ll".into(),
+            crate::TomlAlias::Command("ls -lha".to_string()),
+        );
 
         let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(
-            &globals,
-            &config,
-            &["rust".to_string()],
-            dir.path(),
-        );
+        let output = render_listing(&globals, &config, &["rust".to_string()], dir.path());
         // Global with trunk
         assert!(output.contains("🌐 global"));
         assert!(output.contains("│ ll → ls -lha"));
@@ -395,12 +389,7 @@ mod tests {
         let config: ProfileConfig = ProfileConfig::default();
 
         let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(
-            &AliasSet::default(),
-            &config,
-            &[],
-            dir.path(),
-        );
+        let output = render_listing(&AliasSet::default(), &config, &[], dir.path());
         assert!(output.contains("🌐 global"));
         // No trunk when global stands alone
         assert!(!output.contains("│"));

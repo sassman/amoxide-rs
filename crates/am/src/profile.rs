@@ -276,8 +276,7 @@ mod tests {
         "#})
         .unwrap();
 
-        let resolved =
-            config.resolve_active_aliases(&["git".to_string(), "rust".to_string()]);
+        let resolved = config.resolve_active_aliases(&["git".to_string(), "rust".to_string()]);
         assert_eq!(resolved.iter().count(), 3); // gs, ct, t (rust overrides git)
         assert!(resolved.iter().any(|(n, _)| n.as_ref() == "gs"));
         assert!(resolved.iter().any(|(n, _)| n.as_ref() == "ct"));

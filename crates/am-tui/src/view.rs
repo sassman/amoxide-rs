@@ -263,7 +263,11 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 ]));
             }
             NodeKind::ProjectHeader => {
-                let marker = if is_cursor { MARKER_CURSOR } else { MARKER_NONE };
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else {
+                    MARKER_NONE
+                };
                 let conn = if is_cursor {
                     TREE_CONNECTOR_ACTIVE
                 } else {
@@ -283,8 +287,16 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 ]));
             }
             NodeKind::ProfileHeader => {
-                let icon = if node.is_active { ICON_ACTIVE } else { ICON_INACTIVE };
-                let marker = if is_cursor { MARKER_CURSOR } else { MARKER_NONE };
+                let icon = if node.is_active {
+                    ICON_ACTIVE
+                } else {
+                    ICON_INACTIVE
+                };
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else {
+                    MARKER_NONE
+                };
                 let active_tag = match model.app_model.config.activation_order(&node.label) {
                     Some(n) => format!(" (active: {n})"),
                     None => String::new(),
@@ -323,7 +335,11 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     .get(i + 1)
                     .is_none_or(|next| next.kind != NodeKind::AliasItem);
 
-                let arm = if is_last_alias { TREE_LAST } else { TREE_BRANCH };
+                let arm = if is_last_alias {
+                    TREE_LAST
+                } else {
+                    TREE_BRANCH
+                };
 
                 let marker = if is_cursor {
                     MARKER_CURSOR

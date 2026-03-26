@@ -147,7 +147,11 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
             match action {
                 ConfirmAction::DeleteProfile(name) => {
                     let _ = model.app_model.profile_config_mut().remove_profile(&name);
-                    model.app_model.config.active_profiles.retain(|p| p != &name);
+                    model
+                        .app_model
+                        .config
+                        .active_profiles
+                        .retain(|p| p != &name);
                     save_all(model);
                     model.rebuild_tree();
                 }
@@ -254,10 +258,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     {
                         return;
                     }
-                    let _ = model
-                        .app_model
-                        .profile_config_mut()
-                        .add_profile(&name);
+                    let _ = model.app_model.profile_config_mut().add_profile(&name);
                     save_all(model);
                     model.rebuild_tree();
                     model.mode = Mode::Normal;

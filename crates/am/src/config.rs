@@ -176,11 +176,7 @@ mod tests {
     #[test]
     fn test_profile_activation_order() {
         let config = Config {
-            active_profiles: vec![
-                "git".to_string(),
-                "rust".to_string(),
-                "node".to_string(),
-            ],
+            active_profiles: vec!["git".to_string(), "rust".to_string(), "node".to_string()],
             aliases: AliasSet::default(),
         };
         assert_eq!(config.activation_order("git"), Some(1));
@@ -198,32 +194,20 @@ mod tests {
         config.use_profile_at("node".to_string(), 1);
         assert_eq!(
             config.active_profiles,
-            vec![
-                "node".to_string(),
-                "git".to_string(),
-                "rust".to_string(),
-            ]
+            vec!["node".to_string(), "git".to_string(), "rust".to_string(),]
         );
     }
 
     #[test]
     fn test_use_profile_at_repositions_existing() {
         let mut config = Config {
-            active_profiles: vec![
-                "git".to_string(),
-                "rust".to_string(),
-                "node".to_string(),
-            ],
+            active_profiles: vec!["git".to_string(), "rust".to_string(), "node".to_string()],
             aliases: AliasSet::default(),
         };
         config.use_profile_at("node".to_string(), 1);
         assert_eq!(
             config.active_profiles,
-            vec![
-                "node".to_string(),
-                "git".to_string(),
-                "rust".to_string(),
-            ]
+            vec!["node".to_string(), "git".to_string(), "rust".to_string(),]
         );
     }
 
