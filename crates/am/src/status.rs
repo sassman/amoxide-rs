@@ -23,27 +23,56 @@ impl Check {
     }
 }
 
-/// Detect the current shell from $SHELL env var.
+/// Detect the current shell using multiple strategies:
+/// 1. $SHELL env var (Unix standard)
+/// 2. PowerShell-specific env vars ($PSModulePath, $PSVersionTable markers)
+/// 3. $COMSPEC for cmd.exe on Windows
 pub fn detect_shell() -> Check {
-    match std::env::var("SHELL") {
-        Ok(shell) => {
-            let name = Path::new(&shell)
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| shell.clone());
-            Check::Ok(format!("{name} ({shell})"))
-        }
-        Err(_) => Check::Warn("$SHELL not set — cannot detect shell".to_string()),
+    // 1. $SHELL — standard on Unix
+    if let Ok(shell) = std::env::var("SHELL") {
+        let name = Path::new(&shell)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| shell.clone());
+        return Check::Ok(format!("{name} ({shell})"));
     }
+
+    // 2. PowerShell — check for PSModulePath (set in all PowerShell versions)
+    if std::env::var("PSModulePath").is_ok() {
+        return Check::Ok("powershell".to_string());
+    }
+
+    // 3. cmd.exe — check COMSPEC on Windows
+    if let Ok(comspec) = std::env::var("COMSPEC") {
+        let name = Path::new(&comspec)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| comspec.clone());
+        return Check::Warn(format!("{name} — not supported, use PowerShell instead"));
+    }
+
+    Check::Warn("cannot detect shell — $SHELL not set".to_string())
+}
+
+/// Returns the detected shell name for use by other status checks.
+pub fn detected_shell_name() -> Option<String> {
+    if let Ok(shell) = std::env::var("SHELL") {
+        return Path::new(&shell)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string());
+    }
+    if std::env::var("PSModulePath").is_ok() {
+        return Some("powershell".to_string());
+    }
+    None
 }
 
 /// Check if the shell config file contains `am init`.
 pub fn check_shell_config() -> Check {
-    let shell = std::env::var("SHELL").unwrap_or_default();
-    let shell_name = Path::new(&shell)
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_default();
+    let shell_name = match detected_shell_name() {
+        Some(name) => name,
+        None => return Check::Warn("cannot detect shell — run `am setup <shell>`".to_string()),
+    };
 
     let (config_path, init_line) = match shell_name.as_str() {
         "fish" => (
@@ -58,7 +87,16 @@ pub fn check_shell_config() -> Check {
             home_dir().map(|h| h.join(".bashrc")),
             "eval \"$(am init bash)\"",
         ),
-        _ => return Check::Warn(format!("unknown shell: {shell_name}")),
+        "powershell" => {
+            let path = std::env::var("PROFILE")
+                .or_else(|_| std::env::var("USERPROFILE").map(|p| {
+                    format!("{p}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1")
+                }))
+                .map(std::path::PathBuf::from)
+                .ok();
+            (path, "(am init powershell) -join \"`n\" | Invoke-Expression")
+        }
+        _ => return Check::Warn(format!("unknown shell: {shell_name} — run `am setup <shell>`")),
     };
 
     let Some(path) = config_path else {
