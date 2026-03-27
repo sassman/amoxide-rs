@@ -31,11 +31,16 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
 }
 
 /// Returns how to reload the shell after setup.
-fn reload_hint(shell: &Shells) -> &'static str {
+fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
+    let path = profile_path.display();
     match shell {
-        Shells::Fish => "Run: source ~/.config/fish/config.fish",
-        Shells::Zsh => "Run: source ~/.zshrc",
-        Shells::Powershell => "Run: . $PROFILE",
+        Shells::Fish => format!("Run: source {path}"),
+        Shells::Zsh => format!("Run: source {path}"),
+        Shells::Powershell => format!(
+            "Run: . \"{path}\"\n\n  \
+            Note: if you get an execution policy error, run first:\n  \
+            Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
+        ),
     }
 }
 
@@ -103,7 +108,7 @@ pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
     writeln!(file, "{init_line}")?;
 
     eprintln!("\n\u{2713} Added to {}", profile_path.display());
-    eprintln!("  {}", reload_hint(shell));
+    eprintln!("  {}", reload_hint(shell, &profile_path));
 
     Ok(())
 }
