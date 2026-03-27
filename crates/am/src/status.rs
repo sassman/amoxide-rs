@@ -88,12 +88,7 @@ pub fn check_shell_config() -> Check {
             "eval \"$(am init bash)\"",
         ),
         "powershell" => {
-            let path = std::env::var("PROFILE")
-                .or_else(|_| std::env::var("USERPROFILE").map(|p| {
-                    format!("{p}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1")
-                }))
-                .map(std::path::PathBuf::from)
-                .ok();
+            let path = crate::setup::detect_powershell_profile();
             (path, "(am init powershell) -join \"`n\" | Invoke-Expression")
         }
         _ => return Check::Warn(format!("unknown shell: {shell_name} — run `am setup <shell>`")),

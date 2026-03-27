@@ -3,6 +3,26 @@ use std::path::PathBuf;
 
 use crate::shell::Shells;
 
+/// Ask PowerShell for its $PROFILE path by shelling out.
+/// Works for both PS 5.1 (WindowsPowerShell) and PS 7+ (PowerShell).
+pub fn detect_powershell_profile() -> Option<PathBuf> {
+    // Try pwsh (PS 7+) first, then powershell.exe (PS 5.1)
+    for cmd in &["pwsh", "powershell"] {
+        if let Ok(output) = std::process::Command::new(cmd)
+            .args(["-NoProfile", "-Command", "echo $PROFILE"])
+            .output()
+        {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() {
+                    return Some(PathBuf::from(path));
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Returns the profile file path and the init line for the given shell.
 fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
     match shell {
@@ -16,14 +36,10 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
             (home.join(".zshrc"), r#"eval "$(am init zsh)""#)
         }
         Shells::Powershell => {
-            let path = std::env::var("PROFILE")
-                .or_else(|_| std::env::var("USERPROFILE").map(|p| {
-                    format!("{p}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1")
-                }))
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| {
+            let path = detect_powershell_profile()
+                .unwrap_or_else(|| {
                     let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-                    home.join("Documents/PowerShell/Microsoft.PowerShell_profile.ps1")
+                    home.join("Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
                 });
             (path, "(am init powershell) -join \"`n\" | Invoke-Expression")
         }
