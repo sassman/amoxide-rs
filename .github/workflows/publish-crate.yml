@@ -1,0 +1,31 @@
+name: Publish Crate
+
+on:
+  push:
+    tags:
+      # release-plz creates per-crate tags: amoxide-v0.1.0, amoxide-tui-v0.1.0
+      - "amoxide-v[0-9]+.[0-9]+.[0-9]+"
+      - "amoxide-v[0-9]+.[0-9]+.[0-9]+-*"
+      - "amoxide-tui-v[0-9]+.[0-9]+.[0-9]+"
+      - "amoxide-tui-v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    name: Publish to crates.io
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish crate
+        id: publish
+        uses: ./.github/actions/publish-crate
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
