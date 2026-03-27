@@ -159,10 +159,7 @@ mod tests {
 
     #[test]
     fn test_substitute_powershell() {
-        assert_eq!(
-            substitute_powershell("cm feat: {{@}}"),
-            "cm feat: $args"
-        );
+        assert_eq!(substitute_powershell("cm feat: {{@}}"), "cm feat: $args");
         assert_eq!(
             substitute_powershell("echo {{1}} and {{2}}"),
             "echo $($args[0]) and $($args[1])"

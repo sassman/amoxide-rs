@@ -88,10 +88,7 @@ mod tests {
 
     #[test]
     fn test_set_env() {
-        assert_eq!(
-            PowerShell.set_env("FOO", "bar"),
-            "$env:FOO = \"bar\""
-        );
+        assert_eq!(PowerShell.set_env("FOO", "bar"), "$env:FOO = \"bar\"");
     }
 
     #[test]
