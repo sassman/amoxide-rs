@@ -134,9 +134,11 @@ eval "$(am init zsh)"
 ```
 
 ```powershell
-# $PROFILE (run `notepad $PROFILE` to edit)
+# $PROFILE
 Invoke-Expression (am init powershell)
 ```
+
+> PowerShell tip: run `echo $PROFILE` to see the path, `notepad $PROFILE` to edit it.
 
 This does two things:
 1. Loads aliases from your active profile into the current shell
