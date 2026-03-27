@@ -44,10 +44,10 @@ impl ProfileConfig {
 
     /// Resolve the merged alias set for multiple active profiles.
     /// Profiles are merged in order: later profiles override earlier ones.
-    pub fn resolve_active_aliases(&self, profile_names: &[String]) -> AliasSet {
+    pub fn resolve_active_aliases(&self, profile_names: &[impl AsRef<str>]) -> AliasSet {
         let mut resolved = AliasSet::default();
         for name in profile_names {
-            if let Some(profile) = self.get_profile_by_name(name) {
+            if let Some(profile) = self.get_profile_by_name(name.as_ref()) {
                 for (alias_name, alias) in profile.aliases.iter() {
                     resolved.insert(alias_name.clone(), alias.clone());
                 }
@@ -255,7 +255,7 @@ mod tests {
         "#})
         .unwrap();
 
-        let resolved = config.resolve_active_aliases(&["git".to_string()]);
+        let resolved = config.resolve_active_aliases(&["git"]);
         assert_eq!(resolved.iter().count(), 2);
     }
 
@@ -276,7 +276,7 @@ mod tests {
         "#})
         .unwrap();
 
-        let resolved = config.resolve_active_aliases(&["git".to_string(), "rust".to_string()]);
+        let resolved = config.resolve_active_aliases(&["git", "rust"]);
         assert_eq!(resolved.iter().count(), 3); // gs, ct, t (rust overrides git)
         assert!(resolved.iter().any(|(n, _)| n.as_ref() == "gs"));
         assert!(resolved.iter().any(|(n, _)| n.as_ref() == "ct"));
@@ -295,7 +295,7 @@ mod tests {
         "#})
         .unwrap();
 
-        let resolved = config.resolve_active_aliases(&[]);
+        let resolved = config.resolve_active_aliases(&[] as &[&str]);
         assert!(resolved.is_empty());
     }
 }
