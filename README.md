@@ -115,9 +115,32 @@ Now I have git aliases and rust aliases loaded at the same time. If both profile
 
 ## Installation
 
-```shell
+### Homebrew (macOS and Linux)
+
+```sh
+brew install sassman/tap/amoxide
+brew install sassman/tap/amoxide-tui  # optional: interactive TUI
+```
+
+### Shell script (macOS and Linux)
+
+```sh
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
+```
+
+### PowerShell (Windows)
+
+```powershell
+irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex
+```
+
+### From source (via cargo)
+
+```sh
 cargo install amoxide          # installs the `am` binary
-cargo install amoxide-tui      # installs the `am-tui` interactive interface (optional)
+cargo install amoxide-tui      # optional: interactive TUI
+# or, without compiling from source:
+cargo binstall amoxide
 ```
 
 The crate is called `amoxide`, but the binary it installs is simply `am` (short for amoxide).
