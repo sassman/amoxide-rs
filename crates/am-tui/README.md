@@ -33,7 +33,14 @@ cargo install amoxide-tui      # the `am-tui` interactive TUI
 
 ## Shell Support
 
-Fish is fully supported and tested. Zsh and PowerShell are supported but not yet tested. Other shells are not yet implemented. See [amoxide](https://crates.io/crates/amoxide) for details.
+| Shell | Status |
+|-------|--------|
+| Fish | Fully supported and tested |
+| PowerShell | Supported and tested (5.1 + 7) |
+| Zsh | Supported, not yet tested |
+| Bash, Nushell | Not yet implemented |
+
+See [amoxide](https://crates.io/crates/amoxide) for details.
 
 ## Documentation
 
