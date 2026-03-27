@@ -90,7 +90,11 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 
     for (i, node) in model.dest_tree.iter().enumerate() {
         let is_cursor = i == model.dest_cursor && model.active_column == Column::Right;
-        let marker = if is_cursor { "| " } else { "  " };
+        let marker = if is_cursor {
+            MARKER_CURSOR
+        } else {
+            MARKER_NONE
+        };
         let conn = if is_cursor {
             TREE_CONNECTOR_ACTIVE
         } else {
@@ -102,7 +106,7 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
                 let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
                 lines.push(Line::from(vec![
                     Span::styled(
-                        format!("{}{marker}", node.prefix),
+                        format!("{}{ICON_GLOBAL}{marker}", node.prefix),
                         Style::default().fg(conn),
                     ),
                     Span::styled("global", Style::default().fg(label_color).bold()),
