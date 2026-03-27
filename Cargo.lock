@@ -19,7 +19,7 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "amoxide"
-version = "0.1.1-beta.1"
+version = "0.1.1-beta.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "amoxide-tui"
-version = "0.1.1-beta.1"
+version = "0.1.1-beta.2"
 dependencies = [
  "amoxide",
  "anyhow",
