@@ -2,8 +2,8 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-function gs { git status @args }
-function ll { ls -lha @args }
+function global:gs { git status @args }
+function global:ll { ls -lha @args }
 $env:_AM_ALIASES = "gs,ll"
 Remove-Item -ErrorAction SilentlyContinue Env:_AM_PROFILE_ALIASES
 

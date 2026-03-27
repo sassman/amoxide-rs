@@ -8,15 +8,15 @@ pub struct PowerShell;
 
 impl Shell for PowerShell {
     fn unalias(&self, alias_name: &str) -> String {
-        format!("Remove-Item -ErrorAction SilentlyContinue Function:{alias_name}")
+        format!("Remove-Item -ErrorAction SilentlyContinue Function:global:{alias_name}")
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
         if !entry.raw && has_template_args(entry.command) {
             let body = substitute_powershell(entry.command);
-            format!("function {} {{ {} }}", entry.name, body)
+            format!("function global:{} {{ {} }}", entry.name, body)
         } else {
-            format!("function {} {{ {} @args }}", entry.name, entry.command)
+            format!("function global:{} {{ {} @args }}", entry.name, entry.command)
         }
     }
 
@@ -54,7 +54,7 @@ mod tests {
     fn test_simple_alias() {
         assert_eq!(
             PowerShell.alias(&simple("gs", "git status")),
-            "function gs { git status @args }"
+            "function global:gs { git status @args }"
         );
     }
 
@@ -62,11 +62,11 @@ mod tests {
     fn test_parameterized_alias() {
         assert_eq!(
             PowerShell.alias(&simple("cmf", "cm feat: {{@}}")),
-            "function cmf { cm feat: $args }"
+            "function global:cmf { cm feat: $args }"
         );
         assert_eq!(
             PowerShell.alias(&simple("x", "echo {{1}} and {{2}}")),
-            "function x { echo $($args[0]) and $($args[1]) }"
+            "function global:x { echo $($args[0]) and $($args[1]) }"
         );
     }
 
@@ -74,7 +74,7 @@ mod tests {
     fn test_raw_alias() {
         assert_eq!(
             PowerShell.alias(&raw("my-awk", "awk '{print {{1}}}'")),
-            "function my-awk { awk '{print {{1}}}' @args }"
+            "function global:my-awk { awk '{print {{1}}}' @args }"
         );
     }
 
@@ -82,7 +82,7 @@ mod tests {
     fn test_unalias() {
         assert_eq!(
             PowerShell.unalias("gs"),
-            "Remove-Item -ErrorAction SilentlyContinue Function:gs"
+            "Remove-Item -ErrorAction SilentlyContinue Function:global:gs"
         );
     }
 

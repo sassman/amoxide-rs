@@ -2,9 +2,9 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-Remove-Item -ErrorAction SilentlyContinue Function:gs
-Remove-Item -ErrorAction SilentlyContinue Function:cm
-function cm { git commit -sm @args }
-function cmf { cm feat: $args }
-function gs { git status @args }
+Remove-Item -ErrorAction SilentlyContinue Function:global:gs
+Remove-Item -ErrorAction SilentlyContinue Function:global:cm
+function global:cm { git commit -sm @args }
+function global:cmf { cm feat: $args }
+function global:gs { git status @args }
 $env:_AM_ALIASES = "cm,cmf,gs"
