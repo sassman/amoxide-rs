@@ -110,8 +110,7 @@ fn snapshot_init_powershell_simple_profile() {
 #[test]
 fn snapshot_init_fish_multi_profile() {
     let config = git_conventional_config();
-    let resolved =
-        config.resolve_active_aliases(&["git", "git-conventional"]);
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_init(&Shells::Fish, &AliasSet::default(), &resolved);
     insta::assert_snapshot!(output);
 }
@@ -133,8 +132,7 @@ fn snapshot_init_fish_with_globals() {
 #[test]
 fn snapshot_init_fish_deep_chain() {
     let config = deep_chain_config();
-    let resolved =
-        config.resolve_active_aliases(&["base", "git", "rust"]);
+    let resolved = config.resolve_active_aliases(&["base", "git", "rust"]);
     let output = generate_init(&Shells::Fish, &AliasSet::default(), &resolved);
     insta::assert_snapshot!(output);
 }
@@ -146,8 +144,7 @@ fn snapshot_init_fish_deep_chain() {
 #[test]
 fn snapshot_reload_fish_switch_profile() {
     let config = git_conventional_config();
-    let resolved =
-        config.resolve_active_aliases(&["git", "git-conventional"]);
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
         &Shells::Fish,
         &AliasSet::default(),
@@ -160,8 +157,7 @@ fn snapshot_reload_fish_switch_profile() {
 #[test]
 fn snapshot_reload_zsh_switch_profile() {
     let config = git_conventional_config();
-    let resolved =
-        config.resolve_active_aliases(&["git", "git-conventional"]);
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(&Shells::Zsh, &AliasSet::default(), &resolved, Some("gs,cm"));
     insta::assert_snapshot!(output);
 }
@@ -184,8 +180,7 @@ fn snapshot_reload_fish_after_global_add() {
     // Simulates: user had profile aliases loaded, then adds a global alias
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
-    let resolved =
-        config.resolve_active_aliases(&["git", "git-conventional"]);
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
         &Shells::Fish,
         &globals,
@@ -207,8 +202,7 @@ fn snapshot_reload_fish_globals_only_no_profile() {
 fn snapshot_reload_zsh_after_global_add() {
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
-    let resolved =
-        config.resolve_active_aliases(&["git", "git-conventional"]);
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(&Shells::Zsh, &globals, &resolved, Some("cm,cmf,gs"));
     insta::assert_snapshot!(output);
 }
@@ -218,8 +212,7 @@ fn snapshot_init_fish_globals_and_multi_profile() {
     // Full scenario: globals + multiple active profiles
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
-    let resolved =
-        config.resolve_active_aliases(&["git", "git-conventional"]);
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_init(&Shells::Fish, &globals, &resolved);
     insta::assert_snapshot!(output);
 }
