@@ -149,10 +149,22 @@ fn powershell_completions() -> String {
         .filter(|line| !line.starts_with("using namespace"))
         .collect::<Vec<_>>()
         .join("\n")
-        .replace("[CompletionResult]", "[System.Management.Automation.CompletionResult]")
-        .replace("[CompletionResultType]", "[System.Management.Automation.CompletionResultType]")
-        .replace("[StringConstantExpressionAst]", "[System.Management.Automation.Language.StringConstantExpressionAst]")
-        .replace("[StringConstantType]", "[System.Management.Automation.Language.StringConstantType]")
+        .replace(
+            "[CompletionResult]",
+            "[System.Management.Automation.CompletionResult]",
+        )
+        .replace(
+            "[CompletionResultType]",
+            "[System.Management.Automation.CompletionResultType]",
+        )
+        .replace(
+            "[StringConstantExpressionAst]",
+            "[System.Management.Automation.Language.StringConstantExpressionAst]",
+        )
+        .replace(
+            "[StringConstantType]",
+            "[System.Management.Automation.Language.StringConstantType]",
+        )
 }
 
 #[cfg(test)]
