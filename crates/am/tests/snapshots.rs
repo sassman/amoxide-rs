@@ -97,6 +97,20 @@ fn snapshot_init_zsh_simple_profile() {
 }
 
 #[test]
+fn snapshot_init_powershell_simple_profile() {
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "default"
+        [profiles.aliases]
+        ll = "ls -lha"
+        gs = "git status"
+    "#});
+    let resolved = config.resolve_aliases("default");
+    let output = generate_init(&Shells::Powershell, &AliasSet::default(), &resolved);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
 fn snapshot_init_fish_inherited_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_aliases("git-conventional");
@@ -148,6 +162,19 @@ fn snapshot_reload_zsh_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_aliases("git-conventional");
     let output = generate_reload(&Shells::Zsh, &AliasSet::default(), &resolved, Some("gs,cm"));
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_reload_powershell_switch_profile() {
+    let config = git_conventional_config();
+    let resolved = config.resolve_aliases("git-conventional");
+    let output = generate_reload(
+        &Shells::Powershell,
+        &AliasSet::default(),
+        &resolved,
+        Some("gs,cm"),
+    );
     insta::assert_snapshot!(output);
 }
 
@@ -310,6 +337,23 @@ fn snapshot_hook_zsh_with_aliases() {
     .unwrap();
 
     let output = generate_hook(&Shells::Zsh, dir.path(), None).unwrap();
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_hook_powershell_with_aliases() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join(".aliases"),
+        indoc! {r#"
+            [aliases]
+            t = "cargo test"
+            b = "cargo build"
+        "#},
+    )
+    .unwrap();
+
+    let output = generate_hook(&Shells::Powershell, dir.path(), None).unwrap();
     insta::assert_snapshot!(output);
 }
 

@@ -115,12 +115,21 @@ The crate is called `amoxide`, but the binary it installs is simply `am` (short 
 | Shell | Status |
 |-------|--------|
 | Fish | Fully supported and tested |
+| PowerShell | Supported and tested (5.1 + 7) |
 | Zsh | Supported, not yet tested |
-| Bash, Nushell, PowerShell | Not yet implemented |
+| Bash, Nushell | Not yet implemented |
 
 ## Setup
 
-Add one line to your shell config:
+The easiest way — guided setup:
+
+```shell
+am setup fish          # or: zsh, powershell
+```
+
+This detects your profile file, shows exactly what it will add, and asks for confirmation.
+
+Or add manually to your shell config:
 
 ```fish
 # ~/.config/fish/config.fish
@@ -130,6 +139,11 @@ am init fish | source
 ```zsh
 # ~/.zshrc
 eval "$(am init zsh)"
+```
+
+```powershell
+# add to your PowerShell profile (echo $PROFILE to find it)
+(am init powershell) -join "`n" | Invoke-Expression
 ```
 
 This does two things:

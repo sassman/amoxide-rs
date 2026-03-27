@@ -1,9 +1,9 @@
 use crate::model::{Mode, TuiMessage};
-use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 pub fn map_event(event: &Event, mode: &Mode) -> Option<TuiMessage> {
     match event {
-        Event::Key(key) => map_key(key, mode),
+        Event::Key(key) if key.kind == KeyEventKind::Press => map_key(key, mode),
         Event::Resize(w, h) => Some(TuiMessage::Resize(*w, *h)),
         _ => None,
     }

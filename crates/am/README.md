@@ -43,9 +43,13 @@ am add -l b "make build"             # project-local alias (.aliases file)
 - **Project aliases** (`.aliases` files) — auto-loaded on `cd`, like direnv for aliases
 - **Parameterized aliases** — `{{1}}`, `{{@}}` template syntax for composable commands
 - **Shell completions** — included in `am init` output
-- **Fish** — fully supported and tested
-- **Zsh** — supported, not yet tested
-- **Bash, Nushell, PowerShell** — not yet implemented
+
+| Shell | Status |
+|-------|--------|
+| Fish | Fully supported and tested |
+| PowerShell | Supported and tested (5.1 + 7) |
+| Zsh | Supported, not yet tested |
+| Bash, Nushell | Not yet implemented |
 
 ## Interactive TUI
 

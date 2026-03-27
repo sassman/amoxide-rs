@@ -1,0 +1,7 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+function global:b { cargo build @args }
+function global:t { cargo test @args }
+$env:_AM_PROJECT_ALIASES = "b,t"
