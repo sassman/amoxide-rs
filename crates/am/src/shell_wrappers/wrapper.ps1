@@ -5,22 +5,27 @@ function am {
     if ($LASTEXITCODE -ne 0) { return }
     # tui — always reload
     if ($args.Count -ge 1 -and $args[0] -in 'tui', 't') {
-        Invoke-Expression (& $amBin reload __SHELL__)
-        Invoke-Expression (& $amBin hook __SHELL__)
+        $out = (& $amBin reload __SHELL__) -join "`n"
+        if ($out) { Invoke-Expression $out }
+        $out = (& $amBin hook __SHELL__) -join "`n"
+        if ($out) { Invoke-Expression $out }
         return
     }
     # profile mutation — reload
     if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
         if ($args.Count -ge 2 -and $args[1] -in 'set', 's', 'use', 'u', 'add', 'a', 'remove', 'r') {
-            Invoke-Expression (& $amBin reload __SHELL__)
+            $out = (& $amBin reload __SHELL__) -join "`n"
+            if ($out) { Invoke-Expression $out }
         }
     }
     # alias mutation — reload
     elseif ($args.Count -ge 1 -and $args[0] -in 'add', 'a', 'remove', 'r') {
         if ($args -contains '-l' -or $args -contains '--local') {
-            Invoke-Expression (& $amBin hook __SHELL__)
+            $out = (& $amBin hook __SHELL__) -join "`n"
+            if ($out) { Invoke-Expression $out }
         } else {
-            Invoke-Expression (& $amBin reload __SHELL__)
+            $out = (& $amBin reload __SHELL__) -join "`n"
+            if ($out) { Invoke-Expression $out }
         }
     }
 }

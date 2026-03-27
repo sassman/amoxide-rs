@@ -9,7 +9,8 @@ const HOOK_ZSH: &str = include_str!("shell_wrappers/hook.zsh");
 const HOOK_PS1: &str = include_str!("shell_wrappers/hook.ps1");
 const COMPLETIONS_FISH: &str = include_str!(concat!(env!("OUT_DIR"), "/am.fish"));
 const COMPLETIONS_ZSH: &str = include_str!(concat!(env!("OUT_DIR"), "/_am"));
-const COMPLETIONS_PS1: &str = include_str!(concat!(env!("OUT_DIR"), "/_am.ps1"));
+// PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
+// Completions are available at completions/powershell/_am.ps1 for manual sourcing.
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
@@ -134,7 +135,9 @@ fn cd_hook_setup(shell: &Shells) -> String {
 fn completions(shell: &Shells) -> String {
     match shell {
         Shells::Fish => COMPLETIONS_FISH.to_string(),
-        Shells::Powershell => COMPLETIONS_PS1.to_string(),
+        // PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
+        // Users should source completions separately: . (am completions powershell)
+        Shells::Powershell => String::new(),
         Shells::Zsh => COMPLETIONS_ZSH.to_string(),
     }
 }

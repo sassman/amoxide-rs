@@ -135,7 +135,7 @@ eval "$(am init zsh)"
 
 ```powershell
 # $PROFILE
-Invoke-Expression (am init powershell)
+(am init powershell) -join "`n" | Invoke-Expression
 ```
 
 > PowerShell tip: run `echo $PROFILE` to see the path, `notepad $PROFILE` to edit it.
