@@ -2,8 +2,8 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-Remove-Item -ErrorAction SilentlyContinue Function:global:gs
-Remove-Item -ErrorAction SilentlyContinue Function:global:cm
+if (Test-Path Function:\gs) { Remove-Item Function:\gs }
+if (Test-Path Function:\cm) { Remove-Item Function:\cm }
 function global:cm { git commit -sm @args }
 function global:cmf { cm feat: $args }
 function global:gs { git status @args }

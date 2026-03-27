@@ -8,7 +8,7 @@ pub struct PowerShell;
 
 impl Shell for PowerShell {
     fn unalias(&self, alias_name: &str) -> String {
-        format!("Remove-Item -ErrorAction SilentlyContinue Function:global:{alias_name}")
+        format!("if (Test-Path Function:\\{alias_name}) {{ Remove-Item Function:\\{alias_name} }}")
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
@@ -82,7 +82,7 @@ mod tests {
     fn test_unalias() {
         assert_eq!(
             PowerShell.unalias("gs"),
-            "Remove-Item -ErrorAction SilentlyContinue Function:global:gs"
+            "if (Test-Path Function:\\gs) { Remove-Item Function:\\gs }"
         );
     }
 
