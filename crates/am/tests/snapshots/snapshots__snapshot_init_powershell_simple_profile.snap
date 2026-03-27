@@ -14,27 +14,27 @@ function am {
     if ($LASTEXITCODE -ne 0) { return }
     # tui — always reload
     if ($args.Count -ge 1 -and $args[0] -in 'tui', 't') {
-        $out = & $amBin reload powershell | Out-String
-        if ($out.Trim()) { Invoke-Expression $out }
-        $out = & $amBin hook powershell | Out-String
-        if ($out.Trim()) { Invoke-Expression $out }
+        $out = (& $amBin reload powershell) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+        $out = (& $amBin hook powershell) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         return
     }
     # profile mutation — reload
     if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
         if ($args.Count -ge 2 -and $args[1] -in 'set', 's', 'use', 'u', 'add', 'a', 'remove', 'r') {
-            $out = & $amBin reload powershell | Out-String
-            if ($out.Trim()) { Invoke-Expression $out }
+            $out = (& $amBin reload powershell) -join "`r`n"
+            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         }
     }
     # alias mutation — reload
     elseif ($args.Count -ge 1 -and $args[0] -in 'add', 'a', 'remove', 'r') {
         if ($args -contains '-l' -or $args -contains '--local') {
-            $out = & $amBin hook powershell | Out-String
-            if ($out.Trim()) { Invoke-Expression $out }
+            $out = (& $amBin hook powershell) -join "`r`n"
+            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         } else {
-            $out = & $amBin reload powershell | Out-String
-            if ($out.Trim()) { Invoke-Expression $out }
+            $out = (& $amBin reload powershell) -join "`r`n"
+            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         }
     }
 }
@@ -43,15 +43,12 @@ function am {
 # am cd hook: track directory changes and reload project aliases
 $env:__AM_LAST_DIR = $PWD.Path
 $__am_original_prompt = $function:prompt
-$__am_hook_file = Join-Path $env:TEMP "am-hook.ps1"
 function global:prompt {
     if ($PWD.Path -ne $env:__AM_LAST_DIR) {
         $env:__AM_LAST_DIR = $PWD.Path
         $amBin = (Get-Command -CommandType Application am | Select-Object -First 1).Source
-        & $amBin hook powershell | Set-Content -Path $__am_hook_file -Encoding UTF8
-        if ((Get-Item $__am_hook_file -ErrorAction SilentlyContinue).Length -gt 0) {
-            . $__am_hook_file
-        }
+        $hookCode = (& $amBin hook powershell) -join "`r`n"
+        if ($hookCode) { Invoke-Command -ScriptBlock ([scriptblock]::Create($hookCode)) -NoNewScope }
     }
     if ($__am_original_prompt) { & $__am_original_prompt } else { "PS $($PWD.Path)> " }
 }
