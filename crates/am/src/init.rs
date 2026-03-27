@@ -10,7 +10,8 @@ const HOOK_PS1: &str = include_str!("shell_wrappers/hook.ps1");
 const COMPLETIONS_FISH: &str = include_str!(concat!(env!("OUT_DIR"), "/am.fish"));
 const COMPLETIONS_ZSH: &str = include_str!(concat!(env!("OUT_DIR"), "/_am"));
 // PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
-// Completions are available at completions/powershell/_am.ps1 for manual sourcing.
+// We strip `using namespace` lines and expand type names at runtime for Invoke-Expression compat.
+const COMPLETIONS_PS1: &str = include_str!(concat!(env!("OUT_DIR"), "/_am.ps1"));
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
@@ -135,11 +136,23 @@ fn cd_hook_setup(shell: &Shells) -> String {
 fn completions(shell: &Shells) -> String {
     match shell {
         Shells::Fish => COMPLETIONS_FISH.to_string(),
-        // PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
-        // Users should source completions separately: . (am completions powershell)
-        Shells::Powershell => String::new(),
+        Shells::Powershell => powershell_completions(),
         Shells::Zsh => COMPLETIONS_ZSH.to_string(),
     }
+}
+
+/// PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
+/// We strip those lines and replace short type names with fully qualified ones.
+fn powershell_completions() -> String {
+    COMPLETIONS_PS1
+        .lines()
+        .filter(|line| !line.starts_with("using namespace"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .replace("[CompletionResult]", "[System.Management.Automation.CompletionResult]")
+        .replace("[CompletionResultType]", "[System.Management.Automation.CompletionResultType]")
+        .replace("[StringConstantExpressionAst]", "[System.Management.Automation.Language.StringConstantExpressionAst]")
+        .replace("[StringConstantType]", "[System.Management.Automation.Language.StringConstantType]")
 }
 
 #[cfg(test)]

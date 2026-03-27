@@ -52,3 +52,253 @@ function global:prompt {
     }
     if ($__am_original_prompt) { & $__am_original_prompt } else { "PS $($PWD.Path)> " }
 }
+
+
+
+
+Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+
+    $commandElements = $commandAst.CommandElements
+    $command = @(
+        'am'
+        for ($i = 1; $i -lt $commandElements.Count; $i++) {
+            $element = $commandElements[$i]
+            if ($element -isnot [System.Management.Automation.Language.StringConstantExpressionAst] -or
+                $element.StringConstantType -ne [System.Management.Automation.Language.StringConstantType]::BareWord -or
+                $element.Value.StartsWith('-') -or
+                $element.Value -eq $wordToComplete) {
+                break
+        }
+        $element.Value
+    }) -join ';'
+
+    $completions = @(switch ($command) {
+        'am' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new alias')
+            [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove an alias')
+            [System.Management.Automation.CompletionResult]::new('ls', 'ls', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
+            [System.Management.Automation.CompletionResult]::new('status', 'status', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
+            [System.Management.Automation.CompletionResult]::new('profile', 'profile', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
+            [System.Management.Automation.CompletionResult]::new('init', 'init', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print shell init code')
+            [System.Management.Automation.CompletionResult]::new('setup', 'setup', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
+            [System.Management.Automation.CompletionResult]::new('tui', 'tui', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
+            [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
+            [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'am;add' {
+            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
+            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
+            [System.Management.Automation.CompletionResult]::new('-l', '-l', [System.Management.Automation.CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
+            [System.Management.Automation.CompletionResult]::new('--local', '--local', [System.Management.Automation.CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
+            [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Add as a global alias (always loaded, independent of profile)')
+            [System.Management.Automation.CompletionResult]::new('--global', '--global', [System.Management.Automation.CompletionResultType]::ParameterName, 'Add as a global alias (always loaded, independent of profile)')
+            [System.Management.Automation.CompletionResult]::new('--raw', '--raw', [System.Management.Automation.CompletionResultType]::ParameterName, 'Disable {{N}} template detection (treat command as literal)')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;remove' {
+            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
+            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
+            [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Remove a global alias')
+            [System.Management.Automation.CompletionResult]::new('--global', '--global', [System.Management.Automation.CompletionResultType]::ParameterName, 'Remove a global alias')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;ls' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;status' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;profile' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new profile, or update inheritance of an existing one')
+            [System.Management.Automation.CompletionResult]::new('set', 'set', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Set the active profile')
+            [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove a profile')
+            [System.Management.Automation.CompletionResult]::new('list', 'list', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all profiles')
+            [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'am;profile;add' {
+            [System.Management.Automation.CompletionResult]::new('-i', '-i', [System.Management.Automation.CompletionResultType]::ParameterName, 'Base profile to inherit from')
+            [System.Management.Automation.CompletionResult]::new('--inherits', '--inherits', [System.Management.Automation.CompletionResultType]::ParameterName, 'Base profile to inherit from')
+            [System.Management.Automation.CompletionResult]::new('--no-inherits', '--no-inherits', [System.Management.Automation.CompletionResultType]::ParameterName, 'Remove inheritance from this profile')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;profile;set' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;profile;remove' {
+            [System.Management.Automation.CompletionResult]::new('-f', '-f', [System.Management.Automation.CompletionResultType]::ParameterName, 'Skip confirmation prompt')
+            [System.Management.Automation.CompletionResult]::new('--force', '--force', [System.Management.Automation.CompletionResultType]::ParameterName, 'Skip confirmation prompt')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;profile;list' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;profile;help' {
+            [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new profile, or update inheritance of an existing one')
+            [System.Management.Automation.CompletionResult]::new('set', 'set', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Set the active profile')
+            [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove a profile')
+            [System.Management.Automation.CompletionResult]::new('list', 'list', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all profiles')
+            [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'am;profile;help;add' {
+            break
+        }
+        'am;profile;help;set' {
+            break
+        }
+        'am;profile;help;remove' {
+            break
+        }
+        'am;profile;help;list' {
+            break
+        }
+        'am;profile;help;help' {
+            break
+        }
+        'am;init' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;setup' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;tui' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;hook' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;reload' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;help' {
+            [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new alias')
+            [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove an alias')
+            [System.Management.Automation.CompletionResult]::new('ls', 'ls', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
+            [System.Management.Automation.CompletionResult]::new('status', 'status', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
+            [System.Management.Automation.CompletionResult]::new('profile', 'profile', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
+            [System.Management.Automation.CompletionResult]::new('init', 'init', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print shell init code')
+            [System.Management.Automation.CompletionResult]::new('setup', 'setup', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
+            [System.Management.Automation.CompletionResult]::new('tui', 'tui', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
+            [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
+            [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'am;help;add' {
+            break
+        }
+        'am;help;remove' {
+            break
+        }
+        'am;help;ls' {
+            break
+        }
+        'am;help;status' {
+            break
+        }
+        'am;help;profile' {
+            [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new profile, or update inheritance of an existing one')
+            [System.Management.Automation.CompletionResult]::new('set', 'set', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Set the active profile')
+            [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove a profile')
+            [System.Management.Automation.CompletionResult]::new('list', 'list', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all profiles')
+            break
+        }
+        'am;help;profile;add' {
+            break
+        }
+        'am;help;profile;set' {
+            break
+        }
+        'am;help;profile;remove' {
+            break
+        }
+        'am;help;profile;list' {
+            break
+        }
+        'am;help;init' {
+            break
+        }
+        'am;help;setup' {
+            break
+        }
+        'am;help;tui' {
+            break
+        }
+        'am;help;hook' {
+            break
+        }
+        'am;help;reload' {
+            break
+        }
+        'am;help;help' {
+            break
+        }
+    })
+
+    $completions.Where{ $_.CompletionText -like "$wordToComplete*" } |
+        Sort-Object -Property ListItemText
+}
