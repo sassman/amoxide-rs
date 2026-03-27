@@ -14,27 +14,27 @@ function am {
     if ($LASTEXITCODE -ne 0) { return }
     # tui — always reload
     if ($args.Count -ge 1 -and $args[0] -in 'tui', 't') {
-        $out = (& $amBin reload powershell) -join "`n"
-        if ($out) { Invoke-Expression $out }
-        $out = (& $amBin hook powershell) -join "`n"
-        if ($out) { Invoke-Expression $out }
+        $out = & $amBin reload powershell | Out-String
+        if ($out.Trim()) { Invoke-Expression $out }
+        $out = & $amBin hook powershell | Out-String
+        if ($out.Trim()) { Invoke-Expression $out }
         return
     }
     # profile mutation — reload
     if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
         if ($args.Count -ge 2 -and $args[1] -in 'set', 's', 'use', 'u', 'add', 'a', 'remove', 'r') {
-            $out = (& $amBin reload powershell) -join "`n"
-            if ($out) { Invoke-Expression $out }
+            $out = & $amBin reload powershell | Out-String
+            if ($out.Trim()) { Invoke-Expression $out }
         }
     }
     # alias mutation — reload
     elseif ($args.Count -ge 1 -and $args[0] -in 'add', 'a', 'remove', 'r') {
         if ($args -contains '-l' -or $args -contains '--local') {
-            $out = (& $amBin hook powershell) -join "`n"
-            if ($out) { Invoke-Expression $out }
+            $out = & $amBin hook powershell | Out-String
+            if ($out.Trim()) { Invoke-Expression $out }
         } else {
-            $out = (& $amBin reload powershell) -join "`n"
-            if ($out) { Invoke-Expression $out }
+            $out = & $amBin reload powershell | Out-String
+            if ($out.Trim()) { Invoke-Expression $out }
         }
     }
 }
@@ -46,8 +46,8 @@ $__am_original_prompt = $function:prompt
 function prompt {
     if ($PWD.Path -ne $env:__AM_LAST_DIR) {
         $env:__AM_LAST_DIR = $PWD.Path
-        $hookOutput = (& am hook powershell) -join "`n"
-        if ($hookOutput) { Invoke-Expression $hookOutput }
+        $hookOutput = & am hook powershell | Out-String
+        if ($hookOutput.Trim()) { Invoke-Expression $hookOutput }
     }
     & $__am_original_prompt
 }

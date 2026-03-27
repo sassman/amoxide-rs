@@ -4,8 +4,8 @@ $__am_original_prompt = $function:prompt
 function prompt {
     if ($PWD.Path -ne $env:__AM_LAST_DIR) {
         $env:__AM_LAST_DIR = $PWD.Path
-        $hookOutput = (& am hook __SHELL__) -join "`n"
-        if ($hookOutput) { Invoke-Expression $hookOutput }
+        $hookOutput = & am hook __SHELL__ | Out-String
+        if ($hookOutput.Trim()) { Invoke-Expression $hookOutput }
     }
     & $__am_original_prompt
 }
