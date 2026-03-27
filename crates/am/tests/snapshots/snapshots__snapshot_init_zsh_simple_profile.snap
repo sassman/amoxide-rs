@@ -212,6 +212,15 @@ _arguments "${_arguments_options[@]}" : \
 ':shell:(fish powershell zsh)' \
 && ret=0
 ;;
+(setup)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':shell:(fish powershell zsh)' \
+&& ret=0
+;;
 (tui)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -302,6 +311,10 @@ esac
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(setup)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (tui)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -336,6 +349,7 @@ _am_commands() {
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
+'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
@@ -357,6 +371,7 @@ _am__help_commands() {
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
+'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
@@ -428,6 +443,11 @@ _am__help__reload_commands() {
 _am__help__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am help remove commands' commands "$@"
+}
+(( $+functions[_am__help__setup_commands] )) ||
+_am__help__setup_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help setup commands' commands "$@"
 }
 (( $+functions[_am__help__status_commands] )) ||
 _am__help__status_commands() {
@@ -530,6 +550,11 @@ _am__reload_commands() {
 _am__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am remove commands' commands "$@"
+}
+(( $+functions[_am__setup_commands] )) ||
+_am__setup_commands() {
+    local commands; commands=()
+    _describe -t commands 'am setup commands' commands "$@"
 }
 (( $+functions[_am__status_commands] )) ||
 _am__status_commands() {

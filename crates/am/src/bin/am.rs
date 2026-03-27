@@ -146,6 +146,10 @@ fn main() -> anyhow::Result<()> {
             }
             ProfileAction::List => Message::ListProfiles,
         },
+        Commands::Setup { shell } => {
+            amoxide::setup::run_setup(shell)?;
+            Message::DoNothing
+        }
         Commands::Tui => {
             use std::process::Command;
             let status = Command::new("am-tui").status();

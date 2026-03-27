@@ -1,0 +1,109 @@
+use std::io::{BufRead, Write};
+use std::path::PathBuf;
+
+use crate::shell::Shells;
+
+/// Returns the profile file path and the init line for the given shell.
+fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
+    match shell {
+        Shells::Fish => {
+            let mut path = dirs_lite::config_dir().unwrap_or_else(|| PathBuf::from(".config"));
+            path.push("fish/config.fish");
+            (path, "am init fish | source")
+        }
+        Shells::Zsh => {
+            let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+            (home.join(".zshrc"), r#"eval "$(am init zsh)""#)
+        }
+        Shells::Powershell => {
+            let path = std::env::var("PROFILE")
+                .or_else(|_| std::env::var("USERPROFILE").map(|p| {
+                    format!("{p}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1")
+                }))
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| {
+                    let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+                    home.join("Documents/PowerShell/Microsoft.PowerShell_profile.ps1")
+                });
+            (path, "(am init powershell) -join \"`n\" | Invoke-Expression")
+        }
+    }
+}
+
+/// Returns how to reload the shell after setup.
+fn reload_hint(shell: &Shells) -> &'static str {
+    match shell {
+        Shells::Fish => "Run: source ~/.config/fish/config.fish",
+        Shells::Zsh => "Run: source ~/.zshrc",
+        Shells::Powershell => "Run: . $PROFILE",
+    }
+}
+
+/// Run the interactive setup for the given shell.
+pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
+    let (profile_path, init_line) = shell_config(shell);
+
+    eprintln!("Detected shell: {shell}");
+    eprintln!("Profile path:   {}\n", profile_path.display());
+
+    // Check if file exists
+    let file_exists = profile_path.exists();
+    let already_configured = if file_exists {
+        let content = std::fs::read_to_string(&profile_path)?;
+        content.contains("am init")
+    } else {
+        false
+    };
+
+    if already_configured {
+        eprintln!("\u{2713} amoxide is already configured in your shell profile.");
+        return Ok(());
+    }
+
+    if !file_exists {
+        eprintln!("Profile file does not exist.");
+        eprint!("Create it? [Y/n] ");
+        std::io::stderr().flush()?;
+        let mut input = String::new();
+        std::io::stdin().lock().read_line(&mut input)?;
+        if matches!(input.trim().to_lowercase().as_str(), "n" | "no") {
+            eprintln!("Cancelled.");
+            return Ok(());
+        }
+        // Create parent directories
+        if let Some(parent) = profile_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+
+    eprintln!("The following line will be added to {}:\n", profile_path.display());
+    eprintln!("  {init_line}\n");
+    eprint!("Add it now? [Y/n] ");
+    std::io::stderr().flush()?;
+    let mut input = String::new();
+    std::io::stdin().lock().read_line(&mut input)?;
+    if matches!(input.trim().to_lowercase().as_str(), "n" | "no") {
+        eprintln!("Cancelled.");
+        return Ok(());
+    }
+
+    // Append init line
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&profile_path)?;
+
+    // Add a newline before our line if the file isn't empty and doesn't end with one
+    if file_exists {
+        let content = std::fs::read_to_string(&profile_path)?;
+        if !content.is_empty() && !content.ends_with('\n') {
+            writeln!(file)?;
+        }
+    }
+    writeln!(file, "{init_line}")?;
+
+    eprintln!("\n\u{2713} Added to {}", profile_path.display());
+    eprintln!("  {}", reload_hint(shell));
+
+    Ok(())
+}

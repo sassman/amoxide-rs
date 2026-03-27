@@ -65,6 +65,9 @@ pub enum Commands {
     #[command(alias = "i", verbatim_doc_comment)]
     Init { shell: Shells },
 
+    /// Guided setup — adds amoxide to your shell profile
+    Setup { shell: Shells },
+
     /// Launch the interactive TUI for managing aliases and profiles
     #[command(alias = "t")]
     Tui,

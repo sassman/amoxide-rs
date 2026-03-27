@@ -8,6 +8,7 @@ pub mod init;
 pub mod messages;
 pub mod profile;
 pub mod project;
+pub mod setup;
 pub mod shell;
 pub mod status;
 pub mod update;
