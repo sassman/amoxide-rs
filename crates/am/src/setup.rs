@@ -37,8 +37,8 @@ fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
         Shells::Fish => format!("Run: source {path}"),
         Shells::Zsh => format!("Run: source {path}"),
         Shells::Powershell => format!(
-            "Run: . \"{path}\"\n\n  \
-            Note: if you get an execution policy error, run first:\n  \
+            "Reload your profile:\n\n  . \"{path}\"\n\n\
+            If you get a \"running scripts is disabled\" error, run this first:\n\n  \
             Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
         ),
     }
