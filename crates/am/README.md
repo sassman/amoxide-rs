@@ -45,7 +45,8 @@ am add -l b "make build"             # project-local alias (.aliases file)
 - **Shell completions** — included in `am init` output
 - **Fish** — fully supported and tested
 - **Zsh** — supported, not yet tested
-- **Bash, Nushell, PowerShell** — not yet implemented
+- **PowerShell** — supported, not yet tested
+- **Bash, Nushell** — not yet implemented
 
 ## Interactive TUI
 

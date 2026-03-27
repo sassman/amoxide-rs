@@ -116,7 +116,8 @@ The crate is called `amoxide`, but the binary it installs is simply `am` (short 
 |-------|--------|
 | Fish | Fully supported and tested |
 | Zsh | Supported, not yet tested |
-| Bash, Nushell, PowerShell | Not yet implemented |
+| PowerShell | Supported, not yet tested |
+| Bash, Nushell | Not yet implemented |
 
 ## Setup
 
@@ -130,6 +131,11 @@ am init fish | source
 ```zsh
 # ~/.zshrc
 eval "$(am init zsh)"
+```
+
+```powershell
+# $PROFILE (run `notepad $PROFILE` to edit)
+Invoke-Expression (am init powershell)
 ```
 
 This does two things:
