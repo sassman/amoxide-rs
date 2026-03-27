@@ -115,8 +115,8 @@ The crate is called `amoxide`, but the binary it installs is simply `am` (short 
 | Shell | Status |
 |-------|--------|
 | Fish | Fully supported and tested |
+| PowerShell | Supported and tested (5.1 + 7) |
 | Zsh | Supported, not yet tested |
-| PowerShell | Supported, not yet tested |
 | Bash, Nushell | Not yet implemented |
 
 ## Setup

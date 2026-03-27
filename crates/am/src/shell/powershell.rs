@@ -16,7 +16,10 @@ impl Shell for PowerShell {
             let body = substitute_powershell(entry.command);
             format!("function global:{} {{ {} }}", entry.name, body)
         } else {
-            format!("function global:{} {{ {} @args }}", entry.name, entry.command)
+            format!(
+                "function global:{} {{ {} @args }}",
+                entry.name, entry.command
+            )
         }
     }
 

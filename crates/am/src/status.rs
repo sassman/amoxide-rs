@@ -89,9 +89,16 @@ pub fn check_shell_config() -> Check {
         ),
         "powershell" => {
             let path = crate::setup::detect_powershell_profile();
-            (path, "(am init powershell) -join \"`n\" | Invoke-Expression")
+            (
+                path,
+                "(am init powershell) -join \"`n\" | Invoke-Expression",
+            )
         }
-        _ => return Check::Warn(format!("unknown shell: {shell_name} — run `am setup <shell>`")),
+        _ => {
+            return Check::Warn(format!(
+                "unknown shell: {shell_name} — run `am setup <shell>`"
+            ))
+        }
     };
 
     let Some(path) = config_path else {

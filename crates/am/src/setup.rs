@@ -36,12 +36,14 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
             (home.join(".zshrc"), r#"eval "$(am init zsh)""#)
         }
         Shells::Powershell => {
-            let path = detect_powershell_profile()
-                .unwrap_or_else(|| {
-                    let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-                    home.join("Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
-                });
-            (path, "(am init powershell) -join \"`n\" | Invoke-Expression")
+            let path = detect_powershell_profile().unwrap_or_else(|| {
+                let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+                home.join("Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
+            });
+            (
+                path,
+                "(am init powershell) -join \"`n\" | Invoke-Expression",
+            )
         }
     }
 }
@@ -97,7 +99,10 @@ pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
         }
     }
 
-    eprintln!("The following line will be added to {}:\n", profile_path.display());
+    eprintln!(
+        "The following line will be added to {}:\n",
+        profile_path.display()
+    );
     eprintln!("  {init_line}\n");
     eprint!("Add it now? [Y/n] ");
     std::io::stderr().flush()?;
