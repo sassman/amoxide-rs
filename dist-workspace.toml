@@ -21,7 +21,5 @@ tap = "sassman/homebrew-tap"
 publish-jobs = ["homebrew"]
 # Don't publish prereleases to Homebrew
 publish-prereleases = false
-# Allow CI to be out of sync (we have publish-crate.yml alongside)
+# We customized release.yml (GitHub App auth for Homebrew) — don't overwrite
 allow-dirty = ["ci"]
-# Empty tag-namespace means per-crate tags like amoxide-v0.1.0 are parsed natively
-tag-namespace = ""
