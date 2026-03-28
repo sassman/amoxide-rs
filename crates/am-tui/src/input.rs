@@ -66,14 +66,9 @@ fn map_confirm_key(key: &KeyEvent) -> Option<TuiMessage> {
 const SEQUENCE_DEADLINE: Duration = Duration::from_millis(300);
 const IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
+#[derive(Default)]
 pub struct InputResolver {
     pending: Option<(TuiMessage, Instant)>,
-}
-
-impl Default for InputResolver {
-    fn default() -> Self {
-        Self { pending: None }
-    }
 }
 
 impl InputResolver {
@@ -183,7 +178,11 @@ mod tests {
 
         // second u is still pending — flush it
         let msgs = r.flush();
-        assert_eq!(msgs, vec![TuiMessage::UseProfile], "second u flushed on timeout");
+        assert_eq!(
+            msgs,
+            vec![TuiMessage::UseProfile],
+            "second u flushed on timeout"
+        );
     }
 
     #[test]
@@ -236,7 +235,13 @@ mod tests {
         let mut r = InputResolver::default();
         r.feed(&press('u'), &normal());
         let t = r.poll_timeout();
-        assert!(t <= SEQUENCE_DEADLINE, "should be at most {SEQUENCE_DEADLINE:?}, got {t:?}");
-        assert!(t > Duration::ZERO, "should be non-zero immediately after feed");
+        assert!(
+            t <= SEQUENCE_DEADLINE,
+            "should be at most {SEQUENCE_DEADLINE:?}, got {t:?}"
+        );
+        assert!(
+            t > Duration::ZERO,
+            "should be non-zero immediately after feed"
+        );
     }
 }
