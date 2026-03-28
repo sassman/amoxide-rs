@@ -42,33 +42,15 @@ impl ProfileConfig {
         self.profiles.is_empty()
     }
 
-    /// Resolve the full alias set for a profile by walking up its inheritance chain.
-    /// Parent aliases are loaded first, child aliases override parents.
-    pub fn resolve_aliases(&self, profile_name: &str) -> AliasSet {
-        let mut chain = Vec::new();
-        let mut current = profile_name;
-
-        // Walk up the chain, collecting profiles (child first)
-        let mut visited = std::collections::HashSet::new();
-        loop {
-            if !visited.insert(current.to_string()) {
-                break; // circular inheritance guard
-            }
-            let Some(profile) = self.get_profile_by_name(current) else {
-                break;
-            };
-            chain.push(profile);
-            match &profile.inherits {
-                Some(parent) => current = parent,
-                None => break,
-            }
-        }
-
-        // Merge aliases: parent first, child overrides
+    /// Resolve the merged alias set for multiple active profiles.
+    /// Profiles are merged in order: later profiles override earlier ones.
+    pub fn resolve_active_aliases(&self, profile_names: &[impl AsRef<str>]) -> AliasSet {
         let mut resolved = AliasSet::default();
-        for profile in chain.into_iter().rev() {
-            for (name, alias) in profile.aliases.iter() {
-                resolved.insert(name.clone(), alias.clone());
+        for name in profile_names {
+            if let Some(profile) = self.get_profile_by_name(name.as_ref()) {
+                for (alias_name, alias) in profile.aliases.iter() {
+                    resolved.insert(alias_name.clone(), alias.clone());
+                }
             }
         }
         resolved
@@ -86,19 +68,15 @@ impl ProfileConfig {
         self.profiles.iter()
     }
 
-    pub fn add_profile(&mut self, name: &str, inherits: &Option<String>) -> Result<Response> {
+    pub fn add_profile(&mut self, name: &str) -> Result<Response> {
         let name = name.to_string();
         let existing_profile = self.profiles.binary_search_by(|p1| p1.name.cmp(&name));
         if let Ok(i) = existing_profile {
-            // Profile exists — update inheritance if provided
-            if inherits.is_some() {
-                self.profiles[i].inherits = inherits.clone();
-            }
             return Ok(Response::ProfileActivated(i));
         }
 
         let profile_name = name.clone();
-        let profile = Profile::new(name, inherits.clone());
+        let profile = Profile::new(name);
         self.profiles.push(profile.clone());
         self.profiles.sort();
         let i = self
@@ -108,29 +86,12 @@ impl ProfileConfig {
         Ok(Response::ProfileAdded(i))
     }
 
-    /// Remove inheritance from an existing profile.
-    pub fn clear_inherits(&mut self, name: &str) -> Result<()> {
-        let profile = self
-            .get_profile_by_name_mut(name)
-            .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
-        profile.inherits = None;
-        Ok(())
-    }
-
     pub fn remove_profile(&mut self, name: &str) -> Result<()> {
         let idx = self
             .profiles
             .iter()
             .position(|p| p.name == name)
             .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
-
-        // Resolve inheritance: re-parent dependents to the removed profile's parent
-        let new_parent = self.profiles[idx].inherits.clone();
-        for profile in &mut self.profiles {
-            if profile.inherits.as_deref() == Some(name) {
-                profile.inherits = new_parent.clone();
-            }
-        }
 
         self.profiles.remove(idx);
         Ok(())
@@ -170,7 +131,6 @@ impl ProfileConfig {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Profile {
     pub name: String,
-    pub inherits: Option<String>,
     #[serde(default)]
     pub aliases: AliasSet,
 }
@@ -202,10 +162,9 @@ impl Ord for Profile {
 }
 
 impl Profile {
-    pub fn new(name: String, inherits: Option<String>) -> Self {
+    pub fn new(name: String) -> Self {
         Self {
             name,
-            inherits,
             aliases: Default::default(),
         }
     }
@@ -247,16 +206,12 @@ mod tests {
 
             [[profiles]]
             name = "work"
-            inherits = "default"
         "#};
 
         let decoded: ProfileConfig = toml::from_str(toml_str).unwrap();
         assert_eq!(decoded.profiles.len(), 2);
         assert_eq!(decoded.profiles[0].name, "default");
-        assert_eq!(decoded.profiles[0].inherits, None);
-
         assert_eq!(decoded.profiles[1].name, "work");
-        assert_eq!(decoded.profiles[1].inherits, Some("default".to_string()));
     }
 
     #[test]
@@ -278,46 +233,6 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_profile_reparents_dependents() {
-        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "base"
-
-            [[profiles]]
-            name = "git"
-            inherits = "base"
-
-            [[profiles]]
-            name = "rust"
-            inherits = "git"
-        "#})
-        .unwrap();
-
-        config.remove_profile("git").unwrap();
-        assert_eq!(config.len(), 2);
-        // rust should now inherit from base
-        let rust = config.get_profile_by_name("rust").unwrap();
-        assert_eq!(rust.inherits.as_deref(), Some("base"));
-    }
-
-    #[test]
-    fn test_remove_root_profile_clears_inherits() {
-        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "base"
-
-            [[profiles]]
-            name = "git"
-            inherits = "base"
-        "#})
-        .unwrap();
-
-        config.remove_profile("base").unwrap();
-        let git = config.get_profile_by_name("git").unwrap();
-        assert_eq!(git.inherits, None);
-    }
-
-    #[test]
     fn test_remove_nonexistent_profile() {
         let mut config: ProfileConfig = toml::from_str(indoc! {r#"
             [[profiles]]
@@ -330,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_aliases_single_profile() {
+    fn test_resolve_active_aliases_single_profile() {
         let config: ProfileConfig = toml::from_str(indoc! {r#"
             [[profiles]]
             name = "git"
@@ -340,160 +255,47 @@ mod tests {
         "#})
         .unwrap();
 
-        let resolved = config.resolve_aliases("git");
+        let resolved = config.resolve_active_aliases(&["git"]);
         assert_eq!(resolved.iter().count(), 2);
     }
 
     #[test]
-    fn test_resolve_aliases_with_inheritance() {
+    fn test_resolve_active_aliases_merges_in_order() {
         let config: ProfileConfig = toml::from_str(indoc! {r#"
             [[profiles]]
             name = "git"
             [profiles.aliases]
             gs = "git status"
-            gp = "git push"
+            t = "git test"
 
             [[profiles]]
             name = "rust"
-            inherits = "git"
             [profiles.aliases]
             ct = "cargo test"
+            t = "cargo test"
         "#})
         .unwrap();
 
-        let resolved = config.resolve_aliases("rust");
-        assert_eq!(resolved.iter().count(), 3); // gs, gp from git + ct from rust
-                                                // Verify specific aliases are present
+        let resolved = config.resolve_active_aliases(&["git", "rust"]);
+        assert_eq!(resolved.iter().count(), 3); // gs, ct, t (rust overrides git)
         assert!(resolved.iter().any(|(n, _)| n.as_ref() == "gs"));
-        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "gp"));
         assert!(resolved.iter().any(|(n, _)| n.as_ref() == "ct"));
+        // "t" should be "cargo test" (from rust, which comes later)
+        let t_alias = resolved.iter().find(|(n, _)| n.as_ref() == "t").unwrap();
+        assert_eq!(t_alias.1.command(), "cargo test");
     }
 
     #[test]
-    fn test_resolve_aliases_child_overrides_parent() {
+    fn test_resolve_active_aliases_empty() {
         let config: ProfileConfig = toml::from_str(indoc! {r#"
             [[profiles]]
-            name = "base"
+            name = "git"
             [profiles.aliases]
-            t = "base test"
-
-            [[profiles]]
-            name = "child"
-            inherits = "base"
-            [profiles.aliases]
-            t = "child test"
+            gs = "git status"
         "#})
         .unwrap();
 
-        let resolved = config.resolve_aliases("child");
-        assert_eq!(resolved.iter().count(), 1);
-        assert_eq!(resolved.iter().next().unwrap().1.command(), "child test");
-    }
-
-    #[test]
-    fn test_resolve_aliases_deep_chain() {
-        let config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "base"
-            [profiles.aliases]
-            a = "from base"
-
-            [[profiles]]
-            name = "mid"
-            inherits = "base"
-            [profiles.aliases]
-            b = "from mid"
-
-            [[profiles]]
-            name = "leaf"
-            inherits = "mid"
-            [profiles.aliases]
-            c = "from leaf"
-        "#})
-        .unwrap();
-
-        let resolved = config.resolve_aliases("leaf");
-        assert_eq!(resolved.iter().count(), 3);
-        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "a"));
-        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "b"));
-        assert!(resolved.iter().any(|(n, _)| n.as_ref() == "c"));
-    }
-
-    #[test]
-    fn test_resolve_aliases_nonexistent_profile() {
-        let config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "default"
-        "#})
-        .unwrap();
-
-        let resolved = config.resolve_aliases("nonexistent");
+        let resolved = config.resolve_active_aliases(&[] as &[&str]);
         assert!(resolved.is_empty());
-    }
-
-    #[test]
-    fn test_add_profile_updates_inheritance_on_existing() {
-        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "git"
-
-            [[profiles]]
-            name = "rust"
-        "#})
-        .unwrap();
-
-        // Update rust to inherit from git
-        config
-            .add_profile("rust", &Some("git".to_string()))
-            .unwrap();
-        let rust = config.get_profile_by_name("rust").unwrap();
-        assert_eq!(rust.inherits.as_deref(), Some("git"));
-    }
-
-    #[test]
-    fn test_add_profile_no_inheritance_change_when_none_provided() {
-        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "rust"
-            inherits = "git"
-
-            [[profiles]]
-            name = "git"
-        "#})
-        .unwrap();
-
-        // Add without --inherits should not clear existing inheritance
-        config.add_profile("rust", &None).unwrap();
-        let rust = config.get_profile_by_name("rust").unwrap();
-        assert_eq!(rust.inherits.as_deref(), Some("git"));
-    }
-
-    #[test]
-    fn test_clear_inherits() {
-        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "git"
-
-            [[profiles]]
-            name = "rust"
-            inherits = "git"
-        "#})
-        .unwrap();
-
-        config.clear_inherits("rust").unwrap();
-        let rust = config.get_profile_by_name("rust").unwrap();
-        assert_eq!(rust.inherits, None);
-    }
-
-    #[test]
-    fn test_clear_inherits_nonexistent_profile() {
-        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
-            [[profiles]]
-            name = "git"
-        "#})
-        .unwrap();
-
-        let err = config.clear_inherits("nope").unwrap_err();
-        assert!(err.to_string().contains("not found"));
     }
 }

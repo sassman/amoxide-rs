@@ -2,9 +2,10 @@ pub use clap::{Args, Parser, Subcommand};
 
 use crate::shell::Shells;
 
-/// The Alias-Manager
+/// amoxide — the alias manager
 ///
-/// Manage your shell aliases — globally via profiles or per-project via .aliases files.
+/// Manage your shell aliases — globally, via profiles, or per-project via .aliases files.
+/// Activate multiple profiles simultaneously with `am profile use`.
 #[derive(Parser)]
 #[command(name = "am")]
 #[command(about = "The Alias-Manager", long_about = None, version, author)]
@@ -83,26 +84,21 @@ pub enum Commands {
 
 #[derive(Subcommand)]
 pub enum ProfileAction {
-    /// Add a new profile, or update inheritance of an existing one
+    /// Add a new profile
     #[command(alias = "a")]
     Add {
         /// Profile name
         name: String,
-
-        /// Base profile to inherit from
-        #[arg(short, long, conflicts_with = "no_inherits")]
-        inherits: Option<String>,
-
-        /// Remove inheritance from this profile
-        #[arg(long)]
-        no_inherits: bool,
     },
 
-    /// Set the active profile
-    #[command(alias = "s")]
-    Set {
+    /// Toggle a profile as active/inactive, optionally at a specific priority
+    #[command(alias = "u")]
+    Use {
         /// Profile name
         name: String,
+        /// Activate at specific priority position (1-based). Repositions if already active.
+        #[arg(short = 'n', long = "priority")]
+        priority: Option<usize>,
     },
 
     /// Remove a profile

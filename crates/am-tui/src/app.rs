@@ -1,4 +1,4 @@
-use crate::input::map_event;
+use crate::input::InputResolver;
 use crate::model::{TuiMessage, TuiModel, MIN_HEIGHT, MIN_WIDTH};
 use crate::update::update;
 use crate::view::draw;
@@ -26,22 +26,27 @@ fn check_terminal_size() -> anyhow::Result<()> {
 }
 
 fn run_loop(terminal: &mut DefaultTerminal, model: &mut TuiModel) -> anyhow::Result<()> {
+    let mut input = InputResolver::default();
+
     loop {
         terminal.draw(|frame| draw(frame, model))?;
-        let event = event::read()?;
-        if let Some(msg) = map_event(&event, &model.mode) {
-            if msg == TuiMessage::Quit {
-                break;
+
+        let messages = if event::poll(input.poll_timeout())? {
+            input.feed(&event::read()?, &model.mode)
+        } else {
+            input.flush()
+        };
+
+        for msg in messages {
+            match msg {
+                TuiMessage::Quit => return Ok(()),
+                TuiMessage::Resize(..) => {
+                    check_terminal_size()?;
+                    continue;
+                }
+                msg => update(model, msg),
             }
-            if let TuiMessage::Resize(..) = msg {
-                check_terminal_size()?;
-                continue;
-            }
-            update(model, msg);
-            let area = terminal.size()?;
-            let visible_height = area.height.saturating_sub(1) as usize;
-            model.adjust_scroll(visible_height);
+            model.adjust_scroll(terminal.size()?.height.saturating_sub(1) as usize);
         }
     }
-    Ok(())
 }

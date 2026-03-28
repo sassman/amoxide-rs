@@ -15,7 +15,7 @@ const COMPLETIONS_PS1: &str = include_str!(concat!(env!("OUT_DIR"), "/_am.ps1"))
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
-/// `profile_aliases` — resolved alias set (including inherited aliases).
+/// `profile_aliases` — merged alias set from all active profiles.
 pub fn generate_init(
     shell: &Shells,
     global_aliases: &AliasSet,
@@ -32,7 +32,7 @@ pub fn generate_init(
         all_names.push(name.to_string());
     }
 
-    // Emit profile aliases (already resolved with inheritance)
+    // Emit profile aliases (merged from all active profiles)
     for (alias_name, alias_value) in profile_aliases.iter() {
         let name = alias_name.as_ref();
         lines.push(shell_impl.alias(&alias_value.as_entry(name)));

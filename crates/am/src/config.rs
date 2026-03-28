@@ -8,7 +8,8 @@ const CONFIG_FILE: &str = "config.toml";
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Config {
-    pub active_profile: Option<String>,
+    #[serde(default)]
+    pub active_profiles: Vec<String>,
     #[serde(default)]
     pub aliases: AliasSet,
 }
@@ -63,6 +64,31 @@ impl Config {
             .ok_or_else(|| anyhow::anyhow!("Global alias '{name}' not found"))?;
         Ok(())
     }
+
+    pub fn toggle_profile(&mut self, name: String) {
+        if let Some(pos) = self.active_profiles.iter().position(|p| p == &name) {
+            self.active_profiles.remove(pos);
+        } else {
+            self.active_profiles.push(name);
+        }
+    }
+
+    pub fn activation_order(&self, name: &str) -> Option<usize> {
+        self.active_profiles
+            .iter()
+            .position(|p| p == name)
+            .map(|i| i + 1)
+    }
+
+    pub fn is_active(&self, name: &str) -> bool {
+        self.active_profiles.contains(&name.to_string())
+    }
+
+    pub fn use_profile_at(&mut self, name: String, priority: usize) {
+        self.active_profiles.retain(|p| p != &name);
+        let idx = (priority.saturating_sub(1)).min(self.active_profiles.len());
+        self.active_profiles.insert(idx, name);
+    }
 }
 
 #[cfg(test)]
@@ -73,7 +99,7 @@ mod tests {
     fn test_default_config_when_no_file() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::load_from(dir.path()).unwrap();
-        assert_eq!(config.active_profile, None);
+        assert!(config.active_profiles.is_empty());
         assert!(config.aliases.is_empty());
     }
 
@@ -81,14 +107,14 @@ mod tests {
     fn test_save_and_load_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config {
-            active_profile: Some("rust".to_string()),
+            active_profiles: vec!["rust".to_string()],
             aliases: AliasSet::default(),
         };
         config.add_alias("ll".to_string(), "ls -lha".to_string(), false);
         config.save_to(dir.path()).unwrap();
 
         let loaded = Config::load_from(dir.path()).unwrap();
-        assert_eq!(loaded.active_profile, Some("rust".to_string()));
+        assert_eq!(loaded.active_profiles, vec!["rust".to_string()]);
         assert_eq!(loaded.aliases.iter().count(), 1);
     }
 
@@ -110,10 +136,91 @@ mod tests {
     }
 
     #[test]
-    fn test_backwards_compat_no_aliases_section() {
-        let toml_str = r#"active_profile = "rust""#;
-        let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.active_profile, Some("rust".to_string()));
-        assert!(config.aliases.is_empty());
+    fn test_active_profiles_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config {
+            active_profiles: vec!["git".to_string(), "rust".to_string()],
+            aliases: AliasSet::default(),
+        };
+        config.save_to(dir.path()).unwrap();
+
+        let loaded = Config::load_from(dir.path()).unwrap();
+        assert_eq!(
+            loaded.active_profiles,
+            vec!["git".to_string(), "rust".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_toggle_profile_appends() {
+        let mut config = Config::default();
+        config.toggle_profile("git".to_string());
+        assert_eq!(config.active_profiles, vec!["git".to_string()]);
+        config.toggle_profile("rust".to_string());
+        assert_eq!(
+            config.active_profiles,
+            vec!["git".to_string(), "rust".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_toggle_profile_removes() {
+        let mut config = Config {
+            active_profiles: vec!["git".to_string(), "rust".to_string()],
+            aliases: AliasSet::default(),
+        };
+        config.toggle_profile("git".to_string());
+        assert_eq!(config.active_profiles, vec!["rust".to_string()]);
+    }
+
+    #[test]
+    fn test_profile_activation_order() {
+        let config = Config {
+            active_profiles: vec!["git".to_string(), "rust".to_string(), "node".to_string()],
+            aliases: AliasSet::default(),
+        };
+        assert_eq!(config.activation_order("git"), Some(1));
+        assert_eq!(config.activation_order("rust"), Some(2));
+        assert_eq!(config.activation_order("node"), Some(3));
+        assert_eq!(config.activation_order("python"), None);
+    }
+
+    #[test]
+    fn test_use_profile_at_inserts_at_position() {
+        let mut config = Config {
+            active_profiles: vec!["git".to_string(), "rust".to_string()],
+            aliases: AliasSet::default(),
+        };
+        config.use_profile_at("node".to_string(), 1);
+        assert_eq!(
+            config.active_profiles,
+            vec!["node".to_string(), "git".to_string(), "rust".to_string(),]
+        );
+    }
+
+    #[test]
+    fn test_use_profile_at_repositions_existing() {
+        let mut config = Config {
+            active_profiles: vec!["git".to_string(), "rust".to_string(), "node".to_string()],
+            aliases: AliasSet::default(),
+        };
+        config.use_profile_at("node".to_string(), 1);
+        assert_eq!(
+            config.active_profiles,
+            vec!["node".to_string(), "git".to_string(), "rust".to_string(),]
+        );
+    }
+
+    #[test]
+    fn test_use_profile_at_clamps_to_end() {
+        let mut config = Config {
+            active_profiles: vec!["git".to_string()],
+            aliases: AliasSet::default(),
+        };
+        config.use_profile_at("rust".to_string(), 100);
+        assert_eq!(
+            config.active_profiles,
+            vec!["git".to_string(), "rust".to_string()]
+        );
     }
 }

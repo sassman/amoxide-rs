@@ -10,19 +10,30 @@
   <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
 </p>
 
-> amoxide (`am`) is for lazy folks like me. It helps to manage your shell aliases either globally or profile or project specific. It loads context specific relevant aliases automatically.
+> If you only have a handful of shell aliases in your dotfiles, you're missing out. amoxide (`am`) lets you define aliases per project, per toolchain, or globally — and loads the right ones automatically when you `cd` into a directory. Think [direnv](https://direnv.net), but for aliases.
 
-- Q: What does "globally" mean?
-- A: A global alias is a regular shell alias that is always and everywhere present
+```sh
+cd ~/my-rust-project
+# cargo test is now: t
+# cargo clippy <with-a-lot-of-options> is now: l
 
-- Q: What is "profile-specific" then?
-- A: A profile is simply a name like `node development` or `git stuff` under which aliases are collected - like a category for aliases
+cd ~/my-node-project
+# same aliases, different commands, loaded automatically
+# the rust ones are gone — no pollution
+```
 
-- Q: What is then "project-specific"?
-- A: An alias is only available in a project context or "locally". Like you are working on a very project that needs it's own aliases
+## Subcommands
 
-> :bulp: Note: Profiles can inherit from another. Like your node profile should leverage some git aliases, then `node development "inherits" git stuff` would load all aliases upwards the dependency tree.
-
+| Command | Description | |
+|---------|-------------|---|
+| [`am add`](#adding-and-removing-aliases) | Add a new alias (global, profile, or local) | |
+| [`am remove`](#adding-and-removing-aliases) | Remove an alias | |
+| [`am profile`](#profiles) | Manage profiles (add, use, remove, list) | |
+| `am ls` | List all profiles and project aliases | |
+| [`am init`](#setup) | Print shell init code | |
+| [`am status`](#setup) | Check if the shell is set up correctly | |
+| `am tui` | Interactive TUI for managing aliases and profiles | *separate install* |
+| `am hook` | Called by the cd hook (internal) | |
 
 ## Productivity Tip / TL;DR (Opinionated)
 
@@ -30,11 +41,11 @@ I personally start with **project-local aliases**, so I can be super lazy in the
 
 For example in this project I have:
 
-- installing the binary by `cargo install --path crates/am` becomes just `i`
-- running tests by `cargo test` becomes `t`
-- running lint checks by `cargo clippy --all-targets --all-features -- -D warning` becomes `l`
+- installing the binary by `i` does a `cargo install --path crates/am`
+- running tests by `t` does a `cargo test`
+- running lint checks by `l` does a `cargo clippy --all-targets --all-features -- -D warning`
 
-**Step 1 — Start local.** Add project aliases with `-l`:
+**Step 1** Add local / project aliases with `-l`:
 
 ```sh
 am add -l t cargo test
@@ -42,46 +53,47 @@ am add -l t cargo test
 #   |   | |       |
 #   |   | |       +---- the command to alias
 #   |   | +---- the alias name
-#   |   +---- local (writes to .aliases in this directory)
+#   |   +---- local, writes to .aliases in the current directory
 #   +---- adding an alias
 
 am add -l l cargo clippy --all-targets --all-features -- -D warning
 am add -l i cargo install --path crates/am
 ```
 
-These aliases live in a `.aliases` file in the project root and are loaded/unloaded automatically on `cd`.
+These *local* aliases live in a `.aliases` file in the project root and are loaded/unloaded automatically on `cd`.
 
-**Step 2 — Extract a profile.** After a while I notice `t` and `l` are the same in every Rust project. Time to extract them into a reusable profile:
+**Step 2 - Refactor:** After a while I notice `t` and `l` are the same in every rust project. Time to extract them into a reusable **profile** — a named collection of aliases you can activate anywhere:
 
 ```sh
 am profile add rust
 am add -p rust t cargo test
+#      ^-----^
+#         |
+#         + ---- we add the alias to the profile "rust"
+
 am add -p rust l cargo clippy --all-targets --all-features -- -D warning
 
 # activate it
-am profile set rust
+am profile use rust
 ```
 
 > :bulb: Tip: `am tui` allows to move the aliases from project to profile level (by select and `m`)
 
 Now `t` and `l` are available everywhere (not just this project). The project `.aliases` keeps only project-specific ones like `i`.
 
-**Step 3 — Compose with inheritance.** I also want git aliases everywhere, and a specialized git-conventional profile on top:
+**Step 3 — use multiple profiles.** I also want git aliases everywhere. Just activate both:
 
 ```sh
 # git profile with a signing commit alias
 am profile add git
 am add -p git gm "git commit -S --signoff -m"
 
-# git-conventional inherits from git, adds a shortcut
-am profile add git-conventional --inherits git
-am add -p git-conventional gmf "gm feat: {{@}}"
-
-# now using it
-gmf "my feature"
-# → gm feat: my feature
-# → git commit -S --signoff -m feat: my feature
+# activate both — order matters: the last one activated wins on conflicts
+am profile use git
+am profile use rust
 ```
+
+Now I have git aliases and rust aliases loaded at the same time. If both profiles had an alias with the same name, the last-activated one (rust) would take precedence.
 
 > :bulb: Tip: all verbs have short forms to save typing, e.g. `am a -l t cargo test` or `am p a rust`.
 
@@ -147,7 +159,7 @@ eval "$(am init zsh)"
 ```
 
 This does two things:
-1. Loads aliases from your active profile into the current shell
+1. Loads aliases from your active profiles into the current shell
 2. Installs a cd hook that automatically loads/unloads project aliases (from `.aliases` files) when you change directories
 
 To verify the setup is correct, run:
@@ -161,8 +173,9 @@ am status
 ### Adding and removing aliases
 
 ```shell
-$ am add "ll ls -lha"
-$ am add gs git status         # quotes on the command are optional
+$ am add gs git status         # add to the active profile
+$ am add -p rust ct cargo test # add to a specific profile
+$ am add -l t ./x.py test     # add to the current project (.aliases)
 $ am remove gs                 # remove from active profile
 $ am r gs                      # short form
 $ am remove -p rust ct         # remove from a specific profile
@@ -206,19 +219,19 @@ am add --raw my-awk "awk '{print {{1}}}'"
 
 ### Profiles
 
-Profiles let you group aliases by context (e.g., `rust`, `node`, `git`):
+Profiles let you group aliases by context (e.g., `rust`, `node`, `git`). You can activate multiple profiles simultaneously — think of it as layers where later-activated profiles override earlier ones for conflicting alias names:
 
 ```shell
 # Add a profile
 $ am profile add rust
 $ am p a rust                  # short form
 
-# Add a profile that inherits from another
-$ am profile add rust --inherits git
+# Activate a profile (adds it on top of the current stack)
+$ am profile use rust
+$ am p u rust                  # short form
 
-# Set the active profile
-$ am profile set rust
-$ am p s rust                  # short form
+# Activate at a specific position (1 = base layer, higher = overrides lower)
+$ am profile use git -n 1
 
 # Remove a profile (asks for confirmation if it has aliases)
 $ am profile remove rust
@@ -234,36 +247,30 @@ $ am profile list              # explicit
 $ am l                         # shortest form
 ```
 
-The active profile's aliases are loaded on every shell start via `am init`.
+Active profiles' aliases are loaded on every shell start via `am init`.
 
-Listing profiles shows a tree with inheritance:
-
-```
-○ git
-│ gs → git status
-│ gp → git push
-│
-├─○ node
-│   nr → npm run
-│
-╰─● rust (active)
-    ct → cargo test
-    cb → cargo build
-```
-
-If you're inside a project with a `.aliases` file, the listing also shows those:
+Listing shows active profiles connected by a tree trunk, inactive profiles below:
 
 ```
-○ git
-│ gs → git status
+🌐 global
+│ helo → echo hello world global
 │
-╰─● rust (active)
-    ct → cargo test
-
-📁 project aliases (.aliases)
+├─● git (active: 1)
+│ gm → git commit -S --signoff -m
+│
+├─● rust (active: 2)
+│ ct → cargo test
+│ cb → cargo build
+│
+╰─📁 project aliases (.aliases)
   t → ./x.py test
   b → ./x.py build
+
+○ node
+  nr → npm run
 ```
+
+In this example, `git` is the base layer (active: 1) and `rust` sits on top (active: 2). If both had an alias named `t`, rust's version would win.
 
 ### Project aliases (`.aliases` file)
 
@@ -286,6 +293,6 @@ t = "./x.py test"
 b = "./x.py build"
 ```
 
-These aliases are automatically loaded when you `cd` into the project (or any subdirectory) and unloaded when you leave. Works like direnv, but for aliases.
+These aliases are automatically loaded when you `cd` into the project (or any subdirectory) and unloaded when you leave.
 
 Under the hood, `am init` installs a cd hook that calls `am hook <shell>` on every directory change. The hook walks up from the current directory looking for a `.aliases` file (stopping before `$HOME`), unloads any previously active project aliases, and loads the new ones.
