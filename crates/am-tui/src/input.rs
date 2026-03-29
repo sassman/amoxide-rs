@@ -29,6 +29,7 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Char('G') | KeyCode::End => Some(TuiMessage::JumpBottom),
         KeyCode::Char(' ') => Some(TuiMessage::ToggleSelect),
         KeyCode::Char('m') => Some(TuiMessage::EnterMoveMode),
+        KeyCode::Char('c') => Some(TuiMessage::EnterCopyMode),
         KeyCode::Enter => Some(TuiMessage::ExecuteTransfer),
         KeyCode::Esc => Some(TuiMessage::CancelTransfer),
         KeyCode::Tab => Some(TuiMessage::SwitchColumn),

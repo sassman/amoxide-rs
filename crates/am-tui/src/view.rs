@@ -113,9 +113,13 @@ fn header_colors(node: &TreeNode, is_cursor: bool) -> (Color, Color) {
 }
 
 fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
+    let title = match &model.mode {
+        Mode::Transfer(TransferMode::Copy) => "-> Copy to",
+        _ => "-> Move to",
+    };
     let mut lines: Vec<Line<'static>> = Vec::new();
     lines.push(Line::from(Span::styled(
-        "-> Move to",
+        title,
         Style::default().fg(HEADER_DEFAULT).bold(),
     )));
     lines.push(Line::from(""));
@@ -225,15 +229,19 @@ fn render_confirm(frame: &mut Frame, action: &ConfirmAction, area: Rect) {
         ConfirmAction::OverwriteAliases {
             aliases,
             destination,
-            transfer_mode: _,
+            transfer_mode,
         } => {
             let count = aliases.len();
+            let verb = match transfer_mode {
+                TransferMode::Move => "Move",
+                TransferMode::Copy => "Copy",
+            };
             let dest = match destination {
                 MoveDestination::Global => "global".to_string(),
                 MoveDestination::Project => "project".to_string(),
                 MoveDestination::Profile(name) => format!("profile \"{name}\""),
             };
-            format!("  Move {count} alias(es) to {dest}, overwriting duplicates? [y/n]")
+            format!("  {verb} {count} alias(es) to {dest}, overwriting duplicates? [y/n]")
         }
     };
     let widget = Paragraph::new(message).style(Style::default().fg(GOLD));
@@ -373,6 +381,8 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("m", Style::default().fg(GOLD)),
             Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("c", Style::default().fg(GOLD)),
+            Span::styled(" copy  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("n", Style::default().fg(GOLD)),
             Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("x", Style::default().fg(GOLD)),
@@ -380,7 +390,7 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled("u", Style::default().fg(GOLD)),
             Span::styled(" use", Style::default().fg(TEXT_MUTED)),
         ]),
-        Mode::Transfer(_) => Line::from(vec![
+        Mode::Transfer(TransferMode::Move) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),
             Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
@@ -388,6 +398,17 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" navigate  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Enter", Style::default().fg(GOLD)),
             Span::styled(" move here  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Tab", Style::default().fg(GOLD)),
+            Span::styled(" switch column", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::Transfer(TransferMode::Copy) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("jk/↑↓", Style::default().fg(GOLD)),
+            Span::styled(" navigate  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" copy here  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Tab", Style::default().fg(GOLD)),
             Span::styled(" switch column", Style::default().fg(TEXT_MUTED)),
         ]),

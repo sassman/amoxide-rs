@@ -99,6 +99,24 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 model.active_column = Column::Right;
             }
         }
+        TuiMessage::EnterCopyMode => {
+            if model.mode != Mode::Normal {
+                return;
+            }
+            if model.selected.is_empty() {
+                if let Some(node) = model.tree.get(model.cursor) {
+                    if node.kind.is_selectable() {
+                        if let Some(ref id) = node.alias_id {
+                            model.selected.insert(id.clone());
+                        }
+                    }
+                }
+            }
+            if !model.selected.is_empty() {
+                model.mode = Mode::Transfer(TransferMode::Copy);
+                model.active_column = Column::Right;
+            }
+        }
         TuiMessage::CancelTransfer => {
             model.selected.clear();
             model.mode = Mode::Normal;
@@ -158,9 +176,9 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 ConfirmAction::OverwriteAliases {
                     aliases,
                     destination,
-                    transfer_mode: _,
+                    transfer_mode,
                 } => {
-                    do_transfer(model, &aliases, &destination);
+                    do_transfer(model, &aliases, &destination, &transfer_mode);
                 }
             }
             model.mode = Mode::Normal;
@@ -342,6 +360,11 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 }
 
 fn execute_transfer(model: &mut TuiModel) {
+    let transfer_mode = match &model.mode {
+        Mode::Transfer(tm) => tm.clone(),
+        _ => return,
+    };
+
     let dest_node = match model.dest_tree.get(model.dest_cursor) {
         Some(node) => node.clone(),
         None => return,
@@ -378,12 +401,12 @@ fn execute_transfer(model: &mut TuiModel) {
         .collect();
 
     if collisions.is_empty() {
-        do_transfer(model, &aliases_to_transfer, &destination);
+        do_transfer(model, &aliases_to_transfer, &destination, &transfer_mode);
     } else {
         model.mode = Mode::Confirm(ConfirmAction::OverwriteAliases {
             aliases: aliases_to_transfer,
             destination,
-            transfer_mode: TransferMode::Move,
+            transfer_mode,
         });
     }
 }
@@ -447,9 +470,15 @@ fn alias_exists_at_dest(model: &TuiModel, id: &AliasId, dest: &MoveDestination) 
     }
 }
 
-fn do_transfer(model: &mut TuiModel, aliases: &[AliasId], dest: &MoveDestination) {
+fn do_transfer(
+    model: &mut TuiModel,
+    aliases: &[AliasId],
+    dest: &MoveDestination,
+    transfer_mode: &TransferMode,
+) {
+    let delete_source = *transfer_mode == TransferMode::Move;
     for alias_id in aliases {
-        transfer_single_alias(model, alias_id, dest);
+        transfer_single_alias(model, alias_id, dest, delete_source);
     }
     save_all(model);
     model.selected.clear();
@@ -458,7 +487,12 @@ fn do_transfer(model: &mut TuiModel, aliases: &[AliasId], dest: &MoveDestination
     model.rebuild_tree();
 }
 
-fn transfer_single_alias(model: &mut TuiModel, alias_id: &AliasId, dest: &MoveDestination) {
+fn transfer_single_alias(
+    model: &mut TuiModel,
+    alias_id: &AliasId,
+    dest: &MoveDestination,
+    delete_source: bool,
+) {
     // Read the alias from its source.
     let (alias_name_str, toml_alias) = match alias_id {
         AliasId::Global { alias_name } => {
@@ -495,27 +529,29 @@ fn transfer_single_alias(model: &mut TuiModel, alias_id: &AliasId, dest: &MoveDe
     let command = toml_alias.command().to_string();
     let raw = matches!(&toml_alias, TomlAlias::Detailed(d) if d.raw);
 
-    // Remove from source.
-    match alias_id {
-        AliasId::Global { alias_name } => {
-            let _ = model.app_model.config.remove_alias(alias_name);
-        }
-        AliasId::Profile {
-            profile_name,
-            alias_name,
-        } => {
-            if let Some(profile) = model
-                .app_model
-                .profile_config_mut()
-                .get_profile_by_name_mut(profile_name)
-            {
-                let _ = profile.remove_alias(alias_name);
+    // Remove from source (skip for copy).
+    if delete_source {
+        match alias_id {
+            AliasId::Global { alias_name } => {
+                let _ = model.app_model.config.remove_alias(alias_name);
             }
-        }
-        AliasId::Project { alias_name } => {
-            if let Some(proj) = model.project_aliases.as_mut() {
-                let key = AliasName::from(alias_name.as_str());
-                proj.aliases.remove(&key);
+            AliasId::Profile {
+                profile_name,
+                alias_name,
+            } => {
+                if let Some(profile) = model
+                    .app_model
+                    .profile_config_mut()
+                    .get_profile_by_name_mut(profile_name)
+                {
+                    let _ = profile.remove_alias(alias_name);
+                }
+            }
+            AliasId::Project { alias_name } => {
+                if let Some(proj) = model.project_aliases.as_mut() {
+                    let key = AliasName::from(alias_name.as_str());
+                    proj.aliases.remove(&key);
+                }
             }
         }
     }
@@ -1123,5 +1159,105 @@ mod tests {
             model.app_model.config.active_profiles,
             vec!["rust".to_string(), "git".to_string()]
         );
+    }
+
+    // --- Copy-to feature ---
+
+    #[test]
+    fn test_enter_copy_mode_with_selection() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
+        model.cursor = alias_idx;
+        update(&mut model, TuiMessage::ToggleSelect);
+        update(&mut model, TuiMessage::EnterCopyMode);
+        assert_eq!(model.mode, Mode::Transfer(TransferMode::Copy));
+        assert_eq!(model.active_column, Column::Right);
+    }
+
+    #[test]
+    fn test_copy_preserves_source() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+
+            [[profiles]]
+            name = "rust"
+        "#,
+        );
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
+        model.cursor = alias_idx;
+        update(&mut model, TuiMessage::ToggleSelect);
+        update(&mut model, TuiMessage::EnterCopyMode);
+        let rust_idx = model
+            .dest_tree
+            .iter()
+            .position(|n| n.label == "rust")
+            .unwrap();
+        model.dest_cursor = rust_idx;
+        update(&mut model, TuiMessage::ExecuteTransfer);
+        // Source still has the alias
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("git")
+            .unwrap()
+            .aliases
+            .iter()
+            .any(|(n, _)| n.as_ref() == "gs"));
+        // Destination also has it
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("rust")
+            .unwrap()
+            .aliases
+            .iter()
+            .any(|(n, _)| n.as_ref() == "gs"));
+    }
+
+    #[test]
+    fn test_copy_same_source_is_noop() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
+        model.cursor = alias_idx;
+        update(&mut model, TuiMessage::ToggleSelect);
+        update(&mut model, TuiMessage::EnterCopyMode);
+        let git_idx = model
+            .dest_tree
+            .iter()
+            .position(|n| n.label == "git")
+            .unwrap();
+        model.dest_cursor = git_idx;
+        update(&mut model, TuiMessage::ExecuteTransfer);
+        assert_eq!(model.mode, Mode::Normal);
     }
 }
