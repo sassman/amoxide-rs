@@ -80,6 +80,38 @@ fn render_left_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
     frame.render_widget(tree_widget, area);
 }
 
+/// Returns (icon, label) for a tree header node.
+fn header_content(node: &TreeNode, activation_order: Option<usize>) -> (String, String) {
+    match &node.kind {
+        NodeKind::GlobalHeader => (ICON_GLOBAL.to_string(), "global".to_string()),
+        NodeKind::ProjectHeader => (ICON_PROJECT.to_string(), "project (.aliases)".to_string()),
+        NodeKind::ProfileHeader => {
+            let icon = if node.is_active {
+                ICON_ACTIVE
+            } else {
+                ICON_INACTIVE
+            };
+            let tag = match activation_order {
+                Some(n) => format!(" (active: {n})"),
+                None => String::new(),
+            };
+            (format!("{icon} "), format!("{}{tag}", node.label))
+        }
+        NodeKind::AliasItem => unreachable!(),
+    }
+}
+
+/// Returns (label_color, icon_color) for a tree header node.
+fn header_colors(node: &TreeNode, is_cursor: bool) -> (Color, Color) {
+    let highlight = is_cursor || (node.kind == NodeKind::ProfileHeader && node.is_active);
+    let label_color = if highlight { GOLD } else { HEADER_DEFAULT };
+    let icon_color = match &node.kind {
+        NodeKind::ProfileHeader if !highlight => TEXT_MUTED,
+        _ => label_color,
+    };
+    (label_color, icon_color)
+}
+
 fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
     let mut lines: Vec<Line<'static>> = Vec::new();
     lines.push(Line::from(Span::styled(
@@ -89,6 +121,9 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
     lines.push(Line::from(""));
 
     for (i, node) in model.dest_tree.iter().enumerate() {
+        if node.kind == NodeKind::AliasItem {
+            continue;
+        }
         let is_cursor = i == model.dest_cursor && model.active_column == Column::Right;
         let marker = if is_cursor {
             MARKER_CURSOR
@@ -101,61 +136,18 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
             TREE_CONNECTOR
         };
 
-        match &node.kind {
-            NodeKind::GlobalHeader => {
-                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("{}{ICON_GLOBAL}{marker}", node.prefix),
-                        Style::default().fg(conn),
-                    ),
-                    Span::styled("global", Style::default().fg(label_color).bold()),
-                ]));
-            }
-            NodeKind::ProjectHeader => {
-                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("{}{marker}", node.prefix),
-                        Style::default().fg(conn),
-                    ),
-                    Span::styled(
-                        "project (.aliases)",
-                        Style::default().fg(label_color).bold(),
-                    ),
-                ]));
-            }
-            NodeKind::ProfileHeader => {
-                let icon = if node.is_active { "●" } else { "○" };
-                let active_tag = match model.app_model.config.activation_order(&node.label) {
-                    Some(n) => format!(" (active: {n})"),
-                    None => String::new(),
-                };
-                let color = if is_cursor || node.is_active {
-                    GOLD
-                } else {
-                    HEADER_DEFAULT
-                };
-                let icon_color = if is_cursor || node.is_active {
-                    GOLD
-                } else {
-                    TEXT_MUTED
-                };
+        let (icon, label) =
+            header_content(node, model.app_model.config.activation_order(&node.label));
+        let (label_color, icon_color) = header_colors(node, is_cursor);
 
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("{}{marker}", node.prefix),
-                        Style::default().fg(conn),
-                    ),
-                    Span::styled(format!("{icon} "), Style::default().fg(icon_color)),
-                    Span::styled(
-                        format!("{}{active_tag}", node.label),
-                        Style::default().fg(color).bold(),
-                    ),
-                ]));
-            }
-            NodeKind::AliasItem => {}
-        }
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("{}{marker}", node.prefix),
+                Style::default().fg(conn),
+            ),
+            Span::styled(icon, Style::default().fg(icon_color)),
+            Span::styled(label, Style::default().fg(label_color).bold()),
+        ]));
     }
 
     frame.render_widget(Paragraph::new(Text::from(lines)), area);
@@ -259,14 +251,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
             .is_some_and(|id| model.selected.contains(id));
 
         match &node.kind {
-            NodeKind::GlobalHeader => {
-                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
-                lines.push(Line::from(vec![
-                    Span::raw(ICON_GLOBAL),
-                    Span::styled("global", Style::default().fg(label_color).bold()),
-                ]));
-            }
-            NodeKind::ProjectHeader => {
+            NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader => {
                 let marker = if is_cursor {
                     MARKER_CURSOR
                 } else {
@@ -277,60 +262,17 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 } else {
                     TREE_CONNECTOR
                 };
-                let label_color = if is_cursor { GOLD } else { HEADER_DEFAULT };
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("{}{marker}", node.prefix),
-                        Style::default().fg(conn),
-                    ),
-                    Span::raw(ICON_PROJECT),
-                    Span::styled(
-                        "project (.aliases)",
-                        Style::default().fg(label_color).bold(),
-                    ),
-                ]));
-            }
-            NodeKind::ProfileHeader => {
-                let icon = if node.is_active {
-                    ICON_ACTIVE
-                } else {
-                    ICON_INACTIVE
-                };
-                let marker = if is_cursor {
-                    MARKER_CURSOR
-                } else {
-                    MARKER_NONE
-                };
-                let active_tag = match model.app_model.config.activation_order(&node.label) {
-                    Some(n) => format!(" (active: {n})"),
-                    None => String::new(),
-                };
+                let (icon, label) =
+                    header_content(node, model.app_model.config.activation_order(&node.label));
+                let (label_color, icon_color) = header_colors(node, is_cursor);
 
-                let conn = if is_cursor {
-                    TREE_CONNECTOR_ACTIVE
-                } else {
-                    TREE_CONNECTOR
-                };
-                let color = if is_cursor || node.is_active {
-                    GOLD
-                } else {
-                    HEADER_DEFAULT
-                };
-                let icon_color = if is_cursor || node.is_active {
-                    GOLD
-                } else {
-                    TEXT_MUTED
-                };
                 lines.push(Line::from(vec![
                     Span::styled(
                         format!("{}{marker}", node.prefix),
                         Style::default().fg(conn),
                     ),
-                    Span::styled(format!("{icon} "), Style::default().fg(icon_color)),
-                    Span::styled(
-                        format!("{}{active_tag}", node.label),
-                        Style::default().fg(color).bold(),
-                    ),
+                    Span::styled(icon, Style::default().fg(icon_color)),
+                    Span::styled(label, Style::default().fg(label_color).bold()),
                 ]));
             }
             NodeKind::AliasItem => {
@@ -426,7 +368,7 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" quit  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("a", Style::default().fg(GOLD)),
             Span::styled(" add  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled(" ", Style::default().fg(GOLD)),
+            Span::styled("Space", Style::default().fg(GOLD)),
             Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("m", Style::default().fg(GOLD)),
             Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
@@ -441,7 +383,7 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),
             Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("jk", Style::default().fg(GOLD)),
+            Span::styled("jk/↑↓", Style::default().fg(GOLD)),
             Span::styled(" navigate  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Enter", Style::default().fg(GOLD)),
             Span::styled(" move here  ", Style::default().fg(TEXT_MUTED)),
