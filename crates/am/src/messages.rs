@@ -25,10 +25,11 @@ pub enum Message {
     Hook(Shells),
     Reload(Shells),
 
-    ActivateProfile(String),
+    ToggleProfile(String),
+    UseProfileAt(String, usize),
     RemoveProfile(String),
     ListProfiles,
-    CreateOrUpdateProfile(String, Option<String>),
+    CreateProfile(String),
     SaveProfiles,
     SaveConfig,
 

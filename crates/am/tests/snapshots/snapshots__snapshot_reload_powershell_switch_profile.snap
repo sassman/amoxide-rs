@@ -4,7 +4,5 @@ expression: output
 ---
 if (Test-Path Function:\gs) { Remove-Item Function:\gs }
 if (Test-Path Function:\cm) { Remove-Item Function:\cm }
-function global:cm { git commit -sm @args }
 function global:cmf { cm feat: $args }
-function global:gs { git status @args }
-$env:_AM_ALIASES = "cm,cmf,gs"
+$env:_AM_ALIASES = "cmf"

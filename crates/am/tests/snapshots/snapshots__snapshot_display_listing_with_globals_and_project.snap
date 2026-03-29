@@ -3,10 +3,10 @@ source: crates/am/tests/snapshots.rs
 expression: output
 ---
 🌐 global
-  ll → ls -lha
-
-● rust (active)
-  ct → cargo test
-
-📁 project aliases (.aliases)
+│ ll → ls -lha
+│
+├─● rust (active: 1)
+│ ct → cargo test
+│
+╰─📁 project (.aliases)
   b → make build
