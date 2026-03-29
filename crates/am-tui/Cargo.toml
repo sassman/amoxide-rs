@@ -14,7 +14,7 @@ name = "am-tui"
 path = "src/main.rs"
 
 [dependencies]
-amoxide = { path = "../am", version = "0.1.1-beta.1" }
+amoxide = { path = "../am", version = "0.2.0" }
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 anyhow = "1.0"
 
