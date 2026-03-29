@@ -13,6 +13,7 @@ const TREE_CONNECTOR_ACTIVE: Color = Color::Rgb(150, 150, 80); // brighter conne
 const SELECTED_ACCENT: Color = Color::Rgb(208, 136, 74); // #d0884a — warm orange for selected marker/connectors
 const SELECTED_ACCENT_MUTED: Color = Color::Rgb(154, 101, 53); // #9a6535 — muted orange for selected commands
 const SELECTED_TEXT: Color = Color::Rgb(232, 232, 234); // #e8e8ea — bright white for selected alias names
+const ERROR_RED: Color = Color::Rgb(220, 80, 80); // #dc5050 — error / validation feedback
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
@@ -208,6 +209,59 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 } else {
                     Span::raw("")
                 },
+            ])
+        }
+        TextInputState::EditProfile { name, error, .. } => {
+            let err_span = error
+                .as_ref()
+                .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
+                .unwrap_or_else(|| Span::raw(""));
+            Line::from(vec![
+                Span::styled("  Rename profile: ", Style::default().fg(GOLD)),
+                Span::styled(name.as_str(), Style::default().fg(TEXT_PRIMARY)),
+                Span::styled("_", Style::default().fg(TEXT_PRIMARY)),
+                err_span,
+            ])
+        }
+        TextInputState::EditAlias {
+            name,
+            command,
+            active_field,
+            error,
+            ..
+        } => {
+            let name_style = if *active_field == AliasField::Name {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let cmd_style = if *active_field == AliasField::Command {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let cursor_after_name = *active_field == AliasField::Name;
+            let cursor_after_cmd = *active_field == AliasField::Command;
+            let err_span = error
+                .as_ref()
+                .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
+                .unwrap_or_else(|| Span::raw(""));
+            Line::from(vec![
+                Span::styled("  Edit: ", Style::default().fg(GOLD)),
+                Span::styled(name.as_str(), name_style),
+                if cursor_after_name {
+                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
+                } else {
+                    Span::raw("")
+                },
+                Span::styled(" = ", Style::default().fg(TEXT_MUTED)),
+                Span::styled(command.as_str(), cmd_style),
+                if cursor_after_cmd {
+                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
+                } else {
+                    Span::raw("")
+                },
+                err_span,
             ])
         }
     };
@@ -420,6 +474,22 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
         ]),
         Mode::TextInput(TextInputState::NewAlias { .. }) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Tab", Style::default().fg(GOLD)),
+            Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::TextInput(TextInputState::EditProfile { .. }) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::TextInput(TextInputState::EditAlias { .. }) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Tab", Style::default().fg(GOLD)),
             Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),

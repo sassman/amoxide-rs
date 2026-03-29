@@ -76,6 +76,18 @@ pub enum TextInputState {
         active_field: AliasField,
         target: AliasTarget,
     },
+    EditProfile {
+        original_name: String,
+        name: String,
+        error: Option<String>,
+    },
+    EditAlias {
+        alias_id: AliasId,
+        name: String,
+        command: String,
+        active_field: AliasField,
+        error: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,6 +141,7 @@ pub enum TuiMessage {
     TextInputChar(char),
     TextInputBackspace,
     TextInputConfirm,
+    EditItem,
     TextInputCancel,
     TextInputSwitchField,
     ConfirmYes,

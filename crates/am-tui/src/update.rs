@@ -225,6 +225,23 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                             command.push(c);
                         }
                     },
+                    TextInputState::EditProfile { name, error, .. } => {
+                        *error = None;
+                        name.push(c);
+                    }
+                    TextInputState::EditAlias {
+                        name,
+                        command,
+                        active_field,
+                        error,
+                        ..
+                    } => {
+                        *error = None;
+                        match active_field {
+                            AliasField::Name => name.push(c),
+                            AliasField::Command => command.push(c),
+                        }
+                    }
                 }
             }
         }
@@ -247,11 +264,35 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                             command.pop();
                         }
                     },
+                    TextInputState::EditProfile { name, error, .. } => {
+                        *error = None;
+                        name.pop();
+                    }
+                    TextInputState::EditAlias {
+                        name,
+                        command,
+                        active_field,
+                        error,
+                        ..
+                    } => {
+                        *error = None;
+                        match active_field {
+                            AliasField::Name => {
+                                name.pop();
+                            }
+                            AliasField::Command => {
+                                command.pop();
+                            }
+                        }
+                    }
                 }
             }
         }
         TuiMessage::TextInputSwitchField => {
-            if let Mode::TextInput(TextInputState::NewAlias { active_field, .. }) = &mut model.mode
+            if let Mode::TextInput(
+                TextInputState::NewAlias { active_field, .. }
+                | TextInputState::EditAlias { active_field, .. },
+            ) = &mut model.mode
             {
                 *active_field = match active_field {
                     AliasField::Name => AliasField::Command,
@@ -322,6 +363,147 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     model.rebuild_tree();
                     model.mode = Mode::Normal;
                 }
+                TextInputState::EditProfile {
+                    original_name,
+                    name,
+                    ..
+                } => {
+                    let name = name.trim().to_string();
+                    if name.is_empty() {
+                        return;
+                    }
+                    if name == original_name {
+                        model.mode = Mode::Normal;
+                        return;
+                    }
+                    if model
+                        .app_model
+                        .profile_config()
+                        .get_profile_by_name(&name)
+                        .is_some()
+                    {
+                        if let Mode::TextInput(TextInputState::EditProfile { error, .. }) =
+                            &mut model.mode
+                        {
+                            *error = Some(format!("profile '{}' already exists", name));
+                        }
+                        return;
+                    }
+                    if let Some(profile) = model
+                        .app_model
+                        .profile_config_mut()
+                        .get_profile_by_name_mut(&original_name)
+                    {
+                        profile.name = name.clone();
+                    }
+                    for p in &mut model.app_model.config.active_profiles {
+                        if *p == original_name {
+                            *p = name.clone();
+                        }
+                    }
+                    save_all(model);
+                    model.rebuild_tree();
+                    model.mode = Mode::Normal;
+                }
+                TextInputState::EditAlias {
+                    alias_id,
+                    name,
+                    command,
+                    ..
+                } => {
+                    let new_name = name.trim().to_string();
+                    let new_command = command.trim().to_string();
+                    if new_name.is_empty() || new_command.is_empty() {
+                        return;
+                    }
+                    let original_name = match &alias_id {
+                        AliasId::Global { alias_name }
+                        | AliasId::Profile { alias_name, .. }
+                        | AliasId::Project { alias_name } => alias_name.clone(),
+                    };
+                    // No change — just exit
+                    if new_name == original_name {
+                        let key = AliasName::from(original_name.as_str());
+                        let original_command = match &alias_id {
+                            AliasId::Global { .. } => model
+                                .app_model
+                                .config
+                                .aliases
+                                .get(&key)
+                                .map(|a| a.command().to_string()),
+                            AliasId::Profile { profile_name, .. } => model
+                                .app_model
+                                .profile_config()
+                                .get_profile_by_name(profile_name)
+                                .and_then(|p| p.aliases.get(&key).map(|a| a.command().to_string())),
+                            AliasId::Project { .. } => model
+                                .project_aliases
+                                .as_ref()
+                                .and_then(|p| p.aliases.get(&key).map(|a| a.command().to_string())),
+                        };
+                        if original_command.as_deref() == Some(new_command.as_str()) {
+                            model.mode = Mode::Normal;
+                            return;
+                        }
+                    }
+                    // Name collision check
+                    if new_name != original_name {
+                        let key = AliasName::from(new_name.as_str());
+                        let exists = match &alias_id {
+                            AliasId::Global { .. } => {
+                                model.app_model.config.aliases.contains_key(&key)
+                            }
+                            AliasId::Profile { profile_name, .. } => model
+                                .app_model
+                                .profile_config()
+                                .get_profile_by_name(profile_name)
+                                .is_some_and(|p| p.aliases.contains_key(&key)),
+                            AliasId::Project { .. } => model
+                                .project_aliases
+                                .as_ref()
+                                .is_some_and(|p| p.aliases.contains_key(&key)),
+                        };
+                        if exists {
+                            if let Mode::TextInput(TextInputState::EditAlias { error, .. }) =
+                                &mut model.mode
+                            {
+                                *error = Some(format!(
+                                    "name '{}' already exists in this scope",
+                                    new_name
+                                ));
+                            }
+                            return;
+                        }
+                    }
+                    // Apply: delete old, add new
+                    delete_alias(model, &alias_id);
+                    match &alias_id {
+                        AliasId::Global { .. } => {
+                            model
+                                .app_model
+                                .config
+                                .add_alias(new_name, new_command, false);
+                        }
+                        AliasId::Profile { profile_name, .. } => {
+                            if let Some(p) = model
+                                .app_model
+                                .profile_config_mut()
+                                .get_profile_by_name_mut(profile_name)
+                            {
+                                let _ = p.add_alias(new_name, new_command, false);
+                            }
+                        }
+                        AliasId::Project { .. } => {
+                            let project = model
+                                .project_aliases
+                                .get_or_insert_with(ProjectAliases::default);
+                            project.add_alias(new_name, new_command, false);
+                        }
+                    }
+                    save_all(model);
+                    model.rebuild_tree();
+                    model.mode = Mode::Normal;
+                }
             }
         }
         TuiMessage::TextInputCancel => {
@@ -353,6 +535,38 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 model.app_model.config.use_profile_at(node.label.clone(), n);
                 save_all(model);
                 model.rebuild_tree();
+            }
+        }
+        TuiMessage::EditItem => {
+            if model.mode != Mode::Normal {
+                return;
+            }
+            let node = match model.tree.get(model.cursor) {
+                Some(n) => n.clone(),
+                None => return,
+            };
+            match node.kind {
+                NodeKind::ProfileHeader => {
+                    model.mode = Mode::TextInput(TextInputState::EditProfile {
+                        original_name: node.label.clone(),
+                        name: node.label.clone(),
+                        error: None,
+                    });
+                }
+                NodeKind::AliasItem => {
+                    if let (Some(id), Some(cmd)) =
+                        (node.alias_id.clone(), node.alias_command.clone())
+                    {
+                        model.mode = Mode::TextInput(TextInputState::EditAlias {
+                            alias_id: id,
+                            name: node.label.clone(),
+                            command: cmd,
+                            active_field: AliasField::Name,
+                            error: None,
+                        });
+                    }
+                }
+                _ => {}
             }
         }
         _ => {} // remaining messages (Quit, Resize) handled at the app layer
@@ -1258,6 +1472,193 @@ mod tests {
             .unwrap();
         model.dest_cursor = git_idx;
         update(&mut model, TuiMessage::ExecuteTransfer);
+        assert_eq!(model.mode, Mode::Normal);
+    }
+
+    // --- Edit feature ---
+
+    #[test]
+    fn test_edit_profile_enters_text_input() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+        "#,
+        );
+        let header_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "git")
+            .unwrap();
+        model.cursor = header_idx;
+        update(&mut model, TuiMessage::EditItem);
+        assert_eq!(
+            model.mode,
+            Mode::TextInput(TextInputState::EditProfile {
+                original_name: "git".to_string(),
+                name: "git".to_string(),
+                error: None,
+            })
+        );
+    }
+
+    #[test]
+    fn test_edit_profile_rename() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        let header_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "git")
+            .unwrap();
+        model.cursor = header_idx;
+        update(&mut model, TuiMessage::EditItem);
+        for _ in 0..3 {
+            update(&mut model, TuiMessage::TextInputBackspace);
+        }
+        for c in "vcs".chars() {
+            update(&mut model, TuiMessage::TextInputChar(c));
+        }
+        update(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(model.mode, Mode::Normal);
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("vcs")
+            .is_some());
+        assert!(model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("git")
+            .is_none());
+    }
+
+    #[test]
+    fn test_edit_profile_duplicate_name_rejected() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+
+            [[profiles]]
+            name = "rust"
+        "#,
+        );
+        let header_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::ProfileHeader && n.label == "git")
+            .unwrap();
+        model.cursor = header_idx;
+        update(&mut model, TuiMessage::EditItem);
+        for _ in 0..3 {
+            update(&mut model, TuiMessage::TextInputBackspace);
+        }
+        for c in "rust".chars() {
+            update(&mut model, TuiMessage::TextInputChar(c));
+        }
+        update(&mut model, TuiMessage::TextInputConfirm);
+        match &model.mode {
+            Mode::TextInput(TextInputState::EditProfile { error, .. }) => {
+                assert!(error.is_some());
+            }
+            other => panic!("expected EditProfile with error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_edit_alias_changes_command() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#,
+        );
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem)
+            .unwrap();
+        model.cursor = alias_idx;
+        update(&mut model, TuiMessage::EditItem);
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        for _ in 0..10 {
+            update(&mut model, TuiMessage::TextInputBackspace);
+        }
+        for c in "git status -sb".chars() {
+            update(&mut model, TuiMessage::TextInputChar(c));
+        }
+        update(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(model.mode, Mode::Normal);
+        let profile = model
+            .app_model
+            .profile_config()
+            .get_profile_by_name("git")
+            .unwrap();
+        let key = AliasName::from("gs");
+        assert_eq!(
+            profile.aliases.get(&key).unwrap().command(),
+            "git status -sb"
+        );
+    }
+
+    #[test]
+    fn test_edit_alias_name_collision_rejected() {
+        let mut model = test_model(
+            r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+            gp = "git push"
+        "#,
+        );
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| {
+                n.kind == NodeKind::AliasItem
+                    && n.alias_id
+                        == Some(AliasId::Profile {
+                            profile_name: "git".to_string(),
+                            alias_name: "gs".to_string(),
+                        })
+            })
+            .unwrap();
+        model.cursor = alias_idx;
+        update(&mut model, TuiMessage::EditItem);
+        update(&mut model, TuiMessage::TextInputBackspace);
+        update(&mut model, TuiMessage::TextInputBackspace);
+        for c in "gp".chars() {
+            update(&mut model, TuiMessage::TextInputChar(c));
+        }
+        update(&mut model, TuiMessage::TextInputConfirm);
+        match &model.mode {
+            Mode::TextInput(TextInputState::EditAlias { error, .. }) => {
+                assert!(error.is_some());
+            }
+            other => panic!("expected EditAlias with error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_edit_on_global_header_is_noop() {
+        let mut model = test_model("profiles = []");
+        model
+            .app_model
+            .config
+            .add_alias("ll".into(), "ls -la".into(), false);
+        model.rebuild_tree();
+        assert_eq!(model.tree[model.cursor].kind, NodeKind::GlobalHeader);
+        update(&mut model, TuiMessage::EditItem);
         assert_eq!(model.mode, Mode::Normal);
     }
 }
