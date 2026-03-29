@@ -224,12 +224,17 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             ])
         }
         TextInputState::EditAlias {
+            alias_id,
             name,
             command,
             active_field,
             error,
-            ..
         } => {
+            let scope_label = match alias_id {
+                AliasId::Global { .. } => "global",
+                AliasId::Profile { profile_name, .. } => profile_name.as_str(),
+                AliasId::Project { .. } => "project",
+            };
             let name_style = if *active_field == AliasField::Name {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
@@ -247,7 +252,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
                 .unwrap_or_else(|| Span::raw(""));
             Line::from(vec![
-                Span::styled("  Edit: ", Style::default().fg(GOLD)),
+                Span::styled(format!("  [{scope_label}] "), Style::default().fg(GOLD)),
                 Span::styled(name.as_str(), name_style),
                 if cursor_after_name {
                     Span::styled("_", Style::default().fg(TEXT_PRIMARY))
@@ -441,6 +446,8 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("x", Style::default().fg(GOLD)),
             Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("e", Style::default().fg(GOLD)),
+            Span::styled(" edit  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("u", Style::default().fg(GOLD)),
             Span::styled(" use", Style::default().fg(TEXT_MUTED)),
         ]),
