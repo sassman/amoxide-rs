@@ -144,6 +144,20 @@ mod tests {
         assert!(msgs.is_empty());
     }
 
+    #[test]
+    fn feed_c_returns_enter_copy_mode() {
+        let mut r = InputResolver::default();
+        let msgs = r.feed(&press('c'), &normal());
+        assert_eq!(msgs, vec![TuiMessage::EnterCopyMode]);
+    }
+
+    #[test]
+    fn feed_e_returns_edit_item() {
+        let mut r = InputResolver::default();
+        let msgs = r.feed(&press('e'), &normal());
+        assert_eq!(msgs, vec![TuiMessage::EditItem]);
+    }
+
     // ── feed: sequence start ───────────────────────────────────────
 
     #[test]
