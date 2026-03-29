@@ -15,7 +15,7 @@ fn map_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
         return Some(TuiMessage::Quit);
     }
     match mode {
-        Mode::Normal | Mode::Moving => map_normal_key(key, mode),
+        Mode::Normal | Mode::Transfer(_) => map_normal_key(key, mode),
         Mode::TextInput(_) => map_text_input_key(key),
         Mode::Confirm(_) => map_confirm_key(key),
     }
@@ -29,8 +29,8 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Char('G') | KeyCode::End => Some(TuiMessage::JumpBottom),
         KeyCode::Char(' ') => Some(TuiMessage::ToggleSelect),
         KeyCode::Char('m') => Some(TuiMessage::EnterMoveMode),
-        KeyCode::Enter => Some(TuiMessage::ExecuteMove),
-        KeyCode::Esc => Some(TuiMessage::CancelMove),
+        KeyCode::Enter => Some(TuiMessage::ExecuteTransfer),
+        KeyCode::Esc => Some(TuiMessage::CancelTransfer),
         KeyCode::Tab => Some(TuiMessage::SwitchColumn),
         KeyCode::Char('u') => Some(TuiMessage::UseProfile),
         KeyCode::Char('a') => Some(TuiMessage::StartAddAlias),

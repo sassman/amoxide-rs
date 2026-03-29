@@ -1,6 +1,6 @@
 use crate::model::{
     AliasField, AliasId, AliasTarget, Column, ConfirmAction, Mode, MoveDestination, NodeKind,
-    TextInputState, TreeNode, TuiMessage, TuiModel,
+    TextInputState, TransferMode, TreeNode, TuiMessage, TuiModel,
 };
 use amoxide::{AliasName, ProjectAliases, TomlAlias};
 
@@ -50,7 +50,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
             }
         }
         TuiMessage::ToggleSelect => {
-            if model.mode != Mode::Normal && model.mode != Mode::Moving {
+            if model.mode != Mode::Normal && !matches!(model.mode, Mode::Transfer(_)) {
                 return;
             }
             if let Some(node) = model.tree.get(model.cursor).cloned() {
@@ -95,26 +95,26 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 }
             }
             if !model.selected.is_empty() {
-                model.mode = Mode::Moving;
+                model.mode = Mode::Transfer(TransferMode::Move);
                 model.active_column = Column::Right;
             }
         }
-        TuiMessage::CancelMove => {
+        TuiMessage::CancelTransfer => {
             model.selected.clear();
             model.mode = Mode::Normal;
             model.active_column = Column::Left;
         }
         TuiMessage::SwitchColumn => {
-            if model.mode == Mode::Moving {
+            if matches!(model.mode, Mode::Transfer(_)) {
                 model.active_column = match model.active_column {
                     Column::Left => Column::Right,
                     Column::Right => Column::Left,
                 };
             }
         }
-        TuiMessage::ExecuteMove => {
-            if model.mode == Mode::Moving && model.active_column == Column::Right {
-                execute_move(model);
+        TuiMessage::ExecuteTransfer => {
+            if matches!(model.mode, Mode::Transfer(_)) && model.active_column == Column::Right {
+                execute_transfer(model);
             }
         }
         TuiMessage::DeleteItem => {
@@ -158,8 +158,9 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 ConfirmAction::OverwriteAliases {
                     aliases,
                     destination,
+                    transfer_mode: _,
                 } => {
-                    do_move(model, &aliases, &destination);
+                    do_transfer(model, &aliases, &destination);
                 }
             }
             model.mode = Mode::Normal;
@@ -340,7 +341,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
     }
 }
 
-fn execute_move(model: &mut TuiModel) {
+fn execute_transfer(model: &mut TuiModel) {
     let dest_node = match model.dest_tree.get(model.dest_cursor) {
         Some(node) => node.clone(),
         None => return,
@@ -353,15 +354,15 @@ fn execute_move(model: &mut TuiModel) {
         _ => return,
     };
 
-    // Filter out aliases that are already at the destination (same-source moves).
-    let aliases_to_move: Vec<AliasId> = model
+    // Filter out aliases that are already at the destination (same-source transfers).
+    let aliases_to_transfer: Vec<AliasId> = model
         .selected
         .iter()
         .filter(|id| !is_same_source(id, &destination))
         .cloned()
         .collect();
 
-    if aliases_to_move.is_empty() {
+    if aliases_to_transfer.is_empty() {
         // All selected aliases are already at the destination — treat as no-op.
         model.selected.clear();
         model.mode = Mode::Normal;
@@ -370,18 +371,19 @@ fn execute_move(model: &mut TuiModel) {
     }
 
     // Check for collisions: aliases that already exist at the destination.
-    let collisions: Vec<AliasId> = aliases_to_move
+    let collisions: Vec<AliasId> = aliases_to_transfer
         .iter()
         .filter(|id| alias_exists_at_dest(model, id, &destination))
         .cloned()
         .collect();
 
     if collisions.is_empty() {
-        do_move(model, &aliases_to_move, &destination);
+        do_transfer(model, &aliases_to_transfer, &destination);
     } else {
         model.mode = Mode::Confirm(ConfirmAction::OverwriteAliases {
-            aliases: aliases_to_move,
+            aliases: aliases_to_transfer,
             destination,
+            transfer_mode: TransferMode::Move,
         });
     }
 }
@@ -445,9 +447,9 @@ fn alias_exists_at_dest(model: &TuiModel, id: &AliasId, dest: &MoveDestination) 
     }
 }
 
-fn do_move(model: &mut TuiModel, aliases: &[AliasId], dest: &MoveDestination) {
+fn do_transfer(model: &mut TuiModel, aliases: &[AliasId], dest: &MoveDestination) {
     for alias_id in aliases {
-        move_single_alias(model, alias_id, dest);
+        transfer_single_alias(model, alias_id, dest);
     }
     save_all(model);
     model.selected.clear();
@@ -456,7 +458,7 @@ fn do_move(model: &mut TuiModel, aliases: &[AliasId], dest: &MoveDestination) {
     model.rebuild_tree();
 }
 
-fn move_single_alias(model: &mut TuiModel, alias_id: &AliasId, dest: &MoveDestination) {
+fn transfer_single_alias(model: &mut TuiModel, alias_id: &AliasId, dest: &MoveDestination) {
     // Read the alias from its source.
     let (alias_name_str, toml_alias) = match alias_id {
         AliasId::Global { alias_name } => {
@@ -785,7 +787,7 @@ mod tests {
         model.cursor = alias_idx;
         update(&mut model, TuiMessage::ToggleSelect);
         update(&mut model, TuiMessage::EnterMoveMode);
-        assert_eq!(model.mode, Mode::Moving);
+        assert_eq!(model.mode, Mode::Transfer(TransferMode::Move));
         assert_eq!(model.active_column, Column::Right);
     }
 
@@ -821,7 +823,7 @@ mod tests {
         model.cursor = alias_idx;
         update(&mut model, TuiMessage::ToggleSelect);
         update(&mut model, TuiMessage::EnterMoveMode);
-        update(&mut model, TuiMessage::CancelMove);
+        update(&mut model, TuiMessage::CancelTransfer);
         assert_eq!(model.mode, Mode::Normal);
         assert!(model.selected.is_empty());
         assert_eq!(model.active_column, Column::Left);
@@ -888,7 +890,7 @@ mod tests {
             .position(|n| n.label == "git")
             .unwrap();
         model.dest_cursor = git_idx;
-        update(&mut model, TuiMessage::ExecuteMove);
+        update(&mut model, TuiMessage::ExecuteTransfer);
         assert_eq!(model.mode, Mode::Normal);
         assert!(model
             .app_model

@@ -42,7 +42,7 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let content_area = padded[1];
 
     match &model.mode {
-        Mode::Moving => {
+        Mode::Transfer(_) => {
             let columns = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
@@ -225,6 +225,7 @@ fn render_confirm(frame: &mut Frame, action: &ConfirmAction, area: Rect) {
         ConfirmAction::OverwriteAliases {
             aliases,
             destination,
+            transfer_mode: _,
         } => {
             let count = aliases.len();
             let dest = match destination {
@@ -379,7 +380,7 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled("u", Style::default().fg(GOLD)),
             Span::styled(" use", Style::default().fg(TEXT_MUTED)),
         ]),
-        Mode::Moving => Line::from(vec![
+        Mode::Transfer(_) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),
             Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
