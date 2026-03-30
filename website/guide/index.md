@@ -30,26 +30,11 @@ cargo binstall amoxide amoxide-tui
 
 **2. Set up your shell:**
 
-::: code-group
-
-```fish [Fish]
-# ~/.config/fish/config.fish
-am init fish | source
+```sh
+am setup fish          # or: zsh, powershell
 ```
 
-```zsh [Zsh]
-# ~/.zshrc
-eval "$(am init zsh)"
-```
-
-```powershell [PowerShell]
-# Add to your PowerShell profile (echo $PROFILE to find it)
-(am init powershell) -join "`n" | Invoke-Expression
-```
-
-:::
-
-Or use the guided setup: `am setup fish` (or `zsh`, `powershell`).
+This detects your profile file, shows exactly what it will add, and asks for confirmation. See [Shell Setup](/guide/setup) for the manual approach.
 
 **3. Add your first alias:**
 

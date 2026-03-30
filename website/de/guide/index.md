@@ -30,26 +30,11 @@ cargo binstall amoxide amoxide-tui
 
 **2. Shell einrichten:**
 
-::: code-group
-
-```fish [Fish]
-# ~/.config/fish/config.fish
-am init fish | source
+```sh
+am setup fish          # oder: zsh, powershell
 ```
 
-```zsh [Zsh]
-# ~/.zshrc
-eval "$(am init zsh)"
-```
-
-```powershell [PowerShell]
-# Zu deinem PowerShell-Profil hinzufügen (echo $PROFILE zeigt den Pfad)
-(am init powershell) -join "`n" | Invoke-Expression
-```
-
-:::
-
-Oder verwende das geführte Setup: `am setup fish` (oder `zsh`, `powershell`).
+Das erkennt deine Profil-Datei, zeigt genau was hinzugefügt wird und fragt nach Bestätigung. Siehe [Shell-Einrichtung](/de/guide/setup) für den manuellen Weg.
 
 **3. Ersten Alias hinzufügen:**
 
