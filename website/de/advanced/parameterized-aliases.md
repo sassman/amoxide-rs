@@ -2,44 +2,62 @@
 
 # Parametrisierte Aliase
 
-Aliase können Template-Argumente verwenden, um leistungsstarke, wiederverwendbare Befehle zu erstellen.
+Standardmäßig werden alle Argumente, die du an einen Alias übergibst, am Ende angehängt — wie bei normalen Shell-Aliasen. Parametrisierte Aliase ermöglichen es, Argumente **überall** im Befehl zu platzieren.
 
 ## Template-Syntax
 
 | Template | Beschreibung |
 |----------|-------------|
-| `{{1}}`, `{{2}}`, ... | Positionsargumente |
-| `{{@}}` | Alle restlichen Argumente |
+| `{{1}}`, `{{2}}`, ... | Ein bestimmtes Positionsargument einfügen |
+| `{{@}}` | Alle Argumente an einer bestimmten Stelle einfügen |
 
-## Beispiele
+## Wann du keine Templates brauchst
 
-### Alle Argumente weiterleiten
+Nachfolgende Argumente funktionieren automatisch — kein Template nötig:
 
 ```sh
-am add -p git cm "git commit -S --signoff -m {{@}}"
+am add -p git cm "git commit -S --signoff -m"
 
 cm meine commit nachricht
 # → git commit -S --signoff -m meine commit nachricht
 ```
 
-### Aliase verketten
+## Wann Templates glänzen
+
+### Argumente in der Mitte eines Befehls
 
 ```sh
-am add -p git cm "git commit -S --signoff -m {{@}}"
-am add -p git-conventional cmf "cm feat: {{@}}"
+am add deploy "rsync -avz {{@}} user@server:/var/www/"
 
-cmf mein neues Feature
-# → cm feat: mein neues Feature
-# → git commit -S --signoff -m feat: mein neues Feature
+deploy ./dist/ --exclude=node_modules
+# → rsync -avz ./dist/ --exclude=node_modules user@server:/var/www/
 ```
+
+Ohne `{{@}}` würde das Ziel an der falschen Position landen.
 
 ### Positionsargumente
 
 ```sh
-am add greet "echo Hallo {{1}}, willkommen in {{2}}"
+am add gri "git rebase -i HEAD~{{1}}"
 
-greet Alice Wunderland
-# → echo Hallo Alice, willkommen in Wunderland
+gri 3
+# → git rebase -i HEAD~3
+```
+
+```sh
+am add gcf "git commit --fixup={{1}}"
+
+gcf abc123
+# → git commit --fixup=abc123
+```
+
+### Mehrere Positionsargumente
+
+```sh
+am add mv-branch "git branch -m {{1}} {{2}}"
+
+mv-branch alter-name neuer-name
+# → git branch -m alter-name neuer-name
 ```
 
 ## Raw-Modus
