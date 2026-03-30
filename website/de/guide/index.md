@@ -20,10 +20,12 @@ curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxid
 irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex
 ```
 
-```sh [Cargo]
-cargo install amoxide amoxide-tui
-# oder ohne Kompilierung:
+```sh [Cargo (pre-built)]
 cargo binstall amoxide amoxide-tui
+```
+
+```sh [Cargo (source)]
+cargo install amoxide amoxide-tui
 ```
 
 :::
