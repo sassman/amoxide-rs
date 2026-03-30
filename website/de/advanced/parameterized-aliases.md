@@ -51,15 +51,6 @@ gcf abc123
 # → git commit --fixup=abc123
 ```
 
-### Mehrere Positionsargumente
-
-```sh
-am add mv-branch "git branch -m {{1}} {{2}}"
-
-mv-branch alter-name neuer-name
-# → git branch -m alter-name neuer-name
-```
-
 ## Raw-Modus
 
 Wenn dein Befehl tatsächlich `{{N}}` enthält (z.B. in awk-Mustern), verwende `--raw` um die Template-Erkennung zu deaktivieren:
