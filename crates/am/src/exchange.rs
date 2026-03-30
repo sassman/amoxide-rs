@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
 use crate::{AliasSet, Profile, ProjectAliases};
@@ -93,6 +94,15 @@ pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
     }
 
     output
+}
+
+pub fn base64_encode(input: &str) -> String {
+    STANDARD.encode(input.as_bytes())
+}
+
+pub fn base64_decode(input: &str) -> anyhow::Result<String> {
+    let bytes = STANDARD.decode(input.trim())?;
+    Ok(String::from_utf8(bytes)?)
 }
 
 #[cfg(test)]
@@ -219,5 +229,13 @@ mod tests {
             .insert("t".into(), TomlAlias::Command("cargo test".into()));
         let flat = export.flatten();
         assert_eq!(flat.len(), 3);
+    }
+
+    #[test]
+    fn test_base64_roundtrip() {
+        let original = "[global_aliases]\nll = \"ls -lha\"\n";
+        let encoded = base64_encode(original);
+        let decoded = base64_decode(&encoded).unwrap();
+        assert_eq!(decoded, original);
     }
 }
