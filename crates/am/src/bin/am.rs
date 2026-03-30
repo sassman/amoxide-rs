@@ -154,6 +154,14 @@ fn main() -> anyhow::Result<()> {
                 Err(e) => return Err(e.into()),
             }
         }
+        Commands::Export(_args) => {
+            // TODO: wire up in later task
+            Message::DoNothing
+        }
+        Commands::Import(_args) => {
+            // TODO: wire up in later task
+            Message::DoNothing
+        }
         Commands::Init { shell } => Message::InitShell(shell.clone()),
         Commands::Hook { shell } => Message::Hook(shell.clone()),
         Commands::Reload { shell } => Message::Reload(shell.clone()),

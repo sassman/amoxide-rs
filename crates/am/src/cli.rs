@@ -73,6 +73,14 @@ pub enum Commands {
     #[command(alias = "t")]
     Tui,
 
+    /// Export aliases to stdout as TOML
+    #[command(alias = "e")]
+    Export(ExportArgs),
+
+    /// Import aliases from stdin
+    #[command(alias = "im")]
+    Import(ImportArgs),
+
     /// Internal: called by the cd hook to load/unload project aliases
     #[command(hide = true)]
     Hook { shell: Shells },
@@ -140,4 +148,50 @@ pub struct Alias {
 
     /// The command to alias
     pub command: Option<Vec<String>>,
+}
+
+#[derive(Args)]
+pub struct ExportArgs {
+    /// Export only project-local aliases
+    #[arg(short, long, conflicts_with_all = ["global", "profile", "all"])]
+    pub local: bool,
+
+    /// Export only global aliases
+    #[arg(short, long, conflicts_with_all = ["local", "profile", "all"])]
+    pub global: bool,
+
+    /// Export a specific profile
+    #[arg(short, long, conflicts_with_all = ["local", "global", "all"])]
+    pub profile: Option<String>,
+
+    /// Export everything (global + all profiles + local)
+    #[arg(long, conflicts_with_all = ["local", "global", "profile"])]
+    pub all: bool,
+
+    /// Encode output as base64
+    #[arg(long)]
+    pub base64: bool,
+}
+
+#[derive(Args)]
+pub struct ImportArgs {
+    /// Import into project-local aliases
+    #[arg(short, long, conflicts_with_all = ["global", "profile"])]
+    pub local: bool,
+
+    /// Import into global aliases
+    #[arg(short, long, conflicts_with_all = ["local", "profile"])]
+    pub global: bool,
+
+    /// Import into a specific profile
+    #[arg(short, long, conflicts_with_all = ["local", "global"])]
+    pub profile: Option<String>,
+
+    /// Decode base64 input before parsing
+    #[arg(long)]
+    pub base64: bool,
+
+    /// Skip all confirmation prompts
+    #[arg(short = 'y', long = "yes")]
+    pub yes: bool,
 }
