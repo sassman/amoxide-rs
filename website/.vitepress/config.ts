@@ -53,7 +53,7 @@ export default defineConfig({
     },
     footer: {
       message: 'Released under the GPLv3 License.',
-      copyright: 'Copyright © 2024-present Sven Assmann',
+      copyright: 'Copyright © 2024-present Sven Kanoldt',
     },
   },
 })
