@@ -1,10 +1,28 @@
 /* Dracula-inspired theme — matching amoxide TUI */
 
 :root {
-  --vp-c-brand-1: #50fa7b;
-  --vp-c-brand-2: #42d96a;
-  --vp-c-brand-3: #36b85a;
-  --vp-c-brand-soft: rgba(80, 250, 123, 0.14);
+  --vp-c-brand-1: #1a8a4a;
+  --vp-c-brand-2: #15773f;
+  --vp-c-brand-3: #106535;
+  --vp-c-brand-soft: rgba(26, 138, 74, 0.14);
+
+  --vp-button-brand-bg: #1a8a4a;
+  --vp-button-brand-hover-bg: #15773f;
+  --vp-button-brand-active-bg: #106535;
+  --vp-button-brand-text: #ffffff;
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(
+    120deg,
+    #1a8a4a 30%,
+    #0d7fa5
+  );
+  --vp-home-hero-image-background-image: linear-gradient(
+    -45deg,
+    #1a8a4a50 50%,
+    #0d7fa550 50%
+  );
+  --vp-home-hero-image-filter: blur(44px);
 }
 
 .dark {
