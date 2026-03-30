@@ -33,6 +33,7 @@ export default defineConfig({
               text: 'Usage',
               items: [
                 { text: 'Overview', link: '/config/' },
+                { text: 'Global Aliases', link: '/config/global' },
                 { text: 'Profiles', link: '/config/profiles' },
                 { text: 'Project Aliases', link: '/config/project-aliases' },
               ],
@@ -78,6 +79,7 @@ export default defineConfig({
               text: 'Nutzung',
               items: [
                 { text: 'Übersicht', link: '/de/config/' },
+                { text: 'Globale Aliase', link: '/de/config/global' },
                 { text: 'Profile', link: '/de/config/profiles' },
                 { text: 'Projekt-Aliase', link: '/de/config/project-aliases' },
               ],

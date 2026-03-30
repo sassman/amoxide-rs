@@ -27,5 +27,6 @@ Jede Ebene kann die vorherige überschreiben. Projekt-Aliase überschreiben Prof
   nr → npm run
 ```
 
+- [Globale Aliase](/de/config/global) — immer verfügbare Aliase für jede Sitzung
 - [Profile](/de/config/profiles) — benannte Alias-Gruppen verwalten
 - [Projekt-Aliase](/de/config/project-aliases) — verzeichnisbezogene `.aliases`-Dateien
