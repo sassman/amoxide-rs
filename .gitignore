@@ -5,3 +5,8 @@ TODOs.md
 .worktrees/
 /tmp/
 .superpowers/
+
+# Website
+website/node_modules/
+website/.vitepress/cache/
+website/.vitepress/dist/

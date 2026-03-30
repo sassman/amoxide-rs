@@ -1,0 +1,64 @@
+/* Dracula-inspired theme — matching amoxide TUI */
+
+:root {
+  --vp-c-brand-1: #50fa7b;
+  --vp-c-brand-2: #42d96a;
+  --vp-c-brand-3: #36b85a;
+  --vp-c-brand-soft: rgba(80, 250, 123, 0.14);
+}
+
+.dark {
+  --vp-c-bg: #282a36;
+  --vp-c-bg-soft: #2d2f3d;
+  --vp-c-bg-alt: #21222c;
+
+  --vp-c-text-1: #f8f8f2;
+  --vp-c-text-2: #c0bfca;
+  --vp-c-text-3: #6272a4;
+
+  --vp-c-brand-1: #50fa7b;
+  --vp-c-brand-2: #42d96a;
+  --vp-c-brand-3: #36b85a;
+  --vp-c-brand-soft: rgba(80, 250, 123, 0.14);
+
+  --vp-c-default-1: #44475a;
+  --vp-c-default-2: #3d3f4e;
+  --vp-c-default-3: #353744;
+  --vp-c-default-soft: rgba(68, 71, 90, 0.4);
+
+  --vp-c-tip-1: #8be9fd;
+  --vp-c-tip-2: #6dd4e8;
+  --vp-c-tip-soft: rgba(139, 233, 253, 0.14);
+
+  --vp-c-warning-1: #f1fa8c;
+  --vp-c-warning-2: #d4e077;
+  --vp-c-warning-soft: rgba(241, 250, 140, 0.14);
+
+  --vp-c-danger-1: #ff5555;
+  --vp-c-danger-2: #e04444;
+  --vp-c-danger-soft: rgba(255, 85, 85, 0.14);
+
+  --vp-code-block-bg: #21222c;
+
+  --vp-button-brand-bg: #50fa7b;
+  --vp-button-brand-hover-bg: #42d96a;
+  --vp-button-brand-active-bg: #36b85a;
+  --vp-button-brand-text: #282a36;
+
+  --vp-button-alt-bg: #44475a;
+  --vp-button-alt-hover-bg: #535669;
+  --vp-button-alt-text: #f8f8f2;
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(
+    120deg,
+    #50fa7b 30%,
+    #8be9fd
+  );
+  --vp-home-hero-image-background-image: linear-gradient(
+    -45deg,
+    #50fa7b50 50%,
+    #8be9fd50 50%
+  );
+  --vp-home-hero-image-filter: blur(44px);
+}
