@@ -5,21 +5,21 @@ Global aliases are always active — available in every shell session, regardles
 ## Adding Global Aliases
 
 ```sh
-am add gs git status
-am add ll "ls -lha"
+am add -g gs git status
+am add -g ll "ls -lha"
 ```
 
-When you run `am add` without `-p` (profile) or `-l` (local), the alias is added globally.
+The `-g` (or `--global`) flag adds the alias globally, independent of any profile.
 
 ::: tip
-Short form: `am a gs git status`
+Short form: `am a -g gs git status`
 :::
 
 ## Removing Global Aliases
 
 ```sh
-am remove gs
-am r gs              # short form
+am remove -g gs
+am r -g gs           # short form
 ```
 
 ## When to Use Global Aliases

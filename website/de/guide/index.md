@@ -42,7 +42,7 @@ Das erkennt deine Profil-Datei, zeigt genau was hinzugefügt wird und fragt nach
 am add gs git status
 ```
 
-Das war's — `gs` ist jetzt global in jeder Shell-Sitzung verfügbar, kein Neustart nötig. Verwende `-l` um stattdessen einen projektspezifischen Alias hinzuzufügen:
+Das war's — `gs` ist jetzt in deinem aktiven Profil verfügbar, kein Neustart nötig. Verwende `-g` für einen globalen Alias (immer aktiv) oder `-l` für einen projektspezifischen:
 
 ```sh
 am add -l t cargo test

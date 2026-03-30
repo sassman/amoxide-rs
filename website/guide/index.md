@@ -42,7 +42,7 @@ This detects your profile file, shows exactly what it will add, and asks for con
 am add gs git status
 ```
 
-That's it — `gs` is now available globally in every shell session, no restart needed. Use `-l` to add a project-specific alias instead:
+That's it — `gs` is now available on your active profile, no restart needed. Use `-g` for a global alias (always active) or `-l` for a project-specific one:
 
 ```sh
 am add -l t cargo test
