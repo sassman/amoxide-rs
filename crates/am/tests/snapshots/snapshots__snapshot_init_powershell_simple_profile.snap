@@ -87,6 +87,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('init', 'init', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print shell init code')
             [System.Management.Automation.CompletionResult]::new('setup', 'setup', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [System.Management.Automation.CompletionResult]::new('tui', 'tui', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [System.Management.Automation.CompletionResult]::new('export', 'export', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
+            [System.Management.Automation.CompletionResult]::new('import', 'import', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Import aliases from stdin')
             [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -219,6 +221,37 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;export' {
+            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Export a specific profile')
+            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Export a specific profile')
+            [System.Management.Automation.CompletionResult]::new('-l', '-l', [System.Management.Automation.CompletionResultType]::ParameterName, 'Export only project-local aliases')
+            [System.Management.Automation.CompletionResult]::new('--local', '--local', [System.Management.Automation.CompletionResultType]::ParameterName, 'Export only project-local aliases')
+            [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Export only global aliases')
+            [System.Management.Automation.CompletionResult]::new('--global', '--global', [System.Management.Automation.CompletionResultType]::ParameterName, 'Export only global aliases')
+            [System.Management.Automation.CompletionResult]::new('--all', '--all', [System.Management.Automation.CompletionResultType]::ParameterName, 'Export everything (global + all profiles + local)')
+            [System.Management.Automation.CompletionResult]::new('--base64', '--base64', [System.Management.Automation.CompletionResultType]::ParameterName, 'Encode output as base64')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;import' {
+            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Import into a specific profile')
+            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Import into a specific profile')
+            [System.Management.Automation.CompletionResult]::new('-l', '-l', [System.Management.Automation.CompletionResultType]::ParameterName, 'Import into project-local aliases')
+            [System.Management.Automation.CompletionResult]::new('--local', '--local', [System.Management.Automation.CompletionResultType]::ParameterName, 'Import into project-local aliases')
+            [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Import into global aliases')
+            [System.Management.Automation.CompletionResult]::new('--global', '--global', [System.Management.Automation.CompletionResultType]::ParameterName, 'Import into global aliases')
+            [System.Management.Automation.CompletionResult]::new('--base64', '--base64', [System.Management.Automation.CompletionResultType]::ParameterName, 'Decode base64 input before parsing')
+            [System.Management.Automation.CompletionResult]::new('-y', '-y', [System.Management.Automation.CompletionResultType]::ParameterName, 'Skip all confirmation prompts')
+            [System.Management.Automation.CompletionResult]::new('--yes', '--yes', [System.Management.Automation.CompletionResultType]::ParameterName, 'Skip all confirmation prompts')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;hook' {
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
@@ -242,6 +275,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('init', 'init', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print shell init code')
             [System.Management.Automation.CompletionResult]::new('setup', 'setup', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [System.Management.Automation.CompletionResult]::new('tui', 'tui', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [System.Management.Automation.CompletionResult]::new('export', 'export', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
+            [System.Management.Automation.CompletionResult]::new('import', 'import', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Import aliases from stdin')
             [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -285,6 +320,12 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;tui' {
+            break
+        }
+        'am;help;export' {
+            break
+        }
+        'am;help;import' {
             break
         }
         'am;help;hook' {
