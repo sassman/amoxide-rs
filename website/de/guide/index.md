@@ -1,0 +1,71 @@
+# Erste Schritte
+
+amoxide (`am`) ist ein Shell-Alias-Manager, der [direnv](https://direnv.net)-ähnliche Funktionalität für Aliase bietet. Statt Aliase in statischen Dotfiles zu verwalten, definiere sie pro Projekt, pro Toolchain oder global — die richtigen werden automatisch geladen.
+
+## Schnellstart
+
+**1. amoxide installieren:**
+
+::: code-group
+
+```sh [Homebrew]
+brew install sassman/tap/amoxide
+```
+
+```sh [Shell-Skript]
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
+```
+
+```powershell [PowerShell]
+irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex
+```
+
+```sh [Cargo]
+cargo install amoxide
+# oder ohne Kompilierung:
+cargo binstall amoxide
+```
+
+:::
+
+**2. Shell einrichten:**
+
+::: code-group
+
+```fish [Fish]
+# ~/.config/fish/config.fish
+am init fish | source
+```
+
+```zsh [Zsh]
+# ~/.zshrc
+eval "$(am init zsh)"
+```
+
+```powershell [PowerShell]
+# Zu deinem PowerShell-Profil hinzufügen (echo $PROFILE zeigt den Pfad)
+(am init powershell) -join "`n" | Invoke-Expression
+```
+
+:::
+
+Oder verwende das geführte Setup: `am setup fish` (oder `zsh`, `powershell`).
+
+**3. Ersten Alias hinzufügen:**
+
+```sh
+am add gs git status
+```
+
+**4. Überprüfen:**
+
+```sh
+am status
+```
+
+## Nächste Schritte
+
+- [Installation](/de/guide/installation) — alle Installationsmethoden im Detail
+- [Shell-Einrichtung](/de/guide/setup) — wie die Shell-Integration funktioniert
+- [Profile](/de/config/profiles) — Aliase in wiederverwendbare Gruppen organisieren
+- [Projekt-Aliase](/de/config/project-aliases) — automatisch ladende `.aliases`-Dateien

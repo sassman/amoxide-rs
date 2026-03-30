@@ -1,0 +1,31 @@
+# Konfiguration
+
+amoxide organisiert Aliase in drei Ebenen, von breitester zu spezifischster:
+
+1. **Global** — immer aktiv, in jeder Shell-Sitzung verfügbar
+2. **Profile** — benannte Alias-Gruppen, die aktiviert/deaktiviert werden können
+3. **Projekt** — lokale `.aliases`-Dateien, die sich automatisch pro Verzeichnis laden
+
+Jede Ebene kann die vorherige überschreiben. Projekt-Aliase überschreiben Profil-Aliase, die wiederum globale Aliase überschreiben.
+
+```
+🌐 global
+│ helo → echo hello world global
+│
+├─● git (active: 1)
+│ gm → git commit -S --signoff -m
+│
+├─● rust (active: 2)
+│ ct → cargo test
+│ cb → cargo build
+│
+╰─📁 project aliases (.aliases)
+  t → ./x.py test
+  b → ./x.py build
+
+○ node
+  nr → npm run
+```
+
+- [Profile](/de/config/profiles) — benannte Alias-Gruppen verwalten
+- [Projekt-Aliase](/de/config/project-aliases) — verzeichnisbezogene `.aliases`-Dateien
