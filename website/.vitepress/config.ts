@@ -12,7 +12,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/' },
-          { text: 'Config', link: '/config/' },
+          { text: 'Usage', link: '/config/' },
           { text: 'Advanced', link: '/advanced/' },
           { text: 'Showcase', link: '/showcase/' },
           { text: 'FAQ', link: '/faq' },
@@ -30,7 +30,7 @@ export default defineConfig({
           ],
           '/config/': [
             {
-              text: 'Configuration',
+              text: 'Usage',
               items: [
                 { text: 'Overview', link: '/config/' },
                 { text: 'Profiles', link: '/config/profiles' },
@@ -57,7 +57,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Anleitung', link: '/de/guide/' },
-          { text: 'Konfiguration', link: '/de/config/' },
+          { text: 'Nutzung', link: '/de/config/' },
           { text: 'Erweitert', link: '/de/advanced/' },
           { text: 'Showcase', link: '/de/showcase/' },
           { text: 'FAQ', link: '/de/faq' },
@@ -75,7 +75,7 @@ export default defineConfig({
           ],
           '/de/config/': [
             {
-              text: 'Konfiguration',
+              text: 'Nutzung',
               items: [
                 { text: 'Übersicht', link: '/de/config/' },
                 { text: 'Profile', link: '/de/config/profiles' },

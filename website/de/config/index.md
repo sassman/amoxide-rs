@@ -1,4 +1,4 @@
-# Konfiguration
+# Nutzung
 
 amoxide organisiert Aliase in drei Ebenen, von breitester zu spezifischster:
 

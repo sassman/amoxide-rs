@@ -1,4 +1,4 @@
-# Configuration
+# Usage
 
 amoxide organizes aliases in three layers, from broadest to most specific:
 
