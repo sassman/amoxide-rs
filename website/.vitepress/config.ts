@@ -45,6 +45,7 @@ export default defineConfig({
               items: [
                 { text: 'Overview', link: '/advanced/' },
                 { text: 'Parameterized Aliases', link: '/advanced/parameterized-aliases' },
+                { text: 'Composing Aliases', link: '/advanced/composing-aliases' },
               ],
             },
           ],
@@ -91,6 +92,7 @@ export default defineConfig({
               items: [
                 { text: 'Übersicht', link: '/de/advanced/' },
                 { text: 'Parametrisierte Aliase', link: '/de/advanced/parameterized-aliases' },
+                { text: 'Aliase verketten', link: '/de/advanced/composing-aliases' },
               ],
             },
           ],

@@ -1,3 +1,4 @@
 # Erweiterte Nutzung
 
-- [Parametrisierte Aliase](/de/advanced/parameterized-aliases) — leistungsstarke Aliase mit Argument-Templates erstellen
+- [Parametrisierte Aliase](/de/advanced/parameterized-aliases) — Argumente überall im Befehl platzieren mit Templates
+- [Aliase verketten](/de/advanced/composing-aliases) — leistungsstarke Ketten durch Aufeinanderschichten von Aliasen
