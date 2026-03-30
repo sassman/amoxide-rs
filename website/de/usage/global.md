@@ -30,7 +30,7 @@ Globale Aliase eignen sich am besten für Befehle, die du überall verwendest, u
 - System-Utilities (`ll`, `la`)
 - Editor-Abkürzungen
 
-Für Aliase, die nur in bestimmten Kontexten Sinn machen, verwende [Profile](/de/config/profiles) (z.B. Rust-Toolchain-Aliase) oder [Projekt-Aliase](/de/config/project-aliases) (z.B. projektspezifische Build-Befehle).
+Für Aliase, die nur in bestimmten Kontexten Sinn machen, verwende [Profile](/de/usage/profiles) (z.B. Rust-Toolchain-Aliase) oder [Projekt-Aliase](/de/usage/project-aliases) (z.B. projektspezifische Build-Befehle).
 
 ## Wie es funktioniert
 

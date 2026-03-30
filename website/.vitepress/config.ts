@@ -12,7 +12,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/' },
-          { text: 'Usage', link: '/config/' },
+          { text: 'Usage', link: '/usage/' },
           { text: 'Advanced', link: '/advanced/' },
           { text: 'Showcase', link: '/showcase/' },
           { text: 'FAQ', link: '/faq' },
@@ -28,14 +28,14 @@ export default defineConfig({
               ],
             },
           ],
-          '/config/': [
+          '/usage/': [
             {
               text: 'Usage',
               items: [
-                { text: 'Overview', link: '/config/' },
-                { text: 'Global Aliases', link: '/config/global' },
-                { text: 'Profiles', link: '/config/profiles' },
-                { text: 'Project Aliases', link: '/config/project-aliases' },
+                { text: 'Overview', link: '/usage/' },
+                { text: 'Global Aliases', link: '/usage/global' },
+                { text: 'Profiles', link: '/usage/profiles' },
+                { text: 'Project Aliases', link: '/usage/project-aliases' },
               ],
             },
           ],
@@ -58,7 +58,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Anleitung', link: '/de/guide/' },
-          { text: 'Nutzung', link: '/de/config/' },
+          { text: 'Nutzung', link: '/de/usage/' },
           { text: 'Erweitert', link: '/de/advanced/' },
           { text: 'Showcase', link: '/de/showcase/' },
           { text: 'FAQ', link: '/de/faq' },
@@ -74,14 +74,14 @@ export default defineConfig({
               ],
             },
           ],
-          '/de/config/': [
+          '/de/usage/': [
             {
               text: 'Nutzung',
               items: [
-                { text: 'Übersicht', link: '/de/config/' },
-                { text: 'Globale Aliase', link: '/de/config/global' },
-                { text: 'Profile', link: '/de/config/profiles' },
-                { text: 'Projekt-Aliase', link: '/de/config/project-aliases' },
+                { text: 'Übersicht', link: '/de/usage/' },
+                { text: 'Globale Aliase', link: '/de/usage/global' },
+                { text: 'Profile', link: '/de/usage/profiles' },
+                { text: 'Projekt-Aliase', link: '/de/usage/project-aliases' },
               ],
             },
           ],

@@ -48,7 +48,7 @@ Das war's — `gs` ist jetzt global in jeder Shell-Sitzung verfügbar, kein Neus
 am add -l t cargo test
 ```
 
-Das schreibt in eine `.aliases`-Datei im aktuellen Verzeichnis — automatisch geladen beim `cd` hinein, entladen beim Verlassen. Siehe [Nutzung](/de/config/) für das Zusammenspiel von globalen, Profil- und Projekt-Aliasen.
+Das schreibt in eine `.aliases`-Datei im aktuellen Verzeichnis — automatisch geladen beim `cd` hinein, entladen beim Verlassen. Siehe [Nutzung](/de/usage/) für das Zusammenspiel von globalen, Profil- und Projekt-Aliasen.
 
 **4. Aliase anzeigen:**
 
@@ -61,5 +61,5 @@ am ls
 
 - [Installation](/de/guide/installation) — alle Installationsmethoden im Detail
 - [Shell-Einrichtung](/de/guide/setup) — wie die Shell-Integration funktioniert
-- [Profile](/de/config/profiles) — Aliase in wiederverwendbare Gruppen organisieren
-- [Projekt-Aliase](/de/config/project-aliases) — automatisch ladende `.aliases`-Dateien
+- [Profile](/de/usage/profiles) — Aliase in wiederverwendbare Gruppen organisieren
+- [Projekt-Aliase](/de/usage/project-aliases) — automatisch ladende `.aliases`-Dateien

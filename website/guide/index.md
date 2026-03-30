@@ -48,7 +48,7 @@ That's it — `gs` is now available globally in every shell session, no restart 
 am add -l t cargo test
 ```
 
-This writes to a `.aliases` file in the current directory — loaded automatically when you `cd` in, unloaded when you leave. See [Usage](/config/) for how global, profile, and project aliases work together.
+This writes to a `.aliases` file in the current directory — loaded automatically when you `cd` in, unloaded when you leave. See [Usage](/usage/) for how global, profile, and project aliases work together.
 
 **4. See your aliases:**
 
@@ -61,5 +61,5 @@ am ls
 
 - [Installation](/guide/installation) — all installation methods in detail
 - [Shell Setup](/guide/setup) — how the shell integration works
-- [Profiles](/config/profiles) — organize aliases into reusable groups
-- [Project Aliases](/config/project-aliases) — auto-loading `.aliases` files
+- [Profiles](/usage/profiles) — organize aliases into reusable groups
+- [Project Aliases](/usage/project-aliases) — auto-loading `.aliases` files

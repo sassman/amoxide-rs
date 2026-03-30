@@ -30,7 +30,7 @@ Global aliases are best for commands you use everywhere, regardless of project c
 - System utilities (`ll`, `la`)
 - Editor shortcuts
 
-For aliases that only make sense in certain contexts, use [Profiles](/config/profiles) (e.g., Rust toolchain aliases) or [Project Aliases](/config/project-aliases) (e.g., project-specific build commands).
+For aliases that only make sense in certain contexts, use [Profiles](/usage/profiles) (e.g., Rust toolchain aliases) or [Project Aliases](/usage/project-aliases) (e.g., project-specific build commands).
 
 ## How They Work
 

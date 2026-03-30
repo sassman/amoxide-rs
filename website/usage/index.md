@@ -27,6 +27,6 @@ Each layer can override the previous one. Project aliases override profile alias
   nr → npm run
 ```
 
-- [Global Aliases](/config/global) — always-on aliases for every session
-- [Profiles](/config/profiles) — managing named alias groups
-- [Project Aliases](/config/project-aliases) — directory-scoped `.aliases` files
+- [Global Aliases](/usage/global) — always-on aliases for every session
+- [Profiles](/usage/profiles) — managing named alias groups
+- [Project Aliases](/usage/project-aliases) — directory-scoped `.aliases` files
