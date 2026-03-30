@@ -15,7 +15,7 @@ fn map_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
         return Some(TuiMessage::Quit);
     }
     match mode {
-        Mode::Normal | Mode::Moving => map_normal_key(key, mode),
+        Mode::Normal | Mode::Transfer(_) => map_normal_key(key, mode),
         Mode::TextInput(_) => map_text_input_key(key),
         Mode::Confirm(_) => map_confirm_key(key),
     }
@@ -29,12 +29,14 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Char('G') | KeyCode::End => Some(TuiMessage::JumpBottom),
         KeyCode::Char(' ') => Some(TuiMessage::ToggleSelect),
         KeyCode::Char('m') => Some(TuiMessage::EnterMoveMode),
-        KeyCode::Enter => Some(TuiMessage::ExecuteMove),
-        KeyCode::Esc => Some(TuiMessage::CancelMove),
+        KeyCode::Char('c') => Some(TuiMessage::EnterCopyMode),
+        KeyCode::Enter => Some(TuiMessage::ExecuteTransfer),
+        KeyCode::Esc => Some(TuiMessage::CancelTransfer),
         KeyCode::Tab => Some(TuiMessage::SwitchColumn),
         KeyCode::Char('u') => Some(TuiMessage::UseProfile),
         KeyCode::Char('a') => Some(TuiMessage::StartAddAlias),
         KeyCode::Char('n') => Some(TuiMessage::StartCreateProfile),
+        KeyCode::Char('e') => Some(TuiMessage::EditItem),
         KeyCode::Char('x') => Some(TuiMessage::DeleteItem),
         KeyCode::Char(c @ '1'..='9') => Some(TuiMessage::UseProfileWithPriority(
             c as usize - '0' as usize,
@@ -140,6 +142,20 @@ mod tests {
         let mut r = InputResolver::default();
         let msgs = r.feed(&press('z'), &normal());
         assert!(msgs.is_empty());
+    }
+
+    #[test]
+    fn feed_c_returns_enter_copy_mode() {
+        let mut r = InputResolver::default();
+        let msgs = r.feed(&press('c'), &normal());
+        assert_eq!(msgs, vec![TuiMessage::EnterCopyMode]);
+    }
+
+    #[test]
+    fn feed_e_returns_edit_item() {
+        let mut r = InputResolver::default();
+        let msgs = r.feed(&press('e'), &normal());
+        assert_eq!(msgs, vec![TuiMessage::EditItem]);
     }
 
     // ── feed: sequence start ───────────────────────────────────────

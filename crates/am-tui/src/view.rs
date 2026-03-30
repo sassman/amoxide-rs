@@ -13,6 +13,7 @@ const TREE_CONNECTOR_ACTIVE: Color = Color::Rgb(150, 150, 80); // brighter conne
 const SELECTED_ACCENT: Color = Color::Rgb(208, 136, 74); // #d0884a — warm orange for selected marker/connectors
 const SELECTED_ACCENT_MUTED: Color = Color::Rgb(154, 101, 53); // #9a6535 — muted orange for selected commands
 const SELECTED_TEXT: Color = Color::Rgb(232, 232, 234); // #e8e8ea — bright white for selected alias names
+const ERROR_RED: Color = Color::Rgb(220, 80, 80); // #dc5050 — error / validation feedback
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
@@ -42,7 +43,7 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let content_area = padded[1];
 
     match &model.mode {
-        Mode::Moving => {
+        Mode::Transfer(_) => {
             let columns = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
@@ -113,9 +114,13 @@ fn header_colors(node: &TreeNode, is_cursor: bool) -> (Color, Color) {
 }
 
 fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
+    let title = match &model.mode {
+        Mode::Transfer(TransferMode::Copy) => "-> Copy to",
+        _ => "-> Move to",
+    };
     let mut lines: Vec<Line<'static>> = Vec::new();
     lines.push(Line::from(Span::styled(
-        "-> Move to",
+        title,
         Style::default().fg(HEADER_DEFAULT).bold(),
     )));
     lines.push(Line::from(""));
@@ -206,6 +211,64 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 },
             ])
         }
+        TextInputState::EditProfile { name, error, .. } => {
+            let err_span = error
+                .as_ref()
+                .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
+                .unwrap_or_else(|| Span::raw(""));
+            Line::from(vec![
+                Span::styled("  Rename profile: ", Style::default().fg(GOLD)),
+                Span::styled(name.as_str(), Style::default().fg(TEXT_PRIMARY)),
+                Span::styled("_", Style::default().fg(TEXT_PRIMARY)),
+                err_span,
+            ])
+        }
+        TextInputState::EditAlias {
+            alias_id,
+            name,
+            command,
+            active_field,
+            error,
+        } => {
+            let scope_label = match alias_id {
+                AliasId::Global { .. } => "global",
+                AliasId::Profile { profile_name, .. } => profile_name.as_str(),
+                AliasId::Project { .. } => "project",
+            };
+            let name_style = if *active_field == AliasField::Name {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let cmd_style = if *active_field == AliasField::Command {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let cursor_after_name = *active_field == AliasField::Name;
+            let cursor_after_cmd = *active_field == AliasField::Command;
+            let err_span = error
+                .as_ref()
+                .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
+                .unwrap_or_else(|| Span::raw(""));
+            Line::from(vec![
+                Span::styled(format!("  [{scope_label}] "), Style::default().fg(GOLD)),
+                Span::styled(name.as_str(), name_style),
+                if cursor_after_name {
+                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
+                } else {
+                    Span::raw("")
+                },
+                Span::styled(" = ", Style::default().fg(TEXT_MUTED)),
+                Span::styled(command.as_str(), cmd_style),
+                if cursor_after_cmd {
+                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
+                } else {
+                    Span::raw("")
+                },
+                err_span,
+            ])
+        }
     };
     frame.render_widget(ratatui::widgets::Clear, input_area);
     frame.render_widget(Paragraph::new(prompt), input_area);
@@ -225,14 +288,19 @@ fn render_confirm(frame: &mut Frame, action: &ConfirmAction, area: Rect) {
         ConfirmAction::OverwriteAliases {
             aliases,
             destination,
+            transfer_mode,
         } => {
             let count = aliases.len();
+            let verb = match transfer_mode {
+                TransferMode::Move => "Move",
+                TransferMode::Copy => "Copy",
+            };
             let dest = match destination {
                 MoveDestination::Global => "global".to_string(),
                 MoveDestination::Project => "project".to_string(),
                 MoveDestination::Profile(name) => format!("profile \"{name}\""),
             };
-            format!("  Move {count} alias(es) to {dest}, overwriting duplicates? [y/n]")
+            format!("  {verb} {count} alias(es) to {dest}, overwriting duplicates? [y/n]")
         }
     };
     let widget = Paragraph::new(message).style(Style::default().fg(GOLD));
@@ -372,14 +440,18 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("m", Style::default().fg(GOLD)),
             Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("c", Style::default().fg(GOLD)),
+            Span::styled(" copy  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("n", Style::default().fg(GOLD)),
             Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("x", Style::default().fg(GOLD)),
             Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("e", Style::default().fg(GOLD)),
+            Span::styled(" edit  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("u", Style::default().fg(GOLD)),
             Span::styled(" use", Style::default().fg(TEXT_MUTED)),
         ]),
-        Mode::Moving => Line::from(vec![
+        Mode::Transfer(TransferMode::Move) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),
             Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
@@ -387,6 +459,17 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" navigate  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Enter", Style::default().fg(GOLD)),
             Span::styled(" move here  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Tab", Style::default().fg(GOLD)),
+            Span::styled(" switch column", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::Transfer(TransferMode::Copy) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("jk/↑↓", Style::default().fg(GOLD)),
+            Span::styled(" navigate  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" copy here  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Tab", Style::default().fg(GOLD)),
             Span::styled(" switch column", Style::default().fg(TEXT_MUTED)),
         ]),
@@ -398,6 +481,22 @@ fn help_bar(mode: &Mode) -> Line<'static> {
             Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
         ]),
         Mode::TextInput(TextInputState::NewAlias { .. }) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Tab", Style::default().fg(GOLD)),
+            Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::TextInput(TextInputState::EditProfile { .. }) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::TextInput(TextInputState::EditAlias { .. }) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Tab", Style::default().fg(GOLD)),
             Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),
