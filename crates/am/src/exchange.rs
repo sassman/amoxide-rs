@@ -61,6 +61,40 @@ pub fn parse_import(input: &str) -> anyhow::Result<ExportAll> {
     anyhow::bail!("no aliases found in input")
 }
 
+use crate::alias::MergeResult;
+
+/// Render the import summary for a single scope.
+pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
+    let total = result.new_aliases.len() + result.conflicts.len();
+    let mut output = format!("Importing \"{scope_name}\" ({total} aliases)\n");
+
+    if !result.new_aliases.is_empty() {
+        output.push_str("\n  new:\n");
+        for (name, alias) in result.new_aliases.iter() {
+            output.push_str(&format!(
+                "    {} \u{2192} {}\n",
+                name.as_ref(),
+                alias.command()
+            ));
+        }
+    }
+
+    if !result.conflicts.is_empty() {
+        output.push_str(&format!(
+            "\n  {} conflict{}:\n",
+            result.conflicts.len(),
+            if result.conflicts.len() == 1 { "" } else { "s" }
+        ));
+        for conflict in &result.conflicts {
+            output.push_str(&format!("\n    {}:\n", conflict.name.as_ref()));
+            output.push_str(&format!("      - {}\n", conflict.current.command()));
+            output.push_str(&format!("      + {}\n", conflict.incoming.command()));
+        }
+    }
+
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

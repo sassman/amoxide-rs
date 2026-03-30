@@ -1,4 +1,6 @@
+use amoxide::alias::{AliasConflict, MergeResult};
 use amoxide::display::{render_listing, render_profiles};
+use amoxide::exchange::render_import_summary;
 use amoxide::hook::generate_hook;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::shell::Shells;
@@ -415,5 +417,49 @@ fn snapshot_display_listing_with_globals_and_project() {
     .unwrap();
 
     let output = render_listing(&globals, &config, &["rust".to_string()], dir.path());
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Import summary snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_import_summary_with_conflicts() {
+    let mut new_aliases = AliasSet::default();
+    new_aliases.insert("ga".into(), TomlAlias::Command("git add".into()));
+    new_aliases.insert("gd".into(), TomlAlias::Command("git diff".into()));
+    new_aliases.insert("gp".into(), TomlAlias::Command("git push".into()));
+
+    let conflicts = vec![
+        AliasConflict {
+            name: "cm".into(),
+            current: TomlAlias::Command("git commit -m".into()),
+            incoming: TomlAlias::Command("git commit -sm".into()),
+        },
+        AliasConflict {
+            name: "gs".into(),
+            current: TomlAlias::Command("git status --short".into()),
+            incoming: TomlAlias::Command("git status".into()),
+        },
+    ];
+
+    let result = MergeResult {
+        new_aliases,
+        conflicts,
+    };
+    let output = render_import_summary("git", &result);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_import_summary_no_conflicts() {
+    let mut new_aliases = AliasSet::default();
+    new_aliases.insert("gs".into(), TomlAlias::Command("git status".into()));
+    let result = MergeResult {
+        new_aliases,
+        conflicts: vec![],
+    };
+    let output = render_import_summary("global", &result);
     insta::assert_snapshot!(output);
 }

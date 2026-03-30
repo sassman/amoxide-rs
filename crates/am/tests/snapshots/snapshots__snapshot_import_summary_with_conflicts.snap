@@ -1,0 +1,20 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+Importing "git" (5 aliases)
+
+  new:
+    ga → git add
+    gd → git diff
+    gp → git push
+
+  2 conflicts:
+
+    cm:
+      - git commit -m
+      + git commit -sm
+
+    gs:
+      - git status --short
+      + git status
