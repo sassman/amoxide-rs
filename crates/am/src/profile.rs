@@ -86,6 +86,25 @@ impl ProfileConfig {
         Ok(Response::ProfileAdded(i))
     }
 
+    pub fn merge_profile(&mut self, profile: Profile) {
+        if let Some(existing) = self.get_profile_by_name_mut(&profile.name) {
+            for (name, alias) in profile.aliases.iter() {
+                existing.aliases.insert(name.clone(), alias.clone());
+            }
+        } else {
+            self.profiles.push(profile);
+            self.profiles.sort();
+        }
+    }
+
+    pub fn to_vec(&self) -> Vec<Profile> {
+        self.profiles.clone()
+    }
+
+    pub fn from_profiles(profiles: Vec<Profile>) -> Self {
+        Self { profiles }
+    }
+
     pub fn remove_profile(&mut self, name: &str) -> Result<()> {
         let idx = self
             .profiles
@@ -283,6 +302,48 @@ mod tests {
         // "t" should be "cargo test" (from rust, which comes later)
         let t_alias = resolved.iter().find(|(n, _)| n.as_ref() == "t").unwrap();
         assert_eq!(t_alias.1.command(), "cargo test");
+    }
+
+    #[test]
+    fn test_merge_profile_new() {
+        let mut config = ProfileConfig::default();
+        let mut profile = Profile::new("git".into());
+        profile
+            .add_alias("gs".into(), "git status".into(), false)
+            .unwrap();
+        config.merge_profile(profile);
+        assert_eq!(config.len(), 1);
+        assert!(config.get_profile_by_name("git").is_some());
+    }
+
+    #[test]
+    fn test_merge_profile_existing() {
+        let mut config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+        "#})
+        .unwrap();
+        let mut incoming = Profile::new("git".into());
+        incoming
+            .add_alias("gp".into(), "git push".into(), false)
+            .unwrap();
+        incoming
+            .add_alias("gs".into(), "git status -s".into(), false)
+            .unwrap();
+        config.merge_profile(incoming);
+        assert_eq!(config.len(), 1);
+        let profile = config.get_profile_by_name("git").unwrap();
+        assert_eq!(profile.aliases.len(), 2);
+        assert_eq!(
+            profile
+                .aliases
+                .get(&AliasName::from("gs"))
+                .unwrap()
+                .command(),
+            "git status -s"
+        );
     }
 
     #[test]
