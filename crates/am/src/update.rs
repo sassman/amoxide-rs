@@ -224,6 +224,21 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             model.config.active_profiles.retain(|p| p != &name);
             Ok(UpdateResult::effect(Effect::SaveProfiles))
         }
+        Message::Import(payload) => {
+            let mut effects = Vec::new();
+            if let Some(aliases) = payload.global_aliases {
+                model.config.merge_aliases(aliases);
+                effects.push(Effect::SaveConfig);
+            }
+            for profile in payload.profiles {
+                model.profile_config_mut().merge_profile(profile);
+                if !effects.contains(&Effect::SaveProfiles) {
+                    effects.push(Effect::SaveProfiles);
+                }
+            }
+            // local_aliases are saved by the CLI layer (needs file path)
+            Ok(UpdateResult::with_effects(&effects))
+        }
     }
 }
 

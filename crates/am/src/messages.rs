@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::exchange::ImportPayload;
 use crate::shell::Shells;
 
 #[derive(Debug, PartialEq)]
@@ -34,4 +35,6 @@ pub enum Message {
     RemoveProfile(String),
     ListProfiles,
     CreateProfile(String),
+
+    Import(ImportPayload),
 }
