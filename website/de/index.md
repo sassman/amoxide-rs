@@ -22,7 +22,7 @@ features:
   - title: Profile
     details: Gruppiere Aliase nach Kontext — Rust, Git, Node. Aktiviere mehrere Profile gleichzeitig mit klarer Priorität.
   - title: Parametrisierte Aliase
-    details: "Verwende {{1}}, {{2}}, {{@}} Templates, um leistungsstarke, wiederverwendbare Aliase zu erstellen."
+    details: Verwende Positions- und Sammel-Argument-Templates, um leistungsstarke, wiederverwendbare Aliase zu erstellen.
   - title: Interaktives TUI
     details: Durchsuche, erstelle, verschiebe und verwalte Aliase visuell mit dem am-tui Companion.
 ---

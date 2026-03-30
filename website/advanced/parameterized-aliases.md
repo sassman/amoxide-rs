@@ -1,3 +1,5 @@
+<div v-pre>
+
 # Parameterized Aliases
 
 Aliases can use template arguments to compose powerful, reusable commands.
@@ -47,3 +49,5 @@ If your command literally contains `{{N}}` (e.g., in awk patterns), use `--raw` 
 ```sh
 am add --raw my-awk "awk '{print {{1}}}'"
 ```
+
+</div>

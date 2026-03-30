@@ -22,7 +22,7 @@ features:
   - title: Profiles
     details: Group aliases by context — rust, git, node. Activate multiple profiles simultaneously with layered precedence.
   - title: Parameterized Aliases
-    details: "Use {{1}}, {{2}}, {{@}} templates to compose powerful, reusable aliases with argument forwarding."
+    details: Use positional and catch-all argument templates to compose powerful, reusable aliases with argument forwarding.
   - title: Interactive TUI
     details: Browse, add, move, and manage aliases visually with the am-tui companion. Works alongside the CLI.
 ---

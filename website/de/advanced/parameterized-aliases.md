@@ -1,3 +1,5 @@
+<div v-pre>
+
 # Parametrisierte Aliase
 
 Aliase können Template-Argumente verwenden, um leistungsstarke, wiederverwendbare Befehle zu erstellen.
@@ -47,3 +49,5 @@ Wenn dein Befehl tatsächlich `{{N}}` enthält (z.B. in awk-Mustern), verwende `
 ```sh
 am add --raw my-awk "awk '{print {{1}}}'"
 ```
+
+</div>
