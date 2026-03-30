@@ -42,6 +42,8 @@ This detects your profile file, shows exactly what it will add, and asks for con
 am add gs git status
 ```
 
+That's it — `gs` is now available globally in every shell session, no restart needed.
+
 **4. See your aliases:**
 
 ```sh

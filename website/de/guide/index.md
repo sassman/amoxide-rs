@@ -42,6 +42,8 @@ Das erkennt deine Profil-Datei, zeigt genau was hinzugefügt wird und fragt nach
 am add gs git status
 ```
 
+Das war's — `gs` ist jetzt global in jeder Shell-Sitzung verfügbar, kein Neustart nötig.
+
 **4. Aliase anzeigen:**
 
 ```sh
