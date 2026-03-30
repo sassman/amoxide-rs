@@ -33,6 +33,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from stdin')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -165,6 +167,37 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;export' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Export a specific profile')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Export a specific profile')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Export only project-local aliases')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Export only project-local aliases')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Export only global aliases')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Export only global aliases')
+            [CompletionResult]::new('--all', '--all', [CompletionResultType]::ParameterName, 'Export everything (global + all profiles + local)')
+            [CompletionResult]::new('--base64', '--base64', [CompletionResultType]::ParameterName, 'Encode output as base64')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;import' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Import into a specific profile')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Import into a specific profile')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Import into project-local aliases')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Import into project-local aliases')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Import into global aliases')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Import into global aliases')
+            [CompletionResult]::new('--base64', '--base64', [CompletionResultType]::ParameterName, 'Decode base64 input before parsing')
+            [CompletionResult]::new('-y', '-y', [CompletionResultType]::ParameterName, 'Skip all confirmation prompts')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Skip all confirmation prompts')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;hook' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
@@ -188,6 +221,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from stdin')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -231,6 +266,12 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;tui' {
+            break
+        }
+        'am;help;export' {
+            break
+        }
+        'am;help;import' {
             break
         }
         'am;help;hook' {

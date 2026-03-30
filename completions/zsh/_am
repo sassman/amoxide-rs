@@ -195,6 +195,39 @@ _arguments "${_arguments_options[@]}" : \
 '--version[Print version]' \
 && ret=0
 ;;
+(export)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global --all)-p+[Export a specific profile]:PROFILE:_default' \
+'(-l --local -g --global --all)--profile=[Export a specific profile]:PROFILE:_default' \
+'(-g --global -p --profile --all)-l[Export only project-local aliases]' \
+'(-g --global -p --profile --all)--local[Export only project-local aliases]' \
+'(-l --local -p --profile --all)-g[Export only global aliases]' \
+'(-l --local -p --profile --all)--global[Export only global aliases]' \
+'(-l --local -g --global -p --profile)--all[Export everything (global + all profiles + local)]' \
+'--base64[Encode output as base64]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
+(import)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global)-p+[Import into a specific profile]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Import into a specific profile]:PROFILE:_default' \
+'(-g --global -p --profile)-l[Import into project-local aliases]' \
+'(-g --global -p --profile)--local[Import into project-local aliases]' \
+'(-l --local -p --profile)-g[Import into global aliases]' \
+'(-l --local -p --profile)--global[Import into global aliases]' \
+'--base64[Decode base64 input before parsing]' \
+'-y[Skip all confirmation prompts]' \
+'--yes[Skip all confirmation prompts]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -285,6 +318,14 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(export)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(import)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -317,6 +358,8 @@ _am_commands() {
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
+'export:Export aliases to stdout as TOML' \
+'import:Import aliases from stdin' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -327,6 +370,11 @@ _am_commands() {
 _am__add_commands() {
     local commands; commands=()
     _describe -t commands 'am add commands' commands "$@"
+}
+(( $+functions[_am__export_commands] )) ||
+_am__export_commands() {
+    local commands; commands=()
+    _describe -t commands 'am export commands' commands "$@"
 }
 (( $+functions[_am__help_commands] )) ||
 _am__help_commands() {
@@ -339,6 +387,8 @@ _am__help_commands() {
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
+'export:Export aliases to stdout as TOML' \
+'import:Import aliases from stdin' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -350,6 +400,11 @@ _am__help__add_commands() {
     local commands; commands=()
     _describe -t commands 'am help add commands' commands "$@"
 }
+(( $+functions[_am__help__export_commands] )) ||
+_am__help__export_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help export commands' commands "$@"
+}
 (( $+functions[_am__help__help_commands] )) ||
 _am__help__help_commands() {
     local commands; commands=()
@@ -359,6 +414,11 @@ _am__help__help_commands() {
 _am__help__hook_commands() {
     local commands; commands=()
     _describe -t commands 'am help hook commands' commands "$@"
+}
+(( $+functions[_am__help__import_commands] )) ||
+_am__help__import_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help import commands' commands "$@"
 }
 (( $+functions[_am__help__init_commands] )) ||
 _am__help__init_commands() {
@@ -429,6 +489,11 @@ _am__help__tui_commands() {
 _am__hook_commands() {
     local commands; commands=()
     _describe -t commands 'am hook commands' commands "$@"
+}
+(( $+functions[_am__import_commands] )) ||
+_am__import_commands() {
+    local commands; commands=()
+    _describe -t commands 'am import commands' commands "$@"
 }
 (( $+functions[_am__init_commands] )) ||
 _am__init_commands() {

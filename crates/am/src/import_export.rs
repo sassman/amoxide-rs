@@ -1,0 +1,286 @@
+use std::io::{BufRead, Read, Write};
+use std::path::Path;
+
+use crate::alias::MergeResult;
+use crate::cli::{ExportArgs, ImportArgs};
+use crate::effects::Effect;
+use crate::exchange::{
+    base64_decode, base64_encode, parse_import, render_import_summary, ExportAll, ImportPayload,
+};
+use crate::project::{ProjectAliases, ALIASES_FILE};
+use crate::update::{update, AppModel};
+use crate::{AliasSet, Message, Profile, ProfileConfig};
+
+// ═══════════════════════════════════════════════════════════════════════
+// Export
+// ═══════════════════════════════════════════════════════════════════════
+
+pub fn handle_export(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Result<String> {
+    let toml_output = export_toml(model, args, cwd)?;
+
+    if args.base64 {
+        Ok(base64_encode(&toml_output))
+    } else {
+        Ok(toml_output)
+    }
+}
+
+fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Result<String> {
+    if args.local {
+        let project = ProjectAliases::find(cwd)?
+            .ok_or_else(|| anyhow::anyhow!("No .aliases file found in directory tree"))?;
+        Ok(toml::to_string(&project)?)
+    } else if args.global {
+        let wrapper = ExportAll {
+            global_aliases: model.config.aliases.clone(),
+            ..Default::default()
+        };
+        Ok(toml::to_string(&wrapper)?)
+    } else if let Some(ref name) = args.profile {
+        let profile = model
+            .profile_config()
+            .get_profile_by_name(name)
+            .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
+        let wrapper = ProfileConfig::from_profiles(vec![profile.clone()]);
+        Ok(toml::to_string(&wrapper)?)
+    } else if args.all {
+        let project_aliases = ProjectAliases::find(cwd)?
+            .map(|p| p.aliases)
+            .unwrap_or_default();
+        let export = ExportAll {
+            global_aliases: model.config.aliases.clone(),
+            profiles: model.profile_config().to_vec(),
+            local_aliases: project_aliases,
+        };
+        Ok(toml::to_string(&export)?)
+    } else {
+        // Default: active scope (global + active profiles + local if present)
+        let active_profiles: Vec<_> = model
+            .config
+            .active_profiles
+            .iter()
+            .filter_map(|name| model.profile_config().get_profile_by_name(name))
+            .cloned()
+            .collect();
+        let project_aliases = ProjectAliases::find(cwd)?
+            .map(|p| p.aliases)
+            .unwrap_or_default();
+        let export = ExportAll {
+            global_aliases: model.config.aliases.clone(),
+            profiles: active_profiles,
+            local_aliases: project_aliases,
+        };
+        Ok(toml::to_string(&export)?)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Import
+// ═══════════════════════════════════════════════════════════════════════
+
+pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<()> {
+    // Phase 1: Parse stdin
+    let mut input = String::new();
+    std::io::stdin().lock().read_to_string(&mut input)?;
+
+    if input.trim().is_empty() {
+        anyhow::bail!("no input received");
+    }
+
+    let toml_input = if args.base64 {
+        base64_decode(&input)?
+    } else {
+        input
+    };
+
+    let parsed = parse_import(&toml_input)?;
+
+    // Phase 2: Resolve conflicts + Phase 3: Apply
+    if args.local || args.global || args.profile.is_some() {
+        import_with_override(model, args, &parsed)?;
+    } else {
+        import_auto_route(model, args, &parsed)?;
+    }
+
+    Ok(())
+}
+
+fn import_auto_route(
+    model: &mut AppModel,
+    args: &ImportArgs,
+    parsed: &ExportAll,
+) -> anyhow::Result<()> {
+    let mut payload = ImportPayload::default();
+    let cwd = std::env::current_dir()?;
+
+    if !parsed.global_aliases.is_empty() {
+        let merge = model.config.aliases.merge_check(&parsed.global_aliases);
+        if let Some(accepted) = prompt_merge("global", &merge, args.yes)? {
+            payload.global_aliases = Some(accepted);
+        }
+    }
+
+    for profile in &parsed.profiles {
+        let existing_aliases = model
+            .profile_config()
+            .get_profile_by_name(&profile.name)
+            .map(|p| p.aliases.clone())
+            .unwrap_or_default();
+        let merge = existing_aliases.merge_check(&profile.aliases);
+        if let Some(accepted) = prompt_merge(&profile.name, &merge, args.yes)? {
+            payload.profiles.push(Profile {
+                name: profile.name.clone(),
+                aliases: accepted,
+            });
+        }
+    }
+
+    if !parsed.local_aliases.is_empty() {
+        let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
+        let merge = existing.aliases.merge_check(&parsed.local_aliases);
+        if let Some(accepted) = prompt_merge("local", &merge, args.yes)? {
+            payload.local_aliases = Some(accepted);
+        }
+    }
+
+    apply_import(model, payload, &cwd)
+}
+
+fn import_with_override(
+    model: &mut AppModel,
+    args: &ImportArgs,
+    parsed: &ExportAll,
+) -> anyhow::Result<()> {
+    let flattened = parsed.flatten();
+    let cwd = std::env::current_dir()?;
+    let mut payload = ImportPayload::default();
+
+    if args.local {
+        let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
+        let merge = existing.aliases.merge_check(&flattened);
+        if let Some(accepted) = prompt_merge("local", &merge, args.yes)? {
+            payload.local_aliases = Some(accepted);
+        }
+    } else if args.global {
+        let merge = model.config.aliases.merge_check(&flattened);
+        if let Some(accepted) = prompt_merge("global", &merge, args.yes)? {
+            payload.global_aliases = Some(accepted);
+        }
+    } else if let Some(ref name) = args.profile {
+        let existing_aliases = model
+            .profile_config()
+            .get_profile_by_name(name)
+            .map(|p| p.aliases.clone())
+            .unwrap_or_default();
+        let merge = existing_aliases.merge_check(&flattened);
+        if let Some(accepted) = prompt_merge(name, &merge, args.yes)? {
+            payload.profiles.push(Profile {
+                name: name.clone(),
+                aliases: accepted,
+            });
+        }
+    }
+
+    apply_import(model, payload, &cwd)
+}
+
+fn prompt_merge(
+    scope_name: &str,
+    merge: &MergeResult,
+    auto_yes: bool,
+) -> anyhow::Result<Option<AliasSet>> {
+    if merge.new_aliases.is_empty() && merge.conflicts.is_empty() {
+        eprintln!("Nothing new to import into \"{scope_name}\"");
+        return Ok(None);
+    }
+
+    eprint!("{}", render_import_summary(scope_name, merge));
+
+    // Ask to merge
+    if !auto_yes {
+        eprint!("Merge into \"{scope_name}\"? [Y/n] ");
+        std::io::stderr().flush()?;
+        let mut input = String::new();
+        std::io::stdin().lock().read_line(&mut input)?;
+        if matches!(input.trim().to_lowercase().as_str(), "n" | "no") {
+            eprintln!("Skipped \"{scope_name}\"");
+            return Ok(None);
+        }
+    }
+
+    // Start with new aliases
+    let mut accepted = merge.new_aliases.clone();
+
+    // Ask about overwrites
+    if !merge.conflicts.is_empty() {
+        let apply_overwrites = if auto_yes {
+            true
+        } else {
+            eprint!(
+                "Apply {} overwrite{}? [y/N] ",
+                merge.conflicts.len(),
+                if merge.conflicts.len() == 1 { "" } else { "s" }
+            );
+            std::io::stderr().flush()?;
+            let mut input = String::new();
+            std::io::stdin().lock().read_line(&mut input)?;
+            matches!(input.trim().to_lowercase().as_str(), "y" | "yes")
+        };
+
+        if apply_overwrites {
+            for conflict in &merge.conflicts {
+                accepted.insert(conflict.name.clone(), conflict.incoming.clone());
+            }
+        }
+
+        let imported = accepted.len();
+        let skipped = if apply_overwrites {
+            0
+        } else {
+            merge.conflicts.len()
+        };
+        eprintln!("\u{2713} Imported {imported} aliases into \"{scope_name}\" ({skipped} skipped)");
+    } else {
+        eprintln!(
+            "\u{2713} Imported {} aliases into \"{scope_name}\"",
+            accepted.len()
+        );
+    }
+
+    Ok(Some(accepted))
+}
+
+fn apply_import(
+    model: &mut AppModel,
+    payload: ImportPayload,
+    cwd: &Path,
+) -> anyhow::Result<()> {
+    let local_aliases = payload.local_aliases.clone();
+
+    // Dispatch through message pipeline — returns effects
+    let result = update(model, Message::Import(payload))?;
+
+    // Execute effects (SaveConfig, SaveProfiles)
+    for effect in &result.effects {
+        match effect {
+            Effect::SaveConfig => model.config.save()?,
+            Effect::SaveProfiles => model.profile_config().save()?,
+            _ => {}
+        }
+    }
+
+    // Save local aliases directly (needs file path, not handled by effects)
+    if let Some(aliases) = local_aliases {
+        let path = ProjectAliases::find_path(cwd)?
+            .unwrap_or_else(|| cwd.join(ALIASES_FILE));
+        let mut project = if path.exists() {
+            ProjectAliases::load(&path)?
+        } else {
+            ProjectAliases::default()
+        };
+        project.merge_aliases(aliases);
+        project.save(&path)?;
+    }
+
+    Ok(())
+}

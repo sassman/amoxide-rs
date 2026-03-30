@@ -7,6 +7,7 @@ use amoxide::{
     cli::*,
     dirs::relative_path,
     effects::Effect,
+    import_export::{handle_export, handle_import},
     project::{ProjectAliases, ALIASES_FILE},
     prompt::{ask_user, Answer},
     update::{update, AppModel},
@@ -154,13 +155,15 @@ fn main() -> anyhow::Result<()> {
                 Err(e) => return Err(e.into()),
             }
         }
-        Commands::Export(_args) => {
-            // TODO: wire up in later task
-            Message::DoNothing
+        Commands::Export(args) => {
+            let cwd = std::env::current_dir()?;
+            let output = handle_export(&model, args, &cwd)?;
+            print!("{output}");
+            return Ok(());
         }
-        Commands::Import(_args) => {
-            // TODO: wire up in later task
-            Message::DoNothing
+        Commands::Import(args) => {
+            handle_import(&mut model, args)?;
+            return Ok(());
         }
         Commands::Init { shell } => Message::InitShell(shell.clone()),
         Commands::Hook { shell } => Message::Hook(shell.clone()),

@@ -1,6 +1,6 @@
 use amoxide::alias::{AliasConflict, MergeResult};
 use amoxide::display::{render_listing, render_profiles};
-use amoxide::exchange::render_import_summary;
+use amoxide::exchange::{render_import_summary, ExportAll};
 use amoxide::hook::generate_hook;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::shell::Shells;
@@ -461,5 +461,39 @@ fn snapshot_import_summary_no_conflicts() {
         conflicts: vec![],
     };
     let output = render_import_summary("global", &result);
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Export snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_export_single_profile() {
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+        cm = "git commit -sm"
+    "#});
+    let wrapper = amoxide::ProfileConfig::from_profiles(
+        vec![config.get_profile_by_name("git").unwrap().clone()],
+    );
+    let output = toml::to_string(&wrapper).unwrap();
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_export_all() {
+    let export = ExportAll {
+        global_aliases: aliases(&[("ll", "ls -lha")]),
+        profiles: vec![amoxide::Profile {
+            name: "git".into(),
+            aliases: aliases(&[("gs", "git status")]),
+        }],
+        local_aliases: aliases(&[("t", "cargo test")]),
+    };
+    let output = toml::to_string(&export).unwrap();
     insta::assert_snapshot!(output);
 }
