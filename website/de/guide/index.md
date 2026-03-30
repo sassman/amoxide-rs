@@ -42,10 +42,11 @@ Das erkennt deine Profil-Datei, zeigt genau was hinzugefügt wird und fragt nach
 am add gs git status
 ```
 
-**4. Überprüfen:**
+**4. Aliase anzeigen:**
 
 ```sh
-am status
+am ls
+# oder kurz: am l
 ```
 
 ## Nächste Schritte

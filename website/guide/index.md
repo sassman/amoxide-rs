@@ -42,10 +42,11 @@ This detects your profile file, shows exactly what it will add, and asks for con
 am add gs git status
 ```
 
-**4. Verify:**
+**4. See your aliases:**
 
 ```sh
-am status
+am ls
+# or short: am l
 ```
 
 ## What's Next?
