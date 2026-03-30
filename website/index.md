@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: "amoxide"
-  text: "Shell aliases that follow your context"
+  text: "The right aliases, at the right time"
   tagline: Like direnv, but for aliases. Define aliases per project, per toolchain, or globally — and load the right ones automatically.
   image:
     src: /logo.svg

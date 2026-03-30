@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: "amoxide"
-  text: "Shell-Aliase, die deinem Kontext folgen"
+  text: "Die richtigen Aliase, zur richtigen Zeit"
   tagline: Wie direnv, aber für Aliase. Definiere Aliase pro Projekt, pro Toolchain oder global — sie werden automatisch geladen.
   image:
     src: /logo.svg
