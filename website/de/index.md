@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: "amoxide"
-  text: "Die richtigen Aliase, zur richtigen Zeit"
+  text: "Die richtigen Aliase,\nzur richtigen Zeit"
   tagline: Wie direnv, aber für Aliase. Definiere Aliase pro Projekt, pro Toolchain oder global — sie werden automatisch geladen.
   image:
     src: /logo.svg
