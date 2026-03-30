@@ -87,3 +87,10 @@ am remove -p rust ct
 ::: tip
 All verbs have short forms: `am a` for add, `am r` for remove, `am p a` for profile add, `am p u` for profile use.
 :::
+
+## Managing Profiles Visually
+
+<!-- TODO: Screenshot of am-tui showing profile list with active indicators and the move mode for reorganizing aliases between profiles -->
+::: info Screenshot coming soon
+The TUI showing profile management — activating profiles, moving aliases between them, and seeing the layered hierarchy at a glance.
+:::

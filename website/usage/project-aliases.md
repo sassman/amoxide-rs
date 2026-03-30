@@ -61,3 +61,10 @@ Now the project `.aliases` keeps only truly project-specific aliases like `i`.
 ::: tip
 `am tui` lets you move aliases between project and profile levels visually — select an alias and press `m` to move it.
 :::
+
+## Moving Aliases with the TUI
+
+<!-- TODO: Screenshot of am-tui in move mode, showing an alias being moved from project level to a profile -->
+::: info Screenshot coming soon
+The TUI in move mode — selecting a project alias and moving it to a reusable profile with a single keystroke.
+:::

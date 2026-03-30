@@ -59,3 +59,10 @@ Jetzt behält die `.aliases`-Datei nur wirklich projektspezifische Aliase wie `i
 ::: tip
 `am tui` ermöglicht es, Aliase visuell zwischen Projekt- und Profil-Ebene zu verschieben — Alias auswählen und `m` drücken.
 :::
+
+## Aliase mit dem TUI verschieben
+
+<!-- TODO: Screenshot von am-tui im Verschiebe-Modus, ein Alias wird von Projekt-Ebene zu einem Profil verschoben -->
+::: info Screenshot kommt bald
+Das TUI im Verschiebe-Modus — einen Projekt-Alias auswählen und mit einem Tastendruck in ein wiederverwendbares Profil verschieben.
+:::

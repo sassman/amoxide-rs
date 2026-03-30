@@ -70,3 +70,10 @@ am remove -p rust ct
 ::: tip
 Alle Verben haben Kurzformen: `am a` für add, `am r` für remove, `am p a` für profile add, `am p u` für profile use.
 :::
+
+## Profile visuell verwalten
+
+<!-- TODO: Screenshot von am-tui mit Profil-Liste, aktiven Indikatoren und dem Verschiebe-Modus -->
+::: info Screenshot kommt bald
+Das TUI zeigt Profil-Verwaltung — Profile aktivieren, Aliase zwischen ihnen verschieben und die geschichtete Hierarchie auf einen Blick sehen.
+:::
