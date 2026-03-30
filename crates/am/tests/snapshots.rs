@@ -497,3 +497,127 @@ fn snapshot_export_all() {
     let output = toml::to_string(&export).unwrap();
     insta::assert_snapshot!(output);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Round-trip tests
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_export_import_roundtrip_profile() {
+    use amoxide::exchange::parse_import;
+
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+        cm = "git commit -sm"
+    "#});
+
+    let wrapper = amoxide::ProfileConfig::from_profiles(
+        vec![config.get_profile_by_name("git").unwrap().clone()]
+    );
+    let exported = toml::to_string(&wrapper).unwrap();
+    let parsed = parse_import(&exported).unwrap();
+    assert_eq!(parsed.profiles.len(), 1);
+    assert_eq!(parsed.profiles[0].name, "git");
+    assert_eq!(parsed.profiles[0].aliases.len(), 2);
+}
+
+#[test]
+fn test_export_import_roundtrip_all() {
+    use amoxide::exchange::{ExportAll, parse_import};
+
+    let export = ExportAll {
+        global_aliases: aliases(&[("ll", "ls -lha")]),
+        profiles: vec![amoxide::Profile {
+            name: "git".into(),
+            aliases: aliases(&[("gs", "git status")]),
+        }],
+        local_aliases: aliases(&[("t", "cargo test")]),
+    };
+
+    let exported = toml::to_string(&export).unwrap();
+    let parsed = parse_import(&exported).unwrap();
+    assert_eq!(parsed.global_aliases.len(), 1);
+    assert_eq!(parsed.profiles.len(), 1);
+    assert_eq!(parsed.local_aliases.len(), 1);
+}
+
+#[test]
+fn test_base64_export_import_roundtrip() {
+    use amoxide::exchange::{ExportAll, parse_import, base64_encode, base64_decode};
+
+    let export = ExportAll {
+        global_aliases: aliases(&[("ll", "ls -lha")]),
+        ..Default::default()
+    };
+
+    let toml_str = toml::to_string(&export).unwrap();
+    let encoded = base64_encode(&toml_str);
+    let decoded = base64_decode(&encoded).unwrap();
+    let parsed = parse_import(&decoded).unwrap();
+    assert_eq!(parsed.global_aliases.len(), 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Message::Import integration tests
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_import_payload_through_update() {
+    use amoxide::update::{update, AppModel};
+    use amoxide::exchange::ImportPayload;
+    use amoxide::config::Config;
+
+    let config = Config::default();
+    let profile_config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+    "#});
+
+    let mut model = AppModel::new(config, profile_config);
+
+    let payload = ImportPayload {
+        global_aliases: Some(aliases(&[("ll", "ls -lha")])),
+        profiles: vec![amoxide::Profile {
+            name: "git".into(),
+            aliases: aliases(&[("gp", "git push")]),
+        }],
+        local_aliases: None,
+    };
+
+    let next = update(&mut model, amoxide::Message::Import(payload)).unwrap();
+    assert!(next.is_some()); // Should return SaveProfiles (profiles were imported)
+
+    assert_eq!(model.config.aliases.len(), 1);
+    let git = model.profile_config().get_profile_by_name("git").unwrap();
+    assert_eq!(git.aliases.len(), 2); // gs + gp
+}
+
+#[test]
+fn test_import_payload_global_only_no_save_profiles() {
+    use amoxide::update::{update, AppModel};
+    use amoxide::exchange::ImportPayload;
+    use amoxide::config::Config;
+
+    let config = Config::default();
+    let profile_config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+    "#});
+
+    let mut model = AppModel::new(config, profile_config);
+
+    let payload = ImportPayload {
+        global_aliases: Some(aliases(&[("ll", "ls -lha")])),
+        profiles: vec![],
+        local_aliases: None,
+    };
+
+    let next = update(&mut model, amoxide::Message::Import(payload)).unwrap();
+    assert!(next.is_none()); // No profiles imported, so no SaveProfiles
+    assert_eq!(model.config.aliases.len(), 1);
+}
