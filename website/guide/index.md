@@ -9,7 +9,7 @@ amoxide (`am`) is a shell alias manager that brings [direnv](https://direnv.net)
 ::: code-group
 
 ```sh [Homebrew]
-brew install sassman/tap/amoxide
+brew install sassman/tap/amoxide sassman/tap/amoxide-tui
 ```
 
 ```sh [Shell Script]
@@ -21,9 +21,9 @@ irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-insta
 ```
 
 ```sh [Cargo]
-cargo install amoxide
+cargo install amoxide amoxide-tui
 # or, without compiling from source:
-cargo binstall amoxide
+cargo binstall amoxide amoxide-tui
 ```
 
 :::
