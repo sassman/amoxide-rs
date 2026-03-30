@@ -26,3 +26,17 @@ features:
   - title: Interactive TUI
     details: Browse, add, move, and manage aliases visually with the am-tui companion. Works alongside the CLI.
 ---
+
+## See It in Action
+
+### Interactive TUI
+
+Browse, add, move, and delete aliases visually with `am tui`:
+
+![am tui screenshot](/am-tui.png)
+
+### CLI Listing
+
+See your layered alias hierarchy at a glance with `am ls`:
+
+![am ls screenshot](/am-ls.png)
