@@ -6,9 +6,10 @@ use std::io::{BufRead, Write};
 use amoxide::{
     cli::*,
     dirs::relative_path,
+    effects::Effect,
     project::{ProjectAliases, ALIASES_FILE},
     update::{update, AppModel},
-    AddAliasProfile, Message,
+    AliasTarget, Message,
 };
 
 fn setup_logging() {
@@ -36,7 +37,7 @@ fn main() -> anyhow::Result<()> {
         setup_logging();
     }
 
-    let mut message = match &cli.command {
+    let message = match &cli.command {
         Commands::Add(Alias {
             profile,
             local,
@@ -50,65 +51,58 @@ fn main() -> anyhow::Result<()> {
                 None => bail!("No command provided. Usage: am add <name> <command...>"),
             };
 
-            if *global {
-                model.config.add_alias(name.clone(), alias_cmd, *raw);
-                info!("Added global alias `{name}`");
-                Message::SaveConfig
+            let target = if *global {
+                AliasTarget::Global
             } else if *local {
-                add_local_alias(name, &alias_cmd, *raw)?;
-                Message::DoNothing
+                AliasTarget::Local
             } else {
-                let target = profile
+                profile
                     .as_deref()
-                    .map(|p| AddAliasProfile::Profile(p.to_owned()))
-                    .unwrap_or(AddAliasProfile::ActiveProfile);
+                    .map(|p| AliasTarget::Profile(p.to_owned()))
+                    .unwrap_or(AliasTarget::ActiveProfile)
+            };
 
-                info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
-                update(
-                    &mut model,
-                    Message::AddAlias(name.clone(), alias_cmd, target, *raw),
-                )?;
-                Message::SaveProfiles
-            }
+            info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
+            Message::AddAlias(name.clone(), alias_cmd, target, *raw)
         }
         Commands::Remove {
             profile,
             global,
             name,
         } => {
-            if *global {
-                model.config.remove_alias(name)?;
-                info!("Removed global alias `{name}`");
-                Message::SaveConfig
+            let target = if *global {
+                AliasTarget::Global
             } else {
-                let target = profile
+                profile
                     .as_deref()
-                    .map(|p| AddAliasProfile::Profile(p.to_owned()))
-                    .unwrap_or(AddAliasProfile::ActiveProfile);
+                    .map(|p| AliasTarget::Profile(p.to_owned()))
+                    .unwrap_or(AliasTarget::ActiveProfile)
+            };
 
-                info!("Removing alias `{name}` from {target}");
-                update(&mut model, Message::RemoveAlias(name.clone(), target))?;
-                Message::SaveProfiles
-            }
+            info!("Removing alias `{name}` from {target}");
+            Message::RemoveAlias(name.clone(), target)
         }
         Commands::Ls => Message::ListProfiles,
         Commands::Status => {
             println!("{}", amoxide::status::run_status());
-            Message::DoNothing
+            return Ok(());
         }
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
             ProfileAction::Add { name } => {
-                update(&mut model, Message::CreateProfile(name.clone()))?;
-                update(&mut model, Message::SaveProfiles)?;
-                Message::SaveConfig
+                let result = update(&mut model, Message::CreateProfile(name.clone()))?;
+                execute_effects(&mut model, &result.effects)?;
+                model.config.save()?;
+                return Ok(());
             }
             ProfileAction::Use { name, priority } => {
                 let msg = match priority {
                     Some(n) => Message::UseProfileAt(name.clone(), *n),
                     None => Message::ToggleProfile(name.clone()),
                 };
-                update(&mut model, msg)?;
-                Message::SaveConfig
+                let result = update(&mut model, msg)?;
+                execute_effects(&mut model, &result.effects)?;
+                model.config.save()?;
+                return Ok(());
             }
             ProfileAction::Remove { name, force } => {
                 if !force {
@@ -131,21 +125,22 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                 }
-                update(&mut model, Message::RemoveProfile(name.clone()))?;
-                update(&mut model, Message::SaveProfiles)?;
-                Message::SaveConfig
+                let result = update(&mut model, Message::RemoveProfile(name.clone()))?;
+                execute_effects(&mut model, &result.effects)?;
+                model.config.save()?;
+                return Ok(());
             }
             ProfileAction::List => Message::ListProfiles,
         },
         Commands::Setup { shell } => {
             amoxide::setup::run_setup(shell)?;
-            Message::DoNothing
+            return Ok(());
         }
         Commands::Tui => {
             use std::process::Command;
             let status = Command::new("am-tui").status();
             match status {
-                Ok(s) if s.success() => Message::DoNothing,
+                Ok(s) if s.success() => return Ok(()),
                 Ok(s) => anyhow::bail!("am-tui exited with status {}", s.code().unwrap_or(1)),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                     eprintln!("am-tui is not installed. Install it with:\n");
@@ -164,10 +159,26 @@ fn main() -> anyhow::Result<()> {
         Commands::Reload { shell } => Message::Reload(shell.clone()),
     };
 
-    while let Some(msg) = update(&mut model, message)? {
-        message = msg;
+    let result = update(&mut model, message)?;
+    execute_effects(&mut model, &result.effects)?;
+    if let Some(msg) = result.next {
+        let follow_up = update(&mut model, msg)?;
+        execute_effects(&mut model, &follow_up.effects)?;
     }
 
+    Ok(())
+}
+
+fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<()> {
+    for effect in effects {
+        match effect {
+            Effect::SaveConfig => model.config.save()?,
+            Effect::SaveProfiles => model.profile_config().save()?,
+            Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
+            Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
+            Effect::Print(text) => println!("{text}"),
+        }
+    }
     Ok(())
 }
 
@@ -176,7 +187,6 @@ fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
     let local_path = cwd.join(ALIASES_FILE);
 
     if local_path.exists() {
-        // .aliases exists in CWD — add to it
         let mut project = ProjectAliases::load(&local_path)?;
         project.add_alias(name.to_string(), command.to_string(), raw);
         project.save(&local_path)?;
@@ -210,6 +220,14 @@ fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
     project.add_alias(name.to_string(), command.to_string(), raw);
     project.save(&local_path)?;
     println!("Created {ALIASES_FILE} with alias `{name}`");
+    Ok(())
+}
+
+fn remove_local_alias(name: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let path = ProjectAliases::remove_from_local(name)?;
+    let rel = relative_path(&cwd, &path);
+    println!("Removed `{name}` from {}", rel.display());
     Ok(())
 }
 
