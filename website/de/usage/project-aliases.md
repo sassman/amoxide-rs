@@ -62,7 +62,9 @@ Jetzt behält die `.aliases`-Datei nur wirklich projektspezifische Aliase wie `i
 
 ## Aliase mit dem TUI verschieben
 
-<!-- TODO: Screenshot von am-tui im Verschiebe-Modus, ein Alias wird von Projekt-Ebene zu einem Profil verschoben -->
-::: info Screenshot kommt bald
-Das TUI im Verschiebe-Modus — einen Projekt-Alias auswählen und mit einem Tastendruck in ein wiederverwendbares Profil verschieben.
-:::
+Verwende `am tui` um Aliase visuell von der Projekt-Ebene in ein Profil zu verschieben — Alias auswählen und `m` drücken:
+
+<video autoplay loop muted playsinline>
+  <source src="/am-tui-moving-aliases.webm" type="video/webm">
+  <source src="/am-tui-moving-aliases.mp4" type="video/mp4">
+</video>

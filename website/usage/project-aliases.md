@@ -64,7 +64,9 @@ Now the project `.aliases` keeps only truly project-specific aliases like `i`.
 
 ## Moving Aliases with the TUI
 
-<!-- TODO: Screenshot of am-tui in move mode, showing an alias being moved from project level to a profile -->
-::: info Screenshot coming soon
-The TUI in move mode — selecting a project alias and moving it to a reusable profile with a single keystroke.
-:::
+Use `am tui` to move aliases from project level to a profile visually — select an alias and press `m`:
+
+<video autoplay loop muted playsinline>
+  <source src="/am-tui-moving-aliases.webm" type="video/webm">
+  <source src="/am-tui-moving-aliases.mp4" type="video/mp4">
+</video>
