@@ -6,7 +6,18 @@ export default defineConfig({
   base,
   title: 'amoxide',
   description: 'Shell aliases that follow your context — like direnv, but for aliases.',
-  head: [['link', { rel: 'icon', href: `${base}logo.svg` }]],
+  head: [
+    ['link', { rel: 'icon', href: `${base}logo.svg` }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: 'amoxide — The right aliases, at the right time' }],
+    ['meta', { property: 'og:description', content: 'Like direnv, but for aliases. Define aliases per project, per toolchain, or globally — and load the right ones automatically.' }],
+    ['meta', { property: 'og:image', content: 'https://amoxide.rs/og-image.png' }],
+    ['meta', { property: 'og:url', content: 'https://amoxide.rs' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'amoxide — The right aliases, at the right time' }],
+    ['meta', { name: 'twitter:description', content: 'Like direnv, but for aliases. Define aliases per project, per toolchain, or globally.' }],
+    ['meta', { name: 'twitter:image', content: 'https://amoxide.rs/og-image.png' }],
+  ],
 
   locales: {
     root: {
