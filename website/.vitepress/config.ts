@@ -17,6 +17,8 @@ export default defineConfig({
     ['meta', { name: 'twitter:title', content: 'amoxide — The right aliases, at the right time' }],
     ['meta', { name: 'twitter:description', content: 'Like direnv, but for aliases. Define aliases per project, per toolchain, or globally.' }],
     ['meta', { name: 'twitter:image', content: 'https://amoxide.rs/og-image.png' }],
+    ['script', { async: '', src: 'https://plausible.io/js/pa-a6anBYLf5imqR2fPCnzHy.js' }],
+    ['script', {}, 'window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()'],
   ],
 
   locales: {
@@ -124,7 +126,7 @@ export default defineConfig({
       provider: 'local',
     },
     footer: {
-      message: 'Released under the GPLv3 License.',
+      message: 'Released under the GPLv3 License. <a href="/privacy">Privacy Policy</a>',
       copyright: 'Copyright © 2024-present Sven Kanoldt',
     },
   },
