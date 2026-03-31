@@ -2,9 +2,10 @@
 changelog_update = true
 git_tag_enable = true
 publish = false
-
-# release-plz creates tags per crate: amoxide-v0.1.0, amoxide-tui-v0.1.0
-# Publishing is handled by the release.yml workflow, not release-plz
+# Unified tag for all crates: v0.2.0 instead of amoxide-v0.2.0 / amoxide-tui-v0.2.0
+# This lets cargo-dist produce a single GitHub Release with artifacts for all binaries
+git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"
 
 [changelog]
 header = """
