@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&amp;family=Inter:wght@400;600;700&amp;display=swap');
+      .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; }
+      .sans { font-family: 'Inter', system-ui, sans-serif; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#282a36"/>
+
+  <!-- Left side: Logo -->
+  <rect x="48" y="48" width="56" height="56" rx="12" fill="#50fa7b"/>
+  <text x="76" y="86" text-anchor="middle" class="mono" font-size="30" font-weight="800" fill="#282a36">am</text>
+
+  <!-- Left side: amoxide text -->
+  <text x="120" y="88" class="mono" font-size="36" font-weight="700" fill="#f8f8f2">amoxide</text>
+
+  <!-- Left side: Headline -->
+  <text x="48" y="170" class="sans" font-size="28" font-weight="600" fill="#f8f8f2">The right aliases,</text>
+  <text x="48" y="208" class="sans" font-size="28" font-weight="600" fill="#f8f8f2">at the right time</text>
+
+  <!-- Left side: Tagline -->
+  <text x="48" y="258" class="sans" font-size="16" fill="#6272a4">Like direnv, but for aliases</text>
+
+  <!-- Left side: Code snippet background -->
+  <rect x="48" y="290" width="420" height="44" rx="8" fill="#21222c"/>
+  <!-- Code snippet text -->
+  <text x="64" y="318" class="mono" font-size="15">
+    <tspan fill="#6272a4">$ </tspan>
+    <tspan fill="#50fa7b">am</tspan>
+    <tspan fill="#f8f8f2"> add </tspan>
+    <tspan fill="#f1fa8c">gst</tspan>
+    <tspan fill="#6272a4"> "git status"</tspan>
+  </text>
+
+  <!-- Left side: Feature pills -->
+  <rect x="48" y="370" width="130" height="30" rx="6" fill="#44475a"/>
+  <text x="113" y="390" text-anchor="middle" class="sans" font-size="12" fill="#f8f8f2">📂 Context-Aware</text>
+
+  <rect x="190" y="370" width="100" height="30" rx="6" fill="#44475a"/>
+  <text x="240" y="390" text-anchor="middle" class="sans" font-size="12" fill="#f8f8f2">📦 Profiles</text>
+
+  <rect x="302" y="370" width="160" height="30" rx="6" fill="#44475a"/>
+  <text x="382" y="390" text-anchor="middle" class="sans" font-size="12" fill="#f8f8f2">🔧 Parameterized</text>
+
+  <!-- Left side: URL -->
+  <text x="48" y="580" class="mono" font-size="16" font-weight="600" fill="#50fa7b">amoxide.rs</text>
+
+  <!-- Right side: Tree panel background -->
+  <rect x="580" y="48" width="572" height="534" rx="12" fill="#21222c"/>
+
+  <!-- Tree content -->
+  <text x="612" y="88" class="mono" font-size="16" fill="#8be9fd">🌐 global</text>
+  <text x="612" y="116" class="mono" font-size="14" fill="#6272a4">│  helo → echo hello world</text>
+  <text x="612" y="144" class="mono" font-size="14" fill="#6272a4">│</text>
+
+  <text x="612" y="172" class="mono" font-size="14">
+    <tspan fill="#6272a4">├─</tspan>
+    <tspan fill="#50fa7b">● </tspan>
+    <tspan fill="#f8f8f2">git </tspan>
+    <tspan fill="#6272a4">(active: 1)</tspan>
+  </text>
+  <text x="612" y="200" class="mono" font-size="14" fill="#6272a4">│  ga → git commit --amend</text>
+  <text x="612" y="228" class="mono" font-size="14" fill="#6272a4">│  gst → git status</text>
+  <text x="612" y="256" class="mono" font-size="14" fill="#6272a4">│  gcm → commit -S --signoff -m</text>
+  <text x="612" y="284" class="mono" font-size="14" fill="#6272a4">│</text>
+
+  <text x="612" y="312" class="mono" font-size="14">
+    <tspan fill="#6272a4">├─</tspan>
+    <tspan fill="#50fa7b">● </tspan>
+    <tspan fill="#f8f8f2">rust </tspan>
+    <tspan fill="#6272a4">(active: 2)</tspan>
+  </text>
+  <text x="612" y="340" class="mono" font-size="14" fill="#6272a4">│  t → cargo test</text>
+  <text x="612" y="368" class="mono" font-size="14" fill="#6272a4">│  l → cargo clippy --all-targets</text>
+  <text x="612" y="396" class="mono" font-size="14" fill="#6272a4">│  f → cargo fmt</text>
+  <text x="612" y="424" class="mono" font-size="14" fill="#6272a4">│</text>
+
+  <text x="612" y="452" class="mono" font-size="14">
+    <tspan fill="#6272a4">╰─</tspan>
+    <tspan fill="#f1fa8c">📁 </tspan>
+    <tspan fill="#f8f8f2">project </tspan>
+    <tspan fill="#6272a4">(.aliases)</tspan>
+  </text>
+  <text x="612" y="480" class="mono" font-size="14" fill="#6272a4">   i → cargo install --path .</text>
+  <text x="612" y="508" class="mono" font-size="14" fill="#6272a4">   chk → typos . --config ./typos.toml</text>
+
+  <text x="612" y="548" class="mono" font-size="14">
+    <tspan fill="#6272a4">○ </tspan>
+    <tspan fill="#6272a4">node</tspan>
+  </text>
+  <text x="612" y="572" class="mono" font-size="14" fill="#44475a">   nr → npm run</text>
+</svg>
