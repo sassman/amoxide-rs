@@ -148,7 +148,12 @@ fn main() -> anyhow::Result<()> {
                 Ok(s) if s.success() => Message::DoNothing,
                 Ok(s) => anyhow::bail!("am-tui exited with status {}", s.code().unwrap_or(1)),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    eprintln!("am-tui is not installed. Install it with:\n\n  cargo install amoxide-tui\n");
+                    eprintln!("am-tui is not installed. Install it with:\n");
+                    eprintln!("  Homebrew:        brew install sassman/tap/amoxide-tui");
+                    eprintln!("  Shell Script:    curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh");
+                    eprintln!("  PowerShell:      powershell -ExecutionPolicy Bypass -c \"irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex\"");
+                    eprintln!("  Cargo:           cargo install amoxide-tui");
+                    eprintln!("  Cargo binstall:  cargo binstall amoxide-tui\n");
                     anyhow::bail!("am-tui not found");
                 }
                 Err(e) => return Err(e.into()),
