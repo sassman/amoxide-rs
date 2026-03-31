@@ -49,8 +49,8 @@ curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxid
 ```
 
 ```powershell [PowerShell]
-irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex
-irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
 ```
 
 ```sh [Cargo (pre-built)]
