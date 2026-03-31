@@ -22,7 +22,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs
 cargo binstall amoxide amoxide-tui
 ```
 
-```sh [Cargo (source)]
+```sh [Cargo]
 cargo install amoxide amoxide-tui
 ```
 
