@@ -54,9 +54,37 @@ The TUI companion (`am-tui`) is a separate install. It's optional but recommende
 | `am init` | Print shell init code |
 | `am status` | Check if the shell is set up correctly |
 | `am setup` | Guided shell setup |
-| `am tui` | Interactive TUI for managing aliases and profiles |
+| `am tui` | Interactive TUI for managing aliases and profiles (*separate install*) |
 | `am hook` | Called by the cd hook (internal) |
 
 ::: tip
 All verbs have short forms: `am a` for add, `am r` for remove, `am p` for profile, `am l` for ls.
+:::
+
+## Installing `am-tui`
+
+The `am tui` command requires the TUI companion (`amoxide-tui`) to be installed separately. If it's not installed, `am tui` will show install instructions.
+
+::: code-group
+
+```sh [Homebrew]
+brew install sassman/tap/amoxide-tui
+```
+
+```sh [Shell Script]
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
+```
+
+```powershell [PowerShell]
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
+```
+
+```sh [Cargo (pre-built)]
+cargo binstall amoxide-tui
+```
+
+```sh [Cargo]
+cargo install amoxide-tui
+```
+
 :::
