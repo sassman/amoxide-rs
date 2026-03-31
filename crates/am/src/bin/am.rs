@@ -57,6 +57,24 @@ fn main() -> anyhow::Result<()> {
             } else if *local {
                 add_local_alias(name, &alias_cmd, *raw)?;
                 Message::DoNothing
+            } else if profile.is_none() && model.config.active_profiles.is_empty() {
+                // No explicit profile and no active profile — check for local project
+                let cwd = std::env::current_dir()?;
+                let has_local = cwd.join(ALIASES_FILE).exists()
+                    || cwd
+                        .parent()
+                        .map(ProjectAliases::find_path)
+                        .transpose()?
+                        .flatten()
+                        .is_some();
+                if has_local {
+                    add_local_alias(name, &alias_cmd, *raw)?;
+                    Message::DoNothing
+                } else {
+                    model.config.add_alias(name.clone(), alias_cmd, *raw);
+                    info!("Added global alias `{name}`");
+                    Message::SaveConfig
+                }
             } else {
                 let target = profile
                     .as_deref()

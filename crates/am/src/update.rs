@@ -146,6 +146,46 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<Option<M
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    /// When there are no active profiles, adding an alias via ActiveProfile
+    /// should fail — this is the error that `am add` (without flags) used to hit.
+    /// The binary now catches this case and falls back to a global alias instead.
+    #[test]
+    fn add_alias_with_no_active_profile_fails() {
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::AddAlias(
+                "ll".into(),
+                "ls -lha".into(),
+                AddAliasProfile::ActiveProfile,
+                false,
+            ),
+        );
+
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("No active profile"));
+    }
+
+    /// The fallback path: when no active profile and no local project,
+    /// `am add` defaults to global. Verify that adding a global alias works.
+    #[test]
+    fn add_global_alias_as_fallback() {
+        let mut config = Config::default();
+        assert!(config.active_profiles.is_empty());
+
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        assert_eq!(config.aliases.iter().count(), 1);
+    }
+}
+
 fn resolve_profile_mut<'a>(
     model: &'a mut AppModel,
     target: &AddAliasProfile,
