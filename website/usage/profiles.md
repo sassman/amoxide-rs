@@ -90,7 +90,9 @@ All verbs have short forms: `am a` for add, `am r` for remove, `am p a` for prof
 
 ## Managing Profiles Visually
 
-<!-- TODO: Screenshot of am-tui showing profile list with active indicators and the move mode for reorganizing aliases between profiles -->
-::: info Screenshot coming soon
-The TUI showing profile management — activating profiles, moving aliases between them, and seeing the layered hierarchy at a glance.
-:::
+Use `am tui` to manage profiles interactively — add aliases, move them between profiles, and see the layered hierarchy at a glance:
+
+<video autoplay loop muted playsinline>
+  <source src="/am-tui-managing-profiles.webm" type="video/webm">
+  <source src="/am-tui-managing-profiles.mp4" type="video/mp4">
+</video>

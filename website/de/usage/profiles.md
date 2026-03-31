@@ -73,7 +73,9 @@ Alle Verben haben Kurzformen: `am a` für add, `am r` für remove, `am p a` für
 
 ## Profile visuell verwalten
 
-<!-- TODO: Screenshot von am-tui mit Profil-Liste, aktiven Indikatoren und dem Verschiebe-Modus -->
-::: info Screenshot kommt bald
-Das TUI zeigt Profil-Verwaltung — Profile aktivieren, Aliase zwischen ihnen verschieben und die geschichtete Hierarchie auf einen Blick sehen.
-:::
+Verwende `am tui` um Profile interaktiv zu verwalten — Aliase hinzufügen, zwischen Profilen verschieben und die geschichtete Hierarchie auf einen Blick sehen:
+
+<video autoplay loop muted playsinline>
+  <source src="/am-tui-managing-profiles.webm" type="video/webm">
+  <source src="/am-tui-managing-profiles.mp4" type="video/mp4">
+</video>
