@@ -18,6 +18,7 @@ jobs:
   preview:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
+    environment: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'preview-website' || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
