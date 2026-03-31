@@ -64,6 +64,36 @@ impl ProjectAliases {
         Ok(())
     }
 
+    pub fn remove_alias(&mut self, name: &str) -> crate::Result<()> {
+        let key: AliasName = name.into();
+        self.aliases
+            .remove(&key)
+            .ok_or_else(|| anyhow::anyhow!("Alias '{name}' not found in {ALIASES_FILE}"))?;
+        Ok(())
+    }
+
+    /// Find the nearest `.aliases` file starting from the current directory.
+    /// Checks CWD first, then walks up parent directories.
+    pub fn find_local_path() -> Option<PathBuf> {
+        let cwd = std::env::current_dir().ok()?;
+        let local = cwd.join(ALIASES_FILE);
+        if local.exists() {
+            return Some(local);
+        }
+        cwd.parent().and_then(|p| Self::find_path(p).ok().flatten())
+    }
+
+    /// Remove an alias from the nearest local `.aliases` file.
+    /// Returns the path of the modified file.
+    pub fn remove_from_local(name: &str) -> crate::Result<PathBuf> {
+        let path =
+            Self::find_local_path().ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
+        let mut project = Self::load(&path)?;
+        project.remove_alias(name)?;
+        project.save(&path)?;
+        Ok(path)
+    }
+
     pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
         let key: AliasName = name.into();
         let alias = if raw {

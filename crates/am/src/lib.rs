@@ -3,6 +3,7 @@ pub mod cli;
 pub mod config;
 pub mod dirs;
 pub mod display;
+pub mod effects;
 pub mod hook;
 pub mod init;
 pub mod messages;
@@ -15,6 +16,7 @@ pub mod update;
 
 pub use alias::*;
 pub use config::*;
+pub use effects::*;
 pub use messages::*;
 pub use profile::*;
 pub use project::*;

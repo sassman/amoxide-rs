@@ -3,24 +3,28 @@ use std::fmt::Display;
 use crate::shell::Shells;
 
 #[derive(Debug, PartialEq)]
-pub enum AddAliasProfile {
+pub enum AliasTarget {
     Profile(String),
     ActiveProfile,
+    Global,
+    Local,
 }
 
-impl Display for AddAliasProfile {
+impl Display for AliasTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AddAliasProfile::Profile(profile) => write!(f, "Profile: `{}`", profile),
-            AddAliasProfile::ActiveProfile => write!(f, "Active Profile"),
+            AliasTarget::Profile(profile) => write!(f, "Profile: `{}`", profile),
+            AliasTarget::ActiveProfile => write!(f, "Active Profile"),
+            AliasTarget::Global => write!(f, "Global"),
+            AliasTarget::Local => write!(f, "Local"),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum Message {
-    AddAlias(String, String, AddAliasProfile, bool),
-    RemoveAlias(String, AddAliasProfile),
+    AddAlias(String, String, AliasTarget, bool),
+    RemoveAlias(String, AliasTarget),
     InitShell(Shells),
     Hook(Shells),
     Reload(Shells),
@@ -30,8 +34,4 @@ pub enum Message {
     RemoveProfile(String),
     ListProfiles,
     CreateProfile(String),
-    SaveProfiles,
-    SaveConfig,
-
-    DoNothing,
 }
