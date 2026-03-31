@@ -80,3 +80,51 @@
   );
   --vp-home-hero-image-filter: blur(44px);
 }
+
+/* Before/After comparison on landing page */
+.comparison {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.comparison .before,
+.comparison .after {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .comparison {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+/* Side-by-side screenshots */
+.screenshots {
+  display: flex;
+  gap: 24px;
+}
+
+.screenshots figure {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+}
+
+.screenshots figure img {
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-divider);
+}
+
+.screenshots figcaption {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--vp-c-text-2);
+}
+
+@media (max-width: 640px) {
+  .screenshots {
+    flex-direction: column;
+  }
+}

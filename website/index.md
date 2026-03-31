@@ -17,19 +17,23 @@ hero:
       link: https://github.com/sassman/amoxide-rs
 
 features:
-  - title: Context-Aware
+  - icon: 📂
+    title: Context-Aware
     details: Project aliases load automatically when you cd into a directory and unload when you leave. No manual switching.
     link: /usage/project-aliases
     linkText: Learn more
-  - title: Profiles
+  - icon: 📦
+    title: Profiles
     details: Group aliases by context — rust, git, node. Activate multiple profiles simultaneously with layered precedence.
     link: /usage/profiles
     linkText: Learn more
-  - title: Parameterized Aliases
+  - icon: 🔧
+    title: Parameterized Aliases
     details: Use positional and catch-all argument templates to compose powerful, reusable aliases with argument forwarding.
     link: /advanced/parameterized-aliases
     linkText: Learn more
-  - title: Interactive TUI
+  - icon: 🖥️
+    title: Interactive TUI
     details: Browse, add, move, and manage aliases visually with the am-tui companion. Works alongside the CLI.
     link: /guide/installation
     linkText: Install am-tui
@@ -63,16 +67,49 @@ cargo install amoxide amoxide-tui
 
 :::
 
+<div class="before-after">
+
+## Why amoxide?
+
+<div class="comparison">
+<div class="before">
+
+**Before:**
+```sh
+cargo clippy --locked --all-targets -- -D warnings
+```
+
+</div>
+<div class="after">
+
+**After:**
+```sh
+l
+```
+
+</div>
+</div>
+
+Start with project aliases. Refactor into profiles. [Get Started →](/guide/)
+
+</div>
+
 ## See It in Action
 
-### Interactive TUI
+<div class="screenshots">
 
-Browse, add, move, and delete aliases visually with `am tui`:
+<figure>
 
 ![am tui screenshot](/am-tui.png)
 
-### CLI Listing
+<figcaption>Interactive TUI — <code>am tui</code></figcaption>
+</figure>
 
-See your layered alias hierarchy at a glance with `am ls`:
+<figure>
 
 ![am ls screenshot](/am-ls.png)
+
+<figcaption>CLI Listing — <code>am ls</code></figcaption>
+</figure>
+
+</div>

@@ -17,19 +17,23 @@ hero:
       link: https://github.com/sassman/amoxide-rs
 
 features:
-  - title: Kontextbezogen
+  - icon: 📂
+    title: Kontextbezogen
     details: Projekt-Aliase werden automatisch geladen, wenn du in ein Verzeichnis wechselst, und entladen, wenn du es verlässt.
     link: /de/usage/project-aliases
     linkText: Mehr erfahren
-  - title: Profile
+  - icon: 📦
+    title: Profile
     details: Gruppiere Aliase nach Kontext — Rust, Git, Node. Aktiviere mehrere Profile gleichzeitig mit klarer Priorität.
     link: /de/usage/profiles
     linkText: Mehr erfahren
-  - title: Parametrisierte Aliase
+  - icon: 🔧
+    title: Parametrisierte Aliase
     details: Verwende Positions- und Sammel-Argument-Templates, um leistungsstarke, wiederverwendbare Aliase zu erstellen.
     link: /de/advanced/parameterized-aliases
     linkText: Mehr erfahren
-  - title: Interaktives TUI
+  - icon: 🖥️
+    title: Interaktives TUI
     details: Durchsuche, erstelle, verschiebe und verwalte Aliase visuell mit dem am-tui Companion.
     link: /de/guide/installation
     linkText: am-tui installieren
@@ -63,16 +67,49 @@ cargo install amoxide amoxide-tui
 
 :::
 
+<div class="before-after">
+
+## Warum amoxide?
+
+<div class="comparison">
+<div class="before">
+
+**Vorher:**
+```sh
+cargo clippy --locked --all-targets -- -D warnings
+```
+
+</div>
+<div class="after">
+
+**Nachher:**
+```sh
+l
+```
+
+</div>
+</div>
+
+Starte mit Projekt-Aliasen. Refaktoriere in Profile. [Erste Schritte →](/de/guide/)
+
+</div>
+
 ## In Aktion
 
-### Interaktives TUI
+<div class="screenshots">
 
-Durchsuche, erstelle, verschiebe und lösche Aliase visuell mit `am tui`:
+<figure>
 
 ![am tui Screenshot](/am-tui.png)
 
-### CLI-Auflistung
+<figcaption>Interaktives TUI — <code>am tui</code></figcaption>
+</figure>
 
-Sieh deine geschichtete Alias-Hierarchie auf einen Blick mit `am ls`:
+<figure>
 
 ![am ls Screenshot](/am-ls.png)
+
+<figcaption>CLI-Auflistung — <code>am ls</code></figcaption>
+</figure>
+
+</div>
