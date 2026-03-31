@@ -1,7 +1,9 @@
 name: Preview Website
 
 on:
-  pull_request:
+  # pull_request_target runs the workflow from the BASE branch (main),
+  # not from the PR branch — so contributors cannot modify this workflow.
+  pull_request_target:
     paths:
       - 'website/**'
     types: [opened, synchronize, reopened, closed]
@@ -18,27 +20,42 @@ jobs:
   preview:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
+    # External PRs require manual approval before preview deploys
     environment: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'preview-website' || '' }}
     steps:
-      - name: Checkout
+      # Checkout the PR branch for website source only
+      - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          path: pr
+
+      # Verify only website files were changed (safety check)
+      - name: Verify changes are website-only
+        run: |
+          cd pr
+          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} | grep -v '^website/' || true)
+          if [ -n "$CHANGED" ]; then
+            echo "::error::PR contains changes outside website/ — skipping preview for safety"
+            echo "Non-website changes: $CHANGED"
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: website/package-lock.json
+          cache-dependency-path: pr/website/package-lock.json
 
       - name: Install dependencies
         run: npm ci
-        working-directory: website
+        working-directory: pr/website
 
       - name: Build with preview base path
         run: npm run build
-        working-directory: website
+        working-directory: pr/website
         env:
           VITEPRESS_BASE: /_preview/${{ github.event.pull_request.number }}/
 
@@ -58,7 +75,7 @@ jobs:
           mkdir -p "_preview/${PR_NUMBER}"
 
           # Copy built site
-          cp -r ../website/.vitepress/dist/* "_preview/${PR_NUMBER}/"
+          cp -r ../pr/website/.vitepress/dist/* "_preview/${PR_NUMBER}/"
 
           git add -A
           if git diff --staged --quiet; then
