@@ -29,7 +29,13 @@ Ja. amoxide-Aliase koexistieren mit den nativen Shell-Aliasen. Bei Namenskonflik
 
 ## Was ist `am-tui`?
 
-Eine separate Binary (`amoxide-tui`), die eine interaktive Terminal-Oberfläche zur visuellen Alias-Verwaltung bietet. Installiere sie neben `am`:
+Eine separate Binary (`amoxide-tui`), die eine interaktive Terminal-Oberfläche zur visuellen Alias-Verwaltung bietet. Nach der Installation integriert sie sich direkt in `am`:
+
+```sh
+am tui
+```
+
+Der `am tui`-Befehl startet das TUI — kein separater Binary-Name nötig. Installiere es neben `am`:
 
 ::: code-group
 

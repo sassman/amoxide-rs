@@ -29,7 +29,13 @@ Yes. amoxide aliases coexist with your shell's native aliases. If there's a name
 
 ## What is `am-tui`?
 
-A separate binary (`amoxide-tui`) that provides an interactive terminal UI for managing aliases visually. Install it alongside `am`:
+A separate binary (`amoxide-tui`) that provides an interactive terminal UI for managing aliases visually. Once installed, it integrates directly into `am`:
+
+```sh
+am tui
+```
+
+The `am tui` command launches the TUI — no need to remember a separate binary name. Install it alongside `am`:
 
 ::: code-group
 
