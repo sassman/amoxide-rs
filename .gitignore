@@ -3,5 +3,11 @@ TODOs.md
 /docs/superpowers/
 /docs/plans/
 .worktrees/
+.superpowers/
 /tmp/
 .superpowers/
+
+# Website
+website/node_modules/
+website/.vitepress/cache/
+website/.vitepress/dist/

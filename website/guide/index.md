@@ -1,0 +1,69 @@
+# Getting Started
+
+amoxide (`am`) is a shell alias manager that brings [direnv](https://direnv.net)-like functionality to aliases. Instead of managing shell aliases in static dotfiles, define them per project, per toolchain, or globally — and the right ones load automatically.
+
+## Quick Start
+
+**1. Install amoxide:**
+
+::: code-group
+
+```sh [Homebrew]
+brew install sassman/tap/amoxide sassman/tap/amoxide-tui
+```
+
+```sh [Shell Script]
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
+```
+
+```powershell [PowerShell]
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
+```
+
+```sh [Cargo (pre-built)]
+cargo binstall amoxide amoxide-tui
+```
+
+```sh [Cargo]
+cargo install amoxide amoxide-tui
+```
+
+:::
+
+**2. Set up your shell:**
+
+```sh
+am setup fish          # or: zsh, powershell
+```
+
+This detects your profile file, shows exactly what it will add, and asks for confirmation. See [Shell Setup](/guide/setup) for the manual approach.
+
+**3. Add your first alias:**
+
+```sh
+am add gs git status
+```
+
+That's it — `gs` is now available on your active profile, no restart needed. Use `-g` for a global alias (always active) or `-l` for a project-specific one:
+
+```sh
+am add -l t cargo test
+```
+
+This writes to a `.aliases` file in the current directory — loaded automatically when you `cd` in, unloaded when you leave. See [Usage](/usage/) for how global, profile, and project aliases work together.
+
+**4. See your aliases:**
+
+```sh
+am ls
+# or short: am l
+```
+
+## What's Next?
+
+- [Installation](/guide/installation) — all installation methods in detail
+- [Shell Setup](/guide/setup) — how the shell integration works
+- [Profiles](/usage/profiles) — organize aliases into reusable groups
+- [Project Aliases](/usage/project-aliases) — auto-loading `.aliases` files
