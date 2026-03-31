@@ -14,10 +14,12 @@ brew install sassman/tap/amoxide sassman/tap/amoxide-tui
 
 ```sh [Shell-Skript]
 curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
 ```
 
 ```powershell [PowerShell]
 irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex
+irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex
 ```
 
 ```sh [Cargo (pre-built)]
