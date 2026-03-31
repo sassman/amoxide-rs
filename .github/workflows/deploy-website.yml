@@ -1,0 +1,79 @@
+name: Deploy Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: website
+
+      - name: Build
+        run: npm run build
+        working-directory: website
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Deploy to gh-pages
+        run: |
+          cd gh-pages
+
+          # Preserve preview deployments
+          if [ -d _preview ]; then
+            cp -r _preview /tmp/_preview_backup
+          fi
+
+          # Replace main site content
+          git rm -rf . --quiet || true
+          cp -r ../website/.vitepress/dist/* .
+
+          # Restore preview deployments
+          if [ -d /tmp/_preview_backup ]; then
+            cp -r /tmp/_preview_backup _preview
+          fi
+
+          # Ensure CNAME is present
+          echo "amoxide.rs" > CNAME
+
+          # Prevent Jekyll processing
+          touch .nojekyll
+
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "deploy: update website from ${GITHUB_SHA::7}"
+            git push
+          fi

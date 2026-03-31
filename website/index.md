@@ -1,0 +1,115 @@
+---
+layout: home
+
+hero:
+  name: "amoxide"
+  text: "The right aliases,\nat the right time"
+  tagline: Like direnv, but for aliases. Define aliases per project, per toolchain, or globally — and load the right ones automatically.
+  image:
+    src: /logo.svg
+    alt: amoxide logo
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /guide/
+    - theme: alt
+      text: GitHub
+      link: https://github.com/sassman/amoxide-rs
+
+features:
+  - icon: 📂
+    title: Context-Aware
+    details: Project aliases load automatically when you cd into a directory and unload when you leave. No manual switching.
+    link: /usage/project-aliases
+    linkText: Learn more
+  - icon: 📦
+    title: Profiles
+    details: Group aliases by context — rust, git, node. Activate multiple profiles simultaneously with layered precedence.
+    link: /usage/profiles
+    linkText: Learn more
+  - icon: 🔧
+    title: Parameterized Aliases
+    details: Use positional and catch-all argument templates to compose powerful, reusable aliases with argument forwarding.
+    link: /advanced/parameterized-aliases
+    linkText: Learn more
+  - icon: 🖥️
+    title: Interactive TUI
+    details: Browse, add, move, and manage aliases visually with the am-tui companion. Works alongside the CLI.
+    link: /guide/installation
+    linkText: Install am-tui
+---
+
+## Install
+
+::: code-group
+
+```sh [Homebrew]
+brew install sassman/tap/amoxide sassman/tap/amoxide-tui
+```
+
+```sh [Shell Script]
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
+```
+
+```powershell [PowerShell]
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
+```
+
+```sh [Cargo (pre-built)]
+cargo binstall amoxide amoxide-tui
+```
+
+```sh [Cargo]
+cargo install amoxide amoxide-tui
+```
+
+:::
+
+<div class="before-after">
+
+## Why amoxide?
+
+<div class="comparison">
+<div class="before">
+
+**Before:**
+```sh
+cargo clippy --locked --all-targets -- -D warnings
+```
+
+</div>
+<div class="after">
+
+**After:**
+```sh
+l
+```
+
+</div>
+</div>
+
+Start with project aliases. Refactor into profiles. [Get Started →](/guide/)
+
+</div>
+
+## See It in Action
+
+<div class="screenshots">
+
+<figure>
+
+![am tui screenshot](/am-tui.png)
+
+<figcaption>Interactive TUI — <code>am tui</code></figcaption>
+</figure>
+
+<figure>
+
+![am ls screenshot](/am-ls.png)
+
+<figcaption>CLI Listing — <code>am ls</code></figcaption>
+</figure>
+
+</div>
