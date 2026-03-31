@@ -84,12 +84,12 @@
     <tspan fill="#f8f8f2">project </tspan>
     <tspan fill="#6272a4">(.aliases)</tspan>
   </text>
-  <text x="612" y="480" class="mono" font-size="14" fill="#6272a4">   i → cargo install --path .</text>
-  <text x="612" y="508" class="mono" font-size="14" fill="#6272a4">   chk → typos . --config ./typos.toml</text>
+  <text x="645" y="480" class="mono" font-size="14" fill="#6272a4">i → cargo install --path .</text>
+  <text x="645" y="508" class="mono" font-size="14" fill="#6272a4">chk → typos . --config ./typos.toml</text>
 
   <text x="612" y="548" class="mono" font-size="14">
     <tspan fill="#6272a4">○ </tspan>
     <tspan fill="#6272a4">node</tspan>
   </text>
-  <text x="612" y="572" class="mono" font-size="14" fill="#44475a">   nr → npm run</text>
+  <text x="645" y="572" class="mono" font-size="14" fill="#44475a">nr → npm run</text>
 </svg>
