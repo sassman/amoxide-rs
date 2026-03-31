@@ -1,0 +1,129 @@
+name: Preview Website
+
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: preview-website-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: website
+
+      - name: Build with preview base path
+        run: npm run build
+        working-directory: website
+        env:
+          VITEPRESS_BASE: /_preview/${{ github.event.pull_request.number }}/
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Deploy preview
+        run: |
+          cd gh-pages
+          PR_NUMBER=${{ github.event.pull_request.number }}
+
+          # Clean previous preview for this PR
+          rm -rf "_preview/${PR_NUMBER}"
+          mkdir -p "_preview/${PR_NUMBER}"
+
+          # Copy built site
+          cp -r ../website/.vitepress/dist/* "_preview/${PR_NUMBER}/"
+
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "preview: PR #${PR_NUMBER} from ${GITHUB_SHA::7}"
+            git push
+          fi
+
+      - name: Comment preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const previewUrl = `https://amoxide.rs/_preview/${prNumber}/`;
+            const body = `🔍 **Website Preview:** ${previewUrl}\n\n_Preview will be removed when this PR is merged or closed._`;
+
+            // Check if we already commented
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existing = comments.data.find(c =>
+              c.user.login === 'github-actions[bot]' && c.body.includes('Website Preview')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Remove preview
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+
+          if [ -d "_preview/${PR_NUMBER}" ]; then
+            rm -rf "_preview/${PR_NUMBER}"
+            git add -A
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "cleanup: remove preview for PR #${PR_NUMBER}"
+            git push
+          else
+            echo "No preview to clean up"
+          fi

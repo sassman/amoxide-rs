@@ -1,9 +1,12 @@
 import { defineConfig } from 'vitepress'
 
+const base = process.env.VITEPRESS_BASE || '/'
+
 export default defineConfig({
+  base,
   title: 'amoxide',
   description: 'Shell aliases that follow your context — like direnv, but for aliases.',
-  head: [['link', { rel: 'icon', href: '/logo.svg' }]],
+  head: [['link', { rel: 'icon', href: `${base}logo.svg` }]],
 
   locales: {
     root: {

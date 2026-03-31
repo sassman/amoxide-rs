@@ -8,16 +8,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: deploy-website
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,9 +30,6 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Install dependencies
         run: npm ci
         working-directory: website
@@ -43,18 +38,42 @@ jobs:
         run: npm run build
         working-directory: website
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
         with:
-          path: website/.vitepress/dist
+          ref: gh-pages
+          path: gh-pages
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to gh-pages
+        run: |
+          cd gh-pages
+
+          # Preserve preview deployments
+          if [ -d _preview ]; then
+            cp -r _preview /tmp/_preview_backup
+          fi
+
+          # Replace main site content
+          git rm -rf . --quiet || true
+          cp -r ../website/.vitepress/dist/* .
+
+          # Restore preview deployments
+          if [ -d /tmp/_preview_backup ]; then
+            cp -r /tmp/_preview_backup _preview
+          fi
+
+          # Ensure CNAME is present
+          echo "amoxide.rs" > CNAME
+
+          # Prevent Jekyll processing
+          touch .nojekyll
+
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "deploy: update website from ${GITHUB_SHA::7}"
+            git push
+          fi
