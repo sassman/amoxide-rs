@@ -35,16 +35,12 @@ Eine separate Binary (`amoxide-tui`), die eine interaktive Terminal-Oberfläche 
 am tui
 ```
 
-Der `am tui`-Befehl startet das TUI — kein separater Binary-Name nötig. Installiere es neben `am`:
+Der `am tui`-Befehl startet das TUI — kein separater Binary-Name nötig. Schnelle Installation:
 
-::: code-group
-
-```sh [Homebrew]
+```sh
 brew install sassman/tap/amoxide-tui
 ```
 
-```sh [Cargo]
-cargo install amoxide-tui
-```
+Siehe [alle Installationsoptionen](/de/guide/installation#am-tui-installieren) für Shell-Skript, PowerShell und Cargo.
 
 :::
