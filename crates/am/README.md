@@ -17,7 +17,7 @@ cargo install amoxide
 cargo binstall amoxide
 ```
 
-Also available via [Homebrew, Shell Script, and PowerShell](https://github.com/sassman/amoxide-rs#installation).
+Also available via [Homebrew, Shell Script, and PowerShell](https://amoxide.rs/guide/installation).
 
 ## Quick Start
 
@@ -74,4 +74,4 @@ See [amoxide-tui on crates.io](https://crates.io/crates/amoxide-tui) for details
 
 ## Documentation
 
-Full documentation with examples: [GitHub](https://github.com/sassman/amoxide-rs)
+Full documentation with examples: **[amoxide.rs](https://amoxide.rs)**

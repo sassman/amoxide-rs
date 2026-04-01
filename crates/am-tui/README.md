@@ -15,7 +15,7 @@ cargo install amoxide-tui
 cargo binstall amoxide-tui
 ```
 
-Also available via [Homebrew, Shell Script, and PowerShell](https://github.com/sassman/amoxide-rs#installation).
+Also available via [Homebrew, Shell Script, and PowerShell](https://amoxide.rs/guide/installation).
 
 This installs the `am-tui` binary. You can also launch it via `am tui` if `amoxide` is installed.
 
@@ -47,4 +47,4 @@ See [amoxide](https://crates.io/crates/amoxide) for details.
 
 ## Documentation
 
-Full documentation with CLI examples and setup instructions: [GitHub](https://github.com/sassman/amoxide-rs)
+Full documentation with CLI examples and setup instructions: **[amoxide.rs](https://amoxide.rs)**

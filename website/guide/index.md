@@ -61,6 +61,72 @@ am ls
 # or short: am l
 ```
 
+## Recommended Workflow
+
+I personally start with **project-local aliases**, so I can be super lazy in the context I'm working in.
+
+For example in this project I have:
+
+- installing the binary by `i` does a `cargo install --path crates/am`
+- running tests by `t` does a `cargo test`
+- running lint checks by `l` does a `cargo clippy --all-targets --all-features -- -D warning`
+
+**Step 1** Add local / project aliases with `-l`:
+
+```sh
+am add -l t cargo test
+#  ^^^ ^^ ^ ^--------^
+#   |   | |       |
+#   |   | |       +---- the command to alias
+#   |   | +---- the alias name
+#   |   +---- local, writes to .aliases in the current directory
+#   +---- adding an alias
+
+am add -l l cargo clippy --all-targets --all-features -- -D warning
+am add -l i cargo install --path crates/am
+```
+
+These *local* aliases live in a `.aliases` file in the project root and are loaded/unloaded automatically on `cd`.
+
+**Step 2 — Refactor:** After a while I notice `t` and `l` are the same in every rust project. Time to extract them into a reusable **profile** — a named collection of aliases you can activate anywhere:
+
+```sh
+am profile add rust
+am add -p rust t cargo test
+#      ^-----^
+#         |
+#         + ---- we add the alias to the profile "rust"
+
+am add -p rust l cargo clippy --all-targets --all-features -- -D warning
+
+# activate it
+am profile use rust
+```
+
+::: tip
+`am tui` allows to move the aliases from project to profile level (by select and `m`)
+:::
+
+Now `t` and `l` are available everywhere (not just this project). The project `.aliases` keeps only project-specific ones like `i`.
+
+**Step 3 — Use multiple profiles.** I also want git aliases everywhere. Just activate both:
+
+```sh
+# git profile with a signing commit alias
+am profile add git
+am add -p git gm "git commit -S --signoff -m"
+
+# activate both — order matters: the last one activated wins on conflicts
+am profile use git
+am profile use rust
+```
+
+Now I have git aliases and rust aliases loaded at the same time. If both profiles had an alias with the same name, the last-activated one (rust) would take precedence.
+
+::: tip
+All verbs have short forms to save typing, e.g. `am a -l t cargo test` or `am p a rust`.
+:::
+
 ## What's Next?
 
 - [Installation](/guide/installation) — all installation methods in detail
