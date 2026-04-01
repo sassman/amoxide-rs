@@ -5,7 +5,7 @@
   <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
 </p>
 
-Shell alias manager — manage aliases globally via profiles or per-project via `.aliases` files. Think [direnv](https://direnv.net), but for aliases.
+Shell alias manager — manage aliases globally, via profiles or per-project. Think [direnv](https://direnv.net), but for aliases.
 
 The crate is called `amoxide`, but the binary it installs is simply `am`.
 
