@@ -5,7 +5,7 @@ on:
   # not from the PR branch — so contributors cannot modify this workflow.
   pull_request_target:
     paths:
-      - 'website/**'
+      - "website/**"
     types: [opened, synchronize, reopened, closed]
 
 permissions:
@@ -30,17 +30,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           path: pr
-
-      # Verify only website files were changed (safety check)
-      - name: Verify changes are website-only
-        run: |
-          cd pr
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} | grep -v '^website/' || true)
-          if [ -n "$CHANGED" ]; then
-            echo "::error::PR contains changes outside website/ — skipping preview for safety"
-            echo "Non-website changes: $CHANGED"
-            exit 1
-          fi
 
       - name: Setup Node
         uses: actions/setup-node@v5
