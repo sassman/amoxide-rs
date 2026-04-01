@@ -12,21 +12,12 @@ The crate is called `amoxide`, but the binary it installs is simply `am`.
 ## Install
 
 ```sh
-# Homebrew (macOS/Linux)
-brew install sassman/tap/amoxide
-
-# Shell Script (macOS/Linux)
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
-
-# PowerShell (Windows)
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
-
-# Cargo (pre-built)
-cargo binstall amoxide
-
-# Cargo (from source)
 cargo install amoxide
+# or pre-built:
+cargo binstall amoxide
 ```
+
+Also available via [Homebrew, Shell Script, and PowerShell](https://github.com/sassman/amoxide-rs#installation).
 
 ## Quick Start
 
@@ -74,19 +65,6 @@ am add -l b "make build"             # project-local alias (.aliases file)
 For a visual interface to manage aliases and profiles, install the companion crate:
 
 ```sh
-# Homebrew
-brew install sassman/tap/amoxide-tui
-
-# Shell Script (macOS/Linux)
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
-
-# PowerShell (Windows)
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
-
-# Cargo (pre-built)
-cargo binstall amoxide-tui
-
-# Cargo (from source)
 cargo install amoxide-tui
 ```
 

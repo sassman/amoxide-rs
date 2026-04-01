@@ -10,21 +10,12 @@ Interactive TUI for [amoxide](https://crates.io/crates/amoxide) — navigate, ad
 ## Install
 
 ```sh
-# Homebrew (macOS/Linux)
-brew install sassman/tap/amoxide-tui
-
-# Shell Script (macOS/Linux)
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
-
-# PowerShell (Windows)
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
-
-# Cargo (pre-built)
-cargo binstall amoxide-tui
-
-# Cargo (from source)
 cargo install amoxide-tui
+# or pre-built:
+cargo binstall amoxide-tui
 ```
+
+Also available via [Homebrew, Shell Script, and PowerShell](https://github.com/sassman/amoxide-rs#installation).
 
 This installs the `am-tui` binary. You can also launch it via `am tui` if `amoxide` is installed.
 
@@ -33,21 +24,6 @@ This installs the `am-tui` binary. You can also launch it via `am tui` if `amoxi
 This crate extends `amoxide` (the `am` CLI) with an interactive terminal interface. It reads and writes the same configuration files. Install both:
 
 ```sh
-# Homebrew
-brew install sassman/tap/amoxide sassman/tap/amoxide-tui
-
-# Shell Script (macOS/Linux)
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
-
-# PowerShell (Windows)
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
-
-# Cargo (pre-built)
-cargo binstall amoxide amoxide-tui
-
-# Cargo (from source)
 cargo install amoxide amoxide-tui
 ```
 
