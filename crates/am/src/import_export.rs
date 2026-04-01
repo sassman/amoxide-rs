@@ -5,7 +5,8 @@ use crate::alias::MergeResult;
 use crate::cli::{ExportArgs, ImportArgs};
 use crate::effects::Effect;
 use crate::exchange::{
-    base64_decode, base64_encode, parse_import, render_import_summary, ExportAll, ImportPayload,
+    base64_decode, base64_encode, parse_import, render_import_summary, render_suspicious_warning,
+    scan_suspicious, ExportAll, ImportPayload,
 };
 use crate::project::{ProjectAliases, ALIASES_FILE};
 use crate::update::{update, AppModel};
@@ -94,6 +95,35 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
     };
 
     let parsed = parse_import(&toml_input)?;
+
+    // Security scan: check for suspicious control characters
+    let findings = scan_suspicious(&parsed);
+    if !findings.is_empty() {
+        if args.trust {
+            // --yes --trust: user explicitly accepts the risk
+            eprintln!(
+                "WARNING: {} suspicious entries found, proceeding due to --trust",
+                findings.len()
+            );
+        } else if args.yes {
+            // --yes without --trust: refuse to auto-accept dangerous input
+            eprint!("{}", render_suspicious_warning(&findings));
+            anyhow::bail!(
+                "refusing to import: suspicious characters detected. \
+                 Use --yes --trust to override."
+            );
+        } else {
+            // Interactive: show warning and require explicit "YES" confirmation
+            eprint!("{}", render_suspicious_warning(&findings));
+            eprint!("Type YES to import anyway, or anything else to abort: ");
+            std::io::stderr().flush()?;
+            let mut confirmation = String::new();
+            std::io::stdin().lock().read_line(&mut confirmation)?;
+            if confirmation.trim() != "YES" {
+                anyhow::bail!("import aborted by user");
+            }
+        }
+    }
 
     // Phase 2: Resolve conflicts + Phase 3: Apply
     if args.scope.local || args.scope.global || args.scope.profile.is_some() {

