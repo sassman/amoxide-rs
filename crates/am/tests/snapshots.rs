@@ -669,3 +669,64 @@ fn test_import_payload_global_only_no_save_profiles() {
     assert!(result.next.is_none());
     assert_eq!(model.config.aliases.len(), 1);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Share command snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_share_termbin_profile() {
+    use amoxide::cli::{ScopeArgs, ShareArgs};
+    use amoxide::import_export::handle_share;
+
+    let args = ShareArgs {
+        scope: ScopeArgs {
+            local: false,
+            global: false,
+            profile: Some("git".into()),
+            all: false,
+        },
+        termbin: true,
+        paste_rs: false,
+    };
+    let output = handle_share(&args);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_share_paste_rs_all() {
+    use amoxide::cli::{ScopeArgs, ShareArgs};
+    use amoxide::import_export::handle_share;
+
+    let args = ShareArgs {
+        scope: ScopeArgs {
+            local: false,
+            global: false,
+            profile: None,
+            all: true,
+        },
+        termbin: false,
+        paste_rs: true,
+    };
+    let output = handle_share(&args);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_share_help() {
+    use amoxide::cli::{ScopeArgs, ShareArgs};
+    use amoxide::import_export::handle_share;
+
+    let args = ShareArgs {
+        scope: ScopeArgs {
+            local: false,
+            global: false,
+            profile: None,
+            all: false,
+        },
+        termbin: false,
+        paste_rs: false,
+    };
+    let output = handle_share(&args);
+    insta::assert_snapshot!(output);
+}

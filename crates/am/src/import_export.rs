@@ -3,7 +3,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use crate::alias::MergeResult;
-use crate::cli::{ExportArgs, ImportArgs};
+use crate::cli::{ExportArgs, ImportArgs, ShareArgs};
 use crate::effects::Effect;
 use crate::exchange::{
     base64_decode, base64_encode, parse_import, render_import_summary, render_suspicious_warning,
@@ -73,6 +73,48 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
             local_aliases: project_aliases,
         };
         Ok(toml::to_string(&export)?)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Share
+// ═══════════════════════════════════════════════════════════════════════
+
+pub fn handle_share(args: &ShareArgs) -> String {
+    let scope_flags = build_scope_flags(&args.scope);
+
+    if args.termbin {
+        format!("am export{scope_flags} --base64 | nc termbin.com 9999")
+    } else if args.paste_rs {
+        format!("am export{scope_flags} --base64 | curl --data-binary @- https://paste.rs/")
+    } else {
+        // No target — show help
+        let mut help = String::new();
+        help.push_str("Share your aliases with others via a pastebin service.\n\n");
+        help.push_str("Available targets:\n\n");
+        help.push_str("  --termbin    Post via netcat to termbin.com\n");
+        help.push_str("               Example: am share -p git --termbin\n");
+        help.push_str("               Output:  am export -p git --base64 | nc termbin.com 9999\n\n");
+        help.push_str("  --paste-rs   Post via curl to paste.rs\n");
+        help.push_str("               Example: am share -p git --paste-rs\n");
+        help.push_str("               Output:  am export -p git --base64 | curl --data-binary @- https://paste.rs/\n\n");
+        help.push_str("Run the generated command to upload. Share the returned URL.\n");
+        help.push_str("The receiver imports with: am import <url> --base64\n");
+        help
+    }
+}
+
+fn build_scope_flags(scope: &crate::cli::ScopeArgs) -> String {
+    if scope.local {
+        " -l".into()
+    } else if scope.global {
+        " -g".into()
+    } else if let Some(ref name) = scope.profile {
+        format!(" -p {name}")
+    } else if scope.all {
+        " --all".into()
+    } else {
+        String::new() // default: active scope
     }
 }
 

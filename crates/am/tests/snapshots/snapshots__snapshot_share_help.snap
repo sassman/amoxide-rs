@@ -1,0 +1,18 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+Share your aliases with others via a pastebin service.
+
+Available targets:
+
+  --termbin    Post via netcat to termbin.com
+               Example: am share -p git --termbin
+               Output:  am export -p git --base64 | nc termbin.com 9999
+
+  --paste-rs   Post via curl to paste.rs
+               Example: am share -p git --paste-rs
+               Output:  am export -p git --base64 | curl --data-binary @- https://paste.rs/
+
+Run the generated command to upload. Share the returned URL.
+The receiver imports with: am import <url> --base64

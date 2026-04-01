@@ -264,6 +264,23 @@ _arguments "${_arguments_options[@]}" : \
 '::url -- URL or file to import from (reads stdin if omitted):_default' \
 && ret=0
 ;;
+(share)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global --all)-p+[Operate on a specific profile]:PROFILE:_default' \
+'(-l --local -g --global --all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(-g --global -p --profile --all)-l[Operate on project-local aliases only]' \
+'(-g --global -p --profile --all)--local[Operate on project-local aliases only]' \
+'(-l --local -p --profile --all)-g[Operate on global aliases only]' \
+'(-l --local -p --profile --all)--global[Operate on global aliases only]' \
+'(-l --local -g --global -p --profile)--all[Operate on everything (global + all profiles + local)]' \
+'(--paste-rs)--termbin[Generate command for termbin.com (netcat)]' \
+'(--termbin)--paste-rs[Generate command for paste.rs (curl)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -362,6 +379,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(share)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -396,6 +417,7 @@ _am_commands() {
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
 'import:Import aliases from stdin' \
+'share:Generate a share command for posting aliases to a pastebin service' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -425,6 +447,7 @@ _am__help_commands() {
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
 'import:Import aliases from stdin' \
+'share:Generate a share command for posting aliases to a pastebin service' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -510,6 +533,11 @@ _am__help__remove_commands() {
 _am__help__setup_commands() {
     local commands; commands=()
     _describe -t commands 'am help setup commands' commands "$@"
+}
+(( $+functions[_am__help__share_commands] )) ||
+_am__help__share_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help share commands' commands "$@"
 }
 (( $+functions[_am__help__status_commands] )) ||
 _am__help__status_commands() {
@@ -622,6 +650,11 @@ _am__remove_commands() {
 _am__setup_commands() {
     local commands; commands=()
     _describe -t commands 'am setup commands' commands "$@"
+}
+(( $+functions[_am__share_commands] )) ||
+_am__share_commands() {
+    local commands; commands=()
+    _describe -t commands 'am share commands' commands "$@"
 }
 (( $+functions[_am__status_commands] )) ||
 _am__status_commands() {

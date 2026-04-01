@@ -81,6 +81,10 @@ pub enum Commands {
     #[command(alias = "im")]
     Import(ImportArgs),
 
+    /// Generate a share command for posting aliases to a pastebin service
+    #[command(alias = "s")]
+    Share(ShareArgs),
+
     /// Internal: called by the cd hook to load/unload project aliases
     #[command(hide = true)]
     Hook { shell: Shells },
@@ -178,6 +182,20 @@ pub struct ExportArgs {
     /// Encode output as base64
     #[arg(long)]
     pub base64: bool,
+}
+
+#[derive(Args)]
+pub struct ShareArgs {
+    #[command(flatten)]
+    pub scope: ScopeArgs,
+
+    /// Generate command for termbin.com (netcat)
+    #[arg(long, conflicts_with = "paste_rs")]
+    pub termbin: bool,
+
+    /// Generate command for paste.rs (curl)
+    #[arg(long, conflicts_with = "termbin")]
+    pub paste_rs: bool,
 }
 
 #[derive(Args)]
