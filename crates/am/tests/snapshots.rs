@@ -589,8 +589,9 @@ fn test_import_payload_through_update() {
         local_aliases: None,
     };
 
-    let next = update(&mut model, amoxide::Message::Import(payload)).unwrap();
-    assert!(next.is_some()); // Should return SaveProfiles (profiles were imported)
+    let result = update(&mut model, amoxide::Message::Import(payload)).unwrap();
+    // Should have SaveConfig + SaveProfiles effects
+    assert!(!result.effects.is_empty());
 
     assert_eq!(model.config.aliases.len(), 1);
     let git = model.profile_config().get_profile_by_name("git").unwrap();
@@ -602,6 +603,7 @@ fn test_import_payload_global_only_no_save_profiles() {
     use amoxide::update::{update, AppModel};
     use amoxide::exchange::ImportPayload;
     use amoxide::config::Config;
+    use amoxide::effects::Effect;
 
     let config = Config::default();
     let profile_config = profiles(indoc! {r#"
@@ -617,7 +619,9 @@ fn test_import_payload_global_only_no_save_profiles() {
         local_aliases: None,
     };
 
-    let next = update(&mut model, amoxide::Message::Import(payload)).unwrap();
-    assert!(next.is_none()); // No profiles imported, so no SaveProfiles
+    let result = update(&mut model, amoxide::Message::Import(payload)).unwrap();
+    // Only SaveConfig, no SaveProfiles (no profiles imported)
+    assert_eq!(result.effects, vec![Effect::SaveConfig]);
+    assert!(result.next.is_none());
     assert_eq!(model.config.aliases.len(), 1);
 }
