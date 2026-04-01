@@ -17,7 +17,7 @@ cargo binstall amoxide amoxide-tui
 
 Also available via [Homebrew, Shell Script, and PowerShell](https://amoxide.rs/guide/installation).
 
-This installs the `am-tui` binary. You can also launch it via `am tui` if `amoxide` is installed.
+This installs the `am-tui` binary. It is supposed to be launched via `am tui` (needs amoxide installed).
 
 ## Screenshot
 
