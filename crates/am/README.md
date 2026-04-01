@@ -5,7 +5,7 @@
   <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
 </p>
 
-Shell alias manager — manage aliases globally via profiles or per-project via `.aliases` files.
+Shell alias manager — manage aliases globally via profiles or per-project via `.aliases` files. Think [direnv](https://direnv.net), but for aliases.
 
 The crate is called `amoxide`, but the binary it installs is simply `am`.
 
@@ -19,59 +19,14 @@ cargo binstall amoxide
 
 Also available via [Homebrew, Shell Script, and PowerShell](https://amoxide.rs/guide/installation).
 
-## Quick Start
-
-```fish
-# Add to your shell config (~/.config/fish/config.fish)
-am init fish | source
-```
-
-```zsh
-# Or for zsh (~/.zshrc)
-eval "$(am init zsh)"
-```
-
-```powershell
-# Add to your PowerShell profile (echo $PROFILE to find it)
-(am init powershell) -join "`n" | Invoke-Expression
-```
-
-Then:
-
-```shell
-am add -g ll "ls -lha"              # global alias (always loaded)
-am profile add rust                  # create a profile
-am add -p rust t "cargo test"        # profile alias
-am add -l b "make build"             # project-local alias (.aliases file)
-```
-
 ## Features
 
-- **Global aliases** (`-g`) — always loaded, independent of profile
-- **Multiple active profiles** — group aliases by context (rust, git, node), activate several at once
-- **Project aliases** (`.aliases` files) — auto-loaded on `cd`, like direnv for aliases
-- **Parameterized aliases** — `{{1}}`, `{{@}}` template syntax for composable commands
-- **Shell completions** — included in `am init` output
-
-| Shell | Status |
-|-------|--------|
-| Fish | Fully supported and tested |
-| PowerShell | Supported and tested (5.1 + 7) |
-| Zsh | Supported, not yet tested |
-| Bash, Nushell | Not yet implemented |
-
-## Interactive TUI
-
-For a visual interface to manage aliases and profiles, install the companion crate:
-
-```sh
-cargo install amoxide-tui
-```
-
-Or launch it directly via `am tui` (if installed).
-
-See [amoxide-tui on crates.io](https://crates.io/crates/amoxide-tui) for details.
+- **[Global aliases](https://amoxide.rs/usage/global)** — always loaded, independent of profile
+- **[Profiles](https://amoxide.rs/usage/profiles)** — group aliases by context (rust, git, node), activate several at once
+- **[Project aliases](https://amoxide.rs/usage/project-aliases)** — `.aliases` files, auto-loaded on `cd`
+- **[Parameterized aliases](https://amoxide.rs/advanced/parameterized-aliases)** — `{{1}}`, `{{@}}` template syntax
+- **[Interactive TUI](https://crates.io/crates/amoxide-tui)** — visual alias management (`cargo install amoxide-tui`)
 
 ## Documentation
 
-Full documentation with examples: **[amoxide.rs](https://amoxide.rs)**
+Getting started, shell setup, and full usage guide: **[amoxide.rs](https://amoxide.rs)**
