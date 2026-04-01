@@ -46,20 +46,7 @@ Das erkennt deine Profil-Datei, zeigt genau was hinzugefügt wird und fragt nach
 am add gs git status
 ```
 
-Das war's — `gs` ist jetzt in deinem aktiven Profil verfügbar, kein Neustart nötig. Verwende `-g` für einen globalen Alias (immer aktiv) oder `-l` für einen projektspezifischen:
-
-```sh
-am add -l t cargo test
-```
-
-Das schreibt in eine `.aliases`-Datei im aktuellen Verzeichnis — automatisch geladen beim `cd` hinein, entladen beim Verlassen. Siehe [Nutzung](/de/usage/) für das Zusammenspiel von globalen, Profil- und Projekt-Aliasen.
-
-**4. Aliase anzeigen:**
-
-```sh
-am ls
-# oder kurz: am l
-```
+Das war's — `gs` ist jetzt in deiner Shell verfügbar, kein Neustart nötig.
 
 ## Empfohlener Workflow
 
