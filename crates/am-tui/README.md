@@ -9,39 +9,21 @@ Interactive TUI for [amoxide](https://crates.io/crates/amoxide) — navigate, ad
 
 ## Install
 
-```shell
-cargo install amoxide-tui
+```sh
+cargo install amoxide amoxide-tui
+# or pre-built:
+cargo binstall amoxide amoxide-tui
 ```
 
-This installs the `am-tui` binary. You can also launch it via `am tui` if `amoxide` is installed.
+Also available via [Homebrew, Shell Script, and PowerShell](https://amoxide.rs/guide/installation).
 
-## Requires amoxide
-
-This crate extends `amoxide` (the `am` CLI) with an interactive terminal interface. It reads and writes the same configuration files. Install both:
-
-```shell
-cargo install amoxide          # the `am` CLI
-cargo install amoxide-tui      # the `am-tui` interactive TUI
-```
+This installs the `am-tui` binary. It is supposed to be launched via `am tui` (needs amoxide installed).
 
 ## Screenshot
-
-`am-tui` lets you browse profiles, aliases, and manage them with keyboard shortcuts:
 
 <!-- Screenshot rendered on GitHub, not on crates.io -->
 ![am-tui screenshot](https://raw.githubusercontent.com/sassman/amoxide-rs/main/assets/am-tui-2.png)
 
-## Shell Support
-
-| Shell | Status |
-|-------|--------|
-| Fish | Fully supported and tested |
-| PowerShell | Supported and tested (5.1 + 7) |
-| Zsh | Supported, not yet tested |
-| Bash, Nushell | Not yet implemented |
-
-See [amoxide](https://crates.io/crates/amoxide) for details.
-
 ## Documentation
 
-Full documentation with CLI examples and setup instructions: [GitHub](https://github.com/sassman/amoxide-rs)
+Full documentation: **[amoxide.rs](https://amoxide.rs)**
