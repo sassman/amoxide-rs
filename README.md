@@ -121,24 +121,30 @@ Now I have git aliases and rust aliases loaded at the same time. If both profile
 brew install sassman/tap/amoxide sassman/tap/amoxide-tui
 ```
 
-### Shell script (macOS and Linux)
+### Shell Script (macOS and Linux)
 
 ```sh
 curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
 ```
 
 ### PowerShell (Windows)
 
 ```powershell
-irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
 ```
 
-### From source (via cargo)
+### Cargo (pre-built)
+
+```sh
+cargo binstall amoxide amoxide-tui
+```
+
+### Cargo (from source)
 
 ```sh
 cargo install amoxide amoxide-tui
-# or, without compiling from source:
-cargo binstall amoxide amoxide-tui
 ```
 
 The crate is called `amoxide`, but the binary it installs is simply `am` (short for amoxide).
@@ -175,7 +181,7 @@ eval "$(am init zsh)"
 ```
 
 ```powershell
-# add to your PowerShell profile (echo $PROFILE to find it)
+# Add to your PowerShell profile (echo $PROFILE to find it)
 (am init powershell) -join "`n" | Invoke-Expression
 ```
 
