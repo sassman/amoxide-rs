@@ -1,5 +1,6 @@
 use std::io::{BufRead, Read, Write};
 use std::path::Path;
+use std::time::Duration;
 
 use crate::alias::MergeResult;
 use crate::cli::{ExportArgs, ImportArgs};
@@ -80,9 +81,25 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
 // ═══════════════════════════════════════════════════════════════════════
 
 pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<()> {
-    // Phase 1: Parse stdin
-    let mut input = String::new();
-    std::io::stdin().lock().read_to_string(&mut input)?;
+    // Phase 1: Determine input source
+    let input = match &args.url {
+        Some(value) if value.contains("://") => {
+            if value.starts_with("http://") || value.starts_with("https://") {
+                eprintln!("Fetching {}...", value);
+                fetch_url(value)?
+            } else {
+                anyhow::bail!("unsupported URL scheme: {}", value.split("://").next().unwrap_or("unknown"));
+            }
+        }
+        Some(value) => {
+            anyhow::bail!("invalid argument: expected a URL (http:// or https://), got: {value}");
+        }
+        None => {
+            let mut buf = String::new();
+            std::io::stdin().lock().read_to_string(&mut buf)?;
+            buf
+        }
+    };
 
     if input.trim().is_empty() {
         anyhow::bail!("no input received");
@@ -313,4 +330,110 @@ fn apply_import(
     }
 
     Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// URL fetching
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Maximum response body size: 1 MB
+const MAX_BODY_BYTES: u64 = 1_048_576;
+
+/// Fetch TOML content from a URL with safety limits.
+///
+/// - 10 second connect timeout
+/// - 30 second global timeout
+/// - 1 MB maximum response body
+/// - SSL verification enforced via native-tls
+pub fn fetch_url(url: &str) -> anyhow::Result<String> {
+    let config = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::from_secs(10)))
+        .timeout_global(Some(Duration::from_secs(30)))
+        .https_only(url.starts_with("https://"))
+        .build();
+
+    let agent = config.new_agent();
+
+    let mut response = agent
+        .get(url)
+        .call()
+        .map_err(|e| anyhow::anyhow!("failed to fetch URL: {e}"))?;
+
+    let body = response
+        .body_mut()
+        .with_config()
+        .limit(MAX_BODY_BYTES)
+        .read_to_string()
+        .map_err(|e| anyhow::anyhow!("failed to read response body: {e}"))?;
+
+    Ok(body)
+}
+
+/// Validate and classify a URL argument for import.
+///
+/// Returns:
+/// - `Ok(Some(url))` for valid http/https URLs
+/// - `Err` for unsupported schemes or invalid arguments
+/// - Not called for `None` (stdin path)
+pub fn validate_url_arg(value: &str) -> anyhow::Result<()> {
+    if value.contains("://") {
+        if value.starts_with("http://") || value.starts_with("https://") {
+            Ok(())
+        } else {
+            let scheme = value.split("://").next().unwrap_or("unknown");
+            anyhow::bail!("unsupported URL scheme: {scheme}");
+        }
+    } else {
+        anyhow::bail!(
+            "invalid argument: expected a URL (http:// or https://), got: {value}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_url_arg_https() {
+        assert!(validate_url_arg("https://example.com/aliases.toml").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_arg_http() {
+        assert!(validate_url_arg("http://example.com/aliases.toml").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_arg_ftp_rejected() {
+        let err = validate_url_arg("ftp://example.com/file").unwrap_err();
+        assert!(err.to_string().contains("unsupported URL scheme"));
+        assert!(err.to_string().contains("ftp"));
+    }
+
+    #[test]
+    fn test_validate_url_arg_file_rejected() {
+        let err = validate_url_arg("file:///etc/passwd").unwrap_err();
+        assert!(err.to_string().contains("unsupported URL scheme"));
+    }
+
+    #[test]
+    fn test_validate_url_arg_no_scheme_rejected() {
+        let err = validate_url_arg("just-a-string").unwrap_err();
+        assert!(err.to_string().contains("invalid argument"));
+    }
+
+    #[test]
+    fn test_validate_url_arg_path_rejected() {
+        let err = validate_url_arg("/tmp/aliases.toml").unwrap_err();
+        assert!(err.to_string().contains("invalid argument"));
+    }
+
+    #[test]
+    fn test_fetch_url_invalid_host_errors() {
+        // This should fail with a connection error, not panic
+        let result = fetch_url("http://this-host-does-not-exist.invalid/aliases.toml");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("failed to fetch"));
+    }
 }
