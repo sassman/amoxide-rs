@@ -150,23 +150,30 @@ pub struct Alias {
     pub command: Option<Vec<String>>,
 }
 
-#[derive(Args)]
-pub struct ExportArgs {
-    /// Export only project-local aliases
+/// Shared scope flags for export/import commands
+#[derive(Args, Debug, Clone)]
+pub struct ScopeArgs {
+    /// Operate on project-local aliases only
     #[arg(short, long, conflicts_with_all = ["global", "profile", "all"])]
     pub local: bool,
 
-    /// Export only global aliases
+    /// Operate on global aliases only
     #[arg(short, long, conflicts_with_all = ["local", "profile", "all"])]
     pub global: bool,
 
-    /// Export a specific profile
+    /// Operate on a specific profile
     #[arg(short, long, conflicts_with_all = ["local", "global", "all"])]
     pub profile: Option<String>,
 
-    /// Export everything (global + all profiles + local)
+    /// Operate on everything (global + all profiles + local)
     #[arg(long, conflicts_with_all = ["local", "global", "profile"])]
     pub all: bool,
+}
+
+#[derive(Args)]
+pub struct ExportArgs {
+    #[command(flatten)]
+    pub scope: ScopeArgs,
 
     /// Encode output as base64
     #[arg(long)]
@@ -175,17 +182,11 @@ pub struct ExportArgs {
 
 #[derive(Args)]
 pub struct ImportArgs {
-    /// Import into project-local aliases
-    #[arg(short, long, conflicts_with_all = ["global", "profile"])]
-    pub local: bool,
+    /// URL or file to import from (reads stdin if omitted)
+    pub url: Option<String>,
 
-    /// Import into global aliases
-    #[arg(short, long, conflicts_with_all = ["local", "profile"])]
-    pub global: bool,
-
-    /// Import into a specific profile
-    #[arg(short, long, conflicts_with_all = ["local", "global"])]
-    pub profile: Option<String>,
+    #[command(flatten)]
+    pub scope: ScopeArgs,
 
     /// Decode base64 input before parsing
     #[arg(long)]
@@ -194,4 +195,8 @@ pub struct ImportArgs {
     /// Skip all confirmation prompts
     #[arg(short = 'y', long = "yes")]
     pub yes: bool,
+
+    /// Acknowledge and accept potentially dangerous aliases (requires --yes)
+    #[arg(long, requires = "yes")]
+    pub trust: bool,
 }

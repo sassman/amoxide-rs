@@ -26,24 +26,24 @@ pub fn handle_export(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow:
 }
 
 fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Result<String> {
-    if args.local {
+    if args.scope.local {
         let project = ProjectAliases::find(cwd)?
             .ok_or_else(|| anyhow::anyhow!("No .aliases file found in directory tree"))?;
         Ok(toml::to_string(&project)?)
-    } else if args.global {
+    } else if args.scope.global {
         let wrapper = ExportAll {
             global_aliases: model.config.aliases.clone(),
             ..Default::default()
         };
         Ok(toml::to_string(&wrapper)?)
-    } else if let Some(ref name) = args.profile {
+    } else if let Some(ref name) = args.scope.profile {
         let profile = model
             .profile_config()
             .get_profile_by_name(name)
             .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
         let wrapper = ProfileConfig::from_profiles(vec![profile.clone()]);
         Ok(toml::to_string(&wrapper)?)
-    } else if args.all {
+    } else if args.scope.all {
         let project_aliases = ProjectAliases::find(cwd)?
             .map(|p| p.aliases)
             .unwrap_or_default();
@@ -96,7 +96,7 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
     let parsed = parse_import(&toml_input)?;
 
     // Phase 2: Resolve conflicts + Phase 3: Apply
-    if args.local || args.global || args.profile.is_some() {
+    if args.scope.local || args.scope.global || args.scope.profile.is_some() {
         import_with_override(model, args, &parsed)?;
     } else {
         import_auto_route(model, args, &parsed)?;
@@ -155,18 +155,18 @@ fn import_with_override(
     let cwd = std::env::current_dir()?;
     let mut payload = ImportPayload::default();
 
-    if args.local {
+    if args.scope.local {
         let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
         let merge = existing.aliases.merge_check(&flattened);
         if let Some(accepted) = prompt_merge("local", &merge, args.yes)? {
             payload.local_aliases = Some(accepted);
         }
-    } else if args.global {
+    } else if args.scope.global {
         let merge = model.config.aliases.merge_check(&flattened);
         if let Some(accepted) = prompt_merge("global", &merge, args.yes)? {
             payload.global_aliases = Some(accepted);
         }
-    } else if let Some(ref name) = args.profile {
+    } else if let Some(ref name) = args.scope.profile {
         let existing_aliases = model
             .profile_config()
             .get_profile_by_name(name)

@@ -197,13 +197,13 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (export)
 _arguments "${_arguments_options[@]}" : \
-'(-l --local -g --global --all)-p+[Export a specific profile]:PROFILE:_default' \
-'(-l --local -g --global --all)--profile=[Export a specific profile]:PROFILE:_default' \
-'(-g --global -p --profile --all)-l[Export only project-local aliases]' \
-'(-g --global -p --profile --all)--local[Export only project-local aliases]' \
-'(-l --local -p --profile --all)-g[Export only global aliases]' \
-'(-l --local -p --profile --all)--global[Export only global aliases]' \
-'(-l --local -g --global -p --profile)--all[Export everything (global + all profiles + local)]' \
+'(-l --local -g --global --all)-p+[Operate on a specific profile]:PROFILE:_default' \
+'(-l --local -g --global --all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(-g --global -p --profile --all)-l[Operate on project-local aliases only]' \
+'(-g --global -p --profile --all)--local[Operate on project-local aliases only]' \
+'(-l --local -p --profile --all)-g[Operate on global aliases only]' \
+'(-l --local -p --profile --all)--global[Operate on global aliases only]' \
+'(-l --local -g --global -p --profile)--all[Operate on everything (global + all profiles + local)]' \
 '--base64[Encode output as base64]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -213,19 +213,22 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (import)
 _arguments "${_arguments_options[@]}" : \
-'(-l --local -g --global)-p+[Import into a specific profile]:PROFILE:_default' \
-'(-l --local -g --global)--profile=[Import into a specific profile]:PROFILE:_default' \
-'(-g --global -p --profile)-l[Import into project-local aliases]' \
-'(-g --global -p --profile)--local[Import into project-local aliases]' \
-'(-l --local -p --profile)-g[Import into global aliases]' \
-'(-l --local -p --profile)--global[Import into global aliases]' \
+'(-l --local -g --global --all)-p+[Operate on a specific profile]:PROFILE:_default' \
+'(-l --local -g --global --all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(-g --global -p --profile --all)-l[Operate on project-local aliases only]' \
+'(-g --global -p --profile --all)--local[Operate on project-local aliases only]' \
+'(-l --local -p --profile --all)-g[Operate on global aliases only]' \
+'(-l --local -p --profile --all)--global[Operate on global aliases only]' \
+'(-l --local -g --global -p --profile)--all[Operate on everything (global + all profiles + local)]' \
 '--base64[Decode base64 input before parsing]' \
 '-y[Skip all confirmation prompts]' \
 '--yes[Skip all confirmation prompts]' \
+'--trust[Acknowledge and accept potentially dangerous aliases (requires --yes)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
+'::url -- URL or file to import from (reads stdin if omitted):_default' \
 && ret=0
 ;;
 (hook)

@@ -467,7 +467,7 @@ _am() {
             return 0
             ;;
         am__import)
-            opts="-l -g -p -y -h -V --local --global --profile --base64 --yes --help --version"
+            opts="-l -g -p -y -h -V --local --global --profile --all --base64 --yes --trust --help --version [URL]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -126,18 +126,20 @@ complete -c am -n "__fish_am_using_subcommand setup" -s h -l help -d 'Print help
 complete -c am -n "__fish_am_using_subcommand setup" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand tui" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand tui" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand export" -s p -l profile -d 'Export a specific profile' -r
-complete -c am -n "__fish_am_using_subcommand export" -s l -l local -d 'Export only project-local aliases'
-complete -c am -n "__fish_am_using_subcommand export" -s g -l global -d 'Export only global aliases'
-complete -c am -n "__fish_am_using_subcommand export" -l all -d 'Export everything (global + all profiles + local)'
+complete -c am -n "__fish_am_using_subcommand export" -s p -l profile -d 'Operate on a specific profile' -r
+complete -c am -n "__fish_am_using_subcommand export" -s l -l local -d 'Operate on project-local aliases only'
+complete -c am -n "__fish_am_using_subcommand export" -s g -l global -d 'Operate on global aliases only'
+complete -c am -n "__fish_am_using_subcommand export" -l all -d 'Operate on everything (global + all profiles + local)'
 complete -c am -n "__fish_am_using_subcommand export" -l base64 -d 'Encode output as base64'
 complete -c am -n "__fish_am_using_subcommand export" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand export" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand import" -s p -l profile -d 'Import into a specific profile' -r
-complete -c am -n "__fish_am_using_subcommand import" -s l -l local -d 'Import into project-local aliases'
-complete -c am -n "__fish_am_using_subcommand import" -s g -l global -d 'Import into global aliases'
+complete -c am -n "__fish_am_using_subcommand import" -s p -l profile -d 'Operate on a specific profile' -r
+complete -c am -n "__fish_am_using_subcommand import" -s l -l local -d 'Operate on project-local aliases only'
+complete -c am -n "__fish_am_using_subcommand import" -s g -l global -d 'Operate on global aliases only'
+complete -c am -n "__fish_am_using_subcommand import" -l all -d 'Operate on everything (global + all profiles + local)'
 complete -c am -n "__fish_am_using_subcommand import" -l base64 -d 'Decode base64 input before parsing'
 complete -c am -n "__fish_am_using_subcommand import" -s y -l yes -d 'Skip all confirmation prompts'
+complete -c am -n "__fish_am_using_subcommand import" -l trust -d 'Acknowledge and accept potentially dangerous aliases (requires --yes)'
 complete -c am -n "__fish_am_using_subcommand import" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand import" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand hook" -s h -l help -d 'Print help'
