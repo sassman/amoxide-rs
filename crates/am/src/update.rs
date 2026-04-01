@@ -318,8 +318,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::default();
         let profile_config = ProfileConfig::default();
-        let mut model =
-            AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
+        let mut model = AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
 
         let result = update(
             &mut model,
@@ -359,8 +358,7 @@ mod tests {
         let mut config = Config::default();
         config.add_alias("ll".into(), "ls -lha".into(), false);
         let profile_config = ProfileConfig::default();
-        let mut model =
-            AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
+        let mut model = AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
 
         let result = update(
             &mut model,
