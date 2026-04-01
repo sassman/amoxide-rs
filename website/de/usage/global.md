@@ -35,3 +35,5 @@ Für Aliase, die nur in bestimmten Kontexten Sinn machen, verwende [Profile](/de
 ## Wie es funktioniert
 
 Globale Aliase werden in `~/.config/amoxide/config.toml` gespeichert und über `am init` in jede Shell-Sitzung geladen. Sie bilden die Basis der Alias-Hierarchie — Profile und Projekt-Aliase können sie überschreiben, wenn sie einen Alias mit dem gleichen Namen definieren.
+
+Siehe [Konfigurationsdateien](/de/advanced/config-files) für Details zum Dateiformat und den Speicherorten.

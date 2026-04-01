@@ -35,3 +35,5 @@ For aliases that only make sense in certain contexts, use [Profiles](/usage/prof
 ## How They Work
 
 Global aliases are stored in `~/.config/amoxide/config.toml` and loaded into every shell session via `am init`. They sit at the base of the alias hierarchy — profiles and project aliases can override them if they define an alias with the same name.
+
+See [Config Files](/advanced/config-files) for details on the file format and locations.
