@@ -1,0 +1,130 @@
+name: Community Profile Validation
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+
+jobs:
+  validate:
+    if: contains(github.event.pull_request.labels.*.name, 'community')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+          FILES=$(git diff --name-only "$BASE" "$HEAD")
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "Changed files:"
+          echo "$FILES"
+
+      - name: Validate community submission
+        run: |
+          set -euo pipefail
+
+          FILES="${{ steps.changed.outputs.files }}"
+          ERRORS=()
+
+          # ── Rule 1: All changed files must be under community/ ──
+          NON_COMMUNITY=$(echo "$FILES" | grep -v '^community/' || true)
+          if [ -n "$NON_COMMUNITY" ]; then
+            ERRORS+=("Files outside community/ were modified: $NON_COMMUNITY")
+          fi
+
+          # ── Rule 2: Only one community folder should be added/modified ──
+          FOLDERS=$(echo "$FILES" | grep '^community/' | cut -d'/' -f2 | sort -u)
+          FOLDER_COUNT=$(echo "$FOLDERS" | wc -l | tr -d ' ')
+          if [ "$FOLDER_COUNT" -ne 1 ]; then
+            ERRORS+=("Expected changes in exactly 1 community folder, found $FOLDER_COUNT: $FOLDERS")
+          fi
+
+          FOLDER=$(echo "$FOLDERS" | head -1)
+
+          # ── Rule 3: Folder must not be TEMPLATE ──
+          if [ "$FOLDER" = "TEMPLATE" ]; then
+            ERRORS+=("Cannot modify the TEMPLATE folder")
+          fi
+
+          # ── Rule 4: Folder naming convention: <handle>-<descriptive-name> ──
+          if ! echo "$FOLDER" | grep -qE '^[a-zA-Z0-9]+-[a-zA-Z0-9-]+$'; then
+            ERRORS+=("Folder name '$FOLDER' does not match convention: <github-handle>-<descriptive-name>")
+          fi
+
+          # ── Rule 5: Required files exist ──
+          if [ ! -f "community/$FOLDER/README.md" ]; then
+            ERRORS+=("Missing community/$FOLDER/README.md")
+          fi
+          if [ ! -f "community/$FOLDER/profiles.toml" ]; then
+            ERRORS+=("Missing community/$FOLDER/profiles.toml")
+          fi
+
+          # ── Rule 6: No extra files ──
+          EXTRA_FILES=$(echo "$FILES" | grep "^community/$FOLDER/" | grep -v "^community/$FOLDER/README.md$" | grep -v "^community/$FOLDER/profiles.toml$" || true)
+          if [ -n "$EXTRA_FILES" ]; then
+            ERRORS+=("Unexpected files in community/$FOLDER/: $EXTRA_FILES (only README.md and profiles.toml allowed)")
+          fi
+
+          # ── Rule 7: README frontmatter validation ──
+          if [ -f "community/$FOLDER/README.md" ]; then
+            README="community/$FOLDER/README.md"
+
+            # Check frontmatter exists
+            if ! head -1 "$README" | grep -q '^---$'; then
+              ERRORS+=("README.md missing frontmatter (must start with ---)")
+            else
+              # Extract frontmatter
+              FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$README" | sed '1d;$d')
+
+              # Required fields
+              for FIELD in author description category tags profiles; do
+                if ! echo "$FRONTMATTER" | grep -q "^${FIELD}:"; then
+                  ERRORS+=("README.md frontmatter missing required field: $FIELD")
+                fi
+              done
+
+              # Author should match folder prefix
+              AUTHOR=$(echo "$FRONTMATTER" | grep '^author:' | sed 's/^author: *//')
+              FOLDER_PREFIX=$(echo "$FOLDER" | cut -d'-' -f1)
+              if [ -n "$AUTHOR" ] && [ "$AUTHOR" != "$FOLDER_PREFIX" ]; then
+                ERRORS+=("Author '$AUTHOR' does not match folder prefix '$FOLDER_PREFIX' (folder should be ${AUTHOR}-<name>)")
+              fi
+
+              # Category must be one of the allowed values
+              CATEGORY=$(echo "$FRONTMATTER" | grep '^category:' | sed 's/^category: *//')
+              ALLOWED="git docker rust k8s python node misc"
+              if [ -n "$CATEGORY" ] && ! echo "$ALLOWED" | grep -qw "$CATEGORY"; then
+                ERRORS+=("Invalid category '$CATEGORY'. Must be one of: $ALLOWED")
+              fi
+            fi
+          fi
+
+          # ── Rule 8: profiles.toml must be valid TOML ──
+          if [ -f "community/$FOLDER/profiles.toml" ]; then
+            # Basic check: must contain [[profiles]] or [aliases]
+            if ! grep -q '\[\[profiles\]\]\|^\[aliases\]' "community/$FOLDER/profiles.toml"; then
+              ERRORS+=("profiles.toml does not look like a valid am export (missing [[profiles]] or [aliases] section)")
+            fi
+          fi
+
+          # ── Report ──
+          if [ ${#ERRORS[@]} -gt 0 ]; then
+            echo "::error::Community profile validation failed"
+            echo ""
+            echo "❌ Validation failed with ${#ERRORS[@]} error(s):"
+            echo ""
+            for ERR in "${ERRORS[@]}"; do
+              echo "  • $ERR"
+            done
+            echo ""
+            echo "See the contribution guide: https://amoxide.rs/showcase/contribute"
+            exit 1
+          fi
+
+          echo "✅ Community profile validation passed for: $FOLDER"
