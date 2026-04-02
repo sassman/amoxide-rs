@@ -7,7 +7,7 @@ use crate::cli::{ExportArgs, ImportArgs, ShareArgs};
 use crate::effects::Effect;
 use crate::exchange::{
     base64_decode, base64_encode, parse_import, render_import_summary, render_suspicious_warning,
-    scan_suspicious, ExportAll, ImportPayload,
+    scan_suspicious, ExportAll, ImportPayload, Scope, SanitizedName,
 };
 use crate::project::{ProjectAliases, ALIASES_FILE};
 use crate::update::{update, AppModel};
@@ -94,23 +94,29 @@ pub fn handle_share(args: &ShareArgs) -> String {
     let scope_flags = build_scope_flags(&args.scope);
 
     if args.termbin {
-        format!("am export{scope_flags} --base64 | nc termbin.com 9999")
+        format!("am export{scope_flags} -b64 | nc termbin.com 9999")
     } else if args.paste_rs {
-        format!("am export{scope_flags} --base64 | curl --data-binary @- https://paste.rs/")
+        format!("am export{scope_flags} -b64 | curl -d @- https://paste.rs/")
     } else {
         // No target — show help
-        let mut help = String::new();
-        help.push_str("Share your aliases with others via a pastebin service.\n\n");
-        help.push_str("Available targets:\n\n");
-        help.push_str("  --termbin    Post via netcat to termbin.com\n");
-        help.push_str("               Example: am share -p git --termbin\n");
-        help.push_str("               Output:  am export -p git --base64 | nc termbin.com 9999\n\n");
-        help.push_str("  --paste-rs   Post via curl to paste.rs\n");
-        help.push_str("               Example: am share -p git --paste-rs\n");
-        help.push_str("               Output:  am export -p git --base64 | curl --data-binary @- https://paste.rs/\n\n");
-        help.push_str("Run the generated command to upload. Share the returned URL.\n");
-        help.push_str("The receiver imports with: am import <url> --base64\n");
-        help
+        String::from(r#"Share your aliases with others via a pastebin service.
+
+Available targets:
+
+  --termbin    Post via netcat to termbin.com
+               Example: am share -p git --termbin
+               Output:  am export -p git -b64 | nc termbin.com 9999
+
+  --paste-rs   Post via curl to paste.rs
+               Example: am share -p git --paste-rs
+               Output:  am export -p git -b64 | curl -d @- https://paste.rs/
+
+On PowerShell, replace the pipe with:
+               am export -p git -b64 | ForEach-Object { curl -d $_ https://paste.rs/ }
+
+Run the generated command to upload. Share the returned URL.
+The receiver imports with: am import <url> -b64
+"#)
     }
 }
 
@@ -140,16 +146,12 @@ fn build_scope_flags(scope: &crate::cli::ScopeArgs) -> String {
 pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<()> {
     // Phase 1: Determine input source
     let input = match &args.url {
-        Some(value) if value.contains("://") => {
-            if value.starts_with("http://") || value.starts_with("https://") {
-                eprintln!("Fetching {}...", value);
-                fetch_url(value)?
-            } else {
-                anyhow::bail!("unsupported URL scheme: {}", value.split("://").next().unwrap_or("unknown"));
-            }
+        Some(url) if url.starts_with("http://") || url.starts_with("https://") => {
+            eprintln!("Fetching {url}...");
+            fetch_url(url)?
         }
         Some(value) => {
-            anyhow::bail!("invalid argument: expected a URL (http:// or https://), got: {value}");
+            anyhow::bail!("expected a http(s) URL, got: {value}");
         }
         None => {
             let mut buf = String::new();
@@ -175,10 +177,9 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
     if !findings.is_empty() {
         if args.trust {
             // --yes --trust: user explicitly accepts the risk
-            eprintln!(
-                "WARNING: {} suspicious entries found, proceeding due to --trust",
-                findings.len()
-            );
+            let n = findings.len();
+            let label = if n == 1 { "entry" } else { "entries" };
+            eprintln!("WARNING: {n} suspicious {label} found, proceeding due to --trust");
         } else if args.yes {
             // --yes without --trust: refuse to auto-accept dangerous input
             eprint!("{}", render_suspicious_warning(&findings));
@@ -219,7 +220,7 @@ fn import_auto_route(
 
     if !parsed.global_aliases.is_empty() {
         let merge = model.config.aliases.merge_check(&parsed.global_aliases);
-        if let Some(accepted) = prompt_merge("global", &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes)? {
             payload.global_aliases = Some(accepted);
         }
     }
@@ -231,7 +232,8 @@ fn import_auto_route(
             .map(|p| p.aliases.clone())
             .unwrap_or_default();
         let merge = existing_aliases.merge_check(&profile.aliases);
-        if let Some(accepted) = prompt_merge(&profile.name, &merge, args.yes)? {
+        let scope = Scope::Profile(SanitizedName::new(&profile.name));
+        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes)? {
             payload.profiles.push(Profile {
                 name: profile.name.clone(),
                 aliases: accepted,
@@ -242,7 +244,7 @@ fn import_auto_route(
     if !parsed.local_aliases.is_empty() {
         let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
         let merge = existing.aliases.merge_check(&parsed.local_aliases);
-        if let Some(accepted) = prompt_merge("local", &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes)? {
             payload.local_aliases = Some(accepted);
         }
     }
@@ -261,7 +263,7 @@ fn import_with_override(
 
     if args.scope.global {
         let merge = model.config.aliases.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge("global", &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes)? {
             payload.global_aliases = Some(accepted);
         }
     }
@@ -273,7 +275,8 @@ fn import_with_override(
             .map(|p| p.aliases.clone())
             .unwrap_or_default();
         let merge = existing_aliases.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge(name, &merge, args.yes)? {
+        let scope = Scope::Profile(SanitizedName::new(name));
+        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes)? {
             payload.profiles.push(Profile {
                 name: name.clone(),
                 aliases: accepted,
@@ -284,7 +287,7 @@ fn import_with_override(
     if args.scope.local {
         let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
         let merge = existing.aliases.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge("local", &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes)? {
             payload.local_aliases = Some(accepted);
         }
     }
@@ -293,25 +296,25 @@ fn import_with_override(
 }
 
 fn prompt_merge(
-    scope_name: &str,
+    scope: &Scope,
     merge: &MergeResult,
     auto_yes: bool,
 ) -> anyhow::Result<Option<AliasSet>> {
     if merge.new_aliases.is_empty() && merge.conflicts.is_empty() {
-        eprintln!("Nothing new to import into \"{scope_name}\"");
+        eprintln!("Nothing new to import into \"{scope}\"");
         return Ok(None);
     }
 
-    eprint!("{}", render_import_summary(scope_name, merge));
+    eprint!("{}", render_import_summary(&scope.to_string(), merge));
 
     // Ask to merge
     if !auto_yes {
-        eprint!("Merge into \"{scope_name}\"? [Y/n] ");
+        eprint!("Merge into \"{scope}\"? [Y/n] ");
         std::io::stderr().flush()?;
         let mut input = String::new();
         std::io::stdin().lock().read_line(&mut input)?;
         if matches!(input.trim().to_lowercase().as_str(), "n" | "no") {
-            eprintln!("Skipped \"{scope_name}\"");
+            eprintln!("Skipped \"{scope}\"");
             return Ok(None);
         }
     }
@@ -347,10 +350,10 @@ fn prompt_merge(
         } else {
             merge.conflicts.len()
         };
-        eprintln!("\u{2713} Imported {imported} aliases into \"{scope_name}\" ({skipped} skipped)");
+        eprintln!("\u{2713} Imported {imported} aliases into \"{scope}\" ({skipped} skipped)");
     } else {
         eprintln!(
-            "\u{2713} Imported {} aliases into \"{scope_name}\"",
+            "\u{2713} Imported {} aliases into \"{scope}\"",
             accepted.len()
         );
     }
@@ -430,24 +433,13 @@ pub fn fetch_url(url: &str) -> anyhow::Result<String> {
     Ok(body)
 }
 
-/// Validate and classify a URL argument for import.
-///
-/// Returns:
-/// - `Ok(Some(url))` for valid http/https URLs
-/// - `Err` for unsupported schemes or invalid arguments
-/// - Not called for `None` (stdin path)
+/// Validate a URL argument for import.
+/// Only http:// and https:// URLs are accepted.
 pub fn validate_url_arg(value: &str) -> anyhow::Result<()> {
-    if value.contains("://") {
-        if value.starts_with("http://") || value.starts_with("https://") {
-            Ok(())
-        } else {
-            let scheme = value.split("://").next().unwrap_or("unknown");
-            anyhow::bail!("unsupported URL scheme: {scheme}");
-        }
+    if value.starts_with("http://") || value.starts_with("https://") {
+        Ok(())
     } else {
-        anyhow::bail!(
-            "invalid argument: expected a URL (http:// or https://), got: {value}"
-        );
+        anyhow::bail!("expected a http(s) URL, got: {value}");
     }
 }
 
@@ -468,26 +460,25 @@ mod tests {
     #[test]
     fn test_validate_url_arg_ftp_rejected() {
         let err = validate_url_arg("ftp://example.com/file").unwrap_err();
-        assert!(err.to_string().contains("unsupported URL scheme"));
-        assert!(err.to_string().contains("ftp"));
+        assert!(err.to_string().contains("expected a http(s) URL"));
     }
 
     #[test]
     fn test_validate_url_arg_file_rejected() {
         let err = validate_url_arg("file:///etc/passwd").unwrap_err();
-        assert!(err.to_string().contains("unsupported URL scheme"));
+        assert!(err.to_string().contains("expected a http(s) URL"));
     }
 
     #[test]
     fn test_validate_url_arg_no_scheme_rejected() {
         let err = validate_url_arg("just-a-string").unwrap_err();
-        assert!(err.to_string().contains("invalid argument"));
+        assert!(err.to_string().contains("expected a http(s) URL"));
     }
 
     #[test]
     fn test_validate_url_arg_path_rejected() {
         let err = validate_url_arg("/tmp/aliases.toml").unwrap_err();
-        assert!(err.to_string().contains("invalid argument"));
+        assert!(err.to_string().contains("expected a http(s) URL"));
     }
 
     #[test]
