@@ -11,13 +11,11 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 **make sure you**
-- [ ] I'm on the latest rust version `rustup update`
-- [ ] I'm on the latest shell-manager version `cargo install shell-manager`
-- [ ] In case you have an own `.gitconfig`, provide all sections that contains one of: `insteadOf`, `url`
+- [ ] I'm on the latest amoxide/-tui version `cargo install amoxide amoxide-tui`
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. `cargo generate <WHAT DID YOU RUN>`
+1. what did you run?
 2. output it generated..
 3. See error
 
@@ -31,10 +29,9 @@ If applicable, add screenshots to help explain your problem.
  - OS: [e.g. MacOS | Linux | Windows]
  - Version: [e.g. 22]
  - Build tools: [e.g. msvc | gnu | gcc]
- - Shell: [e.g. powerShell | zsh | bash]
- - `rustc --version`: x
- - `cargo generate --version`: x
+ - Shell: [e.g. powerShell | zsh | fish]
+ - Shell Version (e.g. `fish --version`): **FILL THIS**
+ - `rustc --version`: **FILL THIS**
+ - `am --version`: **FILL THIS**
 
 **Additional context**
-
-<!-- maybe parts of your ~/.gitconfig should be provided? -->
