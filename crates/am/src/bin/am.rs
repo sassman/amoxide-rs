@@ -234,4 +234,3 @@ fn remove_local_alias(name: &str) -> anyhow::Result<()> {
     println!("Removed `{name}` from {}", rel.display());
     Ok(())
 }
-

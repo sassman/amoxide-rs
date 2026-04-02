@@ -66,7 +66,12 @@ fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
 /// Run the interactive setup for the given shell.
 pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
     let (profile_path, init_line) = shell_config(shell);
-    run_setup_inner(shell, &profile_path, init_line, &mut std::io::stdin().lock())
+    run_setup_inner(
+        shell,
+        &profile_path,
+        init_line,
+        &mut std::io::stdin().lock(),
+    )
 }
 
 /// Core setup logic, testable with custom path and reader.
