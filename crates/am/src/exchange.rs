@@ -117,22 +117,27 @@ const TAB: u32 = 0x09;
 const DEL: u32 = 0x7F;
 const C1_RANGE: std::ops::RangeInclusive<u32> = 0x80..=0x9F;
 
-/// Returns true if the string contains suspicious control characters.
-///
-/// Checks for:
-/// - C0 controls (0x00-0x1F) except newline, carriage return, and tab
-/// - DEL (0x7F)
-/// - C1 controls (0x80-0x9F)
-pub fn has_suspicious_chars(s: &str) -> bool {
-    s.chars().any(|c| {
-        let cp = c as u32;
-        // C0 controls except \n, \r, and \t
+/// Extension trait for detecting suspicious control characters on `char`.
+pub trait SuspiciousChar {
+    /// Returns true if this character is a control character that could
+    /// manipulate terminal output (escape sequences, cursor control, etc.).
+    ///
+    /// Benign whitespace (`\n`, `\r`, `\t`) is excluded.
+    fn is_suspicious(&self) -> bool;
+}
+
+impl SuspiciousChar for char {
+    fn is_suspicious(&self) -> bool {
+        let cp = *self as u32;
         (cp <= 0x1F && cp != NEWLINE && cp != CARRIAGE_RETURN && cp != TAB)
-        // DEL
-        || cp == DEL
-        // C1 controls
-        || C1_RANGE.contains(&cp)
-    })
+            || cp == DEL
+            || C1_RANGE.contains(&cp)
+    }
+}
+
+/// Returns true if the string contains suspicious control characters.
+pub fn has_suspicious_chars(s: &str) -> bool {
+    s.chars().any(|c| c.is_suspicious())
 }
 
 /// A string that has been sanitized for safe terminal display.
@@ -328,16 +333,12 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
     findings
 }
 
-/// Render a control character as `\u{XXXX}` for safe display.
+/// Render control characters as `\u{XXXX}` for safe display.
 pub fn escape_for_display(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
-        let cp = c as u32;
-        let is_suspicious = (cp <= 0x1F && cp != NEWLINE && cp != CARRIAGE_RETURN && cp != TAB)
-            || cp == DEL
-            || C1_RANGE.contains(&cp);
-        if is_suspicious {
-            out.push_str(&format!("\\u{{{cp:04X}}}"));
+        if c.is_suspicious() {
+            out.push_str(&format!("\\u{{{:04X}}}", c as u32));
         } else {
             out.push(c);
         }
@@ -348,13 +349,7 @@ pub fn escape_for_display(s: &str) -> String {
 /// Replace suspicious control characters with the Unicode replacement character (U+FFFD).
 pub fn sanitize_for_display(s: &str) -> String {
     s.chars()
-        .map(|c| {
-            let cp = c as u32;
-            let is_suspicious = (cp <= 0x1F && cp != NEWLINE && cp != CARRIAGE_RETURN && cp != TAB)
-                || cp == DEL
-                || C1_RANGE.contains(&cp);
-            if is_suspicious { '\u{FFFD}' } else { c }
-        })
+        .map(|c| if c.is_suspicious() { '\u{FFFD}' } else { c })
         .collect()
 }
 
