@@ -27,6 +27,10 @@ pub fn detect_powershell_profile() -> Option<PathBuf> {
 /// Returns the profile file path and the init line for the given shell.
 fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
     match shell {
+        Shells::Bash => {
+            let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+            (home.join(".bashrc"), r#"eval "$(am init bash)""#)
+        }
         Shells::Fish => {
             let mut path = dirs_lite::config_dir().unwrap_or_else(|| PathBuf::from(".config"));
             path.push("fish/config.fish");
@@ -53,6 +57,7 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
 fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
     let path = profile_path.display();
     match shell {
+        Shells::Bash => format!("Run: source {path}"),
         Shells::Fish => format!("Run: source {path}"),
         Shells::Zsh => format!("Run: source {path}"),
         Shells::Powershell => format!(
