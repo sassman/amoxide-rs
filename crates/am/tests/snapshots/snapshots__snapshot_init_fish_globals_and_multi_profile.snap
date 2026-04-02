@@ -26,7 +26,7 @@ function am --wraps=am
     end
     # profile mutation → reload aliases
     if begin; test "$argv[1]" = profile; or test "$argv[1]" = p; end
-        if begin; test "$argv[2]" = set; or test "$argv[2]" = s; or test "$argv[2]" = add; or test "$argv[2]" = a; or test "$argv[2]" = remove; or test "$argv[2]" = r; end
+        if begin; test "$argv[2]" = use; or test "$argv[2]" = u; or test "$argv[2]" = add; or test "$argv[2]" = a; or test "$argv[2]" = remove; or test "$argv[2]" = r; end
             command am reload fish | source
         end
     else if begin; test "$argv[1]" = add; or test "$argv[1]" = a; or test "$argv[1]" = remove; or test "$argv[1]" = r; end

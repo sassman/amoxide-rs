@@ -13,7 +13,7 @@ function am {
     }
     # profile mutation — reload
     if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
-        if ($args.Count -ge 2 -and $args[1] -in 'set', 's', 'use', 'u', 'add', 'a', 'remove', 'r') {
+        if ($args.Count -ge 2 -and $args[1] -in 'use', 'u', 'add', 'a', 'remove', 'r') {
             $out = (& $amBin reload __SHELL__) -join "`r`n"
             if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         }
