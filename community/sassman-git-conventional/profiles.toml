@@ -1,0 +1,17 @@
+[[profiles]]
+name = "git"
+
+[profiles.aliases]
+cm = "git commit -sm"
+ga = "git add"
+gd = "git diff"
+gp = "git push"
+gs = "git status"
+
+[[profiles]]
+name = "git-conventional"
+
+[profiles.aliases]
+cmd = "cm docs: {{@}}"
+cmf = "cm feat: {{@}}"
+cmx = "cm fix: {{@}}"
