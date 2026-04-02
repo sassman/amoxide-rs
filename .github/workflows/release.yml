@@ -42,7 +42,7 @@ on:
   pull_request:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 jobs:
   # Run 'dist plan' (or host) to determine what tasks we need to do
@@ -292,18 +292,23 @@ jobs:
       - host
     if: ${{ needs.plan.outputs.publishing == 'true' }}
     runs-on: "ubuntu-22.04"
+    environment: release # Optional: for enhanced security
+    permissions:
+      id-token: write # Required for OIDC token exchange
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
       - name: Publish amoxide
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: cargo publish -p amoxide
       - name: Wait for crates.io to index amoxide
         run: sleep 60
       - name: Publish amoxide-tui
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: cargo publish -p amoxide-tui
 
   publish-homebrew-formula:
