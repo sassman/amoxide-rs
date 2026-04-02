@@ -339,4 +339,40 @@ mod tests {
         assert!(output.contains("functions -e old"));
         assert!(output.contains("alias ll \"ls -lha\""));
     }
+
+    #[test]
+    fn test_bash_init_contains_aliases() {
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        assert!(output.contains("gs() { git status \"$@\"; }"));
+        assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+    }
+
+    #[test]
+    fn test_bash_init_contains_wrapper() {
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        assert!(output.contains("am()"));
+        assert!(output.contains("am reload bash"));
+        assert!(output.contains("--local"));
+        assert!(output.contains("am hook bash"));
+    }
+
+    #[test]
+    fn test_bash_init_contains_cd_hook() {
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        assert!(output.contains("PROMPT_COMMAND"));
+        assert!(output.contains("__am_hook"));
+        assert!(output.contains("__am_prev_dir"));
+        assert!(output.contains("am hook bash"));
+    }
+
+    #[test]
+    fn test_reload_bash_unloads_with_unset_f() {
+        let aliases = test_aliases();
+        let output = generate_reload(&Shells::Bash, &AliasSet::default(), &aliases, Some("old1"));
+        assert!(output.contains("unset -f old1"));
+        assert!(output.contains("gs() { git status \"$@\"; }"));
+    }
 }
