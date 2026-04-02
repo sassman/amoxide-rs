@@ -3,7 +3,6 @@ author: sassman
 description: Git aliases for conventional commit workflows
 category: git
 tags: [git, conventional-commits, workflow]
-shell: fish
 profiles: [git, git-conventional]
 ---
 

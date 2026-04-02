@@ -1,0 +1,10 @@
+[[profiles]]
+name = "docker"
+
+[profiles.aliases]
+dcu = "docker compose up -d"
+dcd = "docker compose down"
+dcl = "docker compose logs -f"
+dcp = "docker compose pull"
+dcr = "docker compose restart"
+dps = "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"

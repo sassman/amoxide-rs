@@ -1,36 +1,58 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { CommunityProfile } from '../../showcase/community.data'
 
 const props = defineProps<{
   profiles: CommunityProfile[]
 }>()
 
-const selectedCategory = ref('all')
 const copiedSlug = ref<string | null>(null)
+const expandedImport = ref<string | null>(null)
 
-const categories = computed(() => {
-  const cats = new Set(props.profiles.map(p => p.category))
-  return ['all', ...Array.from(cats).sort()]
+function parseHash(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  const hash = window.location.hash.slice(1) // remove #
+  if (!hash) return {}
+  const [key, ...rest] = hash.split('=')
+  if (key && rest.length) return { [key]: rest.join('=') }
+  return {}
+}
+
+const filter = ref<Record<string, string>>(parseHash())
+
+onMounted(() => {
+  filter.value = parseHash()
+  window.addEventListener('hashchange', () => {
+    filter.value = parseHash()
+  })
 })
 
 const filtered = computed(() => {
-  if (selectedCategory.value === 'all') return props.profiles
-  return props.profiles.filter(p => p.category === selectedCategory.value)
+  const f = filter.value
+  if (f.tag) return props.profiles.filter(p => p.tags.includes(f.tag))
+  if (f.author) return props.profiles.filter(p => p.author === f.author)
+  if (f.name) return props.profiles.filter(p => p.slug === f.name)
+  return props.profiles
 })
 
-const grouped = computed(() => {
-  const groups: Record<string, typeof props.profiles> = {}
-  for (const p of filtered.value) {
-    const cat = p.category
-    if (!groups[cat]) groups[cat] = []
-    groups[cat].push(p)
-  }
-  return groups
+const activeLabel = computed(() => {
+  const f = filter.value
+  if (f.tag) return `Tag: ${f.tag}`
+  if (f.author) return `Author: ${f.author}`
+  if (f.name) return f.name.replace(/^[^-]+-/, '')
+  return null
 })
 
 function importCommand(profile: CommunityProfile): string {
   return `am import ${profile.importUrl}`
+}
+
+function originUrl(profile: CommunityProfile): string {
+  return `https://github.com/sassman/amoxide-rs/tree/main/community/${profile.slug}`
+}
+
+function toggleImport(slug: string) {
+  expandedImport.value = expandedImport.value === slug ? null : slug
 }
 
 async function copyImport(profile: CommunityProfile) {
@@ -42,58 +64,63 @@ async function copyImport(profile: CommunityProfile) {
 
 <template>
   <div class="gallery">
-    <!-- Category filter -->
-    <div class="filter-bar">
-      <button
-        v-for="cat in categories"
-        :key="cat"
-        :class="['filter-btn', { active: selectedCategory === cat }]"
-        @click="selectedCategory = cat"
-      >
-        {{ cat }}
-      </button>
+    <div v-if="activeLabel" class="filter-active">
+      Showing: <strong>{{ activeLabel }}</strong>
+      <a href="/showcase/#" class="filter-clear" @click.prevent="filter = {}; history.replaceState(null, '', '/showcase/')">clear</a>
     </div>
 
-    <!-- Grouped tiles -->
-    <div v-for="(profiles, category) in grouped" :key="category" class="category-group">
-      <h2 class="category-title">{{ category }}</h2>
-      <div class="tiles">
-        <div v-for="profile in profiles" :key="profile.slug" class="tile">
-          <div class="tile-header">
-            <h3>{{ profile.description }}</h3>
+    <div class="tiles">
+      <div v-for="profile in filtered" :key="profile.slug" class="tile">
+        <div class="tile-header">
+          <h3>{{ profile.description }}</h3>
+          <div class="tile-byline">
             <span class="tile-author">by {{ profile.author }}</span>
           </div>
-          <div class="tile-meta">
-            <span class="tile-shell">{{ profile.shell }}</span>
-            <span v-for="tag in profile.tags" :key="tag" class="tile-tag">{{ tag }}</span>
+        </div>
+        <div class="tile-meta">
+          <span v-if="profile.shell" class="tile-tag">{{ profile.shell }} only</span>
+          <a
+            v-for="tag in profile.tags"
+            :key="tag"
+            :href="`/showcase/#tag=${tag}`"
+            :class="['tile-tag', { 'tile-tag-active': filter.tag === tag }]"
+            @click.prevent="filter = { tag }; history.replaceState(null, '', `/showcase/#tag=${tag}`)"
+          >{{ tag }}</a>
+        </div>
+        <!-- Collapsed TOML preview -->
+        <details class="tile-toml">
+          <summary>View aliases ({{ profile.profiles.length }} {{ profile.profiles.length === 1 ? 'profile' : 'profiles' }}, {{ profile.aliasCount }} {{ profile.aliasCount === 1 ? 'alias' : 'aliases' }})</summary>
+          <div class="toml-block">
+            <pre><code>{{ profile.toml }}</code></pre>
           </div>
-          <div class="tile-profiles">
-            <code v-for="name in profile.profiles" :key="name">{{ name }}</code>
-          </div>
+        </details>
 
-          <!-- Collapsed TOML preview -->
-          <details class="tile-toml">
-            <summary>View aliases</summary>
-            <div class="toml-block">
-              <pre><code>{{ profile.toml }}</code></pre>
-            </div>
-          </details>
-
-          <!-- Import button -->
-          <div class="tile-actions">
-            <button class="copy-btn" @click="copyImport(profile)">
-              {{ copiedSlug === profile.slug ? '✓ Copied!' : '📋 Copy import command' }}
-            </button>
-          </div>
-          <div class="tile-import-cmd">
-            <code>{{ importCommand(profile) }}</code>
-          </div>
+        <!-- Import actions -->
+        <div class="tile-actions">
+          <button class="copy-btn" @click="copyImport(profile)">
+            {{ copiedSlug === profile.slug ? '✓ Copied!' : '📋 Copy import command' }}
+          </button>
+          <button class="expand-btn" @click="toggleImport(profile.slug)">
+            {{ expandedImport === profile.slug ? '▾' : '▸' }}
+          </button>
+        </div>
+        <div v-if="expandedImport === profile.slug" class="import-detail">
+          <textarea
+            readonly
+            rows="4"
+            :value="importCommand(profile)"
+            class="import-input"
+            @click="($event.target as HTMLTextAreaElement).select()"
+          />
+          <p class="import-hint">
+            <a :href="originUrl(profile)" target="_blank">See the original source</a> before running this command.
+          </p>
         </div>
       </div>
     </div>
 
     <div v-if="filtered.length === 0" class="empty">
-      No profiles found for this category.
+      No profiles found.
     </div>
   </div>
 </template>
@@ -103,41 +130,23 @@ async function copyImport(profile: CommunityProfile) {
   margin-top: 1rem;
 }
 
-.filter-bar {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-}
-
-.filter-btn {
-  padding: 0.25rem 0.75rem;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 1rem;
-  background: transparent;
-  color: var(--vp-c-text-2);
-  cursor: pointer;
+.filter-active {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 0.375rem;
+  background: var(--vp-c-bg-soft);
   font-size: 0.875rem;
-  transition: all 0.2s;
+  color: var(--vp-c-text-2);
 }
 
-.filter-btn:hover {
-  border-color: var(--vp-c-brand-1);
+.filter-clear {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--vp-c-text-3);
+}
+
+.filter-clear:hover {
   color: var(--vp-c-brand-1);
-}
-
-.filter-btn.active {
-  background: var(--vp-c-brand-1);
-  border-color: var(--vp-c-brand-1);
-  color: var(--vp-c-white);
-}
-
-.category-title {
-  font-size: 1.25rem;
-  margin: 1.5rem 0 0.75rem;
-  text-transform: capitalize;
-  border-bottom: 1px solid var(--vp-c-divider);
-  padding-bottom: 0.5rem;
 }
 
 .tiles {
@@ -163,6 +172,11 @@ async function copyImport(profile: CommunityProfile) {
   font-size: 1rem;
 }
 
+.tile-byline {
+  display: flex;
+  align-items: center;
+}
+
 .tile-author {
   font-size: 0.8rem;
   color: var(--vp-c-text-3);
@@ -175,33 +189,24 @@ async function copyImport(profile: CommunityProfile) {
   margin: 0.5rem 0;
 }
 
-.tile-shell {
-  font-size: 0.75rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.75rem;
-  background: var(--vp-c-brand-soft);
-  color: var(--vp-c-brand-1);
-}
-
 .tile-tag {
   font-size: 0.75rem;
   padding: 0.125rem 0.5rem;
   border-radius: 0.75rem;
-  background: var(--vp-c-default-soft);
+  border: 1px solid var(--vp-c-brand-1);
   color: var(--vp-c-text-2);
+  background: transparent;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.tile-profiles {
-  display: flex;
-  gap: 0.375rem;
-  margin: 0.5rem 0;
+.tile-tag:hover {
+  box-shadow: 0 0 8px var(--vp-c-brand-1);
 }
 
-.tile-profiles code {
-  font-size: 0.8rem;
-  padding: 0.125rem 0.375rem;
-  background: var(--vp-c-default-soft);
-  border-radius: 0.25rem;
+.tile-tag-active {
+  box-shadow: 0 0 8px var(--vp-c-brand-1);
 }
 
 .tile-toml {
@@ -234,34 +239,72 @@ async function copyImport(profile: CommunityProfile) {
 }
 
 .tile-actions {
+  display: flex;
+  gap: 0;
   margin-top: 0.75rem;
 }
 
 .copy-btn {
-  width: 100%;
+  flex: 1;
   padding: 0.5rem;
-  border: 1px solid var(--vp-c-brand-1);
-  border-radius: 0.375rem;
-  background: transparent;
-  color: var(--vp-c-brand-1);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 0.375rem 0 0 0.375rem;
+  background: var(--vp-c-bg-alt);
+  color: var(--vp-c-text-1);
   cursor: pointer;
   font-size: 0.85rem;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .copy-btn:hover {
-  background: var(--vp-c-brand-1);
-  color: var(--vp-c-white);
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
 }
 
-.tile-import-cmd {
-  margin-top: 0.375rem;
+.expand-btn {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--vp-c-divider);
+  border-left: none;
+  border-radius: 0 0.375rem 0.375rem 0;
+  background: var(--vp-c-bg-alt);
+  color: var(--vp-c-text-2);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s;
 }
 
-.tile-import-cmd code {
-  font-size: 0.7rem;
-  color: var(--vp-c-text-3);
+.expand-btn:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+.import-detail {
+  margin-top: 0.5rem;
+}
+
+.import-input {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 0.375rem;
+  background: var(--vp-c-bg-alt);
+  color: var(--vp-c-text-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  outline: none;
+  resize: none;
   word-break: break-all;
+}
+
+.import-input:focus {
+  border-color: var(--vp-c-brand-1);
+}
+
+.import-hint {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+  color: var(--vp-c-text-3);
 }
 
 .empty {

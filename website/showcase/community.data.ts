@@ -16,6 +16,8 @@ export interface CommunityProfile {
   toml: string
   /** README body (markdown, without frontmatter) */
   readme: string
+  /** Total alias count across all profiles */
+  aliasCount: number
   /** Raw GitHub URL for am import */
   importUrl: string
 }
@@ -42,6 +44,8 @@ export default {
       const readmeRaw = fs.readFileSync(readmePath, 'utf-8')
       const { data, content } = matter(readmeRaw)
       const toml = fs.readFileSync(tomlPath, 'utf-8')
+      // Count aliases: lines matching `key = "value"` under [profiles.aliases] sections
+      const aliasCount = (toml.match(/^\w[\w-]* = /gm) || []).length
 
       entries.push({
         slug: folder,
@@ -52,6 +56,7 @@ export default {
         shell: data.shell || '',
         profiles: data.profiles || [],
         toml,
+        aliasCount,
         readme: content.trim(),
         importUrl: `${REPO_BASE}/${folder}/profiles.toml`,
       })

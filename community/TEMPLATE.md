@@ -3,7 +3,7 @@ author: your-github-handle
 description: A short one-line description of what these aliases do
 category: git | docker | rust | k8s | python | node | misc
 tags: [tag1, tag2]
-shell: fish | zsh | bash | powershell
+# shell: fish         # only set if your aliases use shell-specific syntax
 profiles: [profile-name-1, profile-name-2]
 ---
 

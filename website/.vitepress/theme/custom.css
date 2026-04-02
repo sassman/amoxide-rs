@@ -81,6 +81,17 @@
   --vp-home-hero-image-filter: blur(44px);
 }
 
+/* Prevent VitePress from highlighting all sidebar filter links
+   (they share the same /showcase/ path, differ only in query params) */
+.VPSidebar a.link[href*="?"] {
+  color: var(--vp-c-text-2) !important;
+  font-weight: normal !important;
+}
+
+.VPSidebar a.link[href*="?"]:hover {
+  color: var(--vp-c-brand-1) !important;
+}
+
 /* Before/After comparison on landing page */
 .comparison {
   display: flex;

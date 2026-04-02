@@ -1,6 +1,62 @@
 import { defineConfig } from 'vitepress'
+import fs from 'node:fs'
+import path from 'node:path'
+import matter from 'gray-matter'
 
 const base = process.env.VITEPRESS_BASE || '/'
+
+// Build showcase sidebar from community folder
+function buildShowcaseSidebar() {
+  const communityDir = path.resolve(__dirname, '../../community')
+  const tags = new Set<string>()
+  const authors = new Set<string>()
+  const names: { slug: string; label: string }[] = []
+
+  if (fs.existsSync(communityDir)) {
+    for (const folder of fs.readdirSync(communityDir)) {
+      const readmePath = path.join(communityDir, folder, 'README.md')
+      if (!fs.existsSync(readmePath)) continue
+      const { data } = matter(fs.readFileSync(readmePath, 'utf-8'))
+      if (data.tags) data.tags.forEach((t: string) => tags.add(t))
+      if (data.author) authors.add(data.author)
+      names.push({ slug: folder, label: folder.replace(/^[^-]+-/, '') })
+    }
+  }
+
+  return [
+    {
+      text: 'Showcase',
+      items: [
+        { text: 'All Profiles', link: '/showcase/' },
+        { text: 'Contribute', link: '/showcase/contribute' },
+      ],
+    },
+    {
+      text: 'By Tag',
+      collapsed: false,
+      items: Array.from(tags).sort().map(tag => ({
+        text: tag,
+        link: `/showcase/#tag=${tag}`,
+      })),
+    },
+    {
+      text: 'By Author',
+      collapsed: false,
+      items: Array.from(authors).sort().map(author => ({
+        text: author,
+        link: `/showcase/#author=${author}`,
+      })),
+    },
+    {
+      text: 'By Name',
+      collapsed: true,
+      items: names.sort((a, b) => a.label.localeCompare(b.label)).map(n => ({
+        text: n.label,
+        link: `/showcase/#name=${n.slug}`,
+      })),
+    },
+  ]
+}
 
 export default defineConfig({
   base,
@@ -67,6 +123,7 @@ export default defineConfig({
               ],
             },
           ],
+          '/showcase/': buildShowcaseSidebar(),
         },
       },
     },
