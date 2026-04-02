@@ -24,6 +24,8 @@ function buildShowcaseSidebar() {
     }
   }
 
+  const COLLAPSE_THRESHOLD = 10
+
   return [
     {
       text: 'Showcase',
@@ -42,7 +44,7 @@ function buildShowcaseSidebar() {
     },
     {
       text: 'By Author',
-      collapsed: false,
+      collapsed: authors.size > COLLAPSE_THRESHOLD,
       items: Array.from(authors).sort().map(author => ({
         text: author,
         link: `/showcase/#author=${author}`,
@@ -50,7 +52,7 @@ function buildShowcaseSidebar() {
     },
     {
       text: 'By Name',
-      collapsed: true,
+      collapsed: names.length > COLLAPSE_THRESHOLD,
       items: names.sort((a, b) => a.label.localeCompare(b.label)).map(n => ({
         text: n.label,
         link: `/showcase/#name=${n.slug}`,
