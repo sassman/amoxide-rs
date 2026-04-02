@@ -7,11 +7,15 @@ __am_hook() {
   fi
   return $previous_exit_status
 }
-if [[ ";${PROMPT_COMMAND[*]:-};" != *";__am_hook;"* ]]; then
-  if [[ "$(declare -p PROMPT_COMMAND 2>&1)" == "declare -a"* ]]; then
-    PROMPT_COMMAND=(__am_hook "${PROMPT_COMMAND[@]}")
-  else
-    PROMPT_COMMAND="__am_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
-  fi
+if [[ "$(declare -p PROMPT_COMMAND 2>&1)" == "declare -a"* ]]; then
+  case " ${PROMPT_COMMAND[*]} " in
+    *" __am_hook "*) ;;
+    *) PROMPT_COMMAND=(__am_hook "${PROMPT_COMMAND[@]}") ;;
+  esac
+else
+  case ";${PROMPT_COMMAND:-};" in
+    *";__am_hook;"*) ;;
+    *) PROMPT_COMMAND="__am_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}" ;;
+  esac
 fi
 __am_hook
