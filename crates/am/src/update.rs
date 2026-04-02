@@ -52,6 +52,7 @@ impl UpdateResult {
 
 pub struct AppModel {
     pub config: Config,
+    pub cwd: std::path::PathBuf,
     profile_config: ProfileConfig,
 }
 
@@ -62,6 +63,7 @@ impl Default for AppModel {
 
         Self {
             config,
+            cwd: std::env::current_dir().unwrap_or_default(),
             profile_config,
         }
     }
@@ -71,8 +73,14 @@ impl AppModel {
     pub fn new(config: Config, profile_config: ProfileConfig) -> Self {
         Self {
             config,
+            cwd: std::env::current_dir().unwrap_or_default(),
             profile_config,
         }
+    }
+
+    pub fn with_cwd(mut self, cwd: std::path::PathBuf) -> Self {
+        self.cwd = cwd;
+        self
     }
 
     pub fn profile_config_mut(&mut self) -> &mut ProfileConfig {
@@ -105,7 +113,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 raw,
             })),
             AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
-                match ProjectAliases::find_local_path() {
+                match ProjectAliases::find_local_path_in(&model.cwd) {
                     Some(_) => Ok(UpdateResult::effect(Effect::AddLocalAlias {
                         name,
                         cmd,
@@ -130,7 +138,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
             AliasTarget::Local => Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name })),
             AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
-                match ProjectAliases::find_local_path() {
+                match ProjectAliases::find_local_path_in(&model.cwd) {
                     Some(_) => Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name })),
                     None => {
                         model.config.remove_alias(&name)?;
@@ -145,12 +153,11 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
         },
         Message::ListProfiles => {
-            let cwd = std::env::current_dir()?;
             let output = render_listing(
                 &model.config.aliases,
                 model.profile_config(),
                 &model.config.active_profiles,
-                &cwd,
+                &model.cwd,
             );
             println!("{output}");
             Ok(UpdateResult::done())
@@ -189,9 +196,8 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             Ok(UpdateResult::done())
         }
         Message::Hook(shell) => {
-            let cwd = std::env::current_dir()?;
             let prev = std::env::var("_AM_PROJECT_ALIASES").ok();
-            let output = generate_hook(&shell, &cwd, prev.as_deref())?;
+            let output = generate_hook(&shell, &model.cwd, prev.as_deref())?;
             if !output.is_empty() {
                 print!("{output}");
             }
@@ -310,12 +316,9 @@ mod tests {
     #[test]
     fn add_alias_active_profile_no_profiles_no_local_falls_back_to_global() {
         let dir = tempfile::tempdir().unwrap();
-        let prev = std::env::current_dir().unwrap();
-        std::env::set_current_dir(dir.path()).unwrap();
-
         let config = Config::default();
         let profile_config = ProfileConfig::default();
-        let mut model = AppModel::new(config, profile_config);
+        let mut model = AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
 
         let result = update(
             &mut model,
@@ -327,8 +330,6 @@ mod tests {
             ),
         )
         .unwrap();
-
-        std::env::set_current_dir(prev).unwrap();
 
         assert_eq!(model.config.aliases.iter().count(), 1);
         assert_eq!(result.effects, vec![Effect::SaveConfig]);
@@ -354,21 +355,16 @@ mod tests {
     #[test]
     fn remove_alias_active_profile_no_profiles_no_local_falls_back_to_global() {
         let dir = tempfile::tempdir().unwrap();
-        let prev = std::env::current_dir().unwrap();
-        std::env::set_current_dir(dir.path()).unwrap();
-
         let mut config = Config::default();
         config.add_alias("ll".into(), "ls -lha".into(), false);
         let profile_config = ProfileConfig::default();
-        let mut model = AppModel::new(config, profile_config);
+        let mut model = AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
 
         let result = update(
             &mut model,
             Message::RemoveAlias("ll".into(), AliasTarget::ActiveProfile),
         )
         .unwrap();
-
-        std::env::set_current_dir(prev).unwrap();
 
         assert!(model.config.aliases.is_empty());
         assert_eq!(result.effects, vec![Effect::SaveConfig]);
