@@ -72,15 +72,20 @@ impl ProjectAliases {
         Ok(())
     }
 
-    /// Find the nearest `.aliases` file starting from the current directory.
-    /// Checks CWD first, then walks up parent directories.
-    pub fn find_local_path() -> Option<PathBuf> {
-        let cwd = std::env::current_dir().ok()?;
+    /// Find the nearest `.aliases` file starting from the given directory.
+    /// Checks `cwd` first, then walks up parent directories.
+    pub fn find_local_path_in(cwd: &Path) -> Option<PathBuf> {
         let local = cwd.join(ALIASES_FILE);
         if local.exists() {
             return Some(local);
         }
         cwd.parent().and_then(|p| Self::find_path(p).ok().flatten())
+    }
+
+    /// Find the nearest `.aliases` file starting from the current directory.
+    pub fn find_local_path() -> Option<PathBuf> {
+        let cwd = std::env::current_dir().ok()?;
+        Self::find_local_path_in(&cwd)
     }
 
     /// Remove an alias from the nearest local `.aliases` file.

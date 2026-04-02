@@ -13,6 +13,12 @@ updates:
     interval: weekly
   ignore:
     - dependency-name: "*"
+- package-ecosystem: npm
+  directory: "/website"
+  schedule:
+    interval: weekly
+  reviewers:
+    - sassman
 - package-ecosystem: "github-actions"
   directory: "/"
   # Check for updates every Monday
