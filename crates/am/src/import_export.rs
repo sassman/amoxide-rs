@@ -1,4 +1,4 @@
-use std::io::{BufRead, Read, Write};
+use std::io::Read;
 use std::time::Duration;
 
 use crate::alias::MergeResult;
@@ -6,8 +6,9 @@ use crate::cli::{ExportArgs, ImportArgs, ShareArgs};
 use crate::effects::Effect;
 use crate::exchange::{
     base64_decode, base64_encode, parse_import, render_import_summary, render_suspicious_warning,
-    scan_suspicious, ExportAll, ImportPayload, Scope, SanitizedName,
+    scan_suspicious, ExportAll, ImportPayload, SanitizedName, Scope,
 };
+use crate::prompt::{ask_user, require_exact, Answer};
 use crate::update::{update, AppModel};
 use crate::{AliasSet, Message, Profile};
 
@@ -183,13 +184,13 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
                  Use --yes --trust to override."
             );
         } else {
-            // Interactive: show warning and require explicit "YES" confirmation
+            // Interactive: show warning and require exact "YES" confirmation
             eprint!("{}", render_suspicious_warning(&findings));
-            eprint!("Type YES to import anyway, or anything else to abort: ");
-            std::io::stderr().flush()?;
-            let mut confirmation = String::new();
-            std::io::stdin().lock().read_line(&mut confirmation)?;
-            if confirmation.trim() != "YES" {
+            if !require_exact(
+                "This import contains potentially dangerous content. Are you sure?",
+                "YES",
+                &mut std::io::stdin().lock(),
+            )? {
                 anyhow::bail!("import aborted by user");
             }
         }
@@ -302,11 +303,13 @@ fn prompt_merge(
 
     // Ask to merge
     if !auto_yes {
-        eprint!("Merge into \"{scope}\"? [Y/n] ");
-        std::io::stderr().flush()?;
-        let mut input = String::new();
-        std::io::stdin().lock().read_line(&mut input)?;
-        if matches!(input.trim().to_lowercase().as_str(), "n" | "no") {
+        let answer = ask_user(
+            &format!("Merge into \"{scope}\"?"),
+            Answer::Yes,
+            false,
+            &mut std::io::stdin().lock(),
+        )?;
+        if answer != Answer::Yes {
             eprintln!("Skipped \"{scope}\"");
             return Ok(None);
         }
@@ -317,18 +320,18 @@ fn prompt_merge(
 
     // Ask about overwrites
     if !merge.conflicts.is_empty() {
+        let n = merge.conflicts.len();
+        let label = if n == 1 { "overwrite" } else { "overwrites" };
         let apply_overwrites = if auto_yes {
             true
         } else {
-            eprint!(
-                "Apply {} overwrite{}? [y/N] ",
-                merge.conflicts.len(),
-                if merge.conflicts.len() == 1 { "" } else { "s" }
-            );
-            std::io::stderr().flush()?;
-            let mut input = String::new();
-            std::io::stdin().lock().read_line(&mut input)?;
-            matches!(input.trim().to_lowercase().as_str(), "y" | "yes")
+            let answer = ask_user(
+                &format!("Apply {n} {label}?"),
+                Answer::No,
+                false,
+                &mut std::io::stdin().lock(),
+            )?;
+            answer == Answer::Yes
         };
 
         if apply_overwrites {
@@ -338,11 +341,7 @@ fn prompt_merge(
         }
 
         let imported = accepted.len();
-        let skipped = if apply_overwrites {
-            0
-        } else {
-            merge.conflicts.len()
-        };
+        let skipped = if apply_overwrites { 0 } else { n };
         eprintln!("\u{2713} Imported {imported} aliases into \"{scope}\" ({skipped} skipped)");
     } else {
         eprintln!(
