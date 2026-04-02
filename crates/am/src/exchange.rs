@@ -1,3 +1,5 @@
+use std::fmt;
+
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
@@ -109,104 +111,217 @@ pub fn base64_decode(input: &str) -> anyhow::Result<String> {
 // Security: escape sequence detection
 // ═══════════════════════════════════════════════════════════════════════
 
+const NEWLINE: u32 = 0x0A;
+const CARRIAGE_RETURN: u32 = 0x0D;
+const TAB: u32 = 0x09;
+const DEL: u32 = 0x7F;
+const C1_RANGE: std::ops::RangeInclusive<u32> = 0x80..=0x9F;
+
 /// Returns true if the string contains suspicious control characters.
 ///
 /// Checks for:
-/// - C0 controls (0x00-0x1F) except newline (0x0A) and tab (0x09)
+/// - C0 controls (0x00-0x1F) except newline, carriage return, and tab
 /// - DEL (0x7F)
 /// - C1 controls (0x80-0x9F)
 pub fn has_suspicious_chars(s: &str) -> bool {
     s.chars().any(|c| {
         let cp = c as u32;
-        // C0 controls except \n and \t
-        (cp <= 0x1F && cp != 0x0A && cp != 0x09)
+        // C0 controls except \n, \r, and \t
+        (cp <= 0x1F && cp != NEWLINE && cp != CARRIAGE_RETURN && cp != TAB)
         // DEL
-        || cp == 0x7F
+        || cp == DEL
         // C1 controls
-        || (0x80..=0x9F).contains(&cp)
+        || C1_RANGE.contains(&cp)
     })
+}
+
+/// A string that has been sanitized for safe terminal display.
+#[derive(Debug, Clone)]
+pub struct SanitizedName(String);
+
+impl SanitizedName {
+    pub fn new(raw: &str) -> Self {
+        Self(sanitize_for_display(raw))
+    }
+}
+
+impl fmt::Display for SanitizedName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// A raw value that renders with escape notation for safe display.
+#[derive(Debug, Clone)]
+pub struct RawValue(String);
+
+impl RawValue {
+    pub fn new(raw: &str) -> Self {
+        Self(raw.to_string())
+    }
+
+    /// Display with control chars rendered as `\u{XXXX}` notation.
+    pub fn escaped(&self) -> String {
+        escape_for_display(&self.0)
+    }
+
+    /// Display with control chars replaced by U+FFFD.
+    pub fn sanitized(&self) -> String {
+        sanitize_for_display(&self.0)
+    }
+}
+
+impl fmt::Display for RawValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.escaped())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Scope {
+    Global,
+    Local,
+    Profile(SanitizedName),
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Scope::Global => write!(f, "global"),
+            Scope::Local => write!(f, "local"),
+            Scope::Profile(name) => write!(f, "profile:{name}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum SuspiciousField {
+    AliasName,
+    AliasCommand,
+    ProfileName,
+}
+
+impl fmt::Display for SuspiciousField {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SuspiciousField::AliasName => write!(f, "name"),
+            SuspiciousField::AliasCommand => write!(f, "command"),
+            SuspiciousField::ProfileName => write!(f, "profile_name"),
+        }
+    }
 }
 
 /// A suspicious alias finding — records scope, alias name, field, and the raw value.
 #[derive(Debug, Clone)]
 pub struct SuspiciousAlias {
-    pub scope: String,
-    pub alias_name: String,
-    pub field: &'static str,
-    pub raw_value: String,
+    pub scope: Scope,
+    pub alias_name: SanitizedName,
+    pub field: SuspiciousField,
+    pub raw_value: RawValue,
+}
+
+impl SuspiciousAlias {
+    pub fn global_name(name: &str) -> Self {
+        Self {
+            scope: Scope::Global,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::AliasName,
+            raw_value: RawValue::new(name),
+        }
+    }
+
+    pub fn global_command(name: &str, command: &str) -> Self {
+        Self {
+            scope: Scope::Global,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::AliasCommand,
+            raw_value: RawValue::new(command),
+        }
+    }
+
+    pub fn local_name(name: &str) -> Self {
+        Self {
+            scope: Scope::Local,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::AliasName,
+            raw_value: RawValue::new(name),
+        }
+    }
+
+    pub fn local_command(name: &str, command: &str) -> Self {
+        Self {
+            scope: Scope::Local,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::AliasCommand,
+            raw_value: RawValue::new(command),
+        }
+    }
+
+    pub fn profile_name(profile_name: &str) -> Self {
+        Self {
+            scope: Scope::Profile(SanitizedName::new(profile_name)),
+            alias_name: SanitizedName::new(""),
+            field: SuspiciousField::ProfileName,
+            raw_value: RawValue::new(profile_name),
+        }
+    }
+
+    pub fn profile_alias_name(profile_name: &str, alias_name: &str) -> Self {
+        Self {
+            scope: Scope::Profile(SanitizedName::new(profile_name)),
+            alias_name: SanitizedName::new(alias_name),
+            field: SuspiciousField::AliasName,
+            raw_value: RawValue::new(alias_name),
+        }
+    }
+
+    pub fn profile_alias_command(profile_name: &str, alias_name: &str, command: &str) -> Self {
+        Self {
+            scope: Scope::Profile(SanitizedName::new(profile_name)),
+            alias_name: SanitizedName::new(alias_name),
+            field: SuspiciousField::AliasCommand,
+            raw_value: RawValue::new(command),
+        }
+    }
 }
 
 /// Scan a parsed export for suspicious characters in alias names, commands, and profile names.
 pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
     let mut findings = Vec::new();
 
-    // Scan global aliases
     for (name, alias) in parsed.global_aliases.iter() {
         if has_suspicious_chars(name.as_ref()) {
-            findings.push(SuspiciousAlias {
-                scope: "global".into(),
-                alias_name: name.as_ref().to_string(),
-                field: "name",
-                raw_value: name.as_ref().to_string(),
-            });
+            findings.push(SuspiciousAlias::global_name(name.as_ref()));
         }
         if has_suspicious_chars(alias.command()) {
-            findings.push(SuspiciousAlias {
-                scope: "global".into(),
-                alias_name: name.as_ref().to_string(),
-                field: "command",
-                raw_value: alias.command().to_string(),
-            });
+            findings.push(SuspiciousAlias::global_command(name.as_ref(), alias.command()));
         }
     }
 
-    // Scan profiles
     for profile in &parsed.profiles {
         if has_suspicious_chars(&profile.name) {
-            findings.push(SuspiciousAlias {
-                scope: format!("profile:{}", profile.name),
-                alias_name: String::new(),
-                field: "profile_name",
-                raw_value: profile.name.clone(),
-            });
+            findings.push(SuspiciousAlias::profile_name(&profile.name));
         }
         for (name, alias) in profile.aliases.iter() {
             if has_suspicious_chars(name.as_ref()) {
-                findings.push(SuspiciousAlias {
-                    scope: format!("profile:{}", profile.name),
-                    alias_name: name.as_ref().to_string(),
-                    field: "name",
-                    raw_value: name.as_ref().to_string(),
-                });
+                findings.push(SuspiciousAlias::profile_alias_name(&profile.name, name.as_ref()));
             }
             if has_suspicious_chars(alias.command()) {
-                findings.push(SuspiciousAlias {
-                    scope: format!("profile:{}", profile.name),
-                    alias_name: name.as_ref().to_string(),
-                    field: "command",
-                    raw_value: alias.command().to_string(),
-                });
+                findings.push(SuspiciousAlias::profile_alias_command(
+                    &profile.name,
+                    name.as_ref(),
+                    alias.command(),
+                ));
             }
         }
     }
 
-    // Scan local aliases
     for (name, alias) in parsed.local_aliases.iter() {
         if has_suspicious_chars(name.as_ref()) {
-            findings.push(SuspiciousAlias {
-                scope: "local".into(),
-                alias_name: name.as_ref().to_string(),
-                field: "name",
-                raw_value: name.as_ref().to_string(),
-            });
+            findings.push(SuspiciousAlias::local_name(name.as_ref()));
         }
         if has_suspicious_chars(alias.command()) {
-            findings.push(SuspiciousAlias {
-                scope: "local".into(),
-                alias_name: name.as_ref().to_string(),
-                field: "command",
-                raw_value: alias.command().to_string(),
-            });
+            findings.push(SuspiciousAlias::local_command(name.as_ref(), alias.command()));
         }
     }
 
@@ -218,9 +333,9 @@ pub fn escape_for_display(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         let cp = c as u32;
-        let is_suspicious = (cp <= 0x1F && cp != 0x0A && cp != 0x09)
-            || cp == 0x7F
-            || (0x80..=0x9F).contains(&cp);
+        let is_suspicious = (cp <= 0x1F && cp != NEWLINE && cp != CARRIAGE_RETURN && cp != TAB)
+            || cp == DEL
+            || C1_RANGE.contains(&cp);
         if is_suspicious {
             out.push_str(&format!("\\u{{{cp:04X}}}"));
         } else {
@@ -235,9 +350,9 @@ pub fn sanitize_for_display(s: &str) -> String {
     s.chars()
         .map(|c| {
             let cp = c as u32;
-            let is_suspicious = (cp <= 0x1F && cp != 0x0A && cp != 0x09)
-                || cp == 0x7F
-                || (0x80..=0x9F).contains(&cp);
+            let is_suspicious = (cp <= 0x1F && cp != NEWLINE && cp != CARRIAGE_RETURN && cp != TAB)
+                || cp == DEL
+                || C1_RANGE.contains(&cp);
             if is_suspicious { '\u{FFFD}' } else { c }
         })
         .collect()
@@ -253,17 +368,12 @@ pub fn render_suspicious_warning(findings: &[SuspiciousAlias]) -> String {
 
     for finding in findings {
         out.push_str(&format!("  scope:   {}\n", finding.scope));
-        if !finding.alias_name.is_empty() {
-            out.push_str(&format!(
-                "  alias:   {}\n",
-                sanitize_for_display(&finding.alias_name)
-            ));
+        if !finding.alias_name.0.is_empty() {
+            out.push_str(&format!("  alias:   {}\n", finding.alias_name));
         }
         out.push_str(&format!("  field:   {}\n", finding.field));
-        out.push_str(&format!(
-            "  value:   {}\n",
-            escape_for_display(&finding.raw_value)
-        ));
+        out.push_str(&format!("  original:      {}\n", finding.raw_value));
+        out.push_str(&format!("  safe-escaped:  {}\n", finding.raw_value.sanitized()));
         out.push('\n');
     }
 
@@ -423,8 +533,12 @@ mod tests {
         assert!(has_suspicious_chars("foo\x07bar"));
         // ESC
         assert!(has_suspicious_chars("foo\x1Bbar"));
-        // CR
-        assert!(has_suspicious_chars("foo\rbar"));
+    }
+
+    #[test]
+    fn test_has_suspicious_chars_cr_allowed() {
+        // CR (carriage return) is allowed — comes from Windows line endings
+        assert!(!has_suspicious_chars("foo\rbar"));
     }
 
     #[test]
@@ -457,9 +571,9 @@ mod tests {
         );
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].scope, "global");
-        assert_eq!(findings[0].alias_name, "evil");
-        assert_eq!(findings[0].field, "command");
+        assert_eq!(findings[0].scope.to_string(), "global");
+        assert_eq!(findings[0].alias_name.to_string(), "evil");
+        assert_eq!(findings[0].field.to_string(), "command");
     }
 
     #[test]
@@ -471,7 +585,7 @@ mod tests {
         );
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].field, "name");
+        assert_eq!(findings[0].field.to_string(), "name");
     }
 
     #[test]
@@ -485,7 +599,7 @@ mod tests {
         };
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].field, "profile_name");
+        assert_eq!(findings[0].field.to_string(), "profile_name");
     }
 
     #[test]
@@ -503,8 +617,8 @@ mod tests {
         };
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].scope, "profile:git");
-        assert_eq!(findings[0].field, "command");
+        assert_eq!(findings[0].scope.to_string(), "profile:git");
+        assert_eq!(findings[0].field.to_string(), "command");
     }
 
     #[test]
@@ -516,7 +630,7 @@ mod tests {
         );
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].scope, "local");
+        assert_eq!(findings[0].scope.to_string(), "local");
     }
 
     #[test]
@@ -553,12 +667,7 @@ mod tests {
     #[test]
     fn test_render_suspicious_warning_output() {
         let findings = vec![
-            SuspiciousAlias {
-                scope: "global".into(),
-                alias_name: "evil".into(),
-                field: "command",
-                raw_value: "echo \x1B[31mhacked".into(),
-            },
+            SuspiciousAlias::global_command("evil", "echo \x1B[31mhacked"),
         ];
         let output = render_suspicious_warning(&findings);
         assert!(output.contains("WARNING"));
@@ -571,23 +680,13 @@ mod tests {
     #[test]
     fn test_render_suspicious_warning_multiple_findings() {
         let findings = vec![
-            SuspiciousAlias {
-                scope: "global".into(),
-                alias_name: "a".into(),
-                field: "command",
-                raw_value: "\x07beep".into(),
-            },
-            SuspiciousAlias {
-                scope: "profile:git".into(),
-                alias_name: "".into(),
-                field: "profile_name",
-                raw_value: "evil\x1Bname".into(),
-            },
+            SuspiciousAlias::global_command("a", "\x07beep"),
+            SuspiciousAlias::profile_name("evil\x1Bname"),
         ];
         let output = render_suspicious_warning(&findings);
         // Should contain both findings
         assert!(output.contains("global"));
-        assert!(output.contains("profile:git"));
+        assert!(output.contains("profile:evil"));
         assert!(output.contains("profile_name"));
     }
 }

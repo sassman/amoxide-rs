@@ -41,7 +41,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
         return Ok(toml::to_string(&export)?);
     }
 
-    let has_scope = args.scope.local || args.scope.global || args.scope.profile.is_some();
+    let has_scope = args.scope.local || args.scope.global || !args.scope.profile.is_empty();
     if !has_scope {
         // No flags: active scope (global + active profiles + local if present)
         let active_profiles: Vec<_> = model
@@ -69,7 +69,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
         export.global_aliases = model.config.aliases.clone();
     }
 
-    if let Some(ref name) = args.scope.profile {
+    for name in &args.scope.profile {
         let profile = model
             .profile_config()
             .get_profile_by_name(name)
@@ -115,17 +115,22 @@ pub fn handle_share(args: &ShareArgs) -> String {
 }
 
 fn build_scope_flags(scope: &crate::cli::ScopeArgs) -> String {
+    let mut flags = String::new();
+
     if scope.local {
-        " -l".into()
-    } else if scope.global {
-        " -g".into()
-    } else if let Some(ref name) = scope.profile {
-        format!(" -p {name}")
-    } else if scope.all {
-        " --all".into()
-    } else {
-        String::new() // default: active scope
+        flags.push_str(" -l");
     }
+    if scope.global {
+        flags.push_str(" -g");
+    }
+    for name in &scope.profile {
+        flags.push_str(&format!(" -p {name}"));
+    }
+    if scope.all {
+        flags.push_str(" --all");
+    }
+
+    flags
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -195,7 +200,7 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
     }
 
     // Phase 2: Resolve conflicts + Phase 3: Apply
-    if args.scope.local || args.scope.global || args.scope.profile.is_some() {
+    if args.scope.local || args.scope.global || !args.scope.profile.is_empty() {
         import_with_override(model, args, &parsed)?;
     } else {
         import_auto_route(model, args, &parsed)?;
@@ -261,7 +266,7 @@ fn import_with_override(
         }
     }
 
-    if let Some(ref name) = args.scope.profile {
+    for name in &args.scope.profile {
         let existing_aliases = model
             .profile_config()
             .get_profile_by_name(name)

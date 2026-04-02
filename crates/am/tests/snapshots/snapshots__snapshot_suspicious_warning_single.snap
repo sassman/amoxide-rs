@@ -11,6 +11,7 @@ to execute unintended commands or manipulate your terminal:
   scope:   global
   alias:   evil
   field:   command
-  value:   echo \u{001B}[31mhacked\u{001B}[0m
+  original:      echo \u{001B}[31mhacked\u{001B}[0m
+  safe-escaped:  echo �[31mhacked�[0m
 
 To import anyway, use: am import --yes --trust

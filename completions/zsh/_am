@@ -197,8 +197,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (export)
 _arguments "${_arguments_options[@]}" : \
-'(--all)-p+[Operate on a specific profile]:PROFILE:_default' \
-'(--all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(--all)*-p+[Operate on specific profile(s) — can be repeated]:PROFILE:_default' \
+'(--all)*--profile=[Operate on specific profile(s) — can be repeated]:PROFILE:_default' \
 '(--all)-l[Operate on project-local aliases]' \
 '(--all)--local[Operate on project-local aliases]' \
 '(--all)-g[Operate on global aliases]' \
@@ -214,8 +214,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (import)
 _arguments "${_arguments_options[@]}" : \
-'(--all)-p+[Operate on a specific profile]:PROFILE:_default' \
-'(--all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(--all)*-p+[Operate on specific profile(s) — can be repeated]:PROFILE:_default' \
+'(--all)*--profile=[Operate on specific profile(s) — can be repeated]:PROFILE:_default' \
 '(--all)-l[Operate on project-local aliases]' \
 '(--all)--local[Operate on project-local aliases]' \
 '(--all)-g[Operate on global aliases]' \
@@ -235,8 +235,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (share)
 _arguments "${_arguments_options[@]}" : \
-'(--all)-p+[Operate on a specific profile]:PROFILE:_default' \
-'(--all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(--all)*-p+[Operate on specific profile(s) — can be repeated]:PROFILE:_default' \
+'(--all)*--profile=[Operate on specific profile(s) — can be repeated]:PROFILE:_default' \
 '(--all)-l[Operate on project-local aliases]' \
 '(--all)--local[Operate on project-local aliases]' \
 '(--all)-g[Operate on global aliases]' \

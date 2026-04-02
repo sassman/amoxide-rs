@@ -167,9 +167,9 @@ pub struct ScopeArgs {
     #[arg(short, long, conflicts_with = "all")]
     pub global: bool,
 
-    /// Operate on a specific profile
+    /// Operate on specific profile(s) — can be repeated
     #[arg(short, long, conflicts_with = "all")]
-    pub profile: Option<String>,
+    pub profile: Vec<String>,
 
     /// Operate on everything (global + all profiles + local)
     #[arg(long, conflicts_with_all = ["local", "global", "profile"])]

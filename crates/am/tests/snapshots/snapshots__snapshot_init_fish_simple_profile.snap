@@ -126,14 +126,14 @@ complete -c am -n "__fish_am_using_subcommand setup" -s h -l help -d 'Print help
 complete -c am -n "__fish_am_using_subcommand setup" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand tui" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand tui" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand export" -s p -l profile -d 'Operate on a specific profile' -r
+complete -c am -n "__fish_am_using_subcommand export" -s p -l profile -d 'Operate on specific profile(s) — can be repeated' -r
 complete -c am -n "__fish_am_using_subcommand export" -s l -l local -d 'Operate on project-local aliases'
 complete -c am -n "__fish_am_using_subcommand export" -s g -l global -d 'Operate on global aliases'
 complete -c am -n "__fish_am_using_subcommand export" -l all -d 'Operate on everything (global + all profiles + local)'
 complete -c am -n "__fish_am_using_subcommand export" -s b -l base64 -d 'Encode output as base64'
 complete -c am -n "__fish_am_using_subcommand export" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand export" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand import" -s p -l profile -d 'Operate on a specific profile' -r
+complete -c am -n "__fish_am_using_subcommand import" -s p -l profile -d 'Operate on specific profile(s) — can be repeated' -r
 complete -c am -n "__fish_am_using_subcommand import" -s l -l local -d 'Operate on project-local aliases'
 complete -c am -n "__fish_am_using_subcommand import" -s g -l global -d 'Operate on global aliases'
 complete -c am -n "__fish_am_using_subcommand import" -l all -d 'Operate on everything (global + all profiles + local)'
@@ -142,7 +142,7 @@ complete -c am -n "__fish_am_using_subcommand import" -s y -l yes -d 'Skip all c
 complete -c am -n "__fish_am_using_subcommand import" -l trust -d 'DANGER: Skip safety checks for suspicious content (escape sequences). Only use for your own exports. Never trust external input blindly — it can carry invisible escape sequences that hide malicious commands'
 complete -c am -n "__fish_am_using_subcommand import" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand import" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand share" -s p -l profile -d 'Operate on a specific profile' -r
+complete -c am -n "__fish_am_using_subcommand share" -s p -l profile -d 'Operate on specific profile(s) — can be repeated' -r
 complete -c am -n "__fish_am_using_subcommand share" -s l -l local -d 'Operate on project-local aliases'
 complete -c am -n "__fish_am_using_subcommand share" -s g -l global -d 'Operate on global aliases'
 complete -c am -n "__fish_am_using_subcommand share" -l all -d 'Operate on everything (global + all profiles + local)'

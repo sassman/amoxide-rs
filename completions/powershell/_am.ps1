@@ -169,8 +169,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;export' {
-            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile')
-            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile')
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global aliases')
@@ -185,8 +185,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;import' {
-            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile')
-            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile')
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global aliases')
@@ -204,8 +204,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;share' {
-            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile')
-            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile')
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global aliases')

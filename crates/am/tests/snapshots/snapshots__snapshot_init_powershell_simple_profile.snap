@@ -223,8 +223,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;export' {
-            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile')
-            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile')
+            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
             [System.Management.Automation.CompletionResult]::new('-l', '-l', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [System.Management.Automation.CompletionResult]::new('--local', '--local', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on global aliases')
@@ -239,8 +239,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;import' {
-            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile')
-            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile')
+            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
             [System.Management.Automation.CompletionResult]::new('-l', '-l', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [System.Management.Automation.CompletionResult]::new('--local', '--local', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on global aliases')
@@ -258,8 +258,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;share' {
-            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile')
-            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile')
+            [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
             [System.Management.Automation.CompletionResult]::new('-l', '-l', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [System.Management.Automation.CompletionResult]::new('--local', '--local', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on project-local aliases')
             [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on global aliases')
