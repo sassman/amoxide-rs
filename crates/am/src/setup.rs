@@ -82,7 +82,7 @@ fn run_setup_inner(
     // Check if file exists
     let file_exists = profile_path.exists();
     let already_configured = if file_exists {
-        let content = std::fs::read_to_string(&profile_path)?;
+        let content = std::fs::read_to_string(profile_path)?;
         content.contains("am init")
     } else {
         false
@@ -119,11 +119,11 @@ fn run_setup_inner(
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(&profile_path)?;
+        .open(profile_path)?;
 
     // Add a newline before our line if the file isn't empty and doesn't end with one
     if file_exists {
-        let content = std::fs::read_to_string(&profile_path)?;
+        let content = std::fs::read_to_string(profile_path)?;
         if !content.is_empty() && !content.ends_with('\n') {
             writeln!(file)?;
         }
@@ -131,7 +131,7 @@ fn run_setup_inner(
     writeln!(file, "{init_line}")?;
 
     eprintln!("\n\u{2713} Added to {}", profile_path.display());
-    eprintln!("  {}", reload_hint(shell, &profile_path));
+    eprintln!("  {}", reload_hint(shell, profile_path));
 
     Ok(())
 }
