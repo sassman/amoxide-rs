@@ -230,7 +230,7 @@ async function copyImport(profile: CommunityProfile) {
           </div>
           <div class="detail-byline">
             by <a :href="`https://github.com/${viewProfile.author}`" target="_blank">{{ viewProfile.author }}</a>
-            <template v-if="viewProfile.profiles.length"> · provides <code v-for="(p, i) in viewProfile.profiles" :key="p"><template v-if="i > 0">, </template>{{ p }}</code></template>
+            <template v-if="viewProfile.profiles.length"> · provides <template v-for="(p, i) in viewProfile.profiles" :key="p"><template v-if="i > 0">, </template><code>{{ p }}</code></template></template>
             · {{ viewProfile.aliasCount }} {{ viewProfile.aliasCount === 1 ? 'alias' : 'aliases' }}
             · <a :href="originUrl(viewProfile)" target="_blank">source</a>
           </div>
@@ -280,7 +280,7 @@ async function copyImport(profile: CommunityProfile) {
 
             <div class="activate-hint">
               <p>Then activate the {{ viewProfile.profiles.length === 1 ? 'profile' : 'profiles' }}:</p>
-              <pre><code>{{ viewProfile.profiles.map(p => `am profile use ${p}`).join('\n') }}</code></pre>
+              <pre><code>am profile use {{ viewProfile.profiles.join(' ') }}</code></pre>
             </div>
           </div>
         </div>

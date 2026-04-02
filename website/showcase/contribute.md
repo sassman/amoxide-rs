@@ -9,35 +9,35 @@ Got a profile collection others might find useful? Here's how to add it to the s
 
 ## Step by step
 
+Let's say your GitHub handle is **john** and you want to share your git conventional commit profiles.
+
 ### 1. Fork the repository
 
-Go to [github.com/sassman/amoxide-rs](https://github.com/sassman/amoxide-rs) and click **Fork** (top right). This creates your own copy at `github.com/<your-handle>/amoxide-rs`.
+Go to [github.com/sassman/amoxide-rs](https://github.com/sassman/amoxide-rs) and click **Fork** (top right). This creates your own copy at `github.com/john/amoxide-rs`.
 
 ### 2. Clone your fork
 
 ```bash
-git clone git@github.com:<your-handle>/amoxide-rs.git
+git clone git@github.com:john/amoxide-rs.git
 cd amoxide-rs
 ```
 
 ### 3. Create a branch
 
 ```bash
-git checkout -b community/<your-handle>-<descriptive-name>
+git checkout -b community/john-git-conventional
 ```
-
-For example: `community/sassman-git-conventional`
 
 ### 4. Copy the template
 
 ```bash
-cp -r community/TEMPLATE community/<your-handle>-<descriptive-name>
+cp -r community/TEMPLATE community/john-git-conventional
 ```
 
 This gives you:
 
 ```
-community/<your-handle>-<descriptive-name>/
+community/john-git-conventional/
 ├── README.md     ← edit this
 └── profiles.toml ← replace with your export
 ```
@@ -47,26 +47,26 @@ community/<your-handle>-<descriptive-name>/
 Replace the template `profiles.toml` with your actual export:
 
 ```bash
-am export -p <profile-name> > community/<your-handle>-<descriptive-name>/profiles.toml
+am export -p git-conventional > community/john-git-conventional/profiles.toml
 ```
 
 Or export multiple profiles:
 
 ```bash
-am export -p git -p git-conventional > community/<your-handle>-<descriptive-name>/profiles.toml
+am export -p git -p git-conventional > community/john-git-conventional/profiles.toml
 ```
 
 ### 6. Edit the README
 
-Open `community/<your-handle>-<descriptive-name>/README.md` and fill in the frontmatter:
+Open `community/john-git-conventional/README.md` and fill in the frontmatter:
 
 ```yaml
 ---
-author: your-github-handle
-description: A short one-line description
+author: john
+description: Git aliases for conventional commit workflows
 category: git
-tags: [tag1, tag2]
-profiles: [profile-name-1, profile-name-2]
+tags: [git, conventional-commits, workflow]
+profiles: [git, git-conventional]
 ---
 ```
 
@@ -88,15 +88,15 @@ Then write a few sentences about what your aliases do, how you use them, and any
 Make sure the import works:
 
 ```bash
-cat community/<your-handle>-<descriptive-name>/profiles.toml | am import --yes
+cat community/john-git-conventional/profiles.toml | am import --yes
 ```
 
 ### 8. Commit and push
 
 ```bash
-git add community/<your-handle>-<descriptive-name>/
-git commit -m "community: add <your-handle>-<descriptive-name>"
-git push origin community/<your-handle>-<descriptive-name>
+git add community/john-git-conventional/
+git commit -m "community: add john-git-conventional"
+git push origin community/john-git-conventional
 ```
 
 ### 9. Open a Pull Request
@@ -105,7 +105,7 @@ Go to your fork on GitHub — you'll see a banner to create a Pull Request. Clic
 
 The checklist will guide you through what's needed:
 
-- [ ] Folder named `community/<handle>-<name>/`
+- [ ] Folder named `community/john-git-conventional/`
 - [ ] `profiles.toml` is a valid `am export` output
 - [ ] `README.md` has the required frontmatter
 - [ ] Only files in your own folder are modified
@@ -115,9 +115,9 @@ Your contribution will appear on the showcase after review.
 
 ## Rules
 
-- Only add or modify files in your own `community/<handle>-<name>/` folder
+- Only add or modify files in your own folder
 - One folder per alias collection (multiple profiles in one `profiles.toml` is fine)
-- For a second collection, create a second folder (e.g. `sassman-docker-compose`)
+- For a second collection, create a second folder (e.g. `john-docker-compose`)
 
 ## What makes a good contribution?
 

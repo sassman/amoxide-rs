@@ -30,7 +30,7 @@ function buildShowcaseSidebar() {
     {
       text: 'Showcase',
       items: [
-        { text: 'All Profiles', link: '/showcase/' },
+        { text: `All Profiles (${names.length})`, link: '/showcase/' },
         { text: 'Contribute', link: '/showcase/contribute' },
       ],
     },
