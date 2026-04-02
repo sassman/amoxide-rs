@@ -1,13 +1,14 @@
 use anyhow::bail;
 use env_logger::Builder;
 use log::info;
-use std::io::{BufRead, Write};
+use std::io::Write;
 
 use amoxide::{
     cli::*,
     dirs::relative_path,
     effects::Effect,
     project::{ProjectAliases, ALIASES_FILE},
+    prompt::{ask_user, Answer},
     update::{update, AppModel},
     AliasTarget, Message,
 };
@@ -112,14 +113,13 @@ fn main() -> anyhow::Result<()> {
                         .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
                     if !profile.aliases.is_empty() {
                         let count = profile.aliases.iter().count();
-                        eprint!(
-                            "Profile '{name}' has {count} alias{}. Remove? [y/N] ",
+                        let question = format!(
+                            "Profile '{name}' has {count} alias{}. Remove?",
                             if count == 1 { "" } else { "es" }
                         );
-                        std::io::stderr().flush()?;
-                        let mut input = String::new();
-                        std::io::stdin().lock().read_line(&mut input)?;
-                        if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
+                        if ask_user(&question, Answer::No, false, &mut std::io::stdin().lock())?
+                            != Answer::Yes
+                        {
                             println!("Cancelled.");
                             return Ok(());
                         }
@@ -197,17 +197,21 @@ fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
     // No .aliases in CWD — check if one exists up the tree
     if let Some(parent) = cwd.parent() {
         if let Some(existing_path) = ProjectAliases::find_path(parent)? {
-            match prompt_existing_aliases(&existing_path, &cwd)? {
-                Choice::Yes => {
+            let rel = relative_path(&cwd, &existing_path);
+            let question = format!(
+                "Found existing {ALIASES_FILE} at {}\nAdd to that file instead?",
+                rel.display()
+            );
+            match ask_user(&question, Answer::No, true, &mut std::io::stdin().lock())? {
+                Answer::Yes => {
                     let mut project = ProjectAliases::load(&existing_path)?;
                     project.add_alias(name.to_string(), command.to_string(), raw);
                     project.save(&existing_path)?;
-                    let rel = relative_path(&cwd, &existing_path);
                     println!("Added `{name}` to {}", rel.display());
                     return Ok(());
                 }
-                Choice::No => {} // fall through to create new
-                Choice::Cancel => {
+                Answer::No => {} // fall through to create new
+                Answer::Cancel => {
                     println!("Cancelled.");
                     return Ok(());
                 }
@@ -229,31 +233,4 @@ fn remove_local_alias(name: &str) -> anyhow::Result<()> {
     let rel = relative_path(&cwd, &path);
     println!("Removed `{name}` from {}", rel.display());
     Ok(())
-}
-
-enum Choice {
-    Yes,
-    No,
-    Cancel,
-}
-
-fn prompt_existing_aliases(
-    path: &std::path::Path,
-    cwd: &std::path::Path,
-) -> anyhow::Result<Choice> {
-    let rel = relative_path(cwd, path);
-    eprint!(
-        "Found existing {ALIASES_FILE} at {}\nAdd to that file instead? [N/y/c] ",
-        rel.display()
-    );
-    std::io::stderr().flush()?;
-
-    let mut input = String::new();
-    std::io::stdin().lock().read_line(&mut input)?;
-
-    match input.trim().to_lowercase().as_str() {
-        "y" | "yes" => Ok(Choice::Yes),
-        "c" | "cancel" => Ok(Choice::Cancel),
-        _ => Ok(Choice::No),
-    }
 }
