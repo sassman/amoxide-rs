@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/sassman/amoxide-rs/compare/v0.2.1...v0.3.0) - 2026-04-02
+
+### Bug Fixes
+
+- Shell wrappers don't reload after 'profile use' ([#61](https://github.com/sassman/amoxide-rs/pull/61))
+- Setup ignores 'n' answer due to unsafe input handling ([#60](https://github.com/sassman/amoxide-rs/pull/60))
+- Make CWD injectable to prevent Windows test race condition ([#56](https://github.com/sassman/amoxide-rs/pull/56))
+- Default to global alias when no active profile or local project ([#48](https://github.com/sassman/amoxide-rs/pull/48))
+
+### Documentation
+
+- Align README install sections with project website ([#49](https://github.com/sassman/amoxide-rs/pull/49))
+
+### Features
+
+- Show all platform install options when am-tui is not found
+
 ## [0.2.1](https://github.com/sassman/amoxide-rs/compare/v0.2.0...v0.2.1) - 2026-03-31
 
 ### Bug Fixes
