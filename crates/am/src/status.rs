@@ -83,10 +83,24 @@ pub fn check_shell_config() -> Check {
             home_dir().map(|h| h.join(".zshrc")),
             "eval \"$(am init zsh)\"",
         ),
-        "bash" => (
-            home_dir().map(|h| h.join(".bashrc")),
-            "eval \"$(am init bash)\"",
-        ),
+        "bash" => {
+            let home_dir = home_dir();
+            let bash_profile = home_dir.as_ref().map(|h| h.join(".bash_profile"));
+            let bashrc = home_dir.map(|h| h.join(".bashrc"));
+
+            // Check bash_profile first, then bashrc
+            let config_path = match (&bash_profile, &bashrc) {
+                (Some(bp), _) if bp.exists() => Some(bp.clone()),
+                (_, Some(rc)) if rc.exists() => Some(rc.clone()),
+                (Some(bp), _) if cfg!(target_os = "macos") => Some(bp.clone()),
+                (_, Some(rc)) => Some(rc.clone()),
+                _ => None,
+            };
+            (
+                config_path,
+                "eval \"$(am init bash)\"",
+            )
+        }
         "powershell" => {
             let path = crate::setup::detect_powershell_profile();
             (
