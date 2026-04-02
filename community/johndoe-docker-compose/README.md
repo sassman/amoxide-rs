@@ -8,20 +8,31 @@ profiles: [docker]
 
 # Docker Compose Shortcuts
 
-Quick shortcuts for common Docker Compose workflows. Saves a lot of typing when managing containers daily.
+Aliases I use every day for managing local dev containers.
 
-## Usage
+## Aliases
+
+| Alias | Expands to | When I use it |
+|-------|-----------|---------------|
+| `dcu` | `docker compose up -d` | Start the stack in the background |
+| `dcd` | `docker compose down` | Tear it all down |
+| `dcl` | `docker compose logs -f` | Tail logs — `dcl` for all, `dcl api` for one service |
+| `dcp` | `docker compose pull` | Pull latest images before restarting |
+| `dcr` | `docker compose restart` | Quick restart without rebuilding |
+| `dps` | `docker ps --format 'table ...'` | Clean status table with names, status, ports |
+
+## Typical workflow
 
 ```bash
-am import https://raw.githubusercontent.com/sassman/amoxide-rs/main/community/johndoe-docker-compose/profiles.toml
-```
-
-Then activate:
-
-```bash
-am profile use docker
+dcp                  # pull latest images
+dcu                  # start everything
+dcl api              # watch the api logs
+# ... work work work ...
+dcr api              # restart after code change
+dcd                  # done for the day
 ```
 
 ## Notes
 
-Requires Docker and Docker Compose v2 (`docker compose` subcommand).
+- Requires **Docker** and **Docker Compose v2** (the `docker compose` subcommand, not the old `docker-compose` binary)
+- `dps` uses a custom format string — shows only name, status, and ports in a clean table

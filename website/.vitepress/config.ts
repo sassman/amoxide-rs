@@ -14,6 +14,7 @@ function buildShowcaseSidebar() {
 
   if (fs.existsSync(communityDir)) {
     for (const folder of fs.readdirSync(communityDir)) {
+      if (folder === 'TEMPLATE') continue
       const readmePath = path.join(communityDir, folder, 'README.md')
       if (!fs.existsSync(readmePath)) continue
       const { data } = matter(fs.readFileSync(readmePath, 'utf-8'))
