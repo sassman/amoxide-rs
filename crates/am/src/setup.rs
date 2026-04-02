@@ -1,6 +1,7 @@
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 
+use crate::prompt::{ask_user, Answer};
 use crate::shell::Shells;
 
 /// Ask PowerShell for its $PROFILE path by shelling out.
@@ -65,7 +66,16 @@ fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
 /// Run the interactive setup for the given shell.
 pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
     let (profile_path, init_line) = shell_config(shell);
+    run_setup_inner(shell, &profile_path, init_line, &mut std::io::stdin().lock())
+}
 
+/// Core setup logic, testable with custom path and reader.
+fn run_setup_inner(
+    shell: &Shells,
+    profile_path: &std::path::Path,
+    init_line: &str,
+    reader: &mut dyn BufRead,
+) -> anyhow::Result<()> {
     eprintln!("Detected shell: {shell}");
     eprintln!("Profile path:   {}\n", profile_path.display());
 
@@ -85,11 +95,7 @@ pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
 
     if !file_exists {
         eprintln!("Profile file does not exist.");
-        eprint!("Create it? [Y/n] ");
-        std::io::stderr().flush()?;
-        let mut input = String::new();
-        std::io::stdin().lock().read_line(&mut input)?;
-        if matches!(input.trim().to_lowercase().as_str(), "n" | "no") {
+        if ask_user("Create it?", Answer::Yes, false, reader)? != Answer::Yes {
             eprintln!("Cancelled.");
             return Ok(());
         }
@@ -104,11 +110,7 @@ pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
         profile_path.display()
     );
     eprintln!("  {init_line}\n");
-    eprint!("Add it now? [Y/n] ");
-    std::io::stderr().flush()?;
-    let mut input = String::new();
-    std::io::stdin().lock().read_line(&mut input)?;
-    if matches!(input.trim().to_lowercase().as_str(), "n" | "no") {
+    if ask_user("Add it now?", Answer::Yes, false, reader)? != Answer::Yes {
         eprintln!("Cancelled.");
         return Ok(());
     }
@@ -132,4 +134,70 @@ pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
     eprintln!("  {}", reload_hint(shell, &profile_path));
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    const INIT_LINE: &str = r#"eval "$(am init zsh)""#;
+
+    /// Run setup on an existing profile file with the given stdin input.
+    /// Returns the file content after setup completes.
+    fn run_setup_on_existing(input: &[u8]) -> String {
+        let dir = tempfile::tempdir().unwrap();
+        let profile = dir.path().join(".zshrc");
+        std::fs::write(&profile, "# existing config\n").unwrap();
+
+        let mut reader = Cursor::new(input.to_vec());
+        run_setup_inner(&Shells::Zsh, &profile, INIT_LINE, &mut reader).unwrap();
+
+        std::fs::read_to_string(&profile).unwrap()
+    }
+
+    #[test]
+    fn setup_respects_no_on_existing_file() {
+        let content = run_setup_on_existing(b"n\n");
+        assert!(!content.contains("am init"), "got: {content}");
+    }
+
+    #[test]
+    fn setup_respects_uppercase_no() {
+        let content = run_setup_on_existing(b"N\n");
+        assert!(!content.contains("am init"), "got: {content}");
+    }
+
+    #[test]
+    fn setup_respects_no_word() {
+        let content = run_setup_on_existing(b"no\n");
+        assert!(!content.contains("am init"), "got: {content}");
+    }
+
+    #[test]
+    fn setup_adds_line_on_yes() {
+        let content = run_setup_on_existing(b"y\n");
+        assert!(content.contains("am init"), "got: {content}");
+    }
+
+    #[test]
+    fn setup_on_eof_does_not_add_line() {
+        let content = run_setup_on_existing(b"");
+        assert!(!content.contains("am init"), "got: {content}");
+    }
+
+    /// File doesn't exist, user says "y" to create, but then EOF for add prompt.
+    #[test]
+    fn setup_on_eof_second_prompt_does_not_add_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let profile = dir.path().join("subdir/.zshrc");
+
+        let mut reader = Cursor::new(b"y\n");
+        run_setup_inner(&Shells::Zsh, &profile, INIT_LINE, &mut reader).unwrap();
+
+        if profile.exists() {
+            let content = std::fs::read_to_string(&profile).unwrap();
+            assert!(!content.contains("am init"), "got: {content}");
+        }
+    }
 }

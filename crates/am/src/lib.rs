@@ -8,6 +8,7 @@ pub mod hook;
 pub mod init;
 pub mod messages;
 pub mod profile;
+pub mod prompt;
 pub mod project;
 pub mod setup;
 pub mod shell;
