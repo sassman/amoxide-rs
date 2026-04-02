@@ -11,7 +11,7 @@ use crate::exchange::{
 };
 use crate::project::{ProjectAliases, ALIASES_FILE};
 use crate::update::{update, AppModel};
-use crate::{AliasSet, Message, Profile, ProfileConfig};
+use crate::{AliasSet, Message, Profile};
 
 // ═══════════════════════════════════════════════════════════════════════
 // Export
@@ -28,24 +28,8 @@ pub fn handle_export(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow:
 }
 
 fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Result<String> {
-    if args.scope.local {
-        let project = ProjectAliases::find(cwd)?
-            .ok_or_else(|| anyhow::anyhow!("No .aliases file found in directory tree"))?;
-        Ok(toml::to_string(&project)?)
-    } else if args.scope.global {
-        let wrapper = ExportAll {
-            global_aliases: model.config.aliases.clone(),
-            ..Default::default()
-        };
-        Ok(toml::to_string(&wrapper)?)
-    } else if let Some(ref name) = args.scope.profile {
-        let profile = model
-            .profile_config()
-            .get_profile_by_name(name)
-            .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
-        let wrapper = ProfileConfig::from_profiles(vec![profile.clone()]);
-        Ok(toml::to_string(&wrapper)?)
-    } else if args.scope.all {
+    if args.scope.all {
+        // --all: everything
         let project_aliases = ProjectAliases::find(cwd)?
             .map(|p| p.aliases)
             .unwrap_or_default();
@@ -54,9 +38,12 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
             profiles: model.profile_config().to_vec(),
             local_aliases: project_aliases,
         };
-        Ok(toml::to_string(&export)?)
-    } else {
-        // Default: active scope (global + active profiles + local if present)
+        return Ok(toml::to_string(&export)?);
+    }
+
+    let has_scope = args.scope.local || args.scope.global || args.scope.profile.is_some();
+    if !has_scope {
+        // No flags: active scope (global + active profiles + local if present)
         let active_profiles: Vec<_> = model
             .config
             .active_profiles
@@ -72,8 +59,31 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
             profiles: active_profiles,
             local_aliases: project_aliases,
         };
-        Ok(toml::to_string(&export)?)
+        return Ok(toml::to_string(&export)?);
     }
+
+    // Combinable scope flags: collect from each selected scope
+    let mut export = ExportAll::default();
+
+    if args.scope.global {
+        export.global_aliases = model.config.aliases.clone();
+    }
+
+    if let Some(ref name) = args.scope.profile {
+        let profile = model
+            .profile_config()
+            .get_profile_by_name(name)
+            .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
+        export.profiles.push(profile.clone());
+    }
+
+    if args.scope.local {
+        let project = ProjectAliases::find(cwd)?
+            .ok_or_else(|| anyhow::anyhow!("No .aliases file found in directory tree"))?;
+        export.local_aliases = project.aliases;
+    }
+
+    Ok(toml::to_string(&export)?)
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -244,18 +254,14 @@ fn import_with_override(
     let cwd = std::env::current_dir()?;
     let mut payload = ImportPayload::default();
 
-    if args.scope.local {
-        let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
-        let merge = existing.aliases.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge("local", &merge, args.yes)? {
-            payload.local_aliases = Some(accepted);
-        }
-    } else if args.scope.global {
+    if args.scope.global {
         let merge = model.config.aliases.merge_check(&flattened);
         if let Some(accepted) = prompt_merge("global", &merge, args.yes)? {
             payload.global_aliases = Some(accepted);
         }
-    } else if let Some(ref name) = args.scope.profile {
+    }
+
+    if let Some(ref name) = args.scope.profile {
         let existing_aliases = model
             .profile_config()
             .get_profile_by_name(name)
@@ -267,6 +273,14 @@ fn import_with_override(
                 name: name.clone(),
                 aliases: accepted,
             });
+        }
+    }
+
+    if args.scope.local {
+        let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
+        let merge = existing.aliases.merge_check(&flattened);
+        if let Some(accepted) = prompt_merge("local", &merge, args.yes)? {
+            payload.local_aliases = Some(accepted);
         }
     }
 

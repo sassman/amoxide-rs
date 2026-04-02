@@ -197,13 +197,14 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (export)
 _arguments "${_arguments_options[@]}" : \
-'(-l --local -g --global --all)-p+[Operate on a specific profile]:PROFILE:_default' \
-'(-l --local -g --global --all)--profile=[Operate on a specific profile]:PROFILE:_default' \
-'(-g --global -p --profile --all)-l[Operate on project-local aliases only]' \
-'(-g --global -p --profile --all)--local[Operate on project-local aliases only]' \
-'(-l --local -p --profile --all)-g[Operate on global aliases only]' \
-'(-l --local -p --profile --all)--global[Operate on global aliases only]' \
+'(--all)-p+[Operate on a specific profile]:PROFILE:_default' \
+'(--all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(--all)-l[Operate on project-local aliases]' \
+'(--all)--local[Operate on project-local aliases]' \
+'(--all)-g[Operate on global aliases]' \
+'(--all)--global[Operate on global aliases]' \
 '(-l --local -g --global -p --profile)--all[Operate on everything (global + all profiles + local)]' \
+'-b[Encode output as base64]' \
 '--base64[Encode output as base64]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -213,17 +214,18 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (import)
 _arguments "${_arguments_options[@]}" : \
-'(-l --local -g --global --all)-p+[Operate on a specific profile]:PROFILE:_default' \
-'(-l --local -g --global --all)--profile=[Operate on a specific profile]:PROFILE:_default' \
-'(-g --global -p --profile --all)-l[Operate on project-local aliases only]' \
-'(-g --global -p --profile --all)--local[Operate on project-local aliases only]' \
-'(-l --local -p --profile --all)-g[Operate on global aliases only]' \
-'(-l --local -p --profile --all)--global[Operate on global aliases only]' \
+'(--all)-p+[Operate on a specific profile]:PROFILE:_default' \
+'(--all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(--all)-l[Operate on project-local aliases]' \
+'(--all)--local[Operate on project-local aliases]' \
+'(--all)-g[Operate on global aliases]' \
+'(--all)--global[Operate on global aliases]' \
 '(-l --local -g --global -p --profile)--all[Operate on everything (global + all profiles + local)]' \
+'-b[Decode base64 input before parsing]' \
 '--base64[Decode base64 input before parsing]' \
 '-y[Skip all confirmation prompts]' \
 '--yes[Skip all confirmation prompts]' \
-'--trust[Acknowledge and accept potentially dangerous aliases (requires --yes)]' \
+'--trust[DANGER\: Skip safety checks for suspicious content (escape sequences). Only use for your own exports. Never trust external input blindly — it can carry invisible escape sequences that hide malicious commands]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -233,12 +235,12 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (share)
 _arguments "${_arguments_options[@]}" : \
-'(-l --local -g --global --all)-p+[Operate on a specific profile]:PROFILE:_default' \
-'(-l --local -g --global --all)--profile=[Operate on a specific profile]:PROFILE:_default' \
-'(-g --global -p --profile --all)-l[Operate on project-local aliases only]' \
-'(-g --global -p --profile --all)--local[Operate on project-local aliases only]' \
-'(-l --local -p --profile --all)-g[Operate on global aliases only]' \
-'(-l --local -p --profile --all)--global[Operate on global aliases only]' \
+'(--all)-p+[Operate on a specific profile]:PROFILE:_default' \
+'(--all)--profile=[Operate on a specific profile]:PROFILE:_default' \
+'(--all)-l[Operate on project-local aliases]' \
+'(--all)--local[Operate on project-local aliases]' \
+'(--all)-g[Operate on global aliases]' \
+'(--all)--global[Operate on global aliases]' \
 '(-l --local -g --global -p --profile)--all[Operate on everything (global + all profiles + local)]' \
 '(--paste-rs)--termbin[Generate command for termbin.com (netcat)]' \
 '(--termbin)--paste-rs[Generate command for paste.rs (curl)]' \
@@ -383,7 +385,7 @@ _am_commands() {
 'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
-'import:Import aliases from stdin' \
+'import:Import aliases from stdin or a URL' \
 'share:Generate a share command for posting aliases to a pastebin service' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
@@ -413,7 +415,7 @@ _am__help_commands() {
 'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
-'import:Import aliases from stdin' \
+'import:Import aliases from stdin or a URL' \
 'share:Generate a share command for posting aliases to a pastebin service' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \

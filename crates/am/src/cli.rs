@@ -63,7 +63,7 @@ pub enum Commands {
     ///   PowerShell  $PROFILE                      (am init powershell) -join "`n" | Invoke-Expression
     ///
     /// Note: Only fish, zsh, and powershell are currently supported. Others are planned.
-    #[command(alias = "i", verbatim_doc_comment)]
+    #[command(verbatim_doc_comment)]
     Init { shell: Shells },
 
     /// Guided setup — adds amoxide to your shell profile
@@ -77,8 +77,8 @@ pub enum Commands {
     #[command(alias = "e")]
     Export(ExportArgs),
 
-    /// Import aliases from stdin
-    #[command(alias = "im")]
+    /// Import aliases from stdin or a URL
+    #[command(alias = "i")]
     Import(ImportArgs),
 
     /// Generate a share command for posting aliases to a pastebin service
@@ -154,19 +154,21 @@ pub struct Alias {
     pub command: Option<Vec<String>>,
 }
 
-/// Shared scope flags for export/import commands
+/// Shared scope flags for export/import/share commands.
+/// Flags can be combined (e.g. `-l -g -p git`) to select multiple scopes.
+/// `--all` is a shortcut for all scopes and cannot be combined with others.
 #[derive(Args, Debug, Clone)]
 pub struct ScopeArgs {
-    /// Operate on project-local aliases only
-    #[arg(short, long, conflicts_with_all = ["global", "profile", "all"])]
+    /// Operate on project-local aliases
+    #[arg(short, long, conflicts_with = "all")]
     pub local: bool,
 
-    /// Operate on global aliases only
-    #[arg(short, long, conflicts_with_all = ["local", "profile", "all"])]
+    /// Operate on global aliases
+    #[arg(short, long, conflicts_with = "all")]
     pub global: bool,
 
     /// Operate on a specific profile
-    #[arg(short, long, conflicts_with_all = ["local", "global", "all"])]
+    #[arg(short, long, conflicts_with = "all")]
     pub profile: Option<String>,
 
     /// Operate on everything (global + all profiles + local)
@@ -180,7 +182,7 @@ pub struct ExportArgs {
     pub scope: ScopeArgs,
 
     /// Encode output as base64
-    #[arg(long)]
+    #[arg(short = 'b', long, alias = "b64")]
     pub base64: bool,
 }
 
@@ -207,14 +209,16 @@ pub struct ImportArgs {
     pub scope: ScopeArgs,
 
     /// Decode base64 input before parsing
-    #[arg(long)]
+    #[arg(short = 'b', long, alias = "b64")]
     pub base64: bool,
 
     /// Skip all confirmation prompts
     #[arg(short = 'y', long = "yes")]
     pub yes: bool,
 
-    /// Acknowledge and accept potentially dangerous aliases (requires --yes)
+    /// DANGER: Skip safety checks for suspicious content (escape sequences).
+    /// Only use for your own exports. Never trust external input blindly —
+    /// it can carry invisible escape sequences that hide malicious commands.
     #[arg(long, requires = "yes")]
     pub trust: bool,
 }
