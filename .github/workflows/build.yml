@@ -10,6 +10,7 @@ on:
     paths-ignore:
       - "**/docs/**"
       - "**.md"
+      - "community/**"
   pull_request:
     branches: [main]
   workflow_call:

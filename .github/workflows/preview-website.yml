@@ -6,6 +6,7 @@ on:
   pull_request_target:
     paths:
       - "website/**"
+      - "community/**"
     types: [opened, synchronize, reopened, closed]
 
 permissions:
