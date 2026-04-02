@@ -5,6 +5,7 @@ use amoxide::exchange::{
 };
 use amoxide::hook::generate_hook;
 use amoxide::init::{generate_init, generate_reload};
+use amoxide::project::ProjectAliases;
 use amoxide::shell::Shells;
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
 use indoc::indoc;
@@ -409,16 +410,20 @@ fn snapshot_display_listing_with_globals_and_project() {
     let globals = aliases(&[("ll", "ls -lha")]);
 
     let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &path,
         indoc! {r#"
             [aliases]
             b = "make build"
         "#},
     )
     .unwrap();
+    let project = ProjectAliases::load(&path).unwrap();
 
-    let output = render_listing(&globals, &config, &["rust".to_string()], dir.path());
+    // Pass a relative display path (as the real caller computes relative_path(cwd, path))
+    let display_path = std::path::Path::new(".aliases");
+    let output = render_listing(&globals, &config, &["rust".to_string()], Some((&project, display_path)));
     insta::assert_snapshot!(output);
 }
 

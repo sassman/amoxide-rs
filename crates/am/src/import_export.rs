@@ -1,5 +1,4 @@
 use std::io::{BufRead, Read, Write};
-use std::path::Path;
 use std::time::Duration;
 
 use crate::alias::MergeResult;
@@ -9,7 +8,6 @@ use crate::exchange::{
     base64_decode, base64_encode, parse_import, render_import_summary, render_suspicious_warning,
     scan_suspicious, ExportAll, ImportPayload, Scope, SanitizedName,
 };
-use crate::project::{ProjectAliases, ALIASES_FILE};
 use crate::update::{update, AppModel};
 use crate::{AliasSet, Message, Profile};
 
@@ -17,8 +15,8 @@ use crate::{AliasSet, Message, Profile};
 // Export
 // ═══════════════════════════════════════════════════════════════════════
 
-pub fn handle_export(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Result<String> {
-    let toml_output = export_toml(model, args, cwd)?;
+pub fn handle_export(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
+    let toml_output = export_toml(model, args)?;
 
     if args.base64 {
         Ok(base64_encode(&toml_output))
@@ -27,12 +25,10 @@ pub fn handle_export(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow:
     }
 }
 
-fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Result<String> {
+fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
     if args.scope.all {
         // --all: everything
-        let project_aliases = ProjectAliases::find(cwd)?
-            .map(|p| p.aliases)
-            .unwrap_or_default();
+        let project_aliases = model.project_alias_set();
         let export = ExportAll {
             global_aliases: model.config.aliases.clone(),
             profiles: model.profile_config().to_vec(),
@@ -51,9 +47,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
             .filter_map(|name| model.profile_config().get_profile_by_name(name))
             .cloned()
             .collect();
-        let project_aliases = ProjectAliases::find(cwd)?
-            .map(|p| p.aliases)
-            .unwrap_or_default();
+        let project_aliases = model.project_alias_set();
         let export = ExportAll {
             global_aliases: model.config.aliases.clone(),
             profiles: active_profiles,
@@ -78,9 +72,10 @@ fn export_toml(model: &AppModel, args: &ExportArgs, cwd: &Path) -> anyhow::Resul
     }
 
     if args.scope.local {
-        let project = ProjectAliases::find(cwd)?
+        let project = model
+            .project_aliases()
             .ok_or_else(|| anyhow::anyhow!("No .aliases file found in directory tree"))?;
-        export.local_aliases = project.aliases;
+        export.local_aliases = project.aliases.clone();
     }
 
     Ok(toml::to_string(&export)?)
@@ -216,7 +211,6 @@ fn import_auto_route(
     parsed: &ExportAll,
 ) -> anyhow::Result<()> {
     let mut payload = ImportPayload::default();
-    let cwd = std::env::current_dir()?;
 
     if !parsed.global_aliases.is_empty() {
         let merge = model.config.aliases.merge_check(&parsed.global_aliases);
@@ -242,14 +236,14 @@ fn import_auto_route(
     }
 
     if !parsed.local_aliases.is_empty() {
-        let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
-        let merge = existing.aliases.merge_check(&parsed.local_aliases);
+        let existing = model.project_alias_set();
+        let merge = existing.merge_check(&parsed.local_aliases);
         if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes)? {
             payload.local_aliases = Some(accepted);
         }
     }
 
-    apply_import(model, payload, &cwd)
+    apply_import(model, payload)
 }
 
 fn import_with_override(
@@ -258,7 +252,6 @@ fn import_with_override(
     parsed: &ExportAll,
 ) -> anyhow::Result<()> {
     let flattened = parsed.flatten();
-    let cwd = std::env::current_dir()?;
     let mut payload = ImportPayload::default();
 
     if args.scope.global {
@@ -285,14 +278,14 @@ fn import_with_override(
     }
 
     if args.scope.local {
-        let existing = ProjectAliases::find(&cwd)?.unwrap_or_default();
-        let merge = existing.aliases.merge_check(&flattened);
+        let existing = model.project_alias_set();
+        let merge = existing.merge_check(&flattened);
         if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes)? {
             payload.local_aliases = Some(accepted);
         }
     }
 
-    apply_import(model, payload, &cwd)
+    apply_import(model, payload)
 }
 
 fn prompt_merge(
@@ -361,11 +354,7 @@ fn prompt_merge(
     Ok(Some(accepted))
 }
 
-fn apply_import(
-    model: &mut AppModel,
-    payload: ImportPayload,
-    cwd: &Path,
-) -> anyhow::Result<()> {
+fn apply_import(model: &mut AppModel, payload: ImportPayload) -> anyhow::Result<()> {
     let local_aliases = payload.local_aliases.clone();
 
     // Dispatch through message pipeline — returns effects
@@ -382,15 +371,7 @@ fn apply_import(
 
     // Save local aliases directly (needs file path, not handled by effects)
     if let Some(aliases) = local_aliases {
-        let path = ProjectAliases::find_path(cwd)?
-            .unwrap_or_else(|| cwd.join(ALIASES_FILE));
-        let mut project = if path.exists() {
-            ProjectAliases::load(&path)?
-        } else {
-            ProjectAliases::default()
-        };
-        project.merge_aliases(aliases);
-        project.save(&path)?;
+        model.save_project_aliases(aliases)?;
     }
 
     Ok(())

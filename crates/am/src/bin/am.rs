@@ -156,8 +156,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Export(args) => {
-            let cwd = std::env::current_dir()?;
-            let output = handle_export(&model, args, &cwd)?;
+            let output = handle_export(&model, args)?;
             print!("{output}");
             return Ok(());
         }
