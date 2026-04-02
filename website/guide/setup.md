@@ -18,6 +18,10 @@ am setup zsh
 am setup powershell
 ```
 
+```sh [Bash]
+am setup bash
+```
+
 :::
 
 This detects your profile file, shows exactly what it will add, and asks for confirmation.
@@ -43,6 +47,15 @@ eval "$(am init zsh)"
 (am init powershell) -join "`n" | Invoke-Expression
 ```
 
+```bash [Bash]
+# ~/.bashrc or ~/.bash_profile
+eval "$(am init bash)"
+```
+
+:::
+
+::: tip Bash load order
+If you use starship, oh-my-bash, or bash-it, add the `am init bash` line **after** their initialization. This ensures amoxide's cd hook isn't overwritten.
 :::
 
 ## What the Init Does

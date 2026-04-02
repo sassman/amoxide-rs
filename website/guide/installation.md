@@ -41,7 +41,8 @@ The TUI companion (`am-tui`) is a separate install. It's optional but recommende
 | Fish | Fully supported and tested |
 | PowerShell | Supported and tested (5.1 + 7) |
 | Zsh | Supported, not yet tested |
-| Bash, Nushell | Not yet implemented |
+| Bash | Supported (3.2+) |
+| Nushell | Not yet implemented |
 
 ## Subcommands
 
