@@ -8,7 +8,7 @@ use crate::exchange::{
     base64_decode, base64_encode, parse_import, render_import_summary, render_suspicious_warning,
     scan_suspicious, ExportAll, ImportPayload, SanitizedName, Scope,
 };
-use crate::prompt::{ask_user, require_exact, Answer};
+use crate::prompt::{ask_user, Answer};
 use crate::update::{update, AppModel};
 use crate::{AliasSet, Message, Profile};
 
@@ -186,15 +186,12 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
                  Use --yes --trust to override."
             );
         } else {
-            // Interactive: show warning and require exact "YES" confirmation
+            // Suspicious content without --trust: always refuse
             eprint!("{}", render_suspicious_warning(&findings));
-            if !require_exact(
-                "This import contains potentially dangerous content. Are you sure?",
-                "YES",
-                &mut std::io::stdin().lock(),
-            )? {
-                anyhow::bail!("import aborted by user");
-            }
+            anyhow::bail!(
+                "refusing to import: suspicious characters detected. \
+                 Use --yes --trust to override."
+            );
         }
     }
 

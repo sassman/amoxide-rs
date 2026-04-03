@@ -366,19 +366,19 @@ pub fn sanitize_for_display(s: &str) -> String {
 pub fn render_suspicious_warning(findings: &[SuspiciousAlias]) -> String {
     let mut out = String::new();
     out.push_str("WARNING: Suspicious characters detected in import\n");
-    out.push_str("=========================================\n\n");
+    out.push_str("==================================================\n\n");
     out.push_str("The following entries contain control characters that could be used\n");
     out.push_str("to execute unintended commands or manipulate your terminal:\n\n");
 
     for finding in findings {
-        out.push_str(&format!("  scope:   {}\n", finding.scope));
+        out.push_str(&format!("  scope:        {}\n", finding.scope));
         if !finding.alias_name.0.is_empty() {
-            out.push_str(&format!("  alias:   {}\n", finding.alias_name));
+            out.push_str(&format!("  alias:        {}\n", finding.alias_name));
         }
-        out.push_str(&format!("  field:   {}\n", finding.field));
-        out.push_str(&format!("  original:      {}\n", finding.raw_value));
+        out.push_str(&format!("  field:        {}\n", finding.field));
+        out.push_str(&format!("  original:     {}\n", finding.raw_value));
         out.push_str(&format!(
-            "  safe-escaped:  {}\n",
+            "  safe-escaped: {}\n",
             finding.raw_value.sanitized()
         ));
         out.push('\n');

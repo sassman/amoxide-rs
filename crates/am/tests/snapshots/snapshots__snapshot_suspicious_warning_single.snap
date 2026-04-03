@@ -3,15 +3,15 @@ source: crates/am/tests/snapshots.rs
 expression: output
 ---
 WARNING: Suspicious characters detected in import
-=========================================
+==================================================
 
 The following entries contain control characters that could be used
 to execute unintended commands or manipulate your terminal:
 
-  scope:   global
-  alias:   evil
-  field:   command
-  original:      echo \u{001B}[31mhacked\u{001B}[0m
-  safe-escaped:  echo �[31mhacked�[0m
+  scope:        global
+  alias:        evil
+  field:        command
+  original:     echo \u{001B}[31mhacked\u{001B}[0m
+  safe-escaped: echo �[31mhacked�[0m
 
 To import anyway, use: am import --yes --trust

