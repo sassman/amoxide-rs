@@ -263,7 +263,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
-'::url -- URL or file to import from (reads stdin if omitted):_default' \
+':source -- URL or file path to import from:_default' \
 && ret=0
 ;;
 (share)
@@ -418,7 +418,7 @@ _am_commands() {
 'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
-'import:Import aliases from stdin or a URL' \
+'import:Import aliases from a URL or file' \
 'share:Generate a share command for posting aliases to a pastebin service' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
@@ -448,7 +448,7 @@ _am__help_commands() {
 'setup:Guided setup — adds amoxide to your shell profile' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
-'import:Import aliases from stdin or a URL' \
+'import:Import aliases from a URL or file' \
 'share:Generate a share command for posting aliases to a pastebin service' \
 'hook:Internal\: called by the cd hook to load/unload project aliases' \
 'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \

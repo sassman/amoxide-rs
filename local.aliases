@@ -1,0 +1,4 @@
+[local_aliases]
+i = "cargo install --path crates/am && cargo install --path crates/am-tui"
+l = "cargo clippy --locked --all-targets -- -D warnings"
+t = "cargo test --all-features"

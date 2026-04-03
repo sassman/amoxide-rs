@@ -77,7 +77,7 @@ pub enum Commands {
     #[command(alias = "e")]
     Export(ExportArgs),
 
-    /// Import aliases from stdin or a URL
+    /// Import aliases from a URL or file
     #[command(alias = "i")]
     Import(ImportArgs),
 
@@ -202,8 +202,8 @@ pub struct ShareArgs {
 
 #[derive(Args)]
 pub struct ImportArgs {
-    /// URL or file to import from (reads stdin if omitted)
-    pub url: Option<String>,
+    /// URL or file path to import from
+    pub source: String,
 
     #[command(flatten)]
     pub scope: ScopeArgs,

@@ -1,4 +1,4 @@
-use std::io::{BufRead, Read};
+use std::io::BufRead;
 use std::time::Duration;
 
 use crate::alias::MergeResult;
@@ -142,24 +142,18 @@ fn build_scope_flags(scope: &crate::cli::ScopeArgs) -> String {
 // ═══════════════════════════════════════════════════════════════════════
 
 pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<()> {
-    // Phase 1: Determine input source
-    let input = match &args.url {
-        Some(url) if url.starts_with("http://") || url.starts_with("https://") => {
-            eprintln!("Fetching {url}...");
-            fetch_url(url)?
-        }
-        Some(value) => {
-            anyhow::bail!("expected a http(s) URL, got: {value}");
-        }
-        None => {
-            let mut buf = String::new();
-            std::io::stdin().lock().read_to_string(&mut buf)?;
-            buf
-        }
+    // Phase 1: Read from URL or file
+    let source = &args.source;
+    let input = if source.starts_with("http://") || source.starts_with("https://") {
+        eprintln!("Fetching {source}...");
+        fetch_url(source)?
+    } else {
+        std::fs::read_to_string(source)
+            .map_err(|e| anyhow::anyhow!("failed to read '{}': {}", source, e))?
     };
 
     if input.trim().is_empty() {
-        anyhow::bail!("no input received");
+        anyhow::bail!("no aliases found in '{source}'");
     }
 
     let toml_input = if args.base64 {
@@ -174,19 +168,10 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
     let findings = scan_suspicious(&parsed);
     if !findings.is_empty() {
         if args.trust {
-            // --yes --trust: user explicitly accepts the risk
             let n = findings.len();
             let label = if n == 1 { "entry" } else { "entries" };
             eprintln!("WARNING: {n} suspicious {label} found, proceeding due to --trust");
-        } else if args.yes {
-            // --yes without --trust: refuse to auto-accept dangerous input
-            eprint!("{}", render_suspicious_warning(&findings));
-            anyhow::bail!(
-                "refusing to import: suspicious characters detected. \
-                 Use --yes --trust to override."
-            );
         } else {
-            // Suspicious content without --trust: always refuse
             eprint!("{}", render_suspicious_warning(&findings));
             anyhow::bail!(
                 "refusing to import: suspicious characters detected. \
@@ -196,11 +181,12 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
     }
 
     // Phase 2: Resolve conflicts + Phase 3: Apply
+    // stdin is never consumed — prompts always work
     let mut stdin = std::io::stdin().lock();
     if args.scope.local || args.scope.global || !args.scope.profile.is_empty() {
-        import_with_override(model, args, &parsed, &mut stdin)?;
+        import_with_override(model, args.yes, &args.scope, &parsed, &mut stdin)?;
     } else {
-        import_auto_route(model, args, &parsed, &mut stdin)?;
+        import_auto_route(model, args.yes, &parsed, &mut stdin)?;
     }
 
     Ok(())
@@ -208,7 +194,7 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
 
 fn import_auto_route(
     model: &mut AppModel,
-    args: &ImportArgs,
+    auto_yes: bool,
     parsed: &ExportAll,
     reader: &mut dyn BufRead,
 ) -> anyhow::Result<()> {
@@ -216,7 +202,7 @@ fn import_auto_route(
 
     if !parsed.global_aliases.is_empty() {
         let merge = model.config.aliases.merge_check(&parsed.global_aliases);
-        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes, reader)? {
+        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, auto_yes, reader)? {
             payload.global_aliases = Some(accepted);
         }
     }
@@ -229,7 +215,7 @@ fn import_auto_route(
             .unwrap_or_default();
         let merge = existing_aliases.merge_check(&profile.aliases);
         let scope = Scope::Profile(SanitizedName::new(&profile.name));
-        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes, reader)? {
+        if let Some(accepted) = prompt_merge(&scope, &merge, auto_yes, reader)? {
             payload.profiles.push(Profile {
                 name: profile.name.clone(),
                 aliases: accepted,
@@ -240,7 +226,7 @@ fn import_auto_route(
     if !parsed.local_aliases.is_empty() {
         let existing = model.project_alias_set();
         let merge = existing.merge_check(&parsed.local_aliases);
-        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes, reader)? {
+        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, auto_yes, reader)? {
             payload.local_aliases = Some(accepted);
         }
     }
@@ -250,21 +236,22 @@ fn import_auto_route(
 
 fn import_with_override(
     model: &mut AppModel,
-    args: &ImportArgs,
+    auto_yes: bool,
+    scope_args: &crate::cli::ScopeArgs,
     parsed: &ExportAll,
     reader: &mut dyn BufRead,
 ) -> anyhow::Result<()> {
     let flattened = parsed.flatten();
     let mut payload = ImportPayload::default();
 
-    if args.scope.global {
+    if scope_args.global {
         let merge = model.config.aliases.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes, reader)? {
+        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, auto_yes, reader)? {
             payload.global_aliases = Some(accepted);
         }
     }
 
-    for name in &args.scope.profile {
+    for name in &scope_args.profile {
         let existing_aliases = model
             .profile_config()
             .get_profile_by_name(name)
@@ -272,7 +259,7 @@ fn import_with_override(
             .unwrap_or_default();
         let merge = existing_aliases.merge_check(&flattened);
         let scope = Scope::Profile(SanitizedName::new(name));
-        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes, reader)? {
+        if let Some(accepted) = prompt_merge(&scope, &merge, auto_yes, reader)? {
             payload.profiles.push(Profile {
                 name: name.clone(),
                 aliases: accepted,
@@ -280,10 +267,10 @@ fn import_with_override(
         }
     }
 
-    if args.scope.local {
+    if scope_args.local {
         let existing = model.project_alias_set();
         let merge = existing.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes, reader)? {
+        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, auto_yes, reader)? {
             payload.local_aliases = Some(accepted);
         }
     }
@@ -303,6 +290,7 @@ pub fn prompt_merge(
     }
 
     eprint!("{}", render_import_summary(&scope.to_string(), merge));
+    eprintln!();
 
     // Ask to merge
     if !auto_yes {
@@ -411,14 +399,9 @@ pub fn fetch_url(url: &str) -> anyhow::Result<String> {
     Ok(body)
 }
 
-/// Validate a URL argument for import.
-/// Only http:// and https:// URLs are accepted.
-pub fn validate_url_arg(value: &str) -> anyhow::Result<()> {
-    if value.starts_with("http://") || value.starts_with("https://") {
-        Ok(())
-    } else {
-        anyhow::bail!("expected a http(s) URL, got: {value}");
-    }
+/// Check if a source string is a URL (vs a file path).
+pub fn is_url(source: &str) -> bool {
+    source.starts_with("http://") || source.starts_with("https://")
 }
 
 #[cfg(test)]
@@ -426,37 +409,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_url_arg_https() {
-        assert!(validate_url_arg("https://example.com/aliases.toml").is_ok());
+    fn test_is_url_https() {
+        assert!(is_url("https://example.com/aliases.toml"));
     }
 
     #[test]
-    fn test_validate_url_arg_http() {
-        assert!(validate_url_arg("http://example.com/aliases.toml").is_ok());
+    fn test_is_url_http() {
+        assert!(is_url("http://example.com/aliases.toml"));
     }
 
     #[test]
-    fn test_validate_url_arg_ftp_rejected() {
-        let err = validate_url_arg("ftp://example.com/file").unwrap_err();
-        assert!(err.to_string().contains("expected a http(s) URL"));
+    fn test_is_url_ftp_is_not() {
+        assert!(!is_url("ftp://example.com/file"));
     }
 
     #[test]
-    fn test_validate_url_arg_file_rejected() {
-        let err = validate_url_arg("file:///etc/passwd").unwrap_err();
-        assert!(err.to_string().contains("expected a http(s) URL"));
+    fn test_is_url_file_path_is_not() {
+        assert!(!is_url("/tmp/aliases.toml"));
     }
 
     #[test]
-    fn test_validate_url_arg_no_scheme_rejected() {
-        let err = validate_url_arg("just-a-string").unwrap_err();
-        assert!(err.to_string().contains("expected a http(s) URL"));
-    }
-
-    #[test]
-    fn test_validate_url_arg_path_rejected() {
-        let err = validate_url_arg("/tmp/aliases.toml").unwrap_err();
-        assert!(err.to_string().contains("expected a http(s) URL"));
+    fn test_is_url_relative_path_is_not() {
+        assert!(!is_url("./profiles.toml"));
     }
 
     #[test]

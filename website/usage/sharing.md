@@ -1,6 +1,6 @@
 # Sharing Aliases
 
-Share your aliases with colleagues, teams, or the community. Export to stdout, import from stdin or a URL — standard Unix composability.
+Share your aliases with colleagues, teams, or the community. Export to stdout, import from a URL or file.
 
 ## Export
 
@@ -21,18 +21,25 @@ Add `-b` (or `--base64`, `--b64`) to encode the output — useful for sharing vi
 am export -p git -b
 ```
 
+Save to a file:
+
+```bash
+am export -p git > git-profile.toml
+```
+
 ## Import
 
-Import aliases from a URL:
+Import from a URL:
 
 ```bash
 am import https://paste.rs/abc -b
 ```
 
-Or pipe from stdin:
+Import from a file:
 
 ```bash
-curl https://raw.githubusercontent.com/user/repo/main/.aliases | am import -l
+am import ./git-profile.toml
+am import ~/Downloads/team-setup.toml
 ```
 
 When you import, `am` shows a summary of all aliases and asks for confirmation before applying anything:
@@ -62,7 +69,7 @@ Apply 2 overwrites? [y/N]
 Use `--yes` to skip prompts (e.g. in scripts):
 
 ```bash
-am import https://paste.rs/abc -b --yes
+am import ./setup.toml --yes
 ```
 
 ### Scope override
@@ -70,9 +77,9 @@ am import https://paste.rs/abc -b --yes
 By default, imported data routes to its original scope. Override with flags:
 
 ```bash
-am import https://example.com/aliases.toml -l      # force into local
-am import https://example.com/aliases.toml -g      # force into global
-am import https://example.com/aliases.toml -p work # force into a profile
+am import ./aliases.toml -l       # force into local
+am import ./aliases.toml -g       # force into global
+am import ./aliases.toml -p work  # force into a profile
 ```
 
 ## Quick share via pastebin
