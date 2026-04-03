@@ -556,8 +556,10 @@ mod tests {
 
     #[test]
     fn use_profiles_at_inserts_at_offset() {
-        let mut config = Config::default();
-        config.active_profiles = vec!["node".to_string()];
+        let config = Config {
+            active_profiles: vec!["node".to_string()],
+            ..Config::default()
+        };
         let profile_config: ProfileConfig = toml::from_str(
             "[[profiles]]\nname = \"git\"\n\n[[profiles]]\nname = \"rust\"\n\n[[profiles]]\nname = \"node\"\n",
         )
