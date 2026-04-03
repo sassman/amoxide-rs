@@ -1,0 +1,8 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+Importing "global" (1 aliases)
+
+  new:
+    gs → git status

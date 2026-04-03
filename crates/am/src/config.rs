@@ -57,6 +57,12 @@ impl Config {
         self.aliases.insert(key, alias);
     }
 
+    pub fn merge_aliases(&mut self, incoming: AliasSet) {
+        for (name, alias) in incoming.iter() {
+            self.aliases.insert(name.clone(), alias.clone());
+        }
+    }
+
     pub fn remove_alias(&mut self, name: &str) -> crate::Result<()> {
         let key: AliasName = name.into();
         self.aliases
@@ -208,6 +214,25 @@ mod tests {
         assert_eq!(
             config.active_profiles,
             vec!["node".to_string(), "git".to_string(), "rust".to_string(),]
+        );
+    }
+
+    #[test]
+    fn test_merge_aliases_into_global() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let mut incoming = AliasSet::default();
+        incoming.insert("gs".into(), TomlAlias::Command("git status".into()));
+        incoming.insert("ll".into(), TomlAlias::Command("ls -la".into()));
+        config.merge_aliases(incoming);
+        assert_eq!(config.aliases.len(), 2);
+        assert_eq!(
+            config
+                .aliases
+                .get(&AliasName::from("ll"))
+                .unwrap()
+                .command(),
+            "ls -la"
         );
     }
 

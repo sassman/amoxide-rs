@@ -68,6 +68,37 @@ impl AliasSet {
     pub fn get(&self, name: &AliasName) -> Option<&TomlAlias> {
         self.as_ref().get(name)
     }
+
+    pub fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    pub fn merge_check(&self, incoming: &AliasSet) -> MergeResult {
+        let mut new_aliases = AliasSet::default();
+        let mut conflicts = Vec::new();
+
+        for (name, incoming_alias) in incoming.iter() {
+            match self.get(name) {
+                None => {
+                    new_aliases.insert(name.clone(), incoming_alias.clone());
+                }
+                Some(existing_alias) => {
+                    if existing_alias.command() != incoming_alias.command() {
+                        conflicts.push(AliasConflict {
+                            name: name.clone(),
+                            current: existing_alias.clone(),
+                            incoming: incoming_alias.clone(),
+                        });
+                    }
+                }
+            }
+        }
+
+        MergeResult {
+            new_aliases,
+            conflicts,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -107,6 +138,19 @@ impl TomlAlias {
             TomlAlias::Detailed(d) => &d.command,
         }
     }
+}
+
+#[derive(Debug)]
+pub struct MergeResult {
+    pub new_aliases: AliasSet,
+    pub conflicts: Vec<AliasConflict>,
+}
+
+#[derive(Debug)]
+pub struct AliasConflict {
+    pub name: AliasName,
+    pub current: TomlAlias,
+    pub incoming: TomlAlias,
 }
 
 #[cfg(test)]
@@ -195,5 +239,62 @@ fancy = { command = "echo hi", description = "A fancy alias" }
             }
             _ => panic!("expected Detailed"),
         }
+    }
+
+    #[test]
+    fn test_merge_check_all_new() {
+        let existing = AliasSet::default();
+        let mut incoming = AliasSet::default();
+        incoming.insert("gs".into(), TomlAlias::Command("git status".into()));
+        incoming.insert("gp".into(), TomlAlias::Command("git push".into()));
+        let result = existing.merge_check(&incoming);
+        assert_eq!(result.new_aliases.len(), 2);
+        assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn test_merge_check_no_op_same_command() {
+        let mut existing = AliasSet::default();
+        existing.insert("gs".into(), TomlAlias::Command("git status".into()));
+        let mut incoming = AliasSet::default();
+        incoming.insert("gs".into(), TomlAlias::Command("git status".into()));
+        let result = existing.merge_check(&incoming);
+        assert!(result.new_aliases.is_empty());
+        assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn test_merge_check_conflict() {
+        let mut existing = AliasSet::default();
+        existing.insert("gs".into(), TomlAlias::Command("git status --short".into()));
+        let mut incoming = AliasSet::default();
+        incoming.insert("gs".into(), TomlAlias::Command("git status".into()));
+        let result = existing.merge_check(&incoming);
+        assert!(result.new_aliases.is_empty());
+        assert_eq!(result.conflicts.len(), 1);
+        assert_eq!(result.conflicts[0].name.as_ref(), "gs");
+        assert_eq!(result.conflicts[0].current.command(), "git status --short");
+        assert_eq!(result.conflicts[0].incoming.command(), "git status");
+    }
+
+    #[test]
+    fn test_merge_check_mixed() {
+        let mut existing = AliasSet::default();
+        existing.insert("gs".into(), TomlAlias::Command("git status --short".into()));
+        let mut incoming = AliasSet::default();
+        incoming.insert("gs".into(), TomlAlias::Command("git status".into()));
+        incoming.insert("gp".into(), TomlAlias::Command("git push".into()));
+        let result = existing.merge_check(&incoming);
+        assert_eq!(result.new_aliases.len(), 1);
+        assert_eq!(result.conflicts.len(), 1);
+    }
+
+    #[test]
+    fn test_merge_check_empty_incoming() {
+        let mut existing = AliasSet::default();
+        existing.insert("gs".into(), TomlAlias::Command("git status".into()));
+        let result = existing.merge_check(&AliasSet::default());
+        assert!(result.new_aliases.is_empty());
+        assert!(result.conflicts.is_empty());
     }
 }

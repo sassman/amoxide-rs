@@ -1,0 +1,10 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+[[profiles]]
+name = "git"
+
+[profiles.aliases]
+cm = "git commit -sm"
+gs = "git status"

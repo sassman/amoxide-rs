@@ -33,6 +33,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
+            [CompletionResult]::new('share', 'share', [CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -165,6 +168,57 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;export' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global aliases')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Operate on global aliases')
+            [CompletionResult]::new('--all', '--all', [CompletionResultType]::ParameterName, 'Operate on everything (global + all profiles + local)')
+            [CompletionResult]::new('-b', '-b', [CompletionResultType]::ParameterName, 'Encode output as base64')
+            [CompletionResult]::new('--base64', '--base64', [CompletionResultType]::ParameterName, 'Encode output as base64')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;import' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global aliases')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Operate on global aliases')
+            [CompletionResult]::new('--all', '--all', [CompletionResultType]::ParameterName, 'Operate on everything (global + all profiles + local)')
+            [CompletionResult]::new('-b', '-b', [CompletionResultType]::ParameterName, 'Decode base64 input before parsing')
+            [CompletionResult]::new('--base64', '--base64', [CompletionResultType]::ParameterName, 'Decode base64 input before parsing')
+            [CompletionResult]::new('-y', '-y', [CompletionResultType]::ParameterName, 'Skip all confirmation prompts')
+            [CompletionResult]::new('--yes', '--yes', [CompletionResultType]::ParameterName, 'Skip all confirmation prompts')
+            [CompletionResult]::new('--trust', '--trust', [CompletionResultType]::ParameterName, 'DANGER: Skip safety checks for suspicious content (escape sequences). Only use for your own exports. Never trust external input blindly — it can carry invisible escape sequences that hide malicious commands')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;share' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on specific profile(s) — can be repeated')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on project-local aliases')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global aliases')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Operate on global aliases')
+            [CompletionResult]::new('--all', '--all', [CompletionResultType]::ParameterName, 'Operate on everything (global + all profiles + local)')
+            [CompletionResult]::new('--termbin', '--termbin', [CompletionResultType]::ParameterName, 'Generate command for termbin.com (netcat)')
+            [CompletionResult]::new('--paste-rs', '--paste-rs', [CompletionResultType]::ParameterName, 'Generate command for paste.rs (curl)')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;hook' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
@@ -188,6 +242,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
+            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
+            [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
+            [CompletionResult]::new('share', 'share', [CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -231,6 +288,15 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;tui' {
+            break
+        }
+        'am;help;export' {
+            break
+        }
+        'am;help;import' {
+            break
+        }
+        'am;help;share' {
             break
         }
         'am;help;hook' {

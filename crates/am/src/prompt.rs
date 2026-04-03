@@ -72,6 +72,27 @@ pub fn ask_user(
     }
 }
 
+/// Require the user to type an exact word to confirm a dangerous action.
+///
+/// Returns `true` only if the input matches `expected` exactly (case-sensitive).
+/// EOF or any other input returns `false`.
+pub fn require_exact(
+    question: &str,
+    expected: &str,
+    reader: &mut dyn BufRead,
+) -> std::io::Result<bool> {
+    eprint!("{question} [type {expected} to confirm] ");
+    std::io::stderr().flush()?;
+
+    let mut input = String::new();
+    let bytes = reader.read_line(&mut input)?;
+    if bytes == 0 {
+        return Ok(false);
+    }
+    let clean = strip_ansi(&input);
+    Ok(clean.trim() == expected)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +217,35 @@ mod tests {
             ask_user("Q?", Answer::Yes, false, &mut reader).unwrap(),
             Answer::No,
         );
+    }
+
+    #[test]
+    fn require_exact_yes_matches() {
+        let mut reader = Cursor::new(b"YES\n");
+        assert!(require_exact("Confirm?", "YES", &mut reader).unwrap());
+    }
+
+    #[test]
+    fn require_exact_wrong_case_rejects() {
+        let mut reader = Cursor::new(b"yes\n");
+        assert!(!require_exact("Confirm?", "YES", &mut reader).unwrap());
+    }
+
+    #[test]
+    fn require_exact_empty_rejects() {
+        let mut reader = Cursor::new(b"\n");
+        assert!(!require_exact("Confirm?", "YES", &mut reader).unwrap());
+    }
+
+    #[test]
+    fn require_exact_eof_rejects() {
+        let mut reader = Cursor::new(b"");
+        assert!(!require_exact("Confirm?", "YES", &mut reader).unwrap());
+    }
+
+    #[test]
+    fn require_exact_with_ansi_strips_and_matches() {
+        let mut reader = Cursor::new(b"\x1b[?1lYES\n");
+        assert!(require_exact("Confirm?", "YES", &mut reader).unwrap());
     }
 }

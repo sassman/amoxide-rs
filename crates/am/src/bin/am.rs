@@ -7,6 +7,7 @@ use amoxide::{
     cli::*,
     dirs::relative_path,
     effects::Effect,
+    import_export::{handle_export, handle_import, handle_share},
     project::{ProjectAliases, ALIASES_FILE},
     prompt::{ask_user, Answer},
     update::{update, AppModel},
@@ -153,6 +154,20 @@ fn main() -> anyhow::Result<()> {
                 }
                 Err(e) => return Err(e.into()),
             }
+        }
+        Commands::Export(args) => {
+            let output = handle_export(&model, args)?;
+            print!("{output}");
+            return Ok(());
+        }
+        Commands::Import(args) => {
+            handle_import(&mut model, args)?;
+            return Ok(());
+        }
+        Commands::Share(args) => {
+            let output = handle_share(args);
+            print!("{output}");
+            return Ok(());
         }
         Commands::Init { shell } => Message::InitShell(shell.clone()),
         Commands::Hook { shell } => Message::Hook(shell.clone()),

@@ -63,7 +63,7 @@ pub enum Commands {
     ///   PowerShell  $PROFILE                      (am init powershell) -join "`n" | Invoke-Expression
     ///
     /// Note: Only fish, zsh, and powershell are currently supported. Others are planned.
-    #[command(alias = "i", verbatim_doc_comment)]
+    #[command(verbatim_doc_comment)]
     Init { shell: Shells },
 
     /// Guided setup — adds amoxide to your shell profile
@@ -72,6 +72,18 @@ pub enum Commands {
     /// Launch the interactive TUI for managing aliases and profiles
     #[command(alias = "t")]
     Tui,
+
+    /// Export aliases to stdout as TOML
+    #[command(alias = "e")]
+    Export(ExportArgs),
+
+    /// Import aliases from a URL or file
+    #[command(alias = "i")]
+    Import(ImportArgs),
+
+    /// Generate a share command for posting aliases to a pastebin service
+    #[command(alias = "s")]
+    Share(ShareArgs),
 
     /// Internal: called by the cd hook to load/unload project aliases
     #[command(hide = true)]
@@ -140,4 +152,73 @@ pub struct Alias {
 
     /// The command to alias
     pub command: Option<Vec<String>>,
+}
+
+/// Shared scope flags for export/import/share commands.
+/// Flags can be combined (e.g. `-l -g -p git`) to select multiple scopes.
+/// `--all` is a shortcut for all scopes and cannot be combined with others.
+#[derive(Args, Debug, Clone)]
+pub struct ScopeArgs {
+    /// Operate on project-local aliases
+    #[arg(short, long, conflicts_with = "all")]
+    pub local: bool,
+
+    /// Operate on global aliases
+    #[arg(short, long, conflicts_with = "all")]
+    pub global: bool,
+
+    /// Operate on specific profile(s) — can be repeated
+    #[arg(short, long, conflicts_with = "all")]
+    pub profile: Vec<String>,
+
+    /// Operate on everything (global + all profiles + local)
+    #[arg(long, conflicts_with_all = ["local", "global", "profile"])]
+    pub all: bool,
+}
+
+#[derive(Args)]
+pub struct ExportArgs {
+    #[command(flatten)]
+    pub scope: ScopeArgs,
+
+    /// Encode output as base64
+    #[arg(short = 'b', long, alias = "b64")]
+    pub base64: bool,
+}
+
+#[derive(Args)]
+pub struct ShareArgs {
+    #[command(flatten)]
+    pub scope: ScopeArgs,
+
+    /// Generate command for termbin.com (netcat)
+    #[arg(long, conflicts_with = "paste_rs")]
+    pub termbin: bool,
+
+    /// Generate command for paste.rs (curl)
+    #[arg(long, conflicts_with = "termbin")]
+    pub paste_rs: bool,
+}
+
+#[derive(Args)]
+pub struct ImportArgs {
+    /// URL or file path to import from
+    pub source: String,
+
+    #[command(flatten)]
+    pub scope: ScopeArgs,
+
+    /// Decode base64 input before parsing
+    #[arg(short = 'b', long, alias = "b64")]
+    pub base64: bool,
+
+    /// Skip all confirmation prompts
+    #[arg(short = 'y', long = "yes")]
+    pub yes: bool,
+
+    /// DANGER: Skip safety checks for suspicious content (escape sequences).
+    /// Only use for your own exports. Never trust external input blindly —
+    /// it can carry invisible escape sequences that hide malicious commands.
+    #[arg(long, requires = "yes")]
+    pub trust: bool,
 }

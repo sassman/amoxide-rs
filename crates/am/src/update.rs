@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::anyhow;
 
 use crate::config::Config;
@@ -6,7 +8,7 @@ use crate::effects::Effect;
 use crate::hook::generate_hook;
 use crate::init::{generate_init, generate_reload};
 use crate::project::ProjectAliases;
-use crate::{profile, AliasTarget, Message, Profile, ProfileConfig};
+use crate::{profile, AliasSet, AliasTarget, Message, Profile, ProfileConfig};
 
 pub struct UpdateResult {
     pub next: Option<Message>,
@@ -54,17 +56,26 @@ pub struct AppModel {
     pub config: Config,
     pub cwd: std::path::PathBuf,
     profile_config: ProfileConfig,
+    project_aliases: Option<ProjectAliases>,
+    project_path: Option<PathBuf>,
 }
 
 impl Default for AppModel {
     fn default() -> Self {
         let profile_config = ProfileConfig::load().unwrap();
         let config = Config::load().unwrap_or_default();
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let project_path = ProjectAliases::find_path(&cwd).ok().flatten();
+        let project_aliases = project_path
+            .as_ref()
+            .and_then(|p| ProjectAliases::load(p).ok());
 
         Self {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
             profile_config,
+            project_aliases,
+            project_path,
         }
     }
 }
@@ -75,12 +86,55 @@ impl AppModel {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
             profile_config,
+            project_aliases: None,
+            project_path: None,
         }
     }
 
     pub fn with_cwd(mut self, cwd: std::path::PathBuf) -> Self {
+        // Re-discover project aliases for the new cwd
+        self.project_path = ProjectAliases::find_path(&cwd).ok().flatten();
+        self.project_aliases = self
+            .project_path
+            .as_ref()
+            .and_then(|p| ProjectAliases::load(p).ok());
         self.cwd = cwd;
         self
+    }
+
+    pub fn project_aliases(&self) -> Option<&ProjectAliases> {
+        self.project_aliases.as_ref()
+    }
+
+    pub fn project_path(&self) -> Option<&Path> {
+        self.project_path.as_deref()
+    }
+
+    /// Get project aliases' AliasSet, or empty default
+    pub fn project_alias_set(&self) -> AliasSet {
+        self.project_aliases
+            .as_ref()
+            .map(|p| p.aliases.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get or create the project path (for saving new .aliases files).
+    /// If no .aliases exists, returns cwd/.aliases
+    pub fn project_path_or_create(&self) -> PathBuf {
+        self.project_path
+            .clone()
+            .unwrap_or_else(|| self.cwd.join(crate::project::ALIASES_FILE))
+    }
+
+    /// Merge aliases into project aliases and save.
+    pub fn save_project_aliases(&mut self, aliases: AliasSet) -> anyhow::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases.take().unwrap_or_default();
+        project.merge_aliases(aliases);
+        project.save(&path)?;
+        self.project_aliases = Some(project);
+        self.project_path = Some(path);
+        Ok(())
     }
 
     pub fn profile_config_mut(&mut self) -> &mut ProfileConfig {
@@ -113,16 +167,15 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 raw,
             })),
             AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
-                match ProjectAliases::find_local_path_in(&model.cwd) {
-                    Some(_) => Ok(UpdateResult::effect(Effect::AddLocalAlias {
+                if model.project_path().is_some() {
+                    Ok(UpdateResult::effect(Effect::AddLocalAlias {
                         name,
                         cmd,
                         raw,
-                    })),
-                    None => {
-                        model.config.add_alias(name, cmd, raw);
-                        Ok(UpdateResult::effect(Effect::SaveConfig))
-                    }
+                    }))
+                } else {
+                    model.config.add_alias(name, cmd, raw);
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
@@ -138,12 +191,11 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
             AliasTarget::Local => Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name })),
             AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
-                match ProjectAliases::find_local_path_in(&model.cwd) {
-                    Some(_) => Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name })),
-                    None => {
-                        model.config.remove_alias(&name)?;
-                        Ok(UpdateResult::effect(Effect::SaveConfig))
-                    }
+                if model.project_path().is_some() {
+                    Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
+                } else {
+                    model.config.remove_alias(&name)?;
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
@@ -153,11 +205,18 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
         },
         Message::ListProfiles => {
+            let rel_path = model
+                .project_path()
+                .map(|p| crate::dirs::relative_path(&model.cwd, p));
+            let project = model
+                .project_aliases()
+                .filter(|p| !p.aliases.is_empty())
+                .zip(rel_path.as_deref());
             let output = render_listing(
                 &model.config.aliases,
                 model.profile_config(),
                 &model.config.active_profiles,
-                &model.cwd,
+                project,
             );
             println!("{output}");
             Ok(UpdateResult::done())
@@ -223,6 +282,21 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             model.profile_config_mut().remove_profile(&name)?;
             model.config.active_profiles.retain(|p| p != &name);
             Ok(UpdateResult::effect(Effect::SaveProfiles))
+        }
+        Message::Import(payload) => {
+            let mut effects = Vec::new();
+            if let Some(aliases) = payload.global_aliases {
+                model.config.merge_aliases(aliases);
+                effects.push(Effect::SaveConfig);
+            }
+            for profile in payload.profiles {
+                model.profile_config_mut().merge_profile(profile);
+                if !effects.contains(&Effect::SaveProfiles) {
+                    effects.push(Effect::SaveProfiles);
+                }
+            }
+            // local_aliases are saved by the CLI layer (needs file path)
+            Ok(UpdateResult::with_effects(&effects))
         }
     }
 }

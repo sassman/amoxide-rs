@@ -52,6 +52,7 @@ export default defineConfig({
                 { text: 'Global Aliases', link: '/usage/global' },
                 { text: 'Profiles', link: '/usage/profiles' },
                 { text: 'Project Aliases', link: '/usage/project-aliases' },
+                { text: 'Sharing', link: '/usage/sharing' },
               ],
             },
           ],

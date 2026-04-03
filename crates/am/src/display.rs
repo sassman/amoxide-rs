@@ -1,7 +1,6 @@
 use std::path::Path;
 
-use crate::dirs::relative_path;
-use crate::project::{ProjectAliases, ALIASES_FILE};
+use crate::project::ProjectAliases;
 use crate::{AliasSet, Profile, ProfileConfig};
 
 /// Render profiles + project aliases as a complete two-zone listing.
@@ -15,7 +14,7 @@ pub fn render_listing(
     global_aliases: &AliasSet,
     config: &ProfileConfig,
     active_profiles: &[String],
-    cwd: &Path,
+    project: Option<(&ProjectAliases, &Path)>,
 ) -> String {
     let mut output = String::new();
 
@@ -31,19 +30,8 @@ pub fn render_listing(
         .filter(|p| !active_profiles.contains(&p.name))
         .collect();
 
-    // Detect project aliases
-    let project = ProjectAliases::find(cwd)
-        .ok()
-        .flatten()
-        .filter(|p| !p.aliases.is_empty());
-
-    let project_path = project.as_ref().map(|_| {
-        ProjectAliases::find_path(cwd)
-            .ok()
-            .flatten()
-            .map(|p| relative_path(cwd, &p))
-            .unwrap_or_else(|| ALIASES_FILE.into())
-    });
+    let project_path = project.map(|(_, path)| path);
+    let project = project.map(|(p, _)| p);
 
     // Determine if there are items after global in the active zone
     let has_active_items = !active_ordered.is_empty() || project.is_some();
@@ -297,8 +285,7 @@ mod tests {
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
 
-        let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(&globals, &config, &["rust".to_string()], dir.path());
+        let output = render_listing(&globals, &config, &["rust".to_string()], None);
         // Global with trunk
         assert!(output.contains("🌐 global"));
         assert!(output.contains("│ ll → ls -lha"));
@@ -321,17 +308,16 @@ mod tests {
         "#});
 
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(
-            dir.path().join(".aliases"),
-            "[aliases]\nt = \"cargo test\"\n",
-        )
-        .unwrap();
+        let path = dir.path().join(".aliases");
+        std::fs::write(&path, "[aliases]\nt = \"cargo test\"\n").unwrap();
+        let project = ProjectAliases::load(&path).unwrap();
+        let display_path = std::path::Path::new(".aliases");
 
         let output = render_listing(
             &AliasSet::default(),
             &config,
             &["git".to_string(), "rust".to_string()],
-            dir.path(),
+            Some((&project, display_path)),
         );
         assert!(output.contains("├─● git (active: 1)"));
         assert!(output.contains("├─● rust (active: 2)"));
@@ -348,13 +334,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(
-            &AliasSet::default(),
-            &config,
-            &["rust".to_string()],
-            dir.path(),
-        );
+        let output = render_listing(&AliasSet::default(), &config, &["rust".to_string()], None);
         assert!(output.contains("╰─● rust (active: 1)"));
     }
 
@@ -372,13 +352,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(
-            &AliasSet::default(),
-            &config,
-            &["rust".to_string()],
-            dir.path(),
-        );
+        let output = render_listing(&AliasSet::default(), &config, &["rust".to_string()], None);
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
         assert!(output.contains("  sayt → echo say it"));
@@ -388,8 +362,7 @@ mod tests {
     fn test_listing_global_alone_no_trunk() {
         let config: ProfileConfig = ProfileConfig::default();
 
-        let dir = tempfile::tempdir().unwrap();
-        let output = render_listing(&AliasSet::default(), &config, &[], dir.path());
+        let output = render_listing(&AliasSet::default(), &config, &[], None);
         assert!(output.contains("🌐 global"));
         // No trunk when global stands alone
         assert!(!output.contains("│"));
@@ -405,17 +378,16 @@ mod tests {
         "#});
 
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(
-            dir.path().join(".aliases"),
-            "[aliases]\nt = \"cargo test\"\n",
-        )
-        .unwrap();
+        let path = dir.path().join(".aliases");
+        std::fs::write(&path, "[aliases]\nt = \"cargo test\"\n").unwrap();
+        let project = ProjectAliases::load(&path).unwrap();
+        let display_path = std::path::Path::new(".aliases");
 
         let output = render_listing(
             &AliasSet::default(),
             &config,
             &["default".to_string()],
-            dir.path(),
+            Some((&project, display_path)),
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(output.contains("📁 project"));
@@ -429,12 +401,11 @@ mod tests {
             name = "default"
         "#});
 
-        let dir = tempfile::tempdir().unwrap();
         let output = render_listing(
             &AliasSet::default(),
             &config,
             &["default".to_string()],
-            dir.path(),
+            None,
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(!output.contains("📁"));

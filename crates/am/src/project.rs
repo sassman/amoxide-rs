@@ -99,6 +99,13 @@ impl ProjectAliases {
         Ok(path)
     }
 
+    /// Merge incoming aliases into project aliases (union/overwrite).
+    pub fn merge_aliases(&mut self, incoming: AliasSet) {
+        for (name, alias) in incoming.iter() {
+            self.aliases.insert(name.clone(), alias.clone());
+        }
+    }
+
     pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
         let key: AliasName = name.into();
         let alias = if raw {
@@ -117,7 +124,18 @@ impl ProjectAliases {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TomlAlias;
     use std::fs;
+
+    #[test]
+    fn test_merge_aliases_into_project() {
+        let mut project = ProjectAliases::default();
+        project.add_alias("t".into(), "cargo test".into(), false);
+        let mut incoming = AliasSet::default();
+        incoming.insert("b".into(), TomlAlias::Command("cargo build".into()));
+        project.merge_aliases(incoming);
+        assert_eq!(project.aliases.len(), 2);
+    }
 
     #[test]
     fn test_load_aliases_file() {

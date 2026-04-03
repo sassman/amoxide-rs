@@ -1,0 +1,5 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+am export --all -b64 | curl -d @- https://paste.rs/

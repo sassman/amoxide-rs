@@ -1,0 +1,15 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+[global_aliases]
+ll = "ls -lha"
+
+[[profiles]]
+name = "git"
+
+[profiles.aliases]
+gs = "git status"
+
+[local_aliases]
+t = "cargo test"
