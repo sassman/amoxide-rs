@@ -3,6 +3,12 @@ name: Community Profile Validation
 on:
   pull_request:
     types: [labeled, synchronize]
+    paths:
+      - "community/**"
+
+# Read-only permissions — no secrets access
+permissions:
+  contents: read
 
 jobs:
   validate:
