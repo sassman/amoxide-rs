@@ -299,7 +299,10 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
             findings.push(SuspiciousAlias::global_name(name.as_ref()));
         }
         if has_suspicious_chars(alias.command()) {
-            findings.push(SuspiciousAlias::global_command(name.as_ref(), alias.command()));
+            findings.push(SuspiciousAlias::global_command(
+                name.as_ref(),
+                alias.command(),
+            ));
         }
     }
 
@@ -309,7 +312,10 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
         }
         for (name, alias) in profile.aliases.iter() {
             if has_suspicious_chars(name.as_ref()) {
-                findings.push(SuspiciousAlias::profile_alias_name(&profile.name, name.as_ref()));
+                findings.push(SuspiciousAlias::profile_alias_name(
+                    &profile.name,
+                    name.as_ref(),
+                ));
             }
             if has_suspicious_chars(alias.command()) {
                 findings.push(SuspiciousAlias::profile_alias_command(
@@ -326,7 +332,10 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
             findings.push(SuspiciousAlias::local_name(name.as_ref()));
         }
         if has_suspicious_chars(alias.command()) {
-            findings.push(SuspiciousAlias::local_command(name.as_ref(), alias.command()));
+            findings.push(SuspiciousAlias::local_command(
+                name.as_ref(),
+                alias.command(),
+            ));
         }
     }
 
@@ -368,7 +377,10 @@ pub fn render_suspicious_warning(findings: &[SuspiciousAlias]) -> String {
         }
         out.push_str(&format!("  field:   {}\n", finding.field));
         out.push_str(&format!("  original:      {}\n", finding.raw_value));
-        out.push_str(&format!("  safe-escaped:  {}\n", finding.raw_value.sanitized()));
+        out.push_str(&format!(
+            "  safe-escaped:  {}\n",
+            finding.raw_value.sanitized()
+        ));
         out.push('\n');
     }
 
@@ -574,10 +586,9 @@ mod tests {
     #[test]
     fn test_scan_suspicious_detects_name_escape() {
         let mut export = ExportAll::default();
-        export.global_aliases.insert(
-            "foo\x07bar".into(),
-            TomlAlias::Command("ls".into()),
-        );
+        export
+            .global_aliases
+            .insert("foo\x07bar".into(), TomlAlias::Command("ls".into()));
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].field.to_string(), "name");
@@ -604,7 +615,10 @@ mod tests {
                 name: "git".into(),
                 aliases: {
                     let mut a = AliasSet::default();
-                    a.insert("gs".into(), TomlAlias::Command("git \x1B[1mstatus\x1B[0m".into()));
+                    a.insert(
+                        "gs".into(),
+                        TomlAlias::Command("git \x1B[1mstatus\x1B[0m".into()),
+                    );
                     a
                 },
             }],
@@ -619,10 +633,9 @@ mod tests {
     #[test]
     fn test_scan_suspicious_local_aliases() {
         let mut export = ExportAll::default();
-        export.local_aliases.insert(
-            "test".into(),
-            TomlAlias::Command("rm -rf / \x07".into()),
-        );
+        export
+            .local_aliases
+            .insert("test".into(), TomlAlias::Command("rm -rf / \x07".into()));
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].scope.to_string(), "local");
@@ -635,10 +648,7 @@ mod tests {
 
     #[test]
     fn test_escape_for_display_control_chars() {
-        assert_eq!(
-            escape_for_display("foo\x1B[31mbar"),
-            "foo\\u{001B}[31mbar"
-        );
+        assert_eq!(escape_for_display("foo\x1B[31mbar"), "foo\\u{001B}[31mbar");
         assert_eq!(escape_for_display("\x00"), "\\u{0000}");
         assert_eq!(escape_for_display("\x7F"), "\\u{007F}");
     }
@@ -661,9 +671,10 @@ mod tests {
 
     #[test]
     fn test_render_suspicious_warning_output() {
-        let findings = vec![
-            SuspiciousAlias::global_command("evil", "echo \x1B[31mhacked"),
-        ];
+        let findings = vec![SuspiciousAlias::global_command(
+            "evil",
+            "echo \x1B[31mhacked",
+        )];
         let output = render_suspicious_warning(&findings);
         assert!(output.contains("WARNING"));
         assert!(output.contains("global"));

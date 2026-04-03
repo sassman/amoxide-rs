@@ -334,12 +334,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_listing(
-            &AliasSet::default(),
-            &config,
-            &["rust".to_string()],
-            None,
-        );
+        let output = render_listing(&AliasSet::default(), &config, &["rust".to_string()], None);
         assert!(output.contains("╰─● rust (active: 1)"));
     }
 
@@ -357,12 +352,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_listing(
-            &AliasSet::default(),
-            &config,
-            &["rust".to_string()],
-            None,
-        );
+        let output = render_listing(&AliasSet::default(), &config, &["rust".to_string()], None);
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
         assert!(output.contains("  sayt → echo say it"));

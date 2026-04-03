@@ -95,7 +95,8 @@ pub fn handle_share(args: &ShareArgs) -> String {
         format!("am export{scope_flags} -b64 | curl -d @- https://paste.rs/")
     } else {
         // No target — show help
-        String::from(r#"Share your aliases with others via a pastebin service.
+        String::from(
+            r#"Share your aliases with others via a pastebin service.
 
 Available targets:
 
@@ -112,7 +113,8 @@ On PowerShell, replace the pipe with:
 
 Run the generated command to upload. Share the returned URL.
 The receiver imports with: am import <url> -b64
-"#)
+"#,
+        )
     }
 }
 

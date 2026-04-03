@@ -423,7 +423,12 @@ fn snapshot_display_listing_with_globals_and_project() {
 
     // Pass a relative display path (as the real caller computes relative_path(cwd, path))
     let display_path = std::path::Path::new(".aliases");
-    let output = render_listing(&globals, &config, &["rust".to_string()], Some((&project, display_path)));
+    let output = render_listing(
+        &globals,
+        &config,
+        &["rust".to_string()],
+        Some((&project, display_path)),
+    );
     insta::assert_snapshot!(output);
 }
 
@@ -509,9 +514,10 @@ fn snapshot_export_single_profile() {
         gs = "git status"
         cm = "git commit -sm"
     "#});
-    let wrapper = amoxide::ProfileConfig::from_profiles(
-        vec![config.get_profile_by_name("git").unwrap().clone()],
-    );
+    let wrapper = amoxide::ProfileConfig::from_profiles(vec![config
+        .get_profile_by_name("git")
+        .unwrap()
+        .clone()]);
     let output = toml::to_string(&wrapper).unwrap();
     insta::assert_snapshot!(output);
 }
@@ -546,9 +552,10 @@ fn test_export_import_roundtrip_profile() {
         cm = "git commit -sm"
     "#});
 
-    let wrapper = amoxide::ProfileConfig::from_profiles(
-        vec![config.get_profile_by_name("git").unwrap().clone()]
-    );
+    let wrapper = amoxide::ProfileConfig::from_profiles(vec![config
+        .get_profile_by_name("git")
+        .unwrap()
+        .clone()]);
     let exported = toml::to_string(&wrapper).unwrap();
     let parsed = parse_import(&exported).unwrap();
     assert_eq!(parsed.profiles.len(), 1);
@@ -558,7 +565,7 @@ fn test_export_import_roundtrip_profile() {
 
 #[test]
 fn test_export_import_roundtrip_all() {
-    use amoxide::exchange::{ExportAll, parse_import};
+    use amoxide::exchange::{parse_import, ExportAll};
 
     let export = ExportAll {
         global_aliases: aliases(&[("ll", "ls -lha")]),
@@ -578,7 +585,7 @@ fn test_export_import_roundtrip_all() {
 
 #[test]
 fn test_base64_export_import_roundtrip() {
-    use amoxide::exchange::{ExportAll, parse_import, base64_encode, base64_decode};
+    use amoxide::exchange::{base64_decode, base64_encode, parse_import, ExportAll};
 
     let export = ExportAll {
         global_aliases: aliases(&[("ll", "ls -lha")]),
@@ -598,9 +605,9 @@ fn test_base64_export_import_roundtrip() {
 
 #[test]
 fn test_import_payload_through_update() {
-    use amoxide::update::{update, AppModel};
-    use amoxide::exchange::ImportPayload;
     use amoxide::config::Config;
+    use amoxide::exchange::ImportPayload;
+    use amoxide::update::{update, AppModel};
 
     let config = Config::default();
     let profile_config = profiles(indoc! {r#"
@@ -632,10 +639,10 @@ fn test_import_payload_through_update() {
 
 #[test]
 fn test_import_payload_global_only_no_save_profiles() {
-    use amoxide::update::{update, AppModel};
-    use amoxide::exchange::ImportPayload;
     use amoxide::config::Config;
     use amoxide::effects::Effect;
+    use amoxide::exchange::ImportPayload;
+    use amoxide::update::{update, AppModel};
 
     let config = Config::default();
     let profile_config = profiles(indoc! {r#"

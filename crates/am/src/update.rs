@@ -94,7 +94,10 @@ impl AppModel {
     pub fn with_cwd(mut self, cwd: std::path::PathBuf) -> Self {
         // Re-discover project aliases for the new cwd
         self.project_path = ProjectAliases::find_path(&cwd).ok().flatten();
-        self.project_aliases = self.project_path.as_ref().and_then(|p| ProjectAliases::load(p).ok());
+        self.project_aliases = self
+            .project_path
+            .as_ref()
+            .and_then(|p| ProjectAliases::load(p).ok());
         self.cwd = cwd;
         self
     }
@@ -118,9 +121,9 @@ impl AppModel {
     /// Get or create the project path (for saving new .aliases files).
     /// If no .aliases exists, returns cwd/.aliases
     pub fn project_path_or_create(&self) -> PathBuf {
-        self.project_path.clone().unwrap_or_else(|| {
-            self.cwd.join(crate::project::ALIASES_FILE)
-        })
+        self.project_path
+            .clone()
+            .unwrap_or_else(|| self.cwd.join(crate::project::ALIASES_FILE))
     }
 
     /// Merge aliases into project aliases and save.
