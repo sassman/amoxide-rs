@@ -13,7 +13,7 @@ pub trait Shell: Send + Sync + Debug {
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
 pub enum Shells {
-    // Bash,
+    Bash,
     // Elvish,
     Fish,
     // Ksh,
@@ -35,7 +35,7 @@ impl Shells {
 impl Display for Shells {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            // Shells::Bash => write!(f, "bash"),
+            Shells::Bash => write!(f, "bash"),
             // Shells::Elvish => write!(f, "elvish"),
             Shells::Fish => write!(f, "fish"),
             // Shells::Ksh => write!(f, "ksh"),
@@ -58,7 +58,7 @@ impl From<Shells> for Box<dyn Shell> {
     fn from(shell: Shells) -> Box<dyn Shell> {
         match shell {
             Shells::Zsh => Box::from(super::zsh::Zsh),
-            // Shells::Bash => Box::from(super::bash::Bash),
+            Shells::Bash => Box::from(super::bash::Bash),
             Shells::Fish => Box::from(super::fish::Fish),
             Shells::Powershell => Box::from(super::powershell::PowerShell),
             // #[cfg(windows)]
@@ -120,6 +120,7 @@ pub fn substitute_nix(cmd: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shell::test_helpers::simple;
 
     #[test]
     fn test_has_template_args_positive() {
@@ -172,5 +173,15 @@ mod tests {
         assert_eq!(substitute_nix("echo {{abc}}"), "echo {{abc}}");
         assert_eq!(substitute_powershell("echo {{abc}}"), "echo {{abc}}");
         assert_eq!(substitute_fish("echo {{0}}"), "echo {{0}}");
+    }
+
+    #[test]
+    fn test_bash_shell_generates_nix_syntax() {
+        let shell: Box<dyn Shell> = Shells::Bash.as_shell();
+        let entry = simple("gs", "git status");
+        assert_eq!(shell.alias(&entry), "gs() { git status \"$@\"; }");
+        assert_eq!(shell.unalias("gs"), "unset -f gs");
+        assert_eq!(shell.set_env("FOO", "bar"), "export FOO=\"bar\"");
+        assert_eq!(shell.unset_env("FOO"), "unset FOO");
     }
 }

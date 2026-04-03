@@ -208,7 +208,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':shell:(fish powershell zsh)' \
+':shell:(bash fish powershell zsh)' \
 && ret=0
 ;;
 (setup)
@@ -217,7 +217,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':shell:(fish powershell zsh)' \
+':shell:(bash fish powershell zsh)' \
 && ret=0
 ;;
 (tui)
@@ -289,7 +289,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':shell:(fish powershell zsh)' \
+':shell:(bash fish powershell zsh)' \
 && ret=0
 ;;
 (reload)
@@ -298,7 +298,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':shell:(fish powershell zsh)' \
+':shell:(bash fish powershell zsh)' \
 && ret=0
 ;;
 (help)

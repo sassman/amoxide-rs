@@ -29,9 +29,33 @@ If applicable, add screenshots to help explain your problem.
  - OS: [e.g. MacOS | Linux | Windows]
  - Version: [e.g. 22]
  - Build tools: [e.g. msvc | gnu | gcc]
- - Shell: [e.g. powerShell | zsh | fish]
- - Shell Version (e.g. `fish --version`): **FILL THIS**
  - `rustc --version`: **FILL THIS**
  - `am --version`: **FILL THIS**
+
+**Shell environment:**
+ - Shell: [e.g. fish | zsh | bash | powershell]
+ - Shell Version (e.g. `fish --version`): **FILL THIS**
+ - [ ] I use a shell framework (e.g. oh-my-zsh, oh-my-bash, bash-it, oh-my-fish)
+ - Framework name: 
+ - [ ] I use a custom prompt/theme (e.g. powerlevel10k, pure, tide)
+ - Theme name: 
+ - [ ] I use [starship](https://starship.rs) prompt
+
+**Diagnostics (paste the output of the following commands):**
+
+`am status`:
+```
+
+```
+
+`type am`:
+```
+
+```
+
+`env | grep _AM`:
+```
+
+```
 
 **Additional context**

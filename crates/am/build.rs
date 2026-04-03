@@ -9,6 +9,7 @@ use clap_complete::{
 pub mod shell {
     #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
     pub enum Shells {
+        Bash,
         Fish,
         Powershell,
         Zsh,

@@ -1,9 +1,11 @@
 use crate::shell::Shells;
 use crate::AliasSet;
 
+const WRAPPER_BASH: &str = include_str!("shell_wrappers/wrapper.bash");
 const WRAPPER_FISH: &str = include_str!("shell_wrappers/wrapper.fish");
 const WRAPPER_ZSH: &str = include_str!("shell_wrappers/wrapper.zsh");
 const WRAPPER_PS1: &str = include_str!("shell_wrappers/wrapper.ps1");
+const HOOK_BASH: &str = include_str!("shell_wrappers/hook.bash");
 const HOOK_FISH: &str = include_str!("shell_wrappers/hook.fish");
 const HOOK_ZSH: &str = include_str!("shell_wrappers/hook.zsh");
 const HOOK_PS1: &str = include_str!("shell_wrappers/hook.ps1");
@@ -119,6 +121,7 @@ fn shell_script(template: &str, shell: &Shells) -> String {
 
 fn am_wrapper(shell: &Shells) -> String {
     match shell {
+        Shells::Bash => shell_script(WRAPPER_BASH, shell),
         Shells::Fish => shell_script(WRAPPER_FISH, shell),
         Shells::Powershell => shell_script(WRAPPER_PS1, shell),
         Shells::Zsh => shell_script(WRAPPER_ZSH, shell),
@@ -127,6 +130,7 @@ fn am_wrapper(shell: &Shells) -> String {
 
 fn cd_hook_setup(shell: &Shells) -> String {
     match shell {
+        Shells::Bash => shell_script(HOOK_BASH, shell),
         Shells::Fish => shell_script(HOOK_FISH, shell),
         Shells::Powershell => shell_script(HOOK_PS1, shell),
         Shells::Zsh => shell_script(HOOK_ZSH, shell),
@@ -135,6 +139,7 @@ fn cd_hook_setup(shell: &Shells) -> String {
 
 fn completions(shell: &Shells) -> String {
     match shell {
+        Shells::Bash => include_str!(concat!(env!("OUT_DIR"), "/am.bash")).to_string(),
         Shells::Fish => COMPLETIONS_FISH.to_string(),
         Shells::Powershell => powershell_completions(),
         Shells::Zsh => COMPLETIONS_ZSH.to_string(),
@@ -333,5 +338,41 @@ mod tests {
         let output = generate_reload(&Shells::Fish, &globals, &AliasSet::default(), Some("old"));
         assert!(output.contains("functions -e old"));
         assert!(output.contains("alias ll \"ls -lha\""));
+    }
+
+    #[test]
+    fn test_bash_init_contains_aliases() {
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        assert!(output.contains("gs() { git status \"$@\"; }"));
+        assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+    }
+
+    #[test]
+    fn test_bash_init_contains_wrapper() {
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        assert!(output.contains("am()"));
+        assert!(output.contains("am reload bash"));
+        assert!(output.contains("--local"));
+        assert!(output.contains("am hook bash"));
+    }
+
+    #[test]
+    fn test_bash_init_contains_cd_hook() {
+        let aliases = test_aliases();
+        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        assert!(output.contains("PROMPT_COMMAND"));
+        assert!(output.contains("__am_hook"));
+        assert!(output.contains("__am_prev_dir"));
+        assert!(output.contains("am hook bash"));
+    }
+
+    #[test]
+    fn test_reload_bash_unloads_with_unset_f() {
+        let aliases = test_aliases();
+        let output = generate_reload(&Shells::Bash, &AliasSet::default(), &aliases, Some("old1"));
+        assert!(output.contains("unset -f old1"));
+        assert!(output.contains("gs() { git status \"$@\"; }"));
     }
 }
