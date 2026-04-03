@@ -96,10 +96,19 @@ fn main() -> anyhow::Result<()> {
                 model.config.save()?;
                 return Ok(());
             }
-            ProfileAction::Use { name, priority } => {
+            ProfileAction::Use {
+                names,
+                priority,
+                inverse,
+            } => {
+                let ordered: Vec<String> = if *inverse {
+                    names.iter().rev().cloned().collect()
+                } else {
+                    names.clone()
+                };
                 let msg = match priority {
-                    Some(n) => Message::UseProfileAt(name.clone(), *n),
-                    None => Message::ToggleProfile(name.clone()),
+                    Some(n) => Message::UseProfilesAt(ordered, *n),
+                    None => Message::ToggleProfiles(ordered),
                 };
                 let result = update(&mut model, msg)?;
                 execute_effects(&mut model, &result.effects)?;

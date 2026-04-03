@@ -103,14 +103,17 @@ pub enum ProfileAction {
         name: String,
     },
 
-    /// Toggle a profile as active/inactive, optionally at a specific priority
+    /// Toggle one or more profiles as active/inactive, optionally at a specific priority
     #[command(alias = "u")]
     Use {
-        /// Profile name
-        name: String,
+        /// Profile names
+        names: Vec<String>,
         /// Activate at specific priority position (1-based). Repositions if already active.
-        #[arg(short = 'n', long = "priority")]
+        #[arg(short = 'n', long = "priority", conflicts_with = "inverse")]
         priority: Option<usize>,
+        /// Reverse the processing order (first listed = highest priority)
+        #[arg(short, long, conflicts_with = "priority")]
+        inverse: bool,
     },
 
     /// Remove a profile

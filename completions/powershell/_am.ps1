@@ -86,7 +86,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile')
-            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Toggle a profile as active/inactive, optionally at a specific priority')
+            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Toggle one or more profiles as active/inactive, optionally at a specific priority')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove a profile')
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all profiles')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -102,6 +102,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;profile;use' {
             [CompletionResult]::new('-n', '-n', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
             [CompletionResult]::new('--priority', '--priority', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
+            [CompletionResult]::new('--inverse', '--inverse', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -126,7 +128,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         }
         'am;profile;help' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile')
-            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Toggle a profile as active/inactive, optionally at a specific priority')
+            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Toggle one or more profiles as active/inactive, optionally at a specific priority')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove a profile')
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all profiles')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -264,7 +266,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         }
         'am;help;profile' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new profile')
-            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Toggle a profile as active/inactive, optionally at a specific priority')
+            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Toggle one or more profiles as active/inactive, optionally at a specific priority')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove a profile')
             [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List all profiles')
             break

@@ -677,7 +677,7 @@ _am() {
             return 0
             ;;
         am__profile__use)
-            opts="-n -h -V --priority --help --version <NAME>"
+            opts="-n -i -h -V --priority --inverse --help --version [NAMES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
