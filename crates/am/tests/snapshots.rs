@@ -193,7 +193,12 @@ fn snapshot_reload_powershell_switch_profile() {
 fn snapshot_reload_bash_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_reload(&Shells::Bash, &AliasSet::default(), &resolved, Some("gs,cm"));
+    let output = generate_reload(
+        &Shells::Bash,
+        &AliasSet::default(),
+        &resolved,
+        Some("gs,cm"),
+    );
     insta::assert_snapshot!(output);
 }
 

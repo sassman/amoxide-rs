@@ -251,14 +251,20 @@ mod tests {
         run_setup_inner(&Shells::Bash, &bash_profile, init_line, &mut reader).unwrap();
 
         let profile_content = std::fs::read_to_string(&bash_profile).unwrap();
-        assert!(!profile_content.contains("am init"), "bash_profile should not be modified");
+        assert!(
+            !profile_content.contains("am init"),
+            "bash_profile should not be modified"
+        );
 
         // Simulate: "y" for bashrc prompt
         let mut reader = Cursor::new(b"y\n".to_vec());
         run_setup_inner(&Shells::Bash, &bashrc, init_line, &mut reader).unwrap();
 
         let bashrc_content = std::fs::read_to_string(&bashrc).unwrap();
-        assert!(bashrc_content.contains("am init bash"), "bashrc should contain init, got: {bashrc_content}");
+        assert!(
+            bashrc_content.contains("am init bash"),
+            "bashrc should contain init, got: {bashrc_content}"
+        );
     }
 
     /// File doesn't exist, user says "y" to create, but then EOF for add prompt.
