@@ -30,3 +30,4 @@ Each layer can override the previous one. Project aliases override profile alias
 - [Global Aliases](/usage/global) — always-on aliases for every session
 - [Profiles](/usage/profiles) — managing named alias groups
 - [Project Aliases](/usage/project-aliases) — directory-scoped `.aliases` files
+- [Sharing](/usage/sharing) — export, import, and share with others
