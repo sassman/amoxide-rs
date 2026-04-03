@@ -7,7 +7,8 @@
 | Fish | Fully supported and tested |
 | PowerShell | Supported and tested (5.1 + 7) |
 | Zsh | Supported, not yet tested |
-| Bash, Nushell | Not yet implemented |
+| Bash | Supported (3.2+) |
+| Nushell | Not yet implemented |
 
 ## How is this different from shell aliases in my dotfiles?
 

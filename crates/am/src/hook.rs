@@ -181,6 +181,21 @@ mod tests {
     }
 
     #[test]
+    fn test_hook_bash_output() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        let output = generate_hook(&Shells::Bash, dir.path(), Some("old")).unwrap();
+        assert!(output.contains("unset -f old"));
+        assert!(output.contains("b() { make build \"$@\"; }"));
+        assert!(output.contains("export _AM_PROJECT_ALIASES="));
+    }
+
+    #[test]
     fn test_hook_loads_aliases_from_parent_directory() {
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("src").join("deep");

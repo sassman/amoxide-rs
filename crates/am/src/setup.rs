@@ -27,6 +27,10 @@ pub fn detect_powershell_profile() -> Option<PathBuf> {
 /// Returns the profile file path and the init line for the given shell.
 fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
     match shell {
+        Shells::Bash => {
+            let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+            (home.join(".bashrc"), r#"eval "$(am init bash)""#)
+        }
         Shells::Fish => {
             let mut path = dirs_lite::config_dir().unwrap_or_else(|| PathBuf::from(".config"));
             path.push("fish/config.fish");
@@ -53,6 +57,7 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
 fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
     let path = profile_path.display();
     match shell {
+        Shells::Bash => format!("Run: source {path}"),
         Shells::Fish => format!("Run: source {path}"),
         Shells::Zsh => format!("Run: source {path}"),
         Shells::Powershell => format!(
@@ -189,6 +194,20 @@ mod tests {
     fn setup_on_eof_does_not_add_line() {
         let content = run_setup_on_existing(b"");
         assert!(!content.contains("am init"), "got: {content}");
+    }
+
+    #[test]
+    fn setup_bash_adds_line_on_yes() {
+        let dir = tempfile::tempdir().unwrap();
+        let profile = dir.path().join(".bashrc");
+        std::fs::write(&profile, "# existing config\n").unwrap();
+
+        let init_line = r#"eval "$(am init bash)""#;
+        let mut reader = Cursor::new(b"y\n".to_vec());
+        run_setup_inner(&Shells::Bash, &profile, init_line, &mut reader).unwrap();
+
+        let content = std::fs::read_to_string(&profile).unwrap();
+        assert!(content.contains("am init bash"), "got: {content}");
     }
 
     /// File doesn't exist, user says "y" to create, but then EOF for add prompt.
