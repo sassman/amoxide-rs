@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{BufRead, Read};
 use std::time::Duration;
 
 use crate::alias::MergeResult;
@@ -196,10 +196,11 @@ pub fn handle_import(model: &mut AppModel, args: &ImportArgs) -> anyhow::Result<
     }
 
     // Phase 2: Resolve conflicts + Phase 3: Apply
+    let mut stdin = std::io::stdin().lock();
     if args.scope.local || args.scope.global || !args.scope.profile.is_empty() {
-        import_with_override(model, args, &parsed)?;
+        import_with_override(model, args, &parsed, &mut stdin)?;
     } else {
-        import_auto_route(model, args, &parsed)?;
+        import_auto_route(model, args, &parsed, &mut stdin)?;
     }
 
     Ok(())
@@ -209,12 +210,13 @@ fn import_auto_route(
     model: &mut AppModel,
     args: &ImportArgs,
     parsed: &ExportAll,
+    reader: &mut dyn BufRead,
 ) -> anyhow::Result<()> {
     let mut payload = ImportPayload::default();
 
     if !parsed.global_aliases.is_empty() {
         let merge = model.config.aliases.merge_check(&parsed.global_aliases);
-        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes, reader)? {
             payload.global_aliases = Some(accepted);
         }
     }
@@ -227,7 +229,7 @@ fn import_auto_route(
             .unwrap_or_default();
         let merge = existing_aliases.merge_check(&profile.aliases);
         let scope = Scope::Profile(SanitizedName::new(&profile.name));
-        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes, reader)? {
             payload.profiles.push(Profile {
                 name: profile.name.clone(),
                 aliases: accepted,
@@ -238,7 +240,7 @@ fn import_auto_route(
     if !parsed.local_aliases.is_empty() {
         let existing = model.project_alias_set();
         let merge = existing.merge_check(&parsed.local_aliases);
-        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes, reader)? {
             payload.local_aliases = Some(accepted);
         }
     }
@@ -250,13 +252,14 @@ fn import_with_override(
     model: &mut AppModel,
     args: &ImportArgs,
     parsed: &ExportAll,
+    reader: &mut dyn BufRead,
 ) -> anyhow::Result<()> {
     let flattened = parsed.flatten();
     let mut payload = ImportPayload::default();
 
     if args.scope.global {
         let merge = model.config.aliases.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Global, &merge, args.yes, reader)? {
             payload.global_aliases = Some(accepted);
         }
     }
@@ -269,7 +272,7 @@ fn import_with_override(
             .unwrap_or_default();
         let merge = existing_aliases.merge_check(&flattened);
         let scope = Scope::Profile(SanitizedName::new(name));
-        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&scope, &merge, args.yes, reader)? {
             payload.profiles.push(Profile {
                 name: name.clone(),
                 aliases: accepted,
@@ -280,7 +283,7 @@ fn import_with_override(
     if args.scope.local {
         let existing = model.project_alias_set();
         let merge = existing.merge_check(&flattened);
-        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes)? {
+        if let Some(accepted) = prompt_merge(&Scope::Local, &merge, args.yes, reader)? {
             payload.local_aliases = Some(accepted);
         }
     }
@@ -288,10 +291,11 @@ fn import_with_override(
     apply_import(model, payload)
 }
 
-fn prompt_merge(
+pub fn prompt_merge(
     scope: &Scope,
     merge: &MergeResult,
     auto_yes: bool,
+    reader: &mut dyn BufRead,
 ) -> anyhow::Result<Option<AliasSet>> {
     if merge.new_aliases.is_empty() && merge.conflicts.is_empty() {
         eprintln!("Nothing new to import into \"{scope}\"");
@@ -306,7 +310,7 @@ fn prompt_merge(
             &format!("Merge into \"{scope}\"?"),
             Answer::Yes,
             false,
-            &mut std::io::stdin().lock(),
+            reader,
         )?;
         if answer != Answer::Yes {
             eprintln!("Skipped \"{scope}\"");
@@ -324,12 +328,7 @@ fn prompt_merge(
         let apply_overwrites = if auto_yes {
             true
         } else {
-            let answer = ask_user(
-                &format!("Apply {n} {label}?"),
-                Answer::No,
-                false,
-                &mut std::io::stdin().lock(),
-            )?;
+            let answer = ask_user(&format!("Apply {n} {label}?"), Answer::No, false, reader)?;
             answer == Answer::Yes
         };
 
@@ -466,5 +465,343 @@ mod tests {
         let result = fetch_url("http://this-host-does-not-exist.invalid/aliases.toml");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("failed to fetch"));
+    }
+
+    // ─── handle_share tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_share_termbin_with_profile() {
+        let args = crate::cli::ShareArgs {
+            scope: crate::cli::ScopeArgs {
+                local: false,
+                global: false,
+                profile: vec!["git".into()],
+                all: false,
+            },
+            termbin: true,
+            paste_rs: false,
+        };
+        let output = handle_share(&args);
+        assert_eq!(output, "am export -p git -b64 | nc termbin.com 9999");
+    }
+
+    #[test]
+    fn test_share_paste_rs_all() {
+        let args = crate::cli::ShareArgs {
+            scope: crate::cli::ScopeArgs {
+                local: false,
+                global: false,
+                profile: vec![],
+                all: true,
+            },
+            termbin: false,
+            paste_rs: true,
+        };
+        let output = handle_share(&args);
+        assert_eq!(
+            output,
+            "am export --all -b64 | curl -d @- https://paste.rs/"
+        );
+    }
+
+    #[test]
+    fn test_share_no_target_shows_help() {
+        let args = crate::cli::ShareArgs {
+            scope: crate::cli::ScopeArgs {
+                local: false,
+                global: false,
+                profile: vec![],
+                all: false,
+            },
+            termbin: false,
+            paste_rs: false,
+        };
+        let output = handle_share(&args);
+        assert!(output.contains("Available targets:"));
+        assert!(output.contains("--termbin"));
+        assert!(output.contains("--paste-rs"));
+    }
+
+    #[test]
+    fn test_share_combined_scope_flags() {
+        let args = crate::cli::ShareArgs {
+            scope: crate::cli::ScopeArgs {
+                local: true,
+                global: true,
+                profile: vec!["git".into()],
+                all: false,
+            },
+            termbin: true,
+            paste_rs: false,
+        };
+        let output = handle_share(&args);
+        assert!(output.contains("-l"));
+        assert!(output.contains("-g"));
+        assert!(output.contains("-p git"));
+    }
+
+    #[test]
+    fn test_build_scope_flags_default() {
+        let scope = crate::cli::ScopeArgs {
+            local: false,
+            global: false,
+            profile: vec![],
+            all: false,
+        };
+        assert_eq!(build_scope_flags(&scope), "");
+    }
+
+    #[test]
+    fn test_build_scope_flags_multiple_profiles() {
+        let scope = crate::cli::ScopeArgs {
+            local: false,
+            global: false,
+            profile: vec!["git".into(), "rust".into()],
+            all: false,
+        };
+        assert_eq!(build_scope_flags(&scope), " -p git -p rust");
+    }
+
+    // ─── prompt_merge tests ─────────────────────────────────────────
+
+    use crate::alias::{AliasConflict, MergeResult};
+    use std::io::Cursor;
+
+    #[test]
+    fn test_prompt_merge_auto_yes_all_new() {
+        let mut new_aliases = AliasSet::default();
+        new_aliases.insert("gs".into(), crate::TomlAlias::Command("git status".into()));
+
+        let merge = MergeResult {
+            new_aliases,
+            conflicts: vec![],
+        };
+
+        let mut reader = Cursor::new(b"");
+        let result = prompt_merge(&Scope::Global, &merge, true, &mut reader).unwrap();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_prompt_merge_auto_yes_with_conflicts_accepts_all() {
+        let new_aliases = AliasSet::default();
+        let conflicts = vec![AliasConflict {
+            name: "gs".into(),
+            current: crate::TomlAlias::Command("git status --short".into()),
+            incoming: crate::TomlAlias::Command("git status".into()),
+        }];
+
+        let merge = MergeResult {
+            new_aliases,
+            conflicts,
+        };
+
+        let mut reader = Cursor::new(b"");
+        let result = prompt_merge(&Scope::Global, &merge, true, &mut reader).unwrap();
+        assert!(result.is_some());
+        let accepted = result.unwrap();
+        assert_eq!(accepted.len(), 1);
+        assert_eq!(accepted.get(&"gs".into()).unwrap().command(), "git status");
+    }
+
+    #[test]
+    fn test_prompt_merge_empty_returns_none() {
+        let merge = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts: vec![],
+        };
+
+        let mut reader = Cursor::new(b"");
+        let result = prompt_merge(&Scope::Global, &merge, true, &mut reader).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_prompt_merge_interactive_yes_accepts() {
+        let mut new_aliases = AliasSet::default();
+        new_aliases.insert("gs".into(), crate::TomlAlias::Command("git status".into()));
+
+        let merge = MergeResult {
+            new_aliases,
+            conflicts: vec![],
+        };
+
+        // User presses Enter (default Yes for merge)
+        let mut reader = Cursor::new(b"\n");
+        let result = prompt_merge(&Scope::Global, &merge, false, &mut reader).unwrap();
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_prompt_merge_interactive_no_skips() {
+        let mut new_aliases = AliasSet::default();
+        new_aliases.insert("gs".into(), crate::TomlAlias::Command("git status".into()));
+
+        let merge = MergeResult {
+            new_aliases,
+            conflicts: vec![],
+        };
+
+        let mut reader = Cursor::new(b"n\n");
+        let result = prompt_merge(&Scope::Global, &merge, false, &mut reader).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_prompt_merge_interactive_conflicts_declined() {
+        let conflicts = vec![AliasConflict {
+            name: "gs".into(),
+            current: crate::TomlAlias::Command("git status --short".into()),
+            incoming: crate::TomlAlias::Command("git status".into()),
+        }];
+
+        let merge = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts,
+        };
+
+        // First prompt: yes to merge, second: no to overwrites (default)
+        let mut reader = Cursor::new(b"y\n\n");
+        let result = prompt_merge(&Scope::Global, &merge, false, &mut reader).unwrap();
+        assert!(result.is_some());
+        // Overwrites declined — should be empty (no new aliases, conflicts skipped)
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_prompt_merge_interactive_conflicts_accepted() {
+        let conflicts = vec![AliasConflict {
+            name: "gs".into(),
+            current: crate::TomlAlias::Command("git status --short".into()),
+            incoming: crate::TomlAlias::Command("git status".into()),
+        }];
+
+        let merge = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts,
+        };
+
+        // First prompt: yes to merge, second: yes to overwrites
+        let mut reader = Cursor::new(b"y\ny\n");
+        let result = prompt_merge(&Scope::Global, &merge, false, &mut reader).unwrap();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().len(), 1);
+    }
+
+    // ─── handle_export tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_export_global_aliases() {
+        let mut config = crate::config::Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let profile_config = crate::profile::ProfileConfig::default();
+        let model = AppModel::new(config, profile_config);
+
+        let args = ExportArgs {
+            scope: crate::cli::ScopeArgs {
+                local: false,
+                global: true,
+                profile: vec![],
+                all: false,
+            },
+            base64: false,
+        };
+
+        let output = handle_export(&model, &args).unwrap();
+        assert!(output.contains("[global_aliases]"));
+        assert!(output.contains("ll = \"ls -lha\""));
+    }
+
+    #[test]
+    fn test_export_base64() {
+        let mut config = crate::config::Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let profile_config = crate::profile::ProfileConfig::default();
+        let model = AppModel::new(config, profile_config);
+
+        let args = ExportArgs {
+            scope: crate::cli::ScopeArgs {
+                local: false,
+                global: true,
+                profile: vec![],
+                all: false,
+            },
+            base64: true,
+        };
+
+        let output = handle_export(&model, &args).unwrap();
+        // Base64 output should not contain TOML markers
+        assert!(!output.contains("[global_aliases]"));
+        // But should decode back to TOML
+        let decoded = base64_decode(&output).unwrap();
+        assert!(decoded.contains("[global_aliases]"));
+    }
+
+    #[test]
+    fn test_export_profile() {
+        let config = crate::config::Config::default();
+        let profile_config: crate::profile::ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n[profiles.aliases]\ngs = \"git status\"")
+                .unwrap();
+        let model = AppModel::new(config, profile_config);
+
+        let args = ExportArgs {
+            scope: crate::cli::ScopeArgs {
+                local: false,
+                global: false,
+                profile: vec!["git".into()],
+                all: false,
+            },
+            base64: false,
+        };
+
+        let output = handle_export(&model, &args).unwrap();
+        assert!(output.contains("[[profiles]]"));
+        assert!(output.contains("git"));
+        assert!(output.contains("gs"));
+    }
+
+    #[test]
+    fn test_export_missing_profile_errors() {
+        let config = crate::config::Config::default();
+        let profile_config = crate::profile::ProfileConfig::default();
+        let model = AppModel::new(config, profile_config);
+
+        let args = ExportArgs {
+            scope: crate::cli::ScopeArgs {
+                local: false,
+                global: false,
+                profile: vec!["nonexistent".into()],
+                all: false,
+            },
+            base64: false,
+        };
+
+        let err = handle_export(&model, &args).unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    // ─── apply_import tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_apply_import_global() {
+        let config = crate::config::Config::default();
+        let profile_config = crate::profile::ProfileConfig::default();
+        let mut model = AppModel::new(config, profile_config);
+
+        let mut global = AliasSet::default();
+        global.insert("ll".into(), crate::TomlAlias::Command("ls -lha".into()));
+
+        let payload = ImportPayload {
+            global_aliases: Some(global),
+            profiles: vec![],
+            local_aliases: None,
+        };
+
+        // apply_import calls update() + saves — config save will fail
+        // because there's no config dir, but the model mutation should work
+        let _ = apply_import(&mut model, payload);
+        assert_eq!(model.config.aliases.len(), 1);
     }
 }
