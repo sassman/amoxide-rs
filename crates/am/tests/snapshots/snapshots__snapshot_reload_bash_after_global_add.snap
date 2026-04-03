@@ -1,0 +1,12 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+unset -f cm
+unset -f cmf
+unset -f gs
+ll() { ls -lha "$@"; }
+cm() { git commit -sm "$@"; }
+cmf() { cm feat: "$@"; }
+gs() { git status "$@"; }
+export _AM_ALIASES="cm,cmf,gs,ll"

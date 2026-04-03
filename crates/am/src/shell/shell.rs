@@ -120,6 +120,7 @@ pub fn substitute_nix(cmd: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shell::test_helpers::simple;
 
     #[test]
     fn test_has_template_args_positive() {
@@ -177,11 +178,7 @@ mod tests {
     #[test]
     fn test_bash_shell_generates_nix_syntax() {
         let shell: Box<dyn Shell> = Shells::Bash.as_shell();
-        let entry = crate::alias::AliasEntry {
-            name: "gs",
-            command: "git status",
-            raw: false,
-        };
+        let entry = simple("gs", "git status");
         assert_eq!(shell.alias(&entry), "gs() { git status \"$@\"; }");
         assert_eq!(shell.unalias("gs"), "unset -f gs");
         assert_eq!(shell.set_env("FOO", "bar"), "export FOO=\"bar\"");

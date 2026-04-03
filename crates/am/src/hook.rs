@@ -105,8 +105,7 @@ mod tests {
         assert!(output.contains("\"new1\""));
     }
 
-    #[test]
-    fn test_hook_zsh_output() {
+    fn assert_nix_hook_output(shell: &Shells) {
         let dir = tempfile::tempdir().unwrap();
         fs::write(
             dir.path().join(".aliases"),
@@ -114,10 +113,15 @@ mod tests {
         )
         .unwrap();
 
-        let output = generate_hook(&Shells::Zsh, dir.path(), Some("old")).unwrap();
+        let output = generate_hook(shell, dir.path(), Some("old")).unwrap();
         assert!(output.contains("unset -f old"));
         assert!(output.contains("b() { make build \"$@\"; }"));
         assert!(output.contains("export _AM_PROJECT_ALIASES="));
+    }
+
+    #[test]
+    fn test_hook_zsh_output() {
+        assert_nix_hook_output(&Shells::Zsh);
     }
 
     #[test]
@@ -182,17 +186,7 @@ mod tests {
 
     #[test]
     fn test_hook_bash_output() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join(".aliases"),
-            "[aliases]\nb = \"make build\"\n",
-        )
-        .unwrap();
-
-        let output = generate_hook(&Shells::Bash, dir.path(), Some("old")).unwrap();
-        assert!(output.contains("unset -f old"));
-        assert!(output.contains("b() { make build \"$@\"; }"));
-        assert!(output.contains("export _AM_PROJECT_ALIASES="));
+        assert_nix_hook_output(&Shells::Bash);
     }
 
     #[test]

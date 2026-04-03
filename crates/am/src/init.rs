@@ -223,12 +223,16 @@ mod tests {
         assert!(output.contains("am hook fish"));
     }
 
-    #[test]
-    fn test_zsh_init_contains_aliases() {
+    fn assert_nix_init_contains_aliases(shell: &Shells) {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &aliases);
+        let output = generate_init(shell, &AliasSet::default(), &aliases);
         assert!(output.contains("gs() { git status \"$@\"; }"));
         assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+    }
+
+    #[test]
+    fn test_zsh_init_contains_aliases() {
+        assert_nix_init_contains_aliases(&Shells::Zsh);
     }
 
     #[test]
@@ -272,12 +276,16 @@ mod tests {
         assert!(output.contains("_AM_ALIASES"));
     }
 
-    #[test]
-    fn test_reload_zsh_unloads_with_unset_f() {
+    fn assert_nix_reload_unloads(shell: &Shells) {
         let aliases = test_aliases();
-        let output = generate_reload(&Shells::Zsh, &AliasSet::default(), &aliases, Some("old1"));
+        let output = generate_reload(shell, &AliasSet::default(), &aliases, Some("old1"));
         assert!(output.contains("unset -f old1"));
         assert!(output.contains("gs() { git status \"$@\"; }"));
+    }
+
+    #[test]
+    fn test_reload_zsh_unloads_with_unset_f() {
+        assert_nix_reload_unloads(&Shells::Zsh);
     }
 
     #[test]
@@ -342,10 +350,7 @@ mod tests {
 
     #[test]
     fn test_bash_init_contains_aliases() {
-        let aliases = test_aliases();
-        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
-        assert!(output.contains("gs() { git status \"$@\"; }"));
-        assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+        assert_nix_init_contains_aliases(&Shells::Bash);
     }
 
     #[test]
@@ -370,9 +375,6 @@ mod tests {
 
     #[test]
     fn test_reload_bash_unloads_with_unset_f() {
-        let aliases = test_aliases();
-        let output = generate_reload(&Shells::Bash, &AliasSet::default(), &aliases, Some("old1"));
-        assert!(output.contains("unset -f old1"));
-        assert!(output.contains("gs() { git status \"$@\"; }"));
+        assert_nix_reload_unloads(&Shells::Bash);
     }
 }

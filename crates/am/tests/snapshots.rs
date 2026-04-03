@@ -108,6 +108,20 @@ fn snapshot_init_powershell_simple_profile() {
 }
 
 #[test]
+fn snapshot_init_bash_simple_profile() {
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "default"
+        [profiles.aliases]
+        ll = "ls -lha"
+        gs = "git status"
+    "#});
+    let resolved = config.resolve_active_aliases(&["default"]);
+    let output = generate_init(&Shells::Bash, &AliasSet::default(), &resolved);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
 fn snapshot_init_fish_multi_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
@@ -176,6 +190,14 @@ fn snapshot_reload_powershell_switch_profile() {
 }
 
 #[test]
+fn snapshot_reload_bash_switch_profile() {
+    let config = git_conventional_config();
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
+    let output = generate_reload(&Shells::Bash, &AliasSet::default(), &resolved, Some("gs,cm"));
+    insta::assert_snapshot!(output);
+}
+
+#[test]
 fn snapshot_reload_fish_after_global_add() {
     // Simulates: user had profile aliases loaded, then adds a global alias
     let globals = aliases(&[("ll", "ls -lha")]);
@@ -204,6 +226,15 @@ fn snapshot_reload_zsh_after_global_add() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(&Shells::Zsh, &globals, &resolved, Some("cm,cmf,gs"));
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_reload_bash_after_global_add() {
+    let globals = aliases(&[("ll", "ls -lha")]);
+    let config = git_conventional_config();
+    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
+    let output = generate_reload(&Shells::Bash, &globals, &resolved, Some("cm,cmf,gs"));
     insta::assert_snapshot!(output);
 }
 
@@ -349,6 +380,23 @@ fn snapshot_hook_powershell_with_aliases() {
     .unwrap();
 
     let output = generate_hook(&Shells::Powershell, dir.path(), None).unwrap();
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_hook_bash_with_aliases() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join(".aliases"),
+        indoc! {r#"
+            [aliases]
+            t = "cargo test"
+            b = "cargo build"
+        "#},
+    )
+    .unwrap();
+
+    let output = generate_hook(&Shells::Bash, dir.path(), None).unwrap();
     insta::assert_snapshot!(output);
 }
 

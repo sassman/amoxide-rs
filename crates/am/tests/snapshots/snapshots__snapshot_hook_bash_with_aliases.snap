@@ -1,0 +1,7 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+b() { cargo build "$@"; }
+t() { cargo test "$@"; }
+export _AM_PROJECT_ALIASES="b,t"

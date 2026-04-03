@@ -32,23 +32,7 @@ impl Shell for Fish {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::alias::AliasEntry;
-
-    fn simple<'a>(name: &'a str, cmd: &'a str) -> AliasEntry<'a> {
-        AliasEntry {
-            name,
-            command: cmd,
-            raw: false,
-        }
-    }
-
-    fn raw<'a>(name: &'a str, cmd: &'a str) -> AliasEntry<'a> {
-        AliasEntry {
-            name,
-            command: cmd,
-            raw: true,
-        }
-    }
+    use crate::shell::test_helpers::{raw, simple};
 
     #[test]
     fn test_fish_simple_alias() {
