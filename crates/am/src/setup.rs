@@ -29,18 +29,7 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
     match shell {
         Shells::Bash => {
             let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-            let bash_profile = home.join(".bash_profile");
-            let bashrc = home.join(".bashrc");
-            let path = if bash_profile.exists() {
-                bash_profile
-            } else if bashrc.exists() {
-                bashrc
-            } else if cfg!(target_os = "macos") {
-                bash_profile
-            } else {
-                bashrc
-            };
-            (path, r#"eval "$(am init bash)""#)
+            (home.join(".bashrc"), r#"eval "$(am init bash)""#)
         }
         Shells::Fish => {
             let mut path = dirs_lite::config_dir().unwrap_or_else(|| PathBuf::from(".config"));
@@ -82,27 +71,12 @@ fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
 /// Run the interactive setup for the given shell.
 pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
     let (profile_path, init_line) = shell_config(shell);
-    let reader = &mut std::io::stdin().lock();
-
-    if *shell == Shells::Bash {
-        let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        let bash_profile = home.join(".bash_profile");
-
-        // If bash_profile exists, try it first
-        if bash_profile.exists() {
-            run_setup_inner(shell, &bash_profile, init_line, reader)?;
-            // Check if it was actually added (user might have said no)
-            let content = std::fs::read_to_string(&bash_profile).unwrap_or_default();
-            if content.contains("am init") {
-                return Ok(());
-            }
-            // User declined — fall through to bashrc
-            let bashrc = home.join(".bashrc");
-            return run_setup_inner(shell, &bashrc, init_line, reader);
-        }
-    }
-
-    run_setup_inner(shell, &profile_path, init_line, reader)
+    run_setup_inner(
+        shell,
+        &profile_path,
+        init_line,
+        &mut std::io::stdin().lock(),
+    )
 }
 
 /// Core setup logic, testable with custom path and reader.
@@ -234,37 +208,6 @@ mod tests {
 
         let content = std::fs::read_to_string(&profile).unwrap();
         assert!(content.contains("am init bash"), "got: {content}");
-    }
-
-    #[test]
-    fn setup_bash_profile_decline_falls_back_to_bashrc() {
-        let dir = tempfile::tempdir().unwrap();
-        let bash_profile = dir.path().join(".bash_profile");
-        let bashrc = dir.path().join(".bashrc");
-        std::fs::write(&bash_profile, "# profile\n").unwrap();
-        std::fs::write(&bashrc, "# bashrc\n").unwrap();
-
-        let init_line = r#"eval "$(am init bash)""#;
-
-        // Simulate: "n" for bash_profile prompt
-        let mut reader = Cursor::new(b"n\n".to_vec());
-        run_setup_inner(&Shells::Bash, &bash_profile, init_line, &mut reader).unwrap();
-
-        let profile_content = std::fs::read_to_string(&bash_profile).unwrap();
-        assert!(
-            !profile_content.contains("am init"),
-            "bash_profile should not be modified"
-        );
-
-        // Simulate: "y" for bashrc prompt
-        let mut reader = Cursor::new(b"y\n".to_vec());
-        run_setup_inner(&Shells::Bash, &bashrc, init_line, &mut reader).unwrap();
-
-        let bashrc_content = std::fs::read_to_string(&bashrc).unwrap();
-        assert!(
-            bashrc_content.contains("am init bash"),
-            "bashrc should contain init, got: {bashrc_content}"
-        );
     }
 
     /// File doesn't exist, user says "y" to create, but then EOF for add prompt.

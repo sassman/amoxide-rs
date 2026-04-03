@@ -83,54 +83,10 @@ pub fn check_shell_config() -> Check {
             home_dir().map(|h| h.join(".zshrc")),
             "eval \"$(am init zsh)\"",
         ),
-        "bash" => {
-            let init_line = "eval \"$(am init bash)\"";
-            let home_dir = home_dir();
-            let candidates: Vec<std::path::PathBuf> = [".bash_profile", ".bashrc"]
-                .iter()
-                .filter_map(|f| home_dir.as_ref().map(|h| h.join(f)))
-                .collect();
-
-            // Check both files — user may have am init in either
-            for path in &candidates {
-                if path.exists() {
-                    if let Ok(content) = std::fs::read_to_string(path) {
-                        if content.contains("am init") {
-                            return Check::Ok(format!("{} contains `am init`", path.display()));
-                        }
-                    }
-                }
-            }
-
-            // Neither file contains am init — pick the preferred one for the warning
-            let preferred = candidates
-                .iter()
-                .find(|p| p.exists())
-                .or_else(|| {
-                    if cfg!(target_os = "macos") {
-                        candidates.first()
-                    } else {
-                        candidates.last()
-                    }
-                })
-                .cloned();
-
-            let Some(path) = preferred else {
-                return Check::Warn("cannot determine home directory".to_string());
-            };
-
-            if !path.exists() {
-                return Check::Warn(format!(
-                    "{} does not exist\n          add: {init_line}",
-                    path.display()
-                ));
-            }
-
-            return Check::Warn(format!(
-                "{} missing `am init`\n          add: {init_line}",
-                path.display()
-            ));
-        }
+        "bash" => (
+            home_dir().map(|h| h.join(".bashrc")),
+            "eval \"$(am init bash)\"",
+        ),
         "powershell" => {
             let path = crate::setup::detect_powershell_profile();
             (

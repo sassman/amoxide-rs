@@ -48,7 +48,7 @@ eval "$(am init zsh)"
 ```
 
 ```bash [Bash]
-# ~/.bashrc or ~/.bash_profile
+# ~/.bashrc
 eval "$(am init bash)"
 ```
 
