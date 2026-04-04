@@ -15,6 +15,8 @@ jobs:
   validate:
     if: contains(github.event.pull_request.labels.*.name, 'showcase')
     runs-on: ubuntu-latest
+    # Fork PRs require manual approval via the 'showcase' environment
+    environment: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'showcase' || '' }}
     steps:
       - uses: actions/checkout@v6
         with:
