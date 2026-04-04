@@ -9,6 +9,7 @@ on:
 # Read-only permissions — no secrets access
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   validate:
@@ -32,23 +33,30 @@ jobs:
           echo "$FILES"
 
       - name: Validate community submission
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
 
           FILES="${{ steps.changed.outputs.files }}"
           ERRORS=()
+          WARNINGS=()
 
           # ── Rule 1: All changed files must be under community/ ──
           NON_COMMUNITY=$(echo "$FILES" | grep -v '^community/' || true)
           if [ -n "$NON_COMMUNITY" ]; then
-            ERRORS+=("Files outside community/ were modified: $NON_COMMUNITY")
+            ERRORS+=("SECURITY: Files outside community/ were modified:")
+            while IFS= read -r f; do
+              ERRORS+=("  - $f")
+            done <<< "$NON_COMMUNITY"
+            ERRORS+=("This PR modifies files outside the community folder. Only community/<your-folder>/ is allowed.")
           fi
 
           # ── Rule 2: Only one community folder should be added/modified ──
           FOLDERS=$(echo "$FILES" | grep '^community/' | cut -d'/' -f2 | sort -u)
           FOLDER_COUNT=$(echo "$FOLDERS" | wc -l | tr -d ' ')
           if [ "$FOLDER_COUNT" -ne 1 ]; then
-            ERRORS+=("Expected changes in exactly 1 community folder, found $FOLDER_COUNT: $FOLDERS")
+            ERRORS+=("Expected changes in exactly 1 community folder, found $FOLDER_COUNT: $(echo $FOLDERS | tr '\n' ' ')")
           fi
 
           FOLDER=$(echo "$FOLDERS" | head -1)
@@ -95,11 +103,21 @@ jobs:
                 fi
               done
 
-              # Author should match folder prefix
+              # Author in frontmatter must match folder prefix
               AUTHOR=$(echo "$FRONTMATTER" | grep '^author:' | sed 's/^author: *//')
               FOLDER_PREFIX=$(echo "$FOLDER" | cut -d'-' -f1)
               if [ -n "$AUTHOR" ] && [ "$AUTHOR" != "$FOLDER_PREFIX" ]; then
-                ERRORS+=("Author '$AUTHOR' does not match folder prefix '$FOLDER_PREFIX' (folder should be ${AUTHOR}-<name>)")
+                ERRORS+=("Author '$AUTHOR' in frontmatter does not match folder prefix '$FOLDER_PREFIX'")
+              fi
+
+              # Author in frontmatter must match PR author (GitHub username)
+              if [ -n "$AUTHOR" ] && [ -n "$PR_AUTHOR" ]; then
+                # Case-insensitive comparison (GitHub handles are case-insensitive)
+                AUTHOR_LOWER=$(echo "$AUTHOR" | tr '[:upper:]' '[:lower:]')
+                PR_AUTHOR_LOWER=$(echo "$PR_AUTHOR" | tr '[:upper:]' '[:lower:]')
+                if [ "$AUTHOR_LOWER" != "$PR_AUTHOR_LOWER" ]; then
+                  ERRORS+=("Author '$AUTHOR' in frontmatter does not match PR author '$PR_AUTHOR'. You can only submit profiles under your own GitHub handle.")
+                fi
               fi
 
               # Category must be one of the allowed values
@@ -111,15 +129,40 @@ jobs:
             fi
           fi
 
-          # ── Rule 8: profiles.toml must be valid TOML ──
+          # ── Rule 8: profiles.toml must be valid TOML structure ──
           if [ -f "community/$FOLDER/profiles.toml" ]; then
-            # Basic check: must contain [[profiles]] or [aliases]
             if ! grep -q '\[\[profiles\]\]\|^\[aliases\]' "community/$FOLDER/profiles.toml"; then
               ERRORS+=("profiles.toml does not look like a valid am export (missing [[profiles]] or [aliases] section)")
             fi
           fi
 
+          # ── Rule 9: Scan for suspicious content in profiles.toml ──
+          if [ -f "community/$FOLDER/profiles.toml" ]; then
+            # Check for TOML unicode escapes that produce control characters
+            if grep -qP '\\u\{?00[0-1][0-9a-fA-F]\}?|\\u\{?007[fF]\}?|\\u\{?00[89a-fA-F][0-9a-fA-F]\}?' "community/$FOLDER/profiles.toml" 2>/dev/null; then
+              WARNINGS+=("profiles.toml contains unicode escape sequences that may produce control characters. Maintainer: please inspect carefully.")
+            fi
+            # Check for raw control characters (bytes 0x00-0x1F except \t \n \r, and 0x7F)
+            if grep -qP '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "community/$FOLDER/profiles.toml" 2>/dev/null; then
+              ERRORS+=("SECURITY: profiles.toml contains raw control characters. This may be an attempt to inject malicious terminal commands.")
+            fi
+          fi
+
+          # ── Rule 10: Must not modify other people's folders ──
+          OTHER_FOLDERS=$(echo "$FILES" | grep '^community/' | cut -d'/' -f2 | sort -u | grep -v "^${FOLDER}$" || true)
+          if [ -n "$OTHER_FOLDERS" ]; then
+            ERRORS+=("SECURITY: Changes detected in other contributor folders: $OTHER_FOLDERS. You may only modify your own folder.")
+          fi
+
           # ── Report ──
+          if [ ${#WARNINGS[@]} -gt 0 ]; then
+            echo "::warning::Community profile has warnings"
+            for WARN in "${WARNINGS[@]}"; do
+              echo "  ⚠ $WARN"
+            done
+            echo ""
+          fi
+
           if [ ${#ERRORS[@]} -gt 0 ]; then
             echo "::error::Community profile validation failed"
             echo ""
@@ -133,4 +176,4 @@ jobs:
             exit 1
           fi
 
-          echo "✅ Community profile validation passed for: $FOLDER"
+          echo "✅ Community profile validation passed for: $FOLDER (PR author: $PR_AUTHOR)"
