@@ -98,6 +98,13 @@ Outputs:
 am export -p git -b64 | curl -d @- https://paste.rs/
 ```
 
+::: tip Shortcut
+Pipe it straight to your shell to run in one go:
+```bash
+am share -p git --paste-rs | sh
+```
+:::
+
 Run it, get a URL back. Share the URL. The receiver imports with:
 
 ```bash
