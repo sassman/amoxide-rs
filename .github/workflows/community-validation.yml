@@ -33,6 +33,7 @@ jobs:
           echo "$FILES"
 
       - name: Validate community submission
+        id: validate
         env:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
@@ -177,3 +178,18 @@ jobs:
           fi
 
           echo "✅ Community profile validation passed for: $FOLDER (PR author: $PR_AUTHOR)"
+          echo "folder=$FOLDER" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build am
+        run: cargo build -p amoxide --release
+
+      - name: Verify import
+        run: |
+          FOLDER="${{ steps.validate.outputs.folder }}"
+          TOML="community/$FOLDER/profiles.toml"
+          echo "Testing import of $TOML..."
+          ./target/release/am import "$TOML" --yes
+          echo "✅ Import verification passed"
