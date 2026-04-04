@@ -269,10 +269,25 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                     .get_profile_by_name(name)
                     .ok_or(anyhow!("Profile '{name}' does not exist."))?;
             }
+            let mut effects = Vec::new();
             for name in names {
-                model.config.toggle_profile(name);
+                let was_active = model.config.is_active(&name);
+                let alias_count = model
+                    .profile_config()
+                    .get_profile_by_name(&name)
+                    .map(|p| p.aliases.iter().count())
+                    .unwrap_or(0);
+                model.config.toggle_profile(name.clone());
+                let (action, verb) = if was_active {
+                    ("deactivated", "unloaded")
+                } else {
+                    ("activated", "loaded")
+                };
+                effects.push(Effect::Print(format!(
+                    "{name} {action}, {alias_count} aliases {verb}"
+                )));
             }
-            Ok(UpdateResult::done())
+            Ok(UpdateResult::with_effects(&effects))
         }
         Message::UseProfilesAt(names, priority) => {
             for name in &names {
@@ -281,10 +296,20 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                     .get_profile_by_name(name)
                     .ok_or(anyhow!("Profile '{name}' does not exist."))?;
             }
+            let mut effects = Vec::new();
             for (i, name) in names.into_iter().enumerate() {
-                model.config.use_profile_at(name, priority + i);
+                let alias_count = model
+                    .profile_config()
+                    .get_profile_by_name(&name)
+                    .map(|p| p.aliases.iter().count())
+                    .unwrap_or(0);
+                model.config.use_profile_at(name.clone(), priority + i);
+                effects.push(Effect::Print(format!(
+                    "{name} activated at position {}, {alias_count} aliases loaded",
+                    priority + i
+                )));
             }
-            Ok(UpdateResult::done())
+            Ok(UpdateResult::with_effects(&effects))
         }
         Message::RemoveProfile(name) => {
             model.profile_config_mut().remove_profile(&name)?;
@@ -507,7 +532,8 @@ mod tests {
         )
         .unwrap();
 
-        assert!(result.effects.is_empty());
+        assert_eq!(result.effects.len(), 2);
+        assert!(matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated")));
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
@@ -547,7 +573,9 @@ mod tests {
         )
         .unwrap();
 
-        assert!(result.effects.is_empty());
+        assert_eq!(result.effects.len(), 2);
+        assert!(matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("position 1")));
+        assert!(matches!(&result.effects[1], Effect::Print(s) if s.contains("rust") && s.contains("position 2")));
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
@@ -572,7 +600,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(result.effects.is_empty());
+        assert_eq!(result.effects.len(), 2);
         // node at 1, git at 2, rust at 3
         assert_eq!(
             model.config.active_profiles,
