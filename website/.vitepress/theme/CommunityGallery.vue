@@ -280,7 +280,8 @@ async function copyImport(profile: CommunityProfile) {
 
             <div class="activate-hint">
               <p>Then activate the {{ viewProfile.profiles.length === 1 ? 'profile' : 'profiles' }}:</p>
-              <pre><code>am profile use {{ viewProfile.profiles.join(' ') }}</code></pre>
+              <pre><code>am use {{ viewProfile.profiles.join(' ') }}</code></pre>
+              <p class="activate-alt">or: <code>am profile use {{ viewProfile.profiles.join(' ') }}</code></p>
             </div>
           </div>
         </div>
@@ -876,6 +877,18 @@ async function copyImport(profile: CommunityProfile) {
 }
 
 .modal-content .activate-hint code {
+  background: none;
+  padding: 0;
+}
+
+.modal-content .activate-alt {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--vp-c-text-3);
+}
+
+.modal-content .activate-alt code {
+  font-size: 0.75rem;
   background: none;
   padding: 0;
 }
