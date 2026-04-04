@@ -20,25 +20,26 @@ am add -p rust cb "cargo build"
 
 ```sh
 # Activate a profile (adds on top of the current stack)
-am profile use rust
-am p u rust          # short form
-
-# Activate at a specific position (1 = base layer)
-am profile use git -n 1
+am use rust
+am use rust -n 1     # at a specific position (1 = base layer)
 ```
 
-You can also activate multiple profiles in one command: <VersionBadge v="0.4.0" />
+Activate multiple profiles at once: <VersionBadge v="0.4.0" />
 
 ```sh
-am profile use git rust node   # activate all three at once
-am profile use git rust -i     # inverse: first listed = highest priority
+am use git rust node         # activate all three at once
+am use git rust -i           # inverse: first listed = highest priority
 ```
+
+::: tip
+`am use` is a shortcut for `am profile use`. The long forms `am profile use rust` and `am p u rust` also work.
+:::
 
 When you activate multiple profiles, they stack. The last-activated profile wins on conflicts:
 
 ```sh
-am profile use git    # base layer (active: 1)
-am profile use rust   # on top (active: 2)
+am use git     # base layer (active: 1)
+am use rust    # on top (active: 2)
 # If both have alias "t", rust's version wins
 ```
 
