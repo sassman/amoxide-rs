@@ -69,6 +69,19 @@ pub enum Commands {
     /// Guided setup — adds amoxide to your shell profile
     Setup { shell: Shells },
 
+    /// Shortcut for `am profile use` — toggle one or more profiles
+    #[command(alias = "u")]
+    Use {
+        /// Profile names
+        names: Vec<String>,
+        /// Activate at specific priority position (1-based). Repositions if already active.
+        #[arg(short = 'n', long = "priority", conflicts_with = "inverse")]
+        priority: Option<usize>,
+        /// Reverse the processing order (first listed = highest priority)
+        #[arg(short, long, conflicts_with = "priority")]
+        inverse: bool,
+    },
+
     /// Launch the interactive TUI for managing aliases and profiles
     #[command(alias = "t")]
     Tui,

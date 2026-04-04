@@ -14,6 +14,9 @@ am() {
   case "$1" in
     tui|t) eval "$(command am reload zsh)"; eval "$(command am hook zsh)"; return ;;
   esac
+  case "$1" in
+    use|u) eval "$(command am reload zsh)"; return ;;
+  esac
   case "$1:$2" in
     profile:use|p:use|profile:u|p:u|profile:add|p:add|profile:a|p:a|profile:remove|p:remove|profile:r|p:r) eval "$(command am reload zsh)" ;;
   esac
@@ -222,6 +225,19 @@ _arguments "${_arguments_options[@]}" : \
 ':shell:(bash fish powershell zsh)' \
 && ret=0
 ;;
+(use)
+_arguments "${_arguments_options[@]}" : \
+'(-i --inverse)-n+[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
+'(-i --inverse)--priority=[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
+'(-n --priority)-i[Reverse the processing order (first listed = highest priority)]' \
+'(-n --priority)--inverse[Reverse the processing order (first listed = highest priority)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+'*::names -- Profile names:_default' \
+&& ret=0
+;;
 (tui)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -371,6 +387,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(use)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (tui)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -418,6 +438,7 @@ _am_commands() {
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
+'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
 'import:Import aliases from a URL or file' \
@@ -448,6 +469,7 @@ _am__help_commands() {
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
+'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
 'import:Import aliases from a URL or file' \
@@ -552,6 +574,11 @@ _am__help__status_commands() {
 _am__help__tui_commands() {
     local commands; commands=()
     _describe -t commands 'am help tui commands' commands "$@"
+}
+(( $+functions[_am__help__use_commands] )) ||
+_am__help__use_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help use commands' commands "$@"
 }
 (( $+functions[_am__hook_commands] )) ||
 _am__hook_commands() {
@@ -669,6 +696,11 @@ _am__status_commands() {
 _am__tui_commands() {
     local commands; commands=()
     _describe -t commands 'am tui commands' commands "$@"
+}
+(( $+functions[_am__use_commands] )) ||
+_am__use_commands() {
+    local commands; commands=()
+    _describe -t commands 'am use commands' commands "$@"
 }
 
 if [ "$funcstack[1]" = "_am" ]; then

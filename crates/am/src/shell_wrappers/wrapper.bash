@@ -5,6 +5,9 @@ am() {
   case "$1" in
     tui|t) eval "$(command am reload __SHELL__)"; eval "$(command am hook __SHELL__)"; return ;;
   esac
+  case "$1" in
+    use|u) eval "$(command am reload __SHELL__)"; return ;;
+  esac
   case "$1:$2" in
     profile:use|p:use|profile:u|p:u|profile:add|p:add|profile:a|p:a|profile:remove|p:remove|profile:r|p:r) eval "$(command am reload __SHELL__)" ;;
   esac

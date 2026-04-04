@@ -11,6 +11,11 @@ function am --wraps=am
         command am hook __SHELL__ | source
         return
     end
+    # top-level use → reload aliases
+    if begin; test "$argv[1]" = use; or test "$argv[1]" = u; end
+        command am reload __SHELL__ | source
+        return
+    end
     # profile mutation → reload aliases
     if begin; test "$argv[1]" = profile; or test "$argv[1]" = p; end
         if begin; test "$argv[2]" = use; or test "$argv[2]" = u; or test "$argv[2]" = add; or test "$argv[2]" = a; or test "$argv[2]" = remove; or test "$argv[2]" = r; end

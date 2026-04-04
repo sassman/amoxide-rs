@@ -20,6 +20,12 @@ function am {
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         return
     }
+    # top-level use — reload
+    if ($args.Count -ge 1 -and $args[0] -in 'use', 'u') {
+        $out = (& $amBin reload powershell) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+        return
+    }
     # profile mutation — reload
     if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
         if ($args.Count -ge 2 -and $args[1] -in 'use', 'u', 'add', 'a', 'remove', 'r') {
@@ -86,6 +92,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('profile', 'profile', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [System.Management.Automation.CompletionResult]::new('init', 'init', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print shell init code')
             [System.Management.Automation.CompletionResult]::new('setup', 'setup', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
+            [System.Management.Automation.CompletionResult]::new('use', 'use', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
             [System.Management.Automation.CompletionResult]::new('tui', 'tui', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
             [System.Management.Automation.CompletionResult]::new('export', 'export', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [System.Management.Automation.CompletionResult]::new('import', 'import', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
@@ -217,6 +224,17 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;use' {
+            [System.Management.Automation.CompletionResult]::new('-n', '-n', [System.Management.Automation.CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [System.Management.Automation.CompletionResult]::new('--priority', '--priority', [System.Management.Automation.CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [System.Management.Automation.CompletionResult]::new('-i', '-i', [System.Management.Automation.CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
+            [System.Management.Automation.CompletionResult]::new('--inverse', '--inverse', [System.Management.Automation.CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;tui' {
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
@@ -297,6 +315,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('profile', 'profile', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [System.Management.Automation.CompletionResult]::new('init', 'init', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print shell init code')
             [System.Management.Automation.CompletionResult]::new('setup', 'setup', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
+            [System.Management.Automation.CompletionResult]::new('use', 'use', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
             [System.Management.Automation.CompletionResult]::new('tui', 'tui', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
             [System.Management.Automation.CompletionResult]::new('export', 'export', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [System.Management.Automation.CompletionResult]::new('import', 'import', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
@@ -341,6 +360,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;setup' {
+            break
+        }
+        'am;help;use' {
             break
         }
         'am;help;tui' {
