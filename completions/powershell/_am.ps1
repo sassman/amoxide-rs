@@ -32,6 +32,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
+            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
             [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
@@ -163,6 +164,17 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;use' {
+            [CompletionResult]::new('-n', '-n', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [CompletionResult]::new('--priority', '--priority', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
+            [CompletionResult]::new('--inverse', '--inverse', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;tui' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
@@ -243,6 +255,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
+            [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
             [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
@@ -287,6 +300,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;setup' {
+            break
+        }
+        'am;help;use' {
             break
         }
         'am;help;tui' {

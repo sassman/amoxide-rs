@@ -533,7 +533,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.effects.len(), 2);
-        assert!(matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated")));
+        assert!(
+            matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated"))
+        );
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
@@ -574,8 +576,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.effects.len(), 2);
-        assert!(matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("position 1")));
-        assert!(matches!(&result.effects[1], Effect::Print(s) if s.contains("rust") && s.contains("position 2")));
+        assert!(
+            matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("position 1"))
+        );
+        assert!(
+            matches!(&result.effects[1], Effect::Print(s) if s.contains("rust") && s.contains("position 2"))
+        );
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
