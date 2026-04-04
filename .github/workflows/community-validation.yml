@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   validate:
-    if: contains(github.event.pull_request.labels.*.name, 'community')
+    if: contains(github.event.pull_request.labels.*.name, 'showcase')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
