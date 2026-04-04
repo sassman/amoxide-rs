@@ -27,6 +27,13 @@ am p u rust          # short form
 am profile use git -n 1
 ```
 
+You can also activate multiple profiles in one command: <VersionBadge v="0.4.0" />
+
+```sh
+am profile use git rust node   # activate all three at once
+am profile use git rust -i     # inverse: first listed = highest priority
+```
+
 When you activate multiple profiles, they stack. The last-activated profile wins on conflicts:
 
 ```sh

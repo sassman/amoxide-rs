@@ -18,7 +18,7 @@ am setup zsh
 am setup powershell
 ```
 
-```sh [Bash]
+```sh [Bash (v0.4.0+)]
 am setup bash
 ```
 
@@ -47,7 +47,7 @@ eval "$(am init zsh)"
 (am init powershell) -join "`n" | Invoke-Expression
 ```
 
-```bash [Bash]
+```bash [Bash (v0.4.0+)]
 # ~/.bashrc
 eval "$(am init bash)"
 ```

@@ -1,4 +1,4 @@
-# Sharing Aliases
+# Sharing Aliases <VersionBadge v="0.4.0" />
 
 Share your aliases with colleagues, teams, or the community. Export to stdout, import from a URL or file.
 
