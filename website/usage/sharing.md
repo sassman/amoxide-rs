@@ -95,7 +95,7 @@ am share -p git --paste-rs
 Outputs:
 
 ```
-am export -p git -b64 | curl -d @- https://paste.rs/
+am export -p git --b64 | curl -d @- https://paste.rs/
 ```
 
 ::: tip Shortcut
@@ -120,7 +120,7 @@ am share -p git --termbin
 Outputs:
 
 ```
-am export -p git -b64 | nc termbin.com 9999
+am export -p git --b64 | nc termbin.com 9999
 ```
 
 Same flow — run it, share the URL.

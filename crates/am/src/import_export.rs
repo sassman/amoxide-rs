@@ -90,9 +90,9 @@ pub fn handle_share(args: &ShareArgs) -> String {
     let scope_flags = build_scope_flags(&args.scope);
 
     if args.termbin {
-        format!("am export{scope_flags} -b64 | nc termbin.com 9999")
+        format!("am export{scope_flags} --b64 | nc termbin.com 9999")
     } else if args.paste_rs {
-        format!("am export{scope_flags} -b64 | curl -d @- https://paste.rs/")
+        format!("am export{scope_flags} --b64 | curl -d @- https://paste.rs/")
     } else {
         // No target — show help
         String::from(
@@ -102,17 +102,17 @@ Available targets:
 
   --termbin    Post via netcat to termbin.com
                Example: am share -p git --termbin
-               Output:  am export -p git -b64 | nc termbin.com 9999
+               Output:  am export -p git --b64 | nc termbin.com 9999
 
   --paste-rs   Post via curl to paste.rs
                Example: am share -p git --paste-rs
-               Output:  am export -p git -b64 | curl -d @- https://paste.rs/
+               Output:  am export -p git --b64 | curl -d @- https://paste.rs/
 
 On PowerShell, replace the pipe with:
-               am export -p git -b64 | ForEach-Object { curl -d $_ https://paste.rs/ }
+               am export -p git --b64 | ForEach-Object { curl -d $_ https://paste.rs/ }
 
 Run the generated command to upload. Share the returned URL.
-The receiver imports with: am import <url> -b64
+The receiver imports with: am import <url> --b64
 "#,
         )
     }
@@ -456,7 +456,7 @@ mod tests {
             paste_rs: false,
         };
         let output = handle_share(&args);
-        assert_eq!(output, "am export -p git -b64 | nc termbin.com 9999");
+        assert_eq!(output, "am export -p git --b64 | nc termbin.com 9999");
     }
 
     #[test]
@@ -474,7 +474,7 @@ mod tests {
         let output = handle_share(&args);
         assert_eq!(
             output,
-            "am export --all -b64 | curl -d @- https://paste.rs/"
+            "am export --all --b64 | curl -d @- https://paste.rs/"
         );
     }
 
