@@ -3,6 +3,8 @@ name: Release PR
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "community/**"
   workflow_dispatch:
 
 permissions:

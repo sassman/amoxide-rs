@@ -30,8 +30,8 @@ pub enum Message {
     Hook(Shells),
     Reload(Shells),
 
-    ToggleProfile(String),
-    UseProfileAt(String, usize),
+    ToggleProfiles(Vec<String>),
+    UseProfilesAt(Vec<String>, usize),
     RemoveProfile(String),
     ListProfiles,
     CreateProfile(String),

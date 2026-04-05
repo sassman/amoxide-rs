@@ -8,6 +8,8 @@
     "preview": "vitepress preview"
   },
   "devDependencies": {
+    "gray-matter": "^4.0.3",
+    "markdown-it": "^14.1.1",
     "vitepress": "^1.6.3"
   }
 }

@@ -2,4 +2,4 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-am export -p git -b64 | nc termbin.com 9999
+am export -p git --b64 | nc termbin.com 9999

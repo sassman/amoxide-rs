@@ -1,7 +1,15 @@
-# Showcase
+<script setup>
+import { data } from './community.data'
+</script>
 
-::: tip Coming Soon
-The showcase will feature community-contributed profiles that you can browse and import into your setup.
+# Community Showcase <VersionBadge v="0.4.0" />
+
+Browse alias profiles shared by the community. Find something useful, inspect the aliases, and import with one command.
+
+When you run the import command, `am` shows a summary of all aliases before anything is applied — review it carefully before confirming.
+
+<CommunityGallery :profiles="data" />
+
+::: tip Want to share your own profiles?
+Check the [contribution guide](./contribute) to learn how to submit yours.
 :::
-
-Have a profile collection you'd like to share? Watch this space — the import feature is in development.

@@ -11,6 +11,12 @@ function am {
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         return
     }
+    # top-level use — reload
+    if ($args.Count -ge 1 -and $args[0] -in 'use', 'u') {
+        $out = (& $amBin reload __SHELL__) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+        return
+    }
     # profile mutation — reload
     if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
         if ($args.Count -ge 2 -and $args[1] -in 'use', 'u', 'add', 'a', 'remove', 'r') {

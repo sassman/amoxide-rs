@@ -262,21 +262,54 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
             Ok(UpdateResult::done())
         }
-        Message::ToggleProfile(name) => {
-            let _ = model
-                .profile_config()
-                .get_profile_by_name(&name)
-                .ok_or(anyhow!("Profile '{name}' does not exist."))?;
-            model.config.toggle_profile(name);
-            Ok(UpdateResult::done())
+        Message::ToggleProfiles(names) => {
+            for name in &names {
+                model
+                    .profile_config()
+                    .get_profile_by_name(name)
+                    .ok_or(anyhow!("Profile '{name}' does not exist."))?;
+            }
+            let mut effects = Vec::new();
+            for name in names {
+                let was_active = model.config.is_active(&name);
+                let alias_count = model
+                    .profile_config()
+                    .get_profile_by_name(&name)
+                    .map(|p| p.aliases.iter().count())
+                    .unwrap_or(0);
+                model.config.toggle_profile(name.clone());
+                let (action, verb) = if was_active {
+                    ("deactivated", "unloaded")
+                } else {
+                    ("activated", "loaded")
+                };
+                effects.push(Effect::Print(format!(
+                    "{name} {action}, {alias_count} aliases {verb}"
+                )));
+            }
+            Ok(UpdateResult::with_effects(&effects))
         }
-        Message::UseProfileAt(name, priority) => {
-            let _ = model
-                .profile_config()
-                .get_profile_by_name(&name)
-                .ok_or(anyhow!("Profile '{name}' does not exist."))?;
-            model.config.use_profile_at(name, priority);
-            Ok(UpdateResult::done())
+        Message::UseProfilesAt(names, priority) => {
+            for name in &names {
+                model
+                    .profile_config()
+                    .get_profile_by_name(name)
+                    .ok_or(anyhow!("Profile '{name}' does not exist."))?;
+            }
+            let mut effects = Vec::new();
+            for (i, name) in names.into_iter().enumerate() {
+                let alias_count = model
+                    .profile_config()
+                    .get_profile_by_name(&name)
+                    .map(|p| p.aliases.iter().count())
+                    .unwrap_or(0);
+                model.config.use_profile_at(name.clone(), priority + i);
+                effects.push(Effect::Print(format!(
+                    "{name} activated at position {}, {alias_count} aliases loaded",
+                    priority + i
+                )));
+            }
+            Ok(UpdateResult::with_effects(&effects))
         }
         Message::RemoveProfile(name) => {
             model.profile_config_mut().remove_profile(&name)?;
@@ -483,6 +516,118 @@ mod tests {
             result.effects,
             vec![Effect::RemoveLocalAlias { name: "t".into() }]
         );
+    }
+
+    #[test]
+    fn toggle_multiple_profiles_activates_all_in_order() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n\n[[profiles]]\nname = \"rust\"\n")
+                .unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::ToggleProfiles(vec!["git".into(), "rust".into()]),
+        )
+        .unwrap();
+
+        assert_eq!(result.effects.len(), 2);
+        assert!(
+            matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated"))
+        );
+        assert_eq!(
+            model.config.active_profiles,
+            vec!["git".to_string(), "rust".to_string()]
+        );
+    }
+
+    #[test]
+    fn toggle_multiple_profiles_fails_if_any_missing() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::ToggleProfiles(vec!["git".into(), "nope".into()]),
+        );
+
+        let err = result.err().expect("should be an error");
+        assert!(err.to_string().contains("nope"));
+        // git should NOT have been toggled since validation failed
+        assert!(model.config.active_profiles.is_empty());
+    }
+
+    #[test]
+    fn use_profiles_at_inserts_sequentially() {
+        let config = Config::default();
+        let profile_config: ProfileConfig = toml::from_str(
+            "[[profiles]]\nname = \"git\"\n\n[[profiles]]\nname = \"rust\"\n\n[[profiles]]\nname = \"node\"\n",
+        )
+        .unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::UseProfilesAt(vec!["git".into(), "rust".into()], 1),
+        )
+        .unwrap();
+
+        assert_eq!(result.effects.len(), 2);
+        assert!(
+            matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("position 1"))
+        );
+        assert!(
+            matches!(&result.effects[1], Effect::Print(s) if s.contains("rust") && s.contains("position 2"))
+        );
+        assert_eq!(
+            model.config.active_profiles,
+            vec!["git".to_string(), "rust".to_string()]
+        );
+    }
+
+    #[test]
+    fn use_profiles_at_inserts_at_offset() {
+        let config = Config {
+            active_profiles: vec!["node".to_string()],
+            ..Config::default()
+        };
+        let profile_config: ProfileConfig = toml::from_str(
+            "[[profiles]]\nname = \"git\"\n\n[[profiles]]\nname = \"rust\"\n\n[[profiles]]\nname = \"node\"\n",
+        )
+        .unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::UseProfilesAt(vec!["git".into(), "rust".into()], 2),
+        )
+        .unwrap();
+
+        assert_eq!(result.effects.len(), 2);
+        // node at 1, git at 2, rust at 3
+        assert_eq!(
+            model.config.active_profiles,
+            vec!["node".to_string(), "git".to_string(), "rust".to_string()]
+        );
+    }
+
+    #[test]
+    fn use_profiles_at_fails_if_any_missing() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::UseProfilesAt(vec!["git".into(), "nope".into()], 1),
+        );
+
+        assert!(result.is_err());
+        assert!(model.config.active_profiles.is_empty());
     }
 
     #[test]

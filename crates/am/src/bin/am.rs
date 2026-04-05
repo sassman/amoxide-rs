@@ -89,6 +89,25 @@ fn main() -> anyhow::Result<()> {
             println!("{}", amoxide::status::run_status());
             return Ok(());
         }
+        Commands::Use {
+            names,
+            priority,
+            inverse,
+        } => {
+            let ordered: Vec<String> = if *inverse {
+                names.iter().rev().cloned().collect()
+            } else {
+                names.clone()
+            };
+            let msg = match priority {
+                Some(n) => Message::UseProfilesAt(ordered, *n),
+                None => Message::ToggleProfiles(ordered),
+            };
+            let result = update(&mut model, msg)?;
+            execute_effects(&mut model, &result.effects)?;
+            model.config.save()?;
+            return Ok(());
+        }
         Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
             ProfileAction::Add { name } => {
                 let result = update(&mut model, Message::CreateProfile(name.clone()))?;
@@ -96,10 +115,19 @@ fn main() -> anyhow::Result<()> {
                 model.config.save()?;
                 return Ok(());
             }
-            ProfileAction::Use { name, priority } => {
+            ProfileAction::Use {
+                names,
+                priority,
+                inverse,
+            } => {
+                let ordered: Vec<String> = if *inverse {
+                    names.iter().rev().cloned().collect()
+                } else {
+                    names.clone()
+                };
                 let msg = match priority {
-                    Some(n) => Message::UseProfileAt(name.clone(), *n),
-                    None => Message::ToggleProfile(name.clone()),
+                    Some(n) => Message::UseProfilesAt(ordered, *n),
+                    None => Message::ToggleProfiles(ordered),
                 };
                 let result = update(&mut model, msg)?;
                 execute_effects(&mut model, &result.effects)?;

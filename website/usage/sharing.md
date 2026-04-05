@@ -1,4 +1,4 @@
-# Sharing Aliases
+# Sharing Aliases <VersionBadge v="0.4.0" />
 
 Share your aliases with colleagues, teams, or the community. Export to stdout, import from a URL or file.
 
@@ -95,8 +95,15 @@ am share -p git --paste-rs
 Outputs:
 
 ```
-am export -p git -b64 | curl -d @- https://paste.rs/
+am export -p git --b64 | curl -d @- https://paste.rs/
 ```
+
+::: tip Shortcut
+Pipe it straight to your shell to run in one go:
+```bash
+am share -p git --paste-rs | sh
+```
+:::
 
 Run it, get a URL back. Share the URL. The receiver imports with:
 
@@ -113,7 +120,7 @@ am share -p git --termbin
 Outputs:
 
 ```
-am export -p git -b64 | nc termbin.com 9999
+am export -p git --b64 | nc termbin.com 9999
 ```
 
 Same flow — run it, share the URL.
