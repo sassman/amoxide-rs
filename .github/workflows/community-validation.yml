@@ -180,17 +180,16 @@ jobs:
           echo "✅ Community profile validation passed for: $FOLDER (PR author: $PR_AUTHOR)"
           echo "folder=$FOLDER" >> "$GITHUB_OUTPUT"
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build am
-        run: cargo build -p amoxide --release
+      - name: Install am via cargo-binstall
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall amoxide --no-confirm
 
       - name: Verify import
         run: |
           FOLDER="${{ steps.validate.outputs.folder }}"
           echo "Testing import of community/$FOLDER/profiles.toml..."
-          ./target/release/am import "community/$FOLDER/profiles.toml" --yes
+          am import "community/$FOLDER/profiles.toml" --yes
           echo "✅ Import verification passed"
 
   # ── Step 2: Build & deploy preview (only after validation passes) ──
