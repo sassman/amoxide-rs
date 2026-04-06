@@ -1,35 +1,31 @@
-name: Preview Website
+name: Reusable Preview Website
 
 on:
-  # pull_request_target runs the workflow from the BASE branch (main),
-  # not from the PR branch — so contributors cannot modify this workflow.
-  # Only for website-only PRs. Community PRs get their preview
-  # from community-validation.yml after validation passes.
-  pull_request_target:
-    paths:
-      - "website/**"
-    types: [opened, synchronize, reopened, closed]
+  workflow_call:
+    inputs:
+      pr_number:
+        required: true
+        type: number
+      head_sha:
+        required: true
+        type: string
+      is_fork:
+        required: true
+        type: boolean
 
 permissions:
   contents: write
   pull-requests: write
 
-concurrency:
-  group: preview-website-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   preview:
-    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
-    # External PRs require manual approval before preview deploys
-    environment: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'preview-website' || '' }}
+    environment: ${{ inputs.is_fork && 'preview-website' || '' }}
     steps:
-      # Checkout the PR branch for website source only
       - name: Checkout PR branch
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.head_sha }}
           fetch-depth: 0
           path: pr
 
@@ -48,7 +44,7 @@ jobs:
         run: npm run build
         working-directory: pr/website
         env:
-          VITEPRESS_BASE: /_preview/${{ github.event.pull_request.number }}/
+          VITEPRESS_BASE: /_preview/${{ inputs.pr_number }}/
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v6
@@ -59,13 +55,11 @@ jobs:
       - name: Deploy preview
         run: |
           cd gh-pages
-          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_NUMBER=${{ inputs.pr_number }}
 
-          # Clean previous preview for this PR
           rm -rf "_preview/${PR_NUMBER}"
           mkdir -p "_preview/${PR_NUMBER}"
 
-          # Copy built site
           cp -r ../pr/website/.vitepress/dist/* "_preview/${PR_NUMBER}/"
 
           git add -A
@@ -74,7 +68,7 @@ jobs:
           else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "preview: PR #${PR_NUMBER} from ${GITHUB_SHA::7}"
+            git commit -m "preview: PR #${PR_NUMBER} from ${{ inputs.head_sha }}"
             git push
           fi
 
@@ -82,11 +76,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const prNumber = context.payload.pull_request.number;
+            const prNumber = ${{ inputs.pr_number }};
             const previewUrl = `https://amoxide.rs/_preview/${prNumber}/`;
             const body = `🔍 **Website Preview:** ${previewUrl}\n\n_Preview will be removed when this PR is merged or closed._`;
 
-            // Check if we already commented
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -112,27 +105,3 @@ jobs:
                 body,
               });
             }
-
-  cleanup:
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v6
-        with:
-          ref: gh-pages
-
-      - name: Remove preview
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-
-          if [ -d "_preview/${PR_NUMBER}" ]; then
-            rm -rf "_preview/${PR_NUMBER}"
-            git add -A
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "cleanup: remove preview for PR #${PR_NUMBER}"
-            git push
-          else
-            echo "No preview to clean up"
-          fi
