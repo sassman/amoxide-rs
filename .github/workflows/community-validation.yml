@@ -1,33 +1,42 @@
-name: Community Profile Validation
+name: Showcase Validation & Preview
 
 on:
-  pull_request:
-    types: [labeled, synchronize]
+  pull_request_target:
+    types: [labeled, synchronize, opened, reopened, closed]
     paths:
       - "community/**"
 
-# Read-only permissions — no secrets access
+# Top-level: read-only. Individual jobs escalate as needed.
 permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: showcase-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
+  # ── Step 1: Validate the community submission ──
   validate:
-    if: contains(github.event.pull_request.labels.*.name, 'showcase')
+    if: >-
+      github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'showcase')
     runs-on: ubuntu-latest
     # Fork PRs require manual approval via the 'showcase' environment
     environment: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'showcase' || '' }}
+    outputs:
+      folder: ${{ steps.validate.outputs.folder }}
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Get changed files
         id: changed
         run: |
-          BASE=${{ github.event.pull_request.base.sha }}
-          HEAD=${{ github.event.pull_request.head.sha }}
-          FILES=$(git diff --name-only "$BASE" "$HEAD")
+          git fetch origin ${{ github.event.pull_request.base.sha }} --depth=1
+          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
           echo "files<<EOF" >> "$GITHUB_OUTPUT"
           echo "$FILES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -92,30 +101,24 @@ jobs:
           if [ -f "community/$FOLDER/README.md" ]; then
             README="community/$FOLDER/README.md"
 
-            # Check frontmatter exists
             if ! head -1 "$README" | grep -q '^---$'; then
               ERRORS+=("README.md missing frontmatter (must start with ---)")
             else
-              # Extract frontmatter
               FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$README" | sed '1d;$d')
 
-              # Required fields
               for FIELD in author description category tags profiles; do
                 if ! echo "$FRONTMATTER" | grep -q "^${FIELD}:"; then
                   ERRORS+=("README.md frontmatter missing required field: $FIELD")
                 fi
               done
 
-              # Author in frontmatter must match folder prefix
               AUTHOR=$(echo "$FRONTMATTER" | grep '^author:' | sed 's/^author: *//')
               FOLDER_PREFIX=$(echo "$FOLDER" | cut -d'-' -f1)
               if [ -n "$AUTHOR" ] && [ "$AUTHOR" != "$FOLDER_PREFIX" ]; then
                 ERRORS+=("Author '$AUTHOR' in frontmatter does not match folder prefix '$FOLDER_PREFIX'")
               fi
 
-              # Author in frontmatter must match PR author (GitHub username)
               if [ -n "$AUTHOR" ] && [ -n "$PR_AUTHOR" ]; then
-                # Case-insensitive comparison (GitHub handles are case-insensitive)
                 AUTHOR_LOWER=$(echo "$AUTHOR" | tr '[:upper:]' '[:lower:]')
                 PR_AUTHOR_LOWER=$(echo "$PR_AUTHOR" | tr '[:upper:]' '[:lower:]')
                 if [ "$AUTHOR_LOWER" != "$PR_AUTHOR_LOWER" ]; then
@@ -123,7 +126,6 @@ jobs:
                 fi
               fi
 
-              # Category must be one of the allowed values
               CATEGORY=$(echo "$FRONTMATTER" | grep '^category:' | sed 's/^category: *//')
               ALLOWED="git docker rust k8s python node misc"
               if [ -n "$CATEGORY" ] && ! echo "$ALLOWED" | grep -qw "$CATEGORY"; then
@@ -132,29 +134,27 @@ jobs:
             fi
           fi
 
-          # ── Rule 8: profiles.toml must be valid TOML structure ──
+          # ── Rule 8: profiles.toml structure ──
           if [ -f "community/$FOLDER/profiles.toml" ]; then
             if ! grep -q '\[\[profiles\]\]\|^\[aliases\]' "community/$FOLDER/profiles.toml"; then
               ERRORS+=("profiles.toml does not look like a valid am export (missing [[profiles]] or [aliases] section)")
             fi
           fi
 
-          # ── Rule 9: Scan for suspicious content in profiles.toml ──
+          # ── Rule 9: Scan for suspicious content ──
           if [ -f "community/$FOLDER/profiles.toml" ]; then
-            # Check for TOML unicode escapes that produce control characters
             if grep -qP '\\u\{?00[0-1][0-9a-fA-F]\}?|\\u\{?007[fF]\}?|\\u\{?00[89a-fA-F][0-9a-fA-F]\}?' "community/$FOLDER/profiles.toml" 2>/dev/null; then
               WARNINGS+=("profiles.toml contains unicode escape sequences that may produce control characters. Maintainer: please inspect carefully.")
             fi
-            # Check for raw control characters (bytes 0x00-0x1F except \t \n \r, and 0x7F)
             if grep -qP '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' "community/$FOLDER/profiles.toml" 2>/dev/null; then
-              ERRORS+=("SECURITY: profiles.toml contains raw control characters. This may be an attempt to inject malicious terminal commands.")
+              ERRORS+=("SECURITY: profiles.toml contains raw control characters.")
             fi
           fi
 
           # ── Rule 10: Must not modify other people's folders ──
           OTHER_FOLDERS=$(echo "$FILES" | grep '^community/' | cut -d'/' -f2 | sort -u | grep -v "^${FOLDER}$" || true)
           if [ -n "$OTHER_FOLDERS" ]; then
-            ERRORS+=("SECURITY: Changes detected in other contributor folders: $OTHER_FOLDERS. You may only modify your own folder.")
+            ERRORS+=("SECURITY: Changes detected in other contributor folders: $OTHER_FOLDERS.")
           fi
 
           # ── Report ──
@@ -163,14 +163,12 @@ jobs:
             for WARN in "${WARNINGS[@]}"; do
               echo "  ⚠ $WARN"
             done
-            echo ""
           fi
 
           if [ ${#ERRORS[@]} -gt 0 ]; then
             echo "::error::Community profile validation failed"
             echo ""
             echo "❌ Validation failed with ${#ERRORS[@]} error(s):"
-            echo ""
             for ERR in "${ERRORS[@]}"; do
               echo "  • $ERR"
             done
@@ -191,7 +189,45 @@ jobs:
       - name: Verify import
         run: |
           FOLDER="${{ steps.validate.outputs.folder }}"
-          TOML="community/$FOLDER/profiles.toml"
-          echo "Testing import of $TOML..."
-          ./target/release/am import "$TOML" --yes
+          echo "Testing import of community/$FOLDER/profiles.toml..."
+          ./target/release/am import "community/$FOLDER/profiles.toml" --yes
           echo "✅ Import verification passed"
+
+  # ── Step 2: Build & deploy preview (only after validation passes) ──
+  preview:
+    needs: validate
+    uses: ./.github/workflows/reusable-preview-website.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      is_fork: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    permissions:
+      contents: write
+      pull-requests: write
+
+  # ── Cleanup on PR close ──
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+
+      - name: Remove preview
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+
+          if [ -d "_preview/${PR_NUMBER}" ]; then
+            rm -rf "_preview/${PR_NUMBER}"
+            git add -A
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "cleanup: remove preview for PR #${PR_NUMBER}"
+            git push
+          else
+            echo "No preview to clean up"
+          fi
