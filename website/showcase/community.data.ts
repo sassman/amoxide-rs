@@ -55,8 +55,8 @@ export default {
       const readmeRaw = fs.readFileSync(readmePath, 'utf-8')
       const { data, content } = matter(readmeRaw)
       const toml = fs.readFileSync(tomlPath, 'utf-8')
-      // Count aliases: lines matching `key = "value"` under [profiles.aliases] sections
-      const aliasCount = (toml.match(/^\w[\w-]* = /gm) || []).length
+      // Count aliases: lines matching `key = "value"` but not profile metadata like `name = `
+      const aliasCount = (toml.match(/^\w[\w-]* = /gm) || []).filter(l => !l.startsWith('name = ')).length
 
       // Write detail JSON for lazy loading (README pre-rendered to HTML)
       const detail: CommunityProfileDetail = {
