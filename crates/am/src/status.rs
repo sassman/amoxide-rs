@@ -87,6 +87,10 @@ pub fn check_shell_config() -> Check {
             home_dir().map(|h| h.join(".bashrc")),
             "eval \"$(am init bash)\"",
         ),
+        "brush" => (
+            home_dir().map(|h| h.join(".brushrc")),
+            "eval \"$(am init brush)\"",
+        ),
         "powershell" => {
             let path = crate::setup::detect_powershell_profile();
             (

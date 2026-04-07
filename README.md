@@ -79,12 +79,14 @@ The crate is called `amoxide`, but the binary it installs is simply `am` (short 
 | Fish | Fully supported and tested |
 | PowerShell | Supported and tested (5.1 + 7) |
 | Zsh | Supported, not yet tested |
-| Bash, Nushell | Not yet implemented |
+| Bash | Supported (3.2+) |
+| Brush | Supported (bash-compatible) |
+| Nushell | Not yet implemented |
 
 ## Quick Setup
 
 ```sh
-am setup fish          # or: zsh, powershell
+am setup fish          # or: zsh, bash, brush, powershell
 ```
 
 Then add your first alias:

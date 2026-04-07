@@ -56,13 +56,14 @@ pub enum Commands {
     /// a cd hook for automatic project alias loading. Add one of these lines
     /// to your shell's config file:
     ///
-    ///   Fish        ~/.config/fish/config.fish    am init fish | source
-    ///   Zsh         ~/.zshrc                      eval "$(am init zsh)"
     ///   Bash        ~/.bashrc                     eval "$(am init bash)"
+    ///   Brush       ~/.brushrc                    eval "$(am init brush)"
+    ///   Fish        ~/.config/fish/config.fish    am init fish | source
     ///   Nushell     ~/.config/nushell/config.nu   am init nu | source
     ///   PowerShell  $PROFILE                      (am init powershell) -join "`n" | Invoke-Expression
+    ///   Zsh         ~/.zshrc                      eval "$(am init zsh)"
     ///
-    /// Note: Only fish, zsh, and powershell are currently supported. Others are planned.
+    /// Note: Nushell is not yet supported.
     #[command(verbatim_doc_comment)]
     Init { shell: Shells },
 

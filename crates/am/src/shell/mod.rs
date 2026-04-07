@@ -1,4 +1,5 @@
 mod bash;
+mod brush;
 mod fish;
 mod nix;
 mod powershell;
@@ -7,6 +8,7 @@ mod shell;
 mod zsh;
 
 pub use bash::*;
+pub use brush::*;
 pub use fish::*;
 pub use nix::*;
 pub use powershell::*;
