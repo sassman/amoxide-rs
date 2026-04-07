@@ -8,6 +8,7 @@
 | PowerShell | Supported and tested (5.1 + 7) |
 | Zsh | Supported, not yet tested |
 | Bash | Supported (3.2+) |
+| Brush | Supported (bash-compatible) |
 | Nushell | Not yet implemented |
 
 ## How is this different from shell aliases in my dotfiles?

@@ -121,7 +121,7 @@ fn shell_script(template: &str, shell: &Shells) -> String {
 
 fn am_wrapper(shell: &Shells) -> String {
     match shell {
-        Shells::Bash => shell_script(WRAPPER_BASH, shell),
+        Shells::Bash | Shells::Brush => shell_script(WRAPPER_BASH, shell),
         Shells::Fish => shell_script(WRAPPER_FISH, shell),
         Shells::Powershell => shell_script(WRAPPER_PS1, shell),
         Shells::Zsh => shell_script(WRAPPER_ZSH, shell),
@@ -130,7 +130,7 @@ fn am_wrapper(shell: &Shells) -> String {
 
 fn cd_hook_setup(shell: &Shells) -> String {
     match shell {
-        Shells::Bash => shell_script(HOOK_BASH, shell),
+        Shells::Bash | Shells::Brush => shell_script(HOOK_BASH, shell),
         Shells::Fish => shell_script(HOOK_FISH, shell),
         Shells::Powershell => shell_script(HOOK_PS1, shell),
         Shells::Zsh => shell_script(HOOK_ZSH, shell),
@@ -139,7 +139,9 @@ fn cd_hook_setup(shell: &Shells) -> String {
 
 fn completions(shell: &Shells) -> String {
     match shell {
-        Shells::Bash => include_str!(concat!(env!("OUT_DIR"), "/am.bash")).to_string(),
+        Shells::Bash | Shells::Brush => {
+            include_str!(concat!(env!("OUT_DIR"), "/am.bash")).to_string()
+        }
         Shells::Fish => COMPLETIONS_FISH.to_string(),
         Shells::Powershell => powershell_completions(),
         Shells::Zsh => COMPLETIONS_ZSH.to_string(),

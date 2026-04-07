@@ -18,6 +18,14 @@ am setup zsh
 am setup powershell
 ```
 
+```sh [Bash (v0.4.0+)]
+am setup bash
+```
+
+```sh [Brush]
+am setup brush
+```
+
 :::
 
 Das erkennt deine Profil-Datei, zeigt genau was hinzugefügt wird und fragt nach Bestätigung.
@@ -41,6 +49,16 @@ eval "$(am init zsh)"
 ```powershell [PowerShell]
 # Zu deinem PowerShell-Profil hinzufügen (echo $PROFILE zeigt den Pfad)
 (am init powershell) -join "`n" | Invoke-Expression
+```
+
+```bash [Bash (v0.4.0+)]
+# ~/.bashrc
+eval "$(am init bash)"
+```
+
+```bash [Brush]
+# ~/.brushrc
+eval "$(am init brush)"
 ```
 
 :::

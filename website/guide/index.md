@@ -35,7 +35,7 @@ cargo install amoxide amoxide-tui
 **2. Set up your shell:**
 
 ```sh
-am setup fish          # or: zsh, powershell
+am setup fish          # or: zsh, bash, brush, powershell
 ```
 
 This detects your profile file, shows exactly what it will add, and asks for confirmation. See [Shell Setup](/guide/setup) for the manual approach.

@@ -31,6 +31,10 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
             let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
             (home.join(".bashrc"), r#"eval "$(am init bash)""#)
         }
+        Shells::Brush => {
+            let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+            (home.join(".brushrc"), r#"eval "$(am init brush)""#)
+        }
         Shells::Fish => {
             let mut path = dirs_lite::config_dir().unwrap_or_else(|| PathBuf::from(".config"));
             path.push("fish/config.fish");
@@ -57,7 +61,7 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
 fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
     let path = profile_path.display();
     match shell {
-        Shells::Bash => format!("Run: source {path}"),
+        Shells::Bash | Shells::Brush => format!("Run: source {path}"),
         Shells::Fish => format!("Run: source {path}"),
         Shells::Zsh => format!("Run: source {path}"),
         Shells::Powershell => format!(

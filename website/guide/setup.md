@@ -22,6 +22,10 @@ am setup powershell
 am setup bash
 ```
 
+```sh [Brush]
+am setup brush
+```
+
 :::
 
 This detects your profile file, shows exactly what it will add, and asks for confirmation.
@@ -52,10 +56,15 @@ eval "$(am init zsh)"
 eval "$(am init bash)"
 ```
 
+```bash [Brush]
+# ~/.brushrc
+eval "$(am init brush)"
+```
+
 :::
 
-::: tip Bash load order
-If you use starship, oh-my-bash, or bash-it, add the `am init bash` line **after** their initialization. This ensures amoxide's cd hook isn't overwritten.
+::: tip Bash / Brush load order
+If you use starship, oh-my-bash, or bash-it, add the `am init` line **after** their initialization. This ensures amoxide's cd hook isn't overwritten.
 :::
 
 ## What the Init Does

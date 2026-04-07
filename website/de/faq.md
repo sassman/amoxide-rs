@@ -7,7 +7,9 @@
 | Fish | Vollständig unterstützt und getestet |
 | PowerShell | Unterstützt und getestet (5.1 + 7) |
 | Zsh | Unterstützt, noch nicht getestet |
-| Bash, Nushell | Noch nicht implementiert |
+| Bash | Unterstützt (3.2+) |
+| Brush | Unterstützt (bash-kompatibel) |
+| Nushell | Noch nicht implementiert |
 
 ## Wie unterscheidet sich das von Shell-Aliasen in meinen Dotfiles?
 

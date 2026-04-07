@@ -14,6 +14,7 @@ pub trait Shell: Send + Sync + Debug {
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
 pub enum Shells {
     Bash,
+    Brush,
     // Elvish,
     Fish,
     // Ksh,
@@ -36,6 +37,7 @@ impl Display for Shells {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Shells::Bash => write!(f, "bash"),
+            Shells::Brush => write!(f, "brush"),
             // Shells::Elvish => write!(f, "elvish"),
             Shells::Fish => write!(f, "fish"),
             // Shells::Ksh => write!(f, "ksh"),
@@ -59,6 +61,7 @@ impl From<Shells> for Box<dyn Shell> {
         match shell {
             Shells::Zsh => Box::from(super::zsh::Zsh),
             Shells::Bash => Box::from(super::bash::Bash),
+            Shells::Brush => Box::from(super::brush::Brush),
             Shells::Fish => Box::from(super::fish::Fish),
             Shells::Powershell => Box::from(super::powershell::PowerShell),
             // #[cfg(windows)]
