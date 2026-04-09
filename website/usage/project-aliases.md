@@ -76,13 +76,15 @@ am untrust --forget # remove from tracking entirely (will prompt again)
 
 ### Tamper detection
 
-amoxide stores a cryptographic hash (BLAKE3) of every trusted `.aliases` file. If the file is modified outside of `am` — by a `git pull`, a manual edit, or anything else — the hash won't match and you'll see:
+amoxide stores a cryptographic hash (BLAKE3) of every trusted `.aliases` file. If the file changes outside of `am`, the hash won't match and you'll see:
 
 ```
 am: .aliases was modified since last trusted. Run 'am trust' to review and allow.
 ```
 
-This keeps repeating on every `cd` until you review the changes with `am trust`. Your own changes through `am add -l` or `am remove -l` automatically update the hash, so those never trigger this warning.
+This happens when the file is edited manually, updated by `git pull`, or changed by any tool other than `am`. The warning repeats on every `cd` until you review the changes with `am trust`.
+
+When you use `am` itself to modify the file — via `am add -l` or `am remove -l` — the hash is updated automatically, so those changes never trigger this warning.
 
 ### Load and unload messages
 

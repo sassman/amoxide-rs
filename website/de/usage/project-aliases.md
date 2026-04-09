@@ -76,13 +76,15 @@ am untrust --forget # aus der Verfolgung entfernen (wird erneut nachfragen)
 
 ### Manipulationserkennung
 
-amoxide speichert einen kryptographischen Hash (BLAKE3) jeder vertrauenswürdigen `.aliases`-Datei. Wenn die Datei außerhalb von `am` geändert wird — durch ein `git pull`, eine manuelle Bearbeitung oder ähnliches — stimmt der Hash nicht mehr überein:
+amoxide speichert einen kryptographischen Hash (BLAKE3) jeder vertrauenswürdigen `.aliases`-Datei. Wenn die Datei außerhalb von `am` geändert wird, stimmt der Hash nicht mehr überein:
 
 ```
 am: .aliases was modified since last trusted. Run 'am trust' to review and allow.
 ```
 
-Diese Meldung erscheint bei jedem `cd` wieder, bis du die Änderungen mit `am trust` überprüfst. Eigene Änderungen über `am add -l` oder `am remove -l` aktualisieren den Hash automatisch und lösen diese Warnung nie aus.
+Das passiert, wenn die Datei manuell bearbeitet, durch `git pull` aktualisiert oder von einem anderen Tool als `am` geändert wird. Die Warnung erscheint bei jedem `cd` wieder, bis du die Änderungen mit `am trust` überprüfst.
+
+Wenn du `am` selbst zum Ändern der Datei verwendest — über `am add -l` oder `am remove -l` — wird der Hash automatisch aktualisiert, sodass diese Änderungen die Warnung nie auslösen.
 
 ### Lade- und Entlademeldungen
 
