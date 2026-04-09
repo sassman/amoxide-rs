@@ -8,6 +8,7 @@ amoxide speichert seine Konfiguration in `~/.config/amoxide/` als TOML-Dateien. 
 |-------|-------|
 | `config.toml` | Globale Aliase und aktive Profilliste |
 | `profiles.toml` | Alle Profildefinitionen und deren Aliase |
+| `security.toml` | Vertrauensentscheidungen für Projekt-`.aliases`-Dateien <VersionBadge v="0.5.0" /> |
 | `.aliases` | Projektlokale Aliase (liegt im Projektstamm) |
 
 ## `config.toml` — Globale Konfiguration
@@ -52,6 +53,23 @@ b = "npm run build"
 ```
 
 Jeder `[[profiles]]`-Block definiert ein benanntes Profil mit seinen Aliasen. Beachte, dass verschiedene Profile den gleichen Alias-Namen verwenden können (z.B. `t` in `rust` und `node`) — welches Profil höhere Priorität in `active_profiles` hat, gewinnt.
+
+## `security.toml` — Vertrauensentscheidungen <VersionBadge v="0.5.0" />
+
+Verfolgt, welche Projekt-`.aliases`-Dateien du überprüft und als vertrauenswürdig markiert hast. Wird automatisch von `am trust` und `am untrust` verwaltet — du solltest diese Datei nicht manuell bearbeiten müssen.
+
+```toml
+[[trusted]]
+path = "/home/user/projects/my-app/.aliases"
+hash = "a1b2c3d4e5f6..."
+
+[[untrusted]]
+path = "/home/user/projects/declined-repo/.aliases"
+```
+
+Jeder vertrauenswürdige Eintrag speichert den Dateipfad und einen BLAKE3-Hash des Inhalts. Wenn sich die Datei ändert, stimmt der Hash nicht mehr überein und amoxide fordert dich auf, sie erneut zu überprüfen. Siehe [Vertrauensmodell](/de/usage/project-aliases#vertrauensmodell) für Details.
+
+Ein dritter Abschnitt, `[[tampered]]`, erscheint automatisch, wenn eine vertrauenswürdige Datei außerhalb von `am` geändert wird. Er verschwindet, wenn du `am trust` ausführst, um die Änderungen zu überprüfen.
 
 ## `.aliases` — Projekt-Aliase
 
