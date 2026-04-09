@@ -222,10 +222,7 @@ fn main() -> anyhow::Result<()> {
             };
             let findings = scan_suspicious(&export);
             if !findings.is_empty() {
-                eprint!(
-                    "{}",
-                    render_suspicious_warning(&findings)
-                );
+                eprint!("{}", render_suspicious_warning(&findings));
             }
 
             // Show aliases for review — display filename + parent directory for context

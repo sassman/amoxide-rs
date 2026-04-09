@@ -82,8 +82,7 @@ pub fn generate_hook_with_security(
 
                         // If the same aliases are already loaded, skip entirely.
                         // The hash check guarantees commands haven't changed either.
-                        if names.len() == prev.len()
-                            && names.iter().zip(&prev).all(|(a, b)| a == b)
+                        if names.len() == prev.len() && names.iter().zip(&prev).all(|(a, b)| a == b)
                         {
                             return Ok((String::new(), false));
                         }
@@ -97,7 +96,8 @@ pub fn generate_hook_with_security(
                         }
 
                         for (alias_name, alias_value) in project.aliases.iter() {
-                            lines.push(shell_impl.alias(&alias_value.as_entry(alias_name.as_ref())));
+                            lines
+                                .push(shell_impl.alias(&alias_value.as_entry(alias_name.as_ref())));
                         }
                         lines.push(shell_impl.set_env("_AM_PROJECT_ALIASES", &names.join(",")));
                     }
@@ -127,9 +127,7 @@ pub fn generate_hook_with_security(
             // For non-trusted states: track the path to avoid repeating warnings,
             // and clear the alias tracking env var.
             if !matches!(status, TrustStatus::Trusted) {
-                lines.push(
-                    shell_impl.set_env("_AM_PROJECT_PATH", &path.display().to_string()),
-                );
+                lines.push(shell_impl.set_env("_AM_PROJECT_PATH", &path.display().to_string()));
                 if !prev.is_empty() {
                     lines.push(shell_impl.unset_env("_AM_PROJECT_ALIASES"));
                 }
@@ -240,12 +238,7 @@ mod tests {
             self.dir.path().join(rel_path)
         }
 
-        fn run(
-            &mut self,
-            shell: &Shells,
-            cwd: &Path,
-            prev: Option<&str>,
-        ) -> (String, bool) {
+        fn run(&mut self, shell: &Shells, cwd: &Path, prev: Option<&str>) -> (String, bool) {
             generate_hook_with_security(shell, cwd, prev, &mut self.security, false).unwrap()
         }
 
