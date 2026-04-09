@@ -99,6 +99,16 @@ pub enum Commands {
     #[command(alias = "s")]
     Share(ShareArgs),
 
+    /// Review and trust the project .aliases file in the current directory
+    Trust,
+
+    /// Remove trust for the project .aliases file in the current directory
+    Untrust {
+        /// Forget the path entirely (remove from security tracking instead of marking untrusted)
+        #[arg(short, long)]
+        forget: bool,
+    },
+
     /// Internal: called by the cd hook to load/unload project aliases
     #[command(hide = true)]
     Hook { shell: Shells },

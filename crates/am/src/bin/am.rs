@@ -197,6 +197,17 @@ fn main() -> anyhow::Result<()> {
             print!("{output}");
             return Ok(());
         }
+        Commands::Trust => {
+            // Will be fully wired in Task 9
+            let result = update(&mut model, Message::Trust)?;
+            execute_effects(&mut model, &result.effects)?;
+            return Ok(());
+        }
+        Commands::Untrust { forget } => {
+            let result = update(&mut model, Message::Untrust { forget: *forget })?;
+            execute_effects(&mut model, &result.effects)?;
+            return Ok(());
+        }
         Commands::Init { shell } => Message::InitShell(shell.clone()),
         Commands::Hook { shell } => Message::Hook(shell.clone()),
         Commands::Reload { shell } => Message::Reload(shell.clone()),
