@@ -37,4 +37,7 @@ pub enum Message {
     CreateProfile(String),
 
     Import(ImportPayload),
+
+    Trust,
+    Untrust { forget: bool },
 }

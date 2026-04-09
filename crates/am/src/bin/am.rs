@@ -220,6 +220,7 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
             Effect::Print(text) => println!("{text}"),
+            Effect::SaveSecurity => {} // Will be wired in Task 9
         }
     }
     Ok(())

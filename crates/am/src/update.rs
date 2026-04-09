@@ -331,6 +331,10 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             // local_aliases are saved by the CLI layer (needs file path)
             Ok(UpdateResult::with_effects(&effects))
         }
+        Message::Trust | Message::Untrust { .. } => {
+            // Will be implemented in Task 9
+            Ok(UpdateResult::done())
+        }
     }
 }
 
