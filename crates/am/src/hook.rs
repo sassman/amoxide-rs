@@ -54,12 +54,16 @@ pub fn generate_hook_with_security(
             let hash = crate::trust::compute_file_hash(&path)?;
             let status = security_config.check(&path, &hash);
 
+            // Only show info/warning messages when the .aliases file is
+            // directly in the current directory, not inherited from a parent.
+            let is_direct = path.parent().is_some_and(|p| p == cwd);
+            let show_messages = !quiet && is_direct;
+
             match status {
                 crate::security::TrustStatus::Trusted => {
                     let project = ProjectAliases::load(&path)?;
                     if !project.aliases.is_empty() {
-                        // Show load message
-                        if !quiet {
+                        if show_messages {
                             let load_msg = crate::trust::render_load_message(&project.aliases);
                             for line in load_msg.lines() {
                                 lines.push(shell_impl.echo(line));
@@ -77,7 +81,7 @@ pub fn generate_hook_with_security(
                     }
                 }
                 crate::security::TrustStatus::Unknown => {
-                    if !quiet {
+                    if show_messages {
                         lines.push(shell_impl.echo(
                             "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
                         ));
@@ -88,7 +92,7 @@ pub fn generate_hook_with_security(
                 }
                 crate::security::TrustStatus::Tampered => {
                     security_changed = true;
-                    if !quiet {
+                    if show_messages {
                         lines.push(shell_impl.echo(
                             "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
                         ));
@@ -393,5 +397,47 @@ mod tests {
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("functions -e old2"));
         assert!(output.contains("am: unloaded .aliases"));
+    }
+
+    #[test]
+    fn test_hook_subdirectory_no_warning_for_parent_aliases() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("src");
+        std::fs::create_dir_all(&sub).unwrap();
+        fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        // .aliases is in parent, not in cwd — no warning shown
+        let mut security = SecurityConfig::default();
+        let (output, _) =
+            generate_hook_with_security(&Shells::Fish, &sub, None, &mut security, false).unwrap();
+        assert!(
+            !output.contains("am:"),
+            "should not show warning for parent .aliases, got: {output}"
+        );
+    }
+
+    #[test]
+    fn test_hook_subdirectory_trusted_loads_silently() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("src");
+        std::fs::create_dir_all(&sub).unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        fs::write(&aliases_path, "[aliases]\nb = \"make build\"\n").unwrap();
+
+        let mut security = SecurityConfig::default();
+        trust_file(&mut security, &aliases_path);
+
+        // Trusted parent .aliases — loads aliases but no info message
+        let (output, _) =
+            generate_hook_with_security(&Shells::Fish, &sub, None, &mut security, false).unwrap();
+        assert!(output.contains("alias b \"make build\""));
+        assert!(
+            !output.contains("am: loaded"),
+            "should not show load message for parent .aliases, got: {output}"
+        );
     }
 }
