@@ -255,8 +255,8 @@ fn main() -> anyhow::Result<()> {
             if answer == Answer::Yes {
                 let result = update(&mut model, Message::Trust)?;
                 execute_effects(&mut model, &result.effects)?;
-                // Show the load message the user would see on cd
-                println!("{}", amoxide::trust::render_load_message(&project.aliases));
+                // The shell wrapper calls `am hook` after this, which loads
+                // the aliases and shows the load message.
             } else {
                 let result = update(&mut model, Message::Untrust { forget: false })?;
                 execute_effects(&mut model, &result.effects)?;
