@@ -5,7 +5,6 @@ use anyhow::anyhow;
 use crate::config::Config;
 use crate::display::render_listing;
 use crate::effects::Effect;
-use crate::hook::generate_hook;
 use crate::init::{generate_init, generate_reload};
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
@@ -62,10 +61,7 @@ pub struct AppModel {
     project_trust: Option<ProjectTrust>,
 }
 
-fn resolve_project_trust(
-    cwd: &Path,
-    security_config: &mut SecurityConfig,
-) -> Option<ProjectTrust> {
+fn resolve_project_trust(cwd: &Path, security_config: &mut SecurityConfig) -> Option<ProjectTrust> {
     let project_path = ProjectAliases::find_path(cwd).ok().flatten()?;
     let hash = crate::trust::compute_file_hash(&project_path).ok()?;
     let status = security_config.check(&project_path, &hash);
@@ -203,9 +199,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             AliasTarget::Local => {
                 if let Some(trust) = model.project_trust() {
                     if !trust.is_trusted() {
-                        return Err(anyhow!(
-                            "Trust this directory first: run 'am trust'"
-                        ));
+                        return Err(anyhow!("Trust this directory first: run 'am trust'"));
                     }
                 }
                 Ok(UpdateResult::effect(Effect::AddLocalAlias {
@@ -218,9 +212,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
-                            return Err(anyhow!(
-                                "Trust this directory first: run 'am trust'"
-                            ));
+                            return Err(anyhow!("Trust this directory first: run 'am trust'"));
                         }
                     }
                     Ok(UpdateResult::effect(Effect::AddLocalAlias {
@@ -247,9 +239,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             AliasTarget::Local => {
                 if let Some(trust) = model.project_trust() {
                     if !trust.is_trusted() {
-                        return Err(anyhow!(
-                            "Trust this directory first: run 'am trust'"
-                        ));
+                        return Err(anyhow!("Trust this directory first: run 'am trust'"));
                     }
                 }
                 Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
@@ -258,9 +248,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
-                            return Err(anyhow!(
-                                "Trust this directory first: run 'am trust'"
-                            ));
+                            return Err(anyhow!("Trust this directory first: run 'am trust'"));
                         }
                     }
                     Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
@@ -441,10 +429,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 model.security_config_mut().forget(&path);
                 model.project_trust = Some(ProjectTrust::Unknown(path.clone()));
                 Ok(UpdateResult::with_effects(&[
-                    Effect::Print(format!(
-                        "Removed {} from security tracking",
-                        path.display()
-                    )),
+                    Effect::Print(format!("Removed {} from security tracking", path.display())),
                     Effect::SaveSecurity,
                 ]))
             } else {
