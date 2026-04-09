@@ -8,6 +8,7 @@ amoxide stores its configuration in `~/.config/amoxide/` using TOML files. You r
 |------|---------|
 | `config.toml` | Global aliases and active profile list |
 | `profiles.toml` | All profile definitions and their aliases |
+| `security.toml` | Trust decisions for project `.aliases` files <VersionBadge v="0.5.0" /> |
 | `.aliases` | Project-local aliases (lives in project root) |
 
 ## `config.toml` — Global Config
@@ -52,6 +53,23 @@ b = "npm run build"
 ```
 
 Each `[[profiles]]` block defines a named profile with its aliases. Note that different profiles can use the same alias name (e.g., `t` in both `rust` and `node`) — whichever profile has higher priority in `active_profiles` wins.
+
+## `security.toml` — Trust Decisions <VersionBadge v="0.5.0" />
+
+Tracks which project `.aliases` files you have reviewed and trusted. Managed automatically by `am trust` and `am untrust` — you shouldn't need to edit this file.
+
+```toml
+[[trusted]]
+path = "/home/user/projects/my-app/.aliases"
+hash = "a1b2c3d4e5f6..."
+
+[[untrusted]]
+path = "/home/user/projects/declined-repo/.aliases"
+```
+
+Each trusted entry stores the file path and a BLAKE3 hash of its contents. If the file changes, the hash won't match and amoxide will ask you to re-review. See [Trust Model](/usage/project-aliases#trust-model) for details.
+
+A third section, `[[tampered]]`, appears automatically when a trusted file is modified outside of `am`. It clears when you run `am trust` to review the changes.
 
 ## `.aliases` — Project Aliases
 

@@ -28,8 +28,8 @@ pub fn handle_export(model: &AppModel, args: &ExportArgs) -> anyhow::Result<Stri
 
 fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
     if args.scope.all {
-        // --all: everything
-        let project_aliases = model.project_alias_set();
+        // --all: everything — only include local if trusted
+        let project_aliases = model.project_alias_set(); // returns empty if not trusted
         let export = ExportAll {
             global_aliases: model.config.aliases.clone(),
             profiles: model.profile_config().to_vec(),
@@ -40,7 +40,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
 
     let has_scope = args.scope.local || args.scope.global || !args.scope.profile.is_empty();
     if !has_scope {
-        // No flags: active scope (global + active profiles + local if present)
+        // No flags: active scope (global + active profiles + local if present and trusted)
         let active_profiles: Vec<_> = model
             .config
             .active_profiles
@@ -48,7 +48,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
             .filter_map(|name| model.profile_config().get_profile_by_name(name))
             .cloned()
             .collect();
-        let project_aliases = model.project_alias_set();
+        let project_aliases = model.project_alias_set(); // returns empty if not trusted
         let export = ExportAll {
             global_aliases: model.config.aliases.clone(),
             profiles: active_profiles,
@@ -73,6 +73,11 @@ fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
     }
 
     if args.scope.local {
+        if let Some(trust) = model.project_trust() {
+            if !trust.is_trusted() {
+                anyhow::bail!("Trust this directory first: run 'am trust'");
+            }
+        }
         let project = model
             .project_aliases()
             .ok_or_else(|| anyhow::anyhow!("No .aliases file found in directory tree"))?;

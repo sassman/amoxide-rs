@@ -43,6 +43,15 @@ function am {
             if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         }
     }
+    # trust/untrust — reload project aliases
+    elseif ($args.Count -ge 1 -and $args[0] -eq 'trust') {
+        $out = (& $amBin hook powershell) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+    }
+    elseif ($args.Count -ge 1 -and $args[0] -eq 'untrust') {
+        $out = (& $amBin hook --quiet powershell) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+    }
 }
 
 
@@ -97,6 +106,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('export', 'export', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [System.Management.Automation.CompletionResult]::new('import', 'import', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
             [System.Management.Automation.CompletionResult]::new('share', 'share', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
+            [System.Management.Automation.CompletionResult]::new('trust', 'trust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
+            [System.Management.Automation.CompletionResult]::new('untrust', 'untrust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -293,7 +304,25 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;trust' {
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;untrust' {
+            [System.Management.Automation.CompletionResult]::new('-f', '-f', [System.Management.Automation.CompletionResultType]::ParameterName, 'Forget the path entirely (remove from security tracking instead of marking untrusted)')
+            [System.Management.Automation.CompletionResult]::new('--forget', '--forget', [System.Management.Automation.CompletionResultType]::ParameterName, 'Forget the path entirely (remove from security tracking instead of marking untrusted)')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;hook' {
+            [System.Management.Automation.CompletionResult]::new('-q', '-q', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
+            [System.Management.Automation.CompletionResult]::new('--quiet', '--quiet', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
@@ -320,6 +349,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('export', 'export', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [System.Management.Automation.CompletionResult]::new('import', 'import', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
             [System.Management.Automation.CompletionResult]::new('share', 'share', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
+            [System.Management.Automation.CompletionResult]::new('trust', 'trust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
+            [System.Management.Automation.CompletionResult]::new('untrust', 'untrust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -375,6 +406,12 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;share' {
+            break
+        }
+        'am;help;trust' {
+            break
+        }
+        'am;help;untrust' {
             break
         }
         'am;help;hook' {

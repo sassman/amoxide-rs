@@ -25,13 +25,93 @@ t = "./x.py test"
 b = "./x.py build"
 ```
 
+## Vertrauensmodell <VersionBadge v="0.5.0" />
+
+Projekt-`.aliases`-Dateien können beliebige Shell-Befehle enthalten. Da jeder eine `.aliases`-Datei in ein Repository legen könnte, verlangt amoxide, dass du jede Datei explizit als vertrauenswürdig markierst, bevor ihre Aliase geladen werden — ähnlich wie [direnv](https://direnv.net) mit `.envrc`-Dateien umgeht.
+
+### Erster Kontakt
+
+Wenn du in ein Verzeichnis mit einer nicht vertrauenswürdigen `.aliases`-Datei wechselst, siehst du:
+
+```
+am: .aliases found but not trusted. Run 'am trust' to review and allow.
+```
+
+Es werden keine Aliase geladen, bis du sie überprüft und genehmigt hast.
+
+### Überprüfen und vertrauen
+
+Führe `am trust` aus, um die Aliase zu überprüfen:
+
+```
+❯ am trust
+Reviewing .aliases at /home/user/projects/my-app
+
+  b  → make build
+  t  → cargo test
+  cb → cargo build
+
+Trust these aliases? [Y/n]
+```
+
+Falls die Datei verdächtige Inhalte enthält (versteckte Escape-Sequenzen oder Steuerzeichen), wird vor der Abfrage eine Warnung angezeigt.
+
+Mit **Ja** wird die Datei als vertrauenswürdig markiert — die Aliase werden sofort geladen:
+
+```
+am: loaded .aliases
+  b  → make build
+  t  → cargo test
+  cb → cargo build
+```
+
+Mit **Nein** wird das Verzeichnis als nicht vertrauenswürdig markiert. Zukünftiges `cd` dorthin bleibt still — keine Warnungen, keine Aliase.
+
+### Vertrauen widerrufen
+
+```sh
+am untrust          # als nicht vertrauenswürdig markieren (still bei cd)
+am untrust --forget # aus der Verfolgung entfernen (wird erneut nachfragen)
+```
+
+### Manipulationserkennung
+
+amoxide speichert einen kryptographischen Hash (BLAKE3) jeder vertrauenswürdigen `.aliases`-Datei. Wenn die Datei außerhalb von `am` geändert wird, stimmt der Hash nicht mehr überein:
+
+```
+am: .aliases was modified since last trusted. Run 'am trust' to review and allow.
+```
+
+Das passiert, wenn die Datei manuell bearbeitet, durch `git pull` aktualisiert oder von einem anderen Tool als `am` geändert wird. Die Warnung erscheint bei jedem `cd` wieder, bis du die Änderungen mit `am trust` überprüfst.
+
+Wenn du `am` selbst zum Ändern der Datei verwendest — über `am add -l` oder `am remove -l` — wird der Hash automatisch aktualisiert, sodass diese Änderungen die Warnung nie auslösen.
+
+### Lade- und Entlademeldungen
+
+Wenn Aliase geladen werden, siehst du welche Befehle verfügbar wurden:
+
+```
+am: loaded .aliases
+  b  → make build
+  t  → cargo test
+```
+
+Wenn du das Projekt verlässt:
+
+```
+am: unloaded .aliases: b, t
+```
+
+Diese Meldungen erscheinen nur beim Betreten oder Verlassen des Verzeichnisses mit der `.aliases`-Datei — nicht beim Navigieren in Unterverzeichnissen desselben Projekts.
+
 ## Wie es funktioniert
 
 Der `am init` Shell-Hook ruft `am hook <shell>` bei jedem Verzeichniswechsel auf. Der Hook:
 
 1. Sucht vom aktuellen Verzeichnis aufwärts nach einer `.aliases`-Datei (stoppt vor `$HOME`)
-2. Entlädt alle zuvor aktiven Projekt-Aliase
-3. Lädt die Aliase des neuen Projekts
+2. Prüft, ob die Datei vertrauenswürdig ist (Pfad + Hash in `security.toml`)
+3. Falls vertrauenswürdig: entlädt vorherige Projekt-Aliase und lädt die neuen
+4. Falls nicht vertrauenswürdig: zeigt eine Warnung oder bleibt still, je nach Vertrauensstatus
 
 ## Workflow
 

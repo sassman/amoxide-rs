@@ -7,9 +7,11 @@ use amoxide::{
     cli::*,
     dirs::relative_path,
     effects::Effect,
+    exchange::{render_suspicious_warning, scan_suspicious, ExportAll},
     import_export::{handle_export, handle_import, handle_share},
     project::{ProjectAliases, ALIASES_FILE},
     prompt::{ask_user, Answer},
+    trust::compute_file_hash,
     update::{update, AppModel},
     AliasTarget, Message,
 };
@@ -197,8 +199,82 @@ fn main() -> anyhow::Result<()> {
             print!("{output}");
             return Ok(());
         }
+        Commands::Trust => {
+            // Interactive trust review flow
+            let project_trust = model.project_trust();
+            let path = match project_trust {
+                Some(t) => t.path().to_path_buf(),
+                None => bail!("No .aliases file found in directory tree"),
+            };
+
+            if project_trust.map(|t| t.is_trusted()).unwrap_or(false) {
+                println!("Already trusted: {}", path.display());
+                return Ok(());
+            }
+
+            // Parse and review
+            let project = ProjectAliases::load(&path)?;
+
+            // Check for suspicious characters (reuse from exchange)
+            let export = ExportAll {
+                local_aliases: project.aliases.clone(),
+                ..Default::default()
+            };
+            let findings = scan_suspicious(&export);
+            if !findings.is_empty() {
+                eprint!("{}", render_suspicious_warning(&findings));
+            }
+
+            // Show aliases for review — display filename + parent directory for context
+            let filename = path
+                .file_name()
+                .map(|f| f.to_string_lossy())
+                .unwrap_or_default();
+            let folder = path
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default();
+            println!("Reviewing {filename} at {folder}");
+            println!();
+            let max_name_len = project
+                .aliases
+                .iter()
+                .map(|(n, _)| n.as_ref().len())
+                .max()
+                .unwrap_or(0);
+            for (alias_name, alias_value) in project.aliases.iter() {
+                let name = alias_name.as_ref();
+                let cmd = alias_value.command();
+                println!("  {:width$} \u{2192} {cmd}", name, width = max_name_len);
+            }
+            println!();
+
+            // Prompt
+            let answer = ask_user(
+                "Trust these aliases?",
+                Answer::Yes,
+                false,
+                &mut std::io::stdin().lock(),
+            )?;
+
+            if answer == Answer::Yes {
+                let result = update(&mut model, Message::Trust)?;
+                execute_effects(&mut model, &result.effects)?;
+                // The shell wrapper calls `am hook` after this, which loads
+                // the aliases and shows the load message.
+            } else {
+                let result = update(&mut model, Message::Untrust { forget: false })?;
+                execute_effects(&mut model, &result.effects)?;
+            }
+            return Ok(());
+        }
+        Commands::Untrust { forget } => {
+            let result = update(&mut model, Message::Untrust { forget: *forget })?;
+            execute_effects(&mut model, &result.effects)?;
+            return Ok(());
+        }
         Commands::Init { shell } => Message::InitShell(shell.clone()),
-        Commands::Hook { shell } => Message::Hook(shell.clone()),
+        Commands::Hook { shell, quiet } => Message::Hook(shell.clone(), *quiet),
         Commands::Reload { shell } => Message::Reload(shell.clone()),
     };
 
@@ -213,6 +289,13 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<()> {
+    let has_local_mutation = effects.iter().any(|e| {
+        matches!(
+            e,
+            Effect::AddLocalAlias { .. } | Effect::RemoveLocalAlias { .. }
+        )
+    });
+
     for effect in effects {
         match effect {
             Effect::SaveConfig => model.config.save()?,
@@ -220,8 +303,20 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
             Effect::Print(text) => println!("{text}"),
+            Effect::SaveSecurity => model.security_config().save()?,
         }
     }
+
+    // After local alias mutations, update the security hash
+    if has_local_mutation {
+        if let Some(path) = model.project_path() {
+            let path = path.to_path_buf();
+            let new_hash = compute_file_hash(&path)?;
+            model.security_config_mut().update_hash(&path, &new_hash);
+            model.security_config().save()?;
+        }
+    }
+
     Ok(())
 }
 

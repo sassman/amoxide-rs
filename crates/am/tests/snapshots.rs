@@ -3,10 +3,12 @@ use amoxide::display::{render_listing, render_profiles};
 use amoxide::exchange::{
     render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
 };
-use amoxide::hook::generate_hook;
+use amoxide::hook::generate_hook_with_security;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::project::ProjectAliases;
+use amoxide::security::SecurityConfig;
 use amoxide::shell::Shells;
+use amoxide::trust::compute_file_hash;
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
 use indoc::indoc;
 use std::fs;
@@ -345,8 +347,9 @@ fn snapshot_reload_after_active_set_changed() {
 #[test]
 fn snapshot_hook_fish_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -355,15 +358,21 @@ fn snapshot_hook_fish_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Fish, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_zsh_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -372,15 +381,21 @@ fn snapshot_hook_zsh_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Zsh, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Zsh, dir.path(), None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_powershell_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -389,15 +404,22 @@ fn snapshot_hook_powershell_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Powershell, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Powershell, dir.path(), None, &mut security, false)
+            .unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_bash_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -406,15 +428,21 @@ fn snapshot_hook_bash_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Bash, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Bash, dir.path(), None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_fish_transition() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "make test"
@@ -422,7 +450,18 @@ fn snapshot_hook_fish_transition() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Fish, dir.path(), Some("old_a,old_b")).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) = generate_hook_with_security(
+        &Shells::Fish,
+        dir.path(),
+        Some("old_a,old_b"),
+        &mut security,
+        false,
+    )
+    .unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -430,7 +469,15 @@ fn snapshot_hook_fish_transition() {
 fn snapshot_hook_fish_leaving_project() {
     let dir = tempfile::tempdir().unwrap();
     // No .aliases file
-    let output = generate_hook(&Shells::Fish, dir.path(), Some("old_a,old_b")).unwrap();
+    let mut security = SecurityConfig::default();
+    let (output, _) = generate_hook_with_security(
+        &Shells::Fish,
+        dir.path(),
+        Some("old_a,old_b"),
+        &mut security,
+        false,
+    )
+    .unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -474,13 +521,64 @@ fn snapshot_display_listing_with_globals_and_project() {
     .unwrap();
     let project = ProjectAliases::load(&path).unwrap();
 
-    // Pass a relative display path (as the real caller computes relative_path(cwd, path))
-    let display_path = std::path::Path::new(".aliases");
+    let trust =
+        amoxide::trust::ProjectTrust::Trusted(project, std::path::PathBuf::from(".aliases"));
+    let output = render_listing(&globals, &config, &["rust".to_string()], Some(&trust));
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Trust state listing snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_listing_unknown_project() {
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "rust"
+        [profiles.aliases]
+        ct = "cargo test"
+    "#});
+
+    let trust = amoxide::trust::ProjectTrust::Unknown(std::path::PathBuf::from(
+        "/path/to/project/.aliases",
+    ));
+
     let output = render_listing(
-        &globals,
+        &AliasSet::default(),
         &config,
         &["rust".to_string()],
-        Some((&project, display_path)),
+        Some(&trust),
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_listing_tampered_project() {
+    let trust = amoxide::trust::ProjectTrust::Tampered(std::path::PathBuf::from(
+        "/path/to/project/.aliases",
+    ));
+
+    let output = render_listing(
+        &AliasSet::default(),
+        &ProfileConfig::default(),
+        &[],
+        Some(&trust),
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_listing_untrusted_project() {
+    let trust = amoxide::trust::ProjectTrust::Untrusted(std::path::PathBuf::from(
+        "/path/to/project/.aliases",
+    ));
+
+    let output = render_listing(
+        &AliasSet::default(),
+        &ProfileConfig::default(),
+        &[],
+        Some(&trust),
     );
     insta::assert_snapshot!(output);
 }

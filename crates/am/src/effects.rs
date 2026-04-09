@@ -11,4 +11,5 @@ pub enum Effect {
         name: String,
     },
     Print(String),
+    SaveSecurity,
 }

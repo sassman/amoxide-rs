@@ -4,4 +4,5 @@ expression: output
 ---
 functions -e old_a
 functions -e old_b
+echo 'am: unloaded .aliases: old_a, old_b'
 set -e _AM_PROJECT_ALIASES

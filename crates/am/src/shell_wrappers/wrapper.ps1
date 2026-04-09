@@ -34,4 +34,13 @@ function am {
             if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
         }
     }
+    # trust/untrust — reload project aliases
+    elseif ($args.Count -ge 1 -and $args[0] -eq 'trust') {
+        $out = (& $amBin hook __SHELL__) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+    }
+    elseif ($args.Count -ge 1 -and $args[0] -eq 'untrust') {
+        $out = (& $amBin hook --quiet __SHELL__) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+    }
 }

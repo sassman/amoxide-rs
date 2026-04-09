@@ -27,7 +27,7 @@ pub enum Message {
     AddAlias(String, String, AliasTarget, bool),
     RemoveAlias(String, AliasTarget),
     InitShell(Shells),
-    Hook(Shells),
+    Hook(Shells, bool),
     Reload(Shells),
 
     ToggleProfiles(Vec<String>),
@@ -37,4 +37,7 @@ pub enum Message {
     CreateProfile(String),
 
     Import(ImportPayload),
+
+    Trust,
+    Untrust { forget: bool },
 }

@@ -25,15 +25,95 @@ t = "./x.py test"
 b = "./x.py build"
 ```
 
+## Trust Model <VersionBadge v="0.5.0" />
+
+Project `.aliases` files can contain arbitrary shell commands. Since anyone could put a `.aliases` file into a repository, amoxide requires you to explicitly trust each file before its aliases are loaded — similar to how [direnv](https://direnv.net) handles `.envrc` files.
+
+### First encounter
+
+When you `cd` into a directory with an untrusted `.aliases` file, you'll see:
+
+```
+am: .aliases found but not trusted. Run 'am trust' to review and allow.
+```
+
+No aliases are loaded until you review and approve them.
+
+### Reviewing and trusting
+
+Run `am trust` to review the aliases and decide:
+
+```
+❯ am trust
+Reviewing .aliases at /home/user/projects/my-app
+
+  b  → make build
+  t  → cargo test
+  cb → cargo build
+
+Trust these aliases? [Y/n]
+```
+
+If the file contains suspicious content (hidden escape sequences or control characters), a warning is shown before the prompt.
+
+Answering **yes** trusts the file — aliases are loaded immediately:
+
+```
+am: loaded .aliases
+  b  → make build
+  t  → cargo test
+  cb → cargo build
+```
+
+Answering **no** marks the directory as untrusted. Future `cd`s into it will be silent — no warnings, no aliases.
+
+### Revoking trust
+
+```sh
+am untrust          # mark as untrusted (silent on cd)
+am untrust --forget # remove from tracking entirely (will prompt again)
+```
+
+### Tamper detection
+
+amoxide stores a cryptographic hash (BLAKE3) of every trusted `.aliases` file. If the file changes outside of `am`, the hash won't match and you'll see:
+
+```
+am: .aliases was modified since last trusted. Run 'am trust' to review and allow.
+```
+
+This happens when the file is edited manually, updated by `git pull`, or changed by any tool other than `am`. The warning repeats on every `cd` until you review the changes with `am trust`.
+
+When you use `am` itself to modify the file — via `am add -l` or `am remove -l` — the hash is updated automatically, so those changes never trigger this warning.
+
+### Load and unload messages
+
+When aliases are loaded, you see which commands became available:
+
+```
+am: loaded .aliases
+  b  → make build
+  t  → cargo test
+```
+
+When you leave the project:
+
+```
+am: unloaded .aliases: b, t
+```
+
+These messages only appear when entering or leaving the directory containing the `.aliases` file — not when navigating subdirectories within the same project.
+
 ## How It Works
 
 The `am init` shell hook calls `am hook <shell>` on every directory change. The hook:
 
 1. Walks up from the current directory looking for a `.aliases` file (stopping before `$HOME`)
-2. Unloads any previously active project aliases
-3. Loads the new project's aliases
+2. Checks whether the file is trusted (path + hash match in `security.toml`)
+3. If trusted: unloads any previously active project aliases and loads the new ones
+4. If not trusted: shows a warning or stays silent, depending on the trust state
 
-This means aliases automatically follow your context — switch to a Rust project and get Rust aliases, switch to a Node project and get Node aliases.
+This means aliases automatically follow your context — switch to a Rust project and get Rust aliases, switch to a Node project and get Node aliases — as long as you've trusted the respective `.aliases` files.
 
 ## Workflow
 

@@ -1,0 +1,8 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+🌐 global
+│
+╰─📁 project (/path/to/project/.aliases)
+       ⚠ modified since last trust — run 'am trust' to review and allow

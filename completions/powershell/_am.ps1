@@ -37,6 +37,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
             [CompletionResult]::new('share', 'share', [CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
+            [CompletionResult]::new('trust', 'trust', [CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
+            [CompletionResult]::new('untrust', 'untrust', [CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -233,7 +235,25 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;trust' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;untrust' {
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Forget the path entirely (remove from security tracking instead of marking untrusted)')
+            [CompletionResult]::new('--forget', '--forget', [CompletionResultType]::ParameterName, 'Forget the path entirely (remove from security tracking instead of marking untrusted)')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;hook' {
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
+            [CompletionResult]::new('--quiet', '--quiet', [CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -260,6 +280,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import aliases from a URL or file')
             [CompletionResult]::new('share', 'share', [CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
+            [CompletionResult]::new('trust', 'trust', [CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
+            [CompletionResult]::new('untrust', 'untrust', [CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
@@ -315,6 +337,12 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;share' {
+            break
+        }
+        'am;help;trust' {
+            break
+        }
+        'am;help;untrust' {
             break
         }
         'am;help;hook' {
