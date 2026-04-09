@@ -17,5 +17,6 @@ am() {
         *\ -l\ *|*\ --local\ *|*\ -l|*\ --local) eval "$(command am hook __SHELL__)" ;;
         *) eval "$(command am reload __SHELL__)" ;;
       esac ;;
+    trust|untrust) eval "$(command am hook __SHELL__)" ;;
   esac
 }

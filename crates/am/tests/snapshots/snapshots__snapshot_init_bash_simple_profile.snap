@@ -26,6 +26,7 @@ am() {
         *\ -l\ *|*\ --local\ *|*\ -l|*\ --local) eval "$(command am hook bash)" ;;
         *) eval "$(command am reload bash)" ;;
       esac ;;
+    trust|untrust) eval "$(command am hook bash)" ;;
   esac
 }
 

@@ -26,6 +26,7 @@ am() {
         *\ -l\ *|*\ --local\ *|*\ -l|*\ --local) eval "$(command am hook zsh)" ;;
         *) eval "$(command am reload zsh)" ;;
       esac ;;
+    trust|untrust) eval "$(command am hook zsh)" ;;
   esac
 }
 

@@ -29,5 +29,7 @@ function am --wraps=am
             # profile/global alias change → reload
             command am reload __SHELL__ | source
         end
+    else if begin; test "$argv[1]" = trust; or test "$argv[1]" = untrust; end
+        command am hook __SHELL__ | source
     end
 end
