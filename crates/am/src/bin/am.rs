@@ -227,8 +227,14 @@ fn main() -> anyhow::Result<()> {
             }
 
             // Show aliases for review — display filename + parent directory for context
-            let filename = path.file_name().map(|f| f.to_string_lossy()).unwrap_or_default();
-            let folder = path.parent().map(|p| p.display().to_string()).unwrap_or_default();
+            let filename = path
+                .file_name()
+                .map(|f| f.to_string_lossy())
+                .unwrap_or_default();
+            let folder = path
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default();
             println!("Reviewing {filename} at {folder}");
             println!();
             let max_name_len = project

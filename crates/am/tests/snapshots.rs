@@ -4,11 +4,11 @@ use amoxide::exchange::{
     render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
 };
 use amoxide::hook::generate_hook_with_security;
-use amoxide::security::SecurityConfig;
-use amoxide::trust::compute_file_hash;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::project::ProjectAliases;
+use amoxide::security::SecurityConfig;
 use amoxide::shell::Shells;
+use amoxide::trust::compute_file_hash;
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
 use indoc::indoc;
 use std::fs;
@@ -409,7 +409,8 @@ fn snapshot_hook_powershell_with_aliases() {
     security.trust(&aliases_path, &hash);
 
     let (output, _) =
-        generate_hook_with_security(&Shells::Powershell, dir.path(), None, &mut security, false).unwrap();
+        generate_hook_with_security(&Shells::Powershell, dir.path(), None, &mut security, false)
+            .unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -522,12 +523,7 @@ fn snapshot_display_listing_with_globals_and_project() {
 
     let trust =
         amoxide::trust::ProjectTrust::Trusted(project, std::path::PathBuf::from(".aliases"));
-    let output = render_listing(
-        &globals,
-        &config,
-        &["rust".to_string()],
-        Some(&trust),
-    );
+    let output = render_listing(&globals, &config, &["rust".to_string()], Some(&trust));
     insta::assert_snapshot!(output);
 }
 
@@ -544,8 +540,9 @@ fn snapshot_listing_unknown_project() {
         ct = "cargo test"
     "#});
 
-    let trust =
-        amoxide::trust::ProjectTrust::Unknown(std::path::PathBuf::from("/path/to/project/.aliases"));
+    let trust = amoxide::trust::ProjectTrust::Unknown(std::path::PathBuf::from(
+        "/path/to/project/.aliases",
+    ));
 
     let output = render_listing(
         &AliasSet::default(),

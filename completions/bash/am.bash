@@ -55,8 +55,14 @@ _am() {
             am,status)
                 cmd="am__status"
                 ;;
+            am,trust)
+                cmd="am__trust"
+                ;;
             am,tui)
                 cmd="am__tui"
+                ;;
+            am,untrust)
+                cmd="am__untrust"
                 ;;
             am,use)
                 cmd="am__use"
@@ -100,8 +106,14 @@ _am() {
             am__help,status)
                 cmd="am__help__status"
                 ;;
+            am__help,trust)
+                cmd="am__help__trust"
+                ;;
             am__help,tui)
                 cmd="am__help__tui"
+                ;;
+            am__help,untrust)
+                cmd="am__help__untrust"
                 ;;
             am__help,use)
                 cmd="am__help__use"
@@ -155,7 +167,7 @@ _am() {
 
     case "${cmd}" in
         am)
-            opts="-h -V --help --version add remove ls status profile init setup use tui export import share hook reload help"
+            opts="-h -V --help --version add remove ls status profile init setup use tui export import share trust untrust hook reload help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -213,7 +225,7 @@ _am() {
             return 0
             ;;
         am__help)
-            opts="add remove ls status profile init setup use tui export import share hook reload help"
+            opts="add remove ls status profile init setup use tui export import share trust untrust hook reload help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -464,7 +476,35 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        am__help__trust)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         am__help__tui)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__help__untrust)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -493,7 +533,7 @@ _am() {
             return 0
             ;;
         am__hook)
-            opts="-h -V --help --version bash fish powershell zsh"
+            opts="-q -h -V --quiet --help --version bash fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -804,8 +844,36 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        am__trust)
+            opts="-h -V --help --version"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         am__tui)
             opts="-h -V --help --version"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__untrust)
+            opts="-f -h -V --forget --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
