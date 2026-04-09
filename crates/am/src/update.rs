@@ -200,13 +200,29 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 model.config.add_alias(name, cmd, raw);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
-            AliasTarget::Local => Ok(UpdateResult::effect(Effect::AddLocalAlias {
-                name,
-                cmd,
-                raw,
-            })),
+            AliasTarget::Local => {
+                if let Some(trust) = model.project_trust() {
+                    if !trust.is_trusted() {
+                        return Err(anyhow!(
+                            "Trust this directory first: run 'am trust'"
+                        ));
+                    }
+                }
+                Ok(UpdateResult::effect(Effect::AddLocalAlias {
+                    name,
+                    cmd,
+                    raw,
+                }))
+            }
             AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
                 if model.project_path().is_some() {
+                    if let Some(trust) = model.project_trust() {
+                        if !trust.is_trusted() {
+                            return Err(anyhow!(
+                                "Trust this directory first: run 'am trust'"
+                            ));
+                        }
+                    }
                     Ok(UpdateResult::effect(Effect::AddLocalAlias {
                         name,
                         cmd,
@@ -228,9 +244,25 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 model.config.remove_alias(&name)?;
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
-            AliasTarget::Local => Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name })),
+            AliasTarget::Local => {
+                if let Some(trust) = model.project_trust() {
+                    if !trust.is_trusted() {
+                        return Err(anyhow!(
+                            "Trust this directory first: run 'am trust'"
+                        ));
+                    }
+                }
+                Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
+            }
             AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
                 if model.project_path().is_some() {
+                    if let Some(trust) = model.project_trust() {
+                        if !trust.is_trusted() {
+                            return Err(anyhow!(
+                                "Trust this directory first: run 'am trust'"
+                            ));
+                        }
+                    }
                     Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
                 } else {
                     model.config.remove_alias(&name)?;
@@ -866,5 +898,49 @@ mod tests {
             Some(ProjectTrust::Unknown(_))
         ));
         assert!(!model.security_config().is_tracked(&aliases_path));
+    }
+
+    #[test]
+    fn add_local_alias_on_untrusted_project_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        std::fs::write(&aliases_path, "[aliases]\nb = \"make build\"\n").unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut security = SecurityConfig::default();
+        security.untrust(&aliases_path);
+        let mut model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+
+        let result = update(
+            &mut model,
+            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+        );
+        let err = result.err().expect("should be an error");
+        assert!(err.to_string().contains("Trust this directory first"));
+    }
+
+    #[test]
+    fn remove_local_alias_on_unknown_project_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let security = SecurityConfig::default();
+        let mut model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+
+        let result = update(
+            &mut model,
+            Message::RemoveAlias("b".into(), AliasTarget::Local),
+        );
+        let err = result.err().expect("should be an error");
+        assert!(err.to_string().contains("Trust this directory first"));
     }
 }

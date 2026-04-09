@@ -282,6 +282,13 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<()> {
+    let has_local_mutation = effects.iter().any(|e| {
+        matches!(
+            e,
+            Effect::AddLocalAlias { .. } | Effect::RemoveLocalAlias { .. }
+        )
+    });
+
     for effect in effects {
         match effect {
             Effect::SaveConfig => model.config.save()?,
@@ -292,6 +299,17 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             Effect::SaveSecurity => model.security_config().save()?,
         }
     }
+
+    // After local alias mutations, update the security hash
+    if has_local_mutation {
+        if let Some(path) = model.project_path() {
+            let path = path.to_path_buf();
+            let new_hash = amoxide::trust::compute_file_hash(&path)?;
+            model.security_config_mut().update_hash(&path, &new_hash);
+            model.security_config().save()?;
+        }
+    }
+
     Ok(())
 }
 
