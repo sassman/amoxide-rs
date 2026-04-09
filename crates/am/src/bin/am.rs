@@ -252,14 +252,15 @@ fn main() -> anyhow::Result<()> {
                 &mut std::io::stdin().lock(),
             )?;
 
-            let message = if answer == Answer::Yes {
-                Message::Trust
+            if answer == Answer::Yes {
+                let result = update(&mut model, Message::Trust)?;
+                execute_effects(&mut model, &result.effects)?;
+                // Show the load message the user would see on cd
+                println!("{}", amoxide::trust::render_load_message(&project.aliases));
             } else {
-                Message::Untrust { forget: false }
-            };
-
-            let result = update(&mut model, message)?;
-            execute_effects(&mut model, &result.effects)?;
+                let result = update(&mut model, Message::Untrust { forget: false })?;
+                execute_effects(&mut model, &result.effects)?;
+            }
             return Ok(());
         }
         Commands::Untrust { forget } => {
