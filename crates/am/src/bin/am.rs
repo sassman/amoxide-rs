@@ -198,8 +198,66 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         }
         Commands::Trust => {
-            // Will be fully wired in Task 9
-            let result = update(&mut model, Message::Trust)?;
+            // Interactive trust review flow
+            let project_trust = model.project_trust();
+            let path = match project_trust {
+                Some(t) => t.path().to_path_buf(),
+                None => bail!("No .aliases file found in directory tree"),
+            };
+
+            if project_trust.map(|t| t.is_trusted()).unwrap_or(false) {
+                println!("Already trusted: {}", path.display());
+                return Ok(());
+            }
+
+            // Parse and review
+            let project = ProjectAliases::load(&path)?;
+            let rel = relative_path(&model.cwd, &path);
+
+            // Check for suspicious characters (reuse from exchange)
+            let export = amoxide::exchange::ExportAll {
+                local_aliases: project.aliases.clone(),
+                ..Default::default()
+            };
+            let findings = amoxide::exchange::scan_suspicious(&export);
+            if !findings.is_empty() {
+                eprint!(
+                    "{}",
+                    amoxide::exchange::render_suspicious_warning(&findings)
+                );
+            }
+
+            // Show aliases for review
+            println!("Reviewing .aliases at {}", rel.display());
+            println!();
+            let max_name_len = project
+                .aliases
+                .iter()
+                .map(|(n, _)| n.as_ref().len())
+                .max()
+                .unwrap_or(0);
+            for (alias_name, alias_value) in project.aliases.iter() {
+                let name = alias_name.as_ref();
+                let cmd = alias_value.command();
+                println!("  {:width$} \u{2192} {cmd}", name, width = max_name_len);
+            }
+            println!();
+
+            // Prompt
+            let answer = ask_user(
+                "Trust these aliases?",
+                Answer::Yes,
+                false,
+                &mut std::io::stdin().lock(),
+            )?;
+
+            let message = if answer == Answer::Yes {
+                Message::Trust
+            } else {
+                Message::Untrust { forget: false }
+            };
+
+            let result = update(&mut model, message)?;
             execute_effects(&mut model, &result.effects)?;
             return Ok(());
         }
@@ -231,7 +289,7 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
             Effect::Print(text) => println!("{text}"),
-            Effect::SaveSecurity => {} // Will be wired in Task 9
+            Effect::SaveSecurity => model.security_config().save()?,
         }
     }
     Ok(())

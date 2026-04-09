@@ -363,9 +363,59 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             // local_aliases are saved by the CLI layer (needs file path)
             Ok(UpdateResult::with_effects(&effects))
         }
-        Message::Trust | Message::Untrust { .. } => {
-            // Will be implemented in Task 9
-            Ok(UpdateResult::done())
+        Message::Trust => {
+            let path = model
+                .project_trust()
+                .map(|t| t.path().to_path_buf())
+                .ok_or_else(|| anyhow!("No .aliases file found in directory tree"))?;
+
+            if model
+                .project_trust()
+                .map(|t| t.is_trusted())
+                .unwrap_or(false)
+            {
+                return Ok(UpdateResult::effect(Effect::Print(format!(
+                    "Already trusted: {}",
+                    path.display()
+                ))));
+            }
+
+            let hash = crate::trust::compute_file_hash(&path)?;
+            model.security_config_mut().trust(&path, &hash);
+
+            // Reload project aliases now that it's trusted
+            let aliases = ProjectAliases::load(&path)?;
+            model.project_trust = Some(ProjectTrust::Trusted(aliases, path));
+
+            Ok(UpdateResult::effect(Effect::SaveSecurity))
+        }
+        Message::Untrust { forget } => {
+            let path = model
+                .project_trust()
+                .map(|t| t.path().to_path_buf())
+                .ok_or_else(|| anyhow!("No .aliases file found in directory tree"))?;
+
+            if forget {
+                model.security_config_mut().forget(&path);
+                model.project_trust = Some(ProjectTrust::Unknown(path.clone()));
+                Ok(UpdateResult::with_effects(&[
+                    Effect::Print(format!(
+                        "Removed {} from security tracking",
+                        path.display()
+                    )),
+                    Effect::SaveSecurity,
+                ]))
+            } else {
+                if !model.security_config().is_tracked(&path) {
+                    return Err(anyhow!("Not tracked: {}", path.display()));
+                }
+                model.security_config_mut().untrust(&path);
+                model.project_trust = Some(ProjectTrust::Untrusted(path.clone()));
+                Ok(UpdateResult::with_effects(&[
+                    Effect::Print(format!("Untrusted: {}", path.display())),
+                    Effect::SaveSecurity,
+                ]))
+            }
         }
     }
 }
@@ -744,5 +794,77 @@ mod tests {
         let model = AppModel::new_with_security(config, profile_config, security)
             .with_cwd(dir.path().to_path_buf());
         assert!(model.project_trust().is_none());
+    }
+
+    #[test]
+    fn trust_message_on_unknown_project_returns_save_security() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let security = SecurityConfig::default();
+        let mut model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+
+        assert!(matches!(
+            model.project_trust(),
+            Some(ProjectTrust::Unknown(_))
+        ));
+
+        let result = update(&mut model, Message::Trust).unwrap();
+        assert!(result.effects.contains(&Effect::SaveSecurity));
+        assert!(model.project_trust().unwrap().is_trusted());
+    }
+
+    #[test]
+    fn untrust_message_moves_to_untrusted() {
+        let dir = tempfile::tempdir().unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        std::fs::write(&aliases_path, "[aliases]\nb = \"make build\"\n").unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut security = SecurityConfig::default();
+        let hash = crate::trust::compute_file_hash(&aliases_path).unwrap();
+        security.trust(&aliases_path, &hash);
+
+        let mut model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+
+        let result = update(&mut model, Message::Untrust { forget: false }).unwrap();
+        assert!(result.effects.contains(&Effect::SaveSecurity));
+        assert!(matches!(
+            model.project_trust(),
+            Some(ProjectTrust::Untrusted(_))
+        ));
+    }
+
+    #[test]
+    fn untrust_forget_removes_from_tracking() {
+        let dir = tempfile::tempdir().unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        std::fs::write(&aliases_path, "[aliases]\nb = \"make build\"\n").unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut security = SecurityConfig::default();
+        let hash = crate::trust::compute_file_hash(&aliases_path).unwrap();
+        security.trust(&aliases_path, &hash);
+
+        let mut model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+
+        let result = update(&mut model, Message::Untrust { forget: true }).unwrap();
+        assert!(result.effects.contains(&Effect::SaveSecurity));
+        assert!(matches!(
+            model.project_trust(),
+            Some(ProjectTrust::Unknown(_))
+        ));
+        assert!(!model.security_config().is_tracked(&aliases_path));
     }
 }
