@@ -438,9 +438,6 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                     Effect::SaveSecurity,
                 ]))
             } else {
-                if !model.security_config().is_tracked(&path) {
-                    return Err(anyhow!("Not tracked: {}", path.display()));
-                }
                 model.security_config_mut().untrust(&path);
                 model.project_trust = Some(ProjectTrust::Untrusted(path.clone()));
                 Ok(UpdateResult::with_effects(&[

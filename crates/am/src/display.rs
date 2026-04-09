@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::trust::ProjectTrust;
 use crate::{AliasSet, Profile, ProfileConfig};
 

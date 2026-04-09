@@ -3,7 +3,7 @@ use amoxide::display::{render_listing, render_profiles};
 use amoxide::exchange::{
     render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
 };
-use amoxide::hook::{generate_hook, generate_hook_with_security};
+use amoxide::hook::generate_hook_with_security;
 use amoxide::security::SecurityConfig;
 use amoxide::trust::compute_file_hash;
 use amoxide::init::{generate_init, generate_reload};
