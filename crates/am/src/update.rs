@@ -8,6 +8,8 @@ use crate::effects::Effect;
 use crate::hook::generate_hook;
 use crate::init::{generate_init, generate_reload};
 use crate::project::ProjectAliases;
+use crate::security::{SecurityConfig, TrustStatus};
+use crate::trust::ProjectTrust;
 use crate::{profile, AliasSet, AliasTarget, Message, Profile, ProfileConfig};
 
 pub struct UpdateResult {
@@ -56,26 +58,43 @@ pub struct AppModel {
     pub config: Config,
     pub cwd: std::path::PathBuf,
     profile_config: ProfileConfig,
-    project_aliases: Option<ProjectAliases>,
-    project_path: Option<PathBuf>,
+    security_config: SecurityConfig,
+    project_trust: Option<ProjectTrust>,
+}
+
+fn resolve_project_trust(
+    cwd: &Path,
+    security_config: &mut SecurityConfig,
+) -> Option<ProjectTrust> {
+    let project_path = ProjectAliases::find_path(cwd).ok().flatten()?;
+    let hash = crate::trust::compute_file_hash(&project_path).ok()?;
+    let status = security_config.check(&project_path, &hash);
+
+    Some(match status {
+        TrustStatus::Trusted => {
+            let aliases = ProjectAliases::load(&project_path).ok()?;
+            ProjectTrust::Trusted(aliases, project_path)
+        }
+        TrustStatus::Untrusted => ProjectTrust::Untrusted(project_path),
+        TrustStatus::Tampered => ProjectTrust::Tampered(project_path),
+        TrustStatus::Unknown => ProjectTrust::Unknown(project_path),
+    })
 }
 
 impl Default for AppModel {
     fn default() -> Self {
         let profile_config = ProfileConfig::load().unwrap();
         let config = Config::load().unwrap_or_default();
+        let mut security_config = SecurityConfig::load().unwrap_or_default();
         let cwd = std::env::current_dir().unwrap_or_default();
-        let project_path = ProjectAliases::find_path(&cwd).ok().flatten();
-        let project_aliases = project_path
-            .as_ref()
-            .and_then(|p| ProjectAliases::load(p).ok());
+        let project_trust = resolve_project_trust(&cwd, &mut security_config);
 
         Self {
             config,
-            cwd: std::env::current_dir().unwrap_or_default(),
+            cwd,
             profile_config,
-            project_aliases,
-            project_path,
+            security_config,
+            project_trust,
         }
     }
 }
@@ -86,34 +105,46 @@ impl AppModel {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
             profile_config,
-            project_aliases: None,
-            project_path: None,
+            security_config: SecurityConfig::default(),
+            project_trust: None,
+        }
+    }
+
+    pub fn new_with_security(
+        config: Config,
+        profile_config: ProfileConfig,
+        security_config: SecurityConfig,
+    ) -> Self {
+        Self {
+            config,
+            cwd: std::env::current_dir().unwrap_or_default(),
+            profile_config,
+            security_config,
+            project_trust: None,
         }
     }
 
     pub fn with_cwd(mut self, cwd: std::path::PathBuf) -> Self {
-        // Re-discover project aliases for the new cwd
-        self.project_path = ProjectAliases::find_path(&cwd).ok().flatten();
-        self.project_aliases = self
-            .project_path
-            .as_ref()
-            .and_then(|p| ProjectAliases::load(p).ok());
+        self.project_trust = resolve_project_trust(&cwd, &mut self.security_config);
         self.cwd = cwd;
         self
     }
 
+    pub fn project_trust(&self) -> Option<&ProjectTrust> {
+        self.project_trust.as_ref()
+    }
+
     pub fn project_aliases(&self) -> Option<&ProjectAliases> {
-        self.project_aliases.as_ref()
+        self.project_trust.as_ref().and_then(|t| t.aliases())
     }
 
     pub fn project_path(&self) -> Option<&Path> {
-        self.project_path.as_deref()
+        self.project_trust.as_ref().map(|t| t.path())
     }
 
     /// Get project aliases' AliasSet, or empty default
     pub fn project_alias_set(&self) -> AliasSet {
-        self.project_aliases
-            .as_ref()
+        self.project_aliases()
             .map(|p| p.aliases.clone())
             .unwrap_or_default()
     }
@@ -121,20 +152,28 @@ impl AppModel {
     /// Get or create the project path (for saving new .aliases files).
     /// If no .aliases exists, returns cwd/.aliases
     pub fn project_path_or_create(&self) -> PathBuf {
-        self.project_path
-            .clone()
+        self.project_path()
+            .map(|p| p.to_path_buf())
             .unwrap_or_else(|| self.cwd.join(crate::project::ALIASES_FILE))
     }
 
     /// Merge aliases into project aliases and save.
     pub fn save_project_aliases(&mut self, aliases: AliasSet) -> anyhow::Result<()> {
         let path = self.project_path_or_create();
-        let mut project = self.project_aliases.take().unwrap_or_default();
+        let current_aliases = self.project_aliases().cloned().unwrap_or_default();
+        let mut project = current_aliases;
         project.merge_aliases(aliases);
         project.save(&path)?;
-        self.project_aliases = Some(project);
-        self.project_path = Some(path);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
         Ok(())
+    }
+
+    pub fn security_config(&self) -> &SecurityConfig {
+        &self.security_config
+    }
+
+    pub fn security_config_mut(&mut self) -> &mut SecurityConfig {
+        &mut self.security_config
     }
 
     pub fn profile_config_mut(&mut self) -> &mut ProfileConfig {
@@ -655,5 +694,62 @@ mod tests {
         assert_eq!(result.effects, vec![Effect::SaveProfiles]);
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
         assert_eq!(profile.aliases.iter().count(), 1);
+    }
+
+    #[test]
+    fn model_with_trusted_project_returns_trusted_variant() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut security = SecurityConfig::default();
+        let hash = crate::trust::compute_file_hash(&dir.path().join(".aliases")).unwrap();
+        security.trust(&dir.path().join(".aliases"), &hash);
+
+        let model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+        assert!(model.project_trust().is_some());
+        assert!(model.project_trust().unwrap().is_trusted());
+        assert!(model.project_aliases().is_some());
+    }
+
+    #[test]
+    fn model_with_unknown_project_returns_unknown_variant() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(".aliases"),
+            "[aliases]\nb = \"make build\"\n",
+        )
+        .unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let security = SecurityConfig::default();
+
+        let model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+        assert!(model.project_trust().is_some());
+        assert!(matches!(
+            model.project_trust().unwrap(),
+            ProjectTrust::Unknown(_)
+        ));
+        assert!(model.project_aliases().is_none());
+    }
+
+    #[test]
+    fn model_without_aliases_file_has_no_project_trust() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let security = SecurityConfig::default();
+
+        let model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+        assert!(model.project_trust().is_none());
     }
 }

@@ -7,7 +7,7 @@ use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 pub const ALIASES_FILE: &str = ".aliases";
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct ProjectAliases {
     pub aliases: AliasSet,
 }
