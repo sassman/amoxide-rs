@@ -20,4 +20,8 @@ impl Shell for Brush {
     fn unset_env(&self, var_name: &str) -> String {
         NixShell.unset_env(var_name)
     }
+
+    fn echo(&self, message: &str) -> String {
+        NixShell.echo(message)
+    }
 }

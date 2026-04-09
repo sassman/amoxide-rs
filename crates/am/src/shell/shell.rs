@@ -9,6 +9,7 @@ pub trait Shell: Send + Sync + Debug {
     fn alias(&self, entry: &crate::alias::AliasEntry) -> String;
     fn set_env(&self, var_name: &str, value: &str) -> String;
     fn unset_env(&self, var_name: &str) -> String;
+    fn echo(&self, message: &str) -> String;
 }
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]

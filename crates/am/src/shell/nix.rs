@@ -27,6 +27,10 @@ impl Shell for NixShell {
     fn unset_env(&self, var_name: &str) -> String {
         format!("unset {var_name}")
     }
+
+    fn echo(&self, message: &str) -> String {
+        format!("printf '%s\\n' '{}'", message.replace('\'', "'\\''"))
+    }
 }
 
 #[cfg(test)]

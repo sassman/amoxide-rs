@@ -30,6 +30,10 @@ impl Shell for PowerShell {
     fn unset_env(&self, var_name: &str) -> String {
         format!("Remove-Item -ErrorAction SilentlyContinue Env:{var_name}")
     }
+
+    fn echo(&self, message: &str) -> String {
+        format!("Write-Host '{}'", message.replace('\'', "''"))
+    }
 }
 
 #[cfg(test)]

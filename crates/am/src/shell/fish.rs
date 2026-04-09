@@ -27,6 +27,10 @@ impl Shell for Fish {
     fn unset_env(&self, var_name: &str) -> String {
         format!("set -e {var_name}")
     }
+
+    fn echo(&self, message: &str) -> String {
+        format!("echo '{}'", message.replace('\'', "\\'"))
+    }
 }
 
 #[cfg(test)]
