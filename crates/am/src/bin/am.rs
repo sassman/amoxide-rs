@@ -7,9 +7,11 @@ use amoxide::{
     cli::*,
     dirs::relative_path,
     effects::Effect,
+    exchange::{render_suspicious_warning, scan_suspicious, ExportAll},
     import_export::{handle_export, handle_import, handle_share},
     project::{ProjectAliases, ALIASES_FILE},
     prompt::{ask_user, Answer},
+    trust::compute_file_hash,
     update::{update, AppModel},
     AliasTarget, Message,
 };
@@ -214,15 +216,15 @@ fn main() -> anyhow::Result<()> {
             let project = ProjectAliases::load(&path)?;
 
             // Check for suspicious characters (reuse from exchange)
-            let export = amoxide::exchange::ExportAll {
+            let export = ExportAll {
                 local_aliases: project.aliases.clone(),
                 ..Default::default()
             };
-            let findings = amoxide::exchange::scan_suspicious(&export);
+            let findings = scan_suspicious(&export);
             if !findings.is_empty() {
                 eprint!(
                     "{}",
-                    amoxide::exchange::render_suspicious_warning(&findings)
+                    render_suspicious_warning(&findings)
                 );
             }
 
@@ -312,7 +314,7 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
     if has_local_mutation {
         if let Some(path) = model.project_path() {
             let path = path.to_path_buf();
-            let new_hash = amoxide::trust::compute_file_hash(&path)?;
+            let new_hash = compute_file_hash(&path)?;
             model.security_config_mut().update_hash(&path, &new_hash);
             model.security_config().save()?;
         }
