@@ -212,7 +212,6 @@ fn main() -> anyhow::Result<()> {
 
             // Parse and review
             let project = ProjectAliases::load(&path)?;
-            let rel = relative_path(&model.cwd, &path);
 
             // Check for suspicious characters (reuse from exchange)
             let export = amoxide::exchange::ExportAll {
@@ -227,8 +226,10 @@ fn main() -> anyhow::Result<()> {
                 );
             }
 
-            // Show aliases for review
-            println!("Reviewing .aliases at {}", rel.display());
+            // Show aliases for review — display filename + parent directory for context
+            let filename = path.file_name().map(|f| f.to_string_lossy()).unwrap_or_default();
+            let folder = path.parent().map(|p| p.display().to_string()).unwrap_or_default();
+            println!("Reviewing {filename} at {folder}");
             println!();
             let max_name_len = project
                 .aliases
