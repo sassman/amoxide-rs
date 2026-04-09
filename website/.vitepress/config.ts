@@ -161,6 +161,7 @@ export default defineConfig({
                 { text: 'Globale Aliase', link: '/de/usage/global' },
                 { text: 'Profile', link: '/de/usage/profiles' },
                 { text: 'Projekt-Aliase', link: '/de/usage/project-aliases' },
+                { text: 'Teilen', link: '/de/usage/sharing' },
               ],
             },
           ],
