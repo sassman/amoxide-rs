@@ -12,6 +12,7 @@ pub mod messages;
 pub mod profile;
 pub mod project;
 pub mod prompt;
+pub mod security;
 pub mod setup;
 pub mod shell;
 pub mod status;
