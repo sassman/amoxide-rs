@@ -41,6 +41,9 @@ pub fn generate_hook_with_security(
         .filter(|s| !s.is_empty())
         .unwrap_or("");
 
+    // Track which .aliases file was last seen, to avoid repeating warnings.
+    let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+
     // Find project aliases file
     let project_path = ProjectAliases::find_path(cwd)?;
 
@@ -49,10 +52,15 @@ pub fn generate_hook_with_security(
             let hash = crate::trust::compute_file_hash(&path)?;
             let status = security_config.check(&path, &hash);
 
-            // Only show info/warning messages when the .aliases file is
-            // directly in the current directory, not inherited from a parent.
+            // Only show info/warning messages when:
+            // - not in quiet mode
+            // - the .aliases file is directly in cwd (not inherited from parent)
+            // - we haven't already shown a message for this exact file
             let is_direct = path.parent().is_some_and(|p| p == cwd);
-            let show_messages = !quiet && is_direct;
+            let already_seen = prev_project_path
+                .as_deref()
+                .is_some_and(|p| Path::new(p) == path);
+            let show_messages = !quiet && is_direct && !already_seen;
 
             match status {
                 crate::security::TrustStatus::Trusted => {
@@ -121,9 +129,18 @@ pub fn generate_hook_with_security(
                 }
             }
 
-            // If not trusted, clear tracking env var if it was set
-            if !matches!(status, crate::security::TrustStatus::Trusted) && !prev_csv.is_empty() {
-                lines.push(shell_impl.unset_env("_AM_PROJECT_ALIASES"));
+            // For non-trusted states: track the path to avoid repeating warnings,
+            // and clear the alias tracking env var.
+            if !matches!(status, crate::security::TrustStatus::Trusted) {
+                lines.push(
+                    shell_impl.set_env("_AM_PROJECT_PATH", &path.display().to_string()),
+                );
+                if !prev_csv.is_empty() {
+                    lines.push(shell_impl.unset_env("_AM_PROJECT_ALIASES"));
+                }
+            } else if prev_project_path.is_some() {
+                // Transitioning from non-trusted to trusted — clear the path tracker
+                lines.push(shell_impl.unset_env("_AM_PROJECT_PATH"));
             }
         }
         None => {
@@ -138,6 +155,10 @@ pub fn generate_hook_with_security(
                     lines.push(shell_impl.echo(&unload_msg));
                 }
                 lines.push(shell_impl.unset_env("_AM_PROJECT_ALIASES"));
+            }
+            // Clear the project path tracker
+            if prev_project_path.is_some() {
+                lines.push(shell_impl.unset_env("_AM_PROJECT_PATH"));
             }
         }
     }
