@@ -2,6 +2,9 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
+Write-Host 'am: loaded .aliases'
+Write-Host '  b → cargo build'
+Write-Host '  t → cargo test'
 function global:b { cargo build @args }
 function global:t { cargo test @args }
 $env:_AM_PROJECT_ALIASES = "b,t"

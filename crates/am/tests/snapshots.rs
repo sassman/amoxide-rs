@@ -3,7 +3,9 @@ use amoxide::display::{render_listing, render_profiles};
 use amoxide::exchange::{
     render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
 };
-use amoxide::hook::generate_hook;
+use amoxide::hook::{generate_hook, generate_hook_with_security};
+use amoxide::security::SecurityConfig;
+use amoxide::trust::compute_file_hash;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::project::ProjectAliases;
 use amoxide::shell::Shells;
@@ -345,8 +347,9 @@ fn snapshot_reload_after_active_set_changed() {
 #[test]
 fn snapshot_hook_fish_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -355,15 +358,21 @@ fn snapshot_hook_fish_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Fish, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_zsh_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -372,15 +381,21 @@ fn snapshot_hook_zsh_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Zsh, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Zsh, dir.path(), None, &mut security).unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_powershell_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -389,15 +404,21 @@ fn snapshot_hook_powershell_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Powershell, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Powershell, dir.path(), None, &mut security).unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_bash_with_aliases() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "cargo test"
@@ -406,15 +427,21 @@ fn snapshot_hook_bash_with_aliases() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Bash, dir.path(), None).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) =
+        generate_hook_with_security(&Shells::Bash, dir.path(), None, &mut security).unwrap();
     insta::assert_snapshot!(output);
 }
 
 #[test]
 fn snapshot_hook_fish_transition() {
     let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
     fs::write(
-        dir.path().join(".aliases"),
+        &aliases_path,
         indoc! {r#"
             [aliases]
             t = "make test"
@@ -422,7 +449,17 @@ fn snapshot_hook_fish_transition() {
     )
     .unwrap();
 
-    let output = generate_hook(&Shells::Fish, dir.path(), Some("old_a,old_b")).unwrap();
+    let mut security = SecurityConfig::default();
+    let hash = compute_file_hash(&aliases_path).unwrap();
+    security.trust(&aliases_path, &hash);
+
+    let (output, _) = generate_hook_with_security(
+        &Shells::Fish,
+        dir.path(),
+        Some("old_a,old_b"),
+        &mut security,
+    )
+    .unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -430,7 +467,14 @@ fn snapshot_hook_fish_transition() {
 fn snapshot_hook_fish_leaving_project() {
     let dir = tempfile::tempdir().unwrap();
     // No .aliases file
-    let output = generate_hook(&Shells::Fish, dir.path(), Some("old_a,old_b")).unwrap();
+    let mut security = SecurityConfig::default();
+    let (output, _) = generate_hook_with_security(
+        &Shells::Fish,
+        dir.path(),
+        Some("old_a,old_b"),
+        &mut security,
+    )
+    .unwrap();
     insta::assert_snapshot!(output);
 }
 

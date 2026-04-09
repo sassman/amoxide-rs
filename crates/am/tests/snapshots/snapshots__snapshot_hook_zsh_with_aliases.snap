@@ -2,6 +2,9 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
+printf '%s\n' 'am: loaded .aliases'
+printf '%s\n' '  b → cargo build'
+printf '%s\n' '  t → cargo test'
 b() { cargo build "$@"; }
 t() { cargo test "$@"; }
 export _AM_PROJECT_ALIASES="b,t"

@@ -2,6 +2,9 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
+echo 'am: loaded .aliases'
+echo '  b → cargo build'
+echo '  t → cargo test'
 alias b "cargo build"
 alias t "cargo test"
 set -gx _AM_PROJECT_ALIASES "b,t"

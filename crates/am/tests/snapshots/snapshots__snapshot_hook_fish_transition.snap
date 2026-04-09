@@ -4,5 +4,7 @@ expression: output
 ---
 functions -e old_a
 functions -e old_b
+echo 'am: loaded .aliases'
+echo '  t → make test'
 alias t "make test"
 set -gx _AM_PROJECT_ALIASES "t"
