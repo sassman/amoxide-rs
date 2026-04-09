@@ -318,13 +318,23 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
             Ok(UpdateResult::done())
         }
-        Message::Hook(shell) => {
+        Message::Hook(shell, quiet) => {
             let prev = std::env::var("_AM_PROJECT_ALIASES").ok();
-            let output = generate_hook(&shell, &model.cwd, prev.as_deref())?;
+            let (output, security_changed) = crate::hook::generate_hook_with_security(
+                &shell,
+                &model.cwd,
+                prev.as_deref(),
+                &mut model.security_config,
+                quiet,
+            )?;
             if !output.is_empty() {
                 print!("{output}");
             }
-            Ok(UpdateResult::done())
+            if security_changed {
+                Ok(UpdateResult::effect(Effect::SaveSecurity))
+            } else {
+                Ok(UpdateResult::done())
+            }
         }
         Message::ToggleProfiles(names) => {
             for name in &names {

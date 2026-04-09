@@ -14,9 +14,7 @@ pub fn generate_hook(
     previous_aliases: Option<&str>,
 ) -> crate::Result<String> {
     let mut security = SecurityConfig::load().unwrap_or_default();
-    let (output, _changed) = generate_hook_with_security(shell, cwd, previous_aliases, &mut security)?;
-    // Note: security changes (tamper detection) are not persisted from this path.
-    // The main update() path handles persistence via Effect::SaveSecurity.
+    let (output, _changed) = generate_hook_with_security(shell, cwd, previous_aliases, &mut security, false)?;
     Ok(output)
 }
 
@@ -24,11 +22,15 @@ pub fn generate_hook(
 ///
 /// Returns `(shell_code, security_changed)` — `security_changed` is true
 /// when a tamper was detected and `security_config` was mutated in memory.
+///
+/// When `quiet` is true, info and warning echo messages are suppressed
+/// (alias loading/unloading still happens).
 pub fn generate_hook_with_security(
     shell: &Shells,
     cwd: &Path,
     previous_aliases: Option<&str>,
     security_config: &mut SecurityConfig,
+    quiet: bool,
 ) -> crate::Result<(String, bool)> {
     let shell_impl = shell.clone().as_shell();
     let mut lines: Vec<String> = Vec::new();
@@ -57,9 +59,11 @@ pub fn generate_hook_with_security(
                     let project = ProjectAliases::load(&path)?;
                     if !project.aliases.is_empty() {
                         // Show load message
-                        let load_msg = crate::trust::render_load_message(&project.aliases);
-                        for line in load_msg.lines() {
-                            lines.push(shell_impl.echo(line));
+                        if !quiet {
+                            let load_msg = crate::trust::render_load_message(&project.aliases);
+                            for line in load_msg.lines() {
+                                lines.push(shell_impl.echo(line));
+                            }
                         }
 
                         let mut names: Vec<String> = Vec::new();
@@ -73,18 +77,22 @@ pub fn generate_hook_with_security(
                     }
                 }
                 crate::security::TrustStatus::Unknown => {
-                    lines.push(shell_impl.echo(
-                        "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
-                    ));
+                    if !quiet {
+                        lines.push(shell_impl.echo(
+                            "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
+                        ));
+                    }
                 }
                 crate::security::TrustStatus::Untrusted => {
                     // Silent — no output, no aliases
                 }
                 crate::security::TrustStatus::Tampered => {
                     security_changed = true;
-                    lines.push(shell_impl.echo(
-                        "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
-                    ));
+                    if !quiet {
+                        lines.push(shell_impl.echo(
+                            "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
+                        ));
+                    }
                 }
             }
 
@@ -94,10 +102,12 @@ pub fn generate_hook_with_security(
             }
         }
         None => {
-            // No project aliases — show unload message and clear tracking
+            // No project aliases — unload and clear tracking
             if !prev.is_empty() {
-                let unload_msg = crate::trust::render_unload_message(&prev);
-                lines.push(shell_impl.echo(&unload_msg));
+                if !quiet {
+                    let unload_msg = crate::trust::render_unload_message(&prev);
+                    lines.push(shell_impl.echo(&unload_msg));
+                }
                 lines.push(shell_impl.unset_env("_AM_PROJECT_ALIASES"));
             }
         }
@@ -128,7 +138,7 @@ mod tests {
         trust_file(&mut security, &aliases_path);
 
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(output.contains("alias b \"make build\""));
         assert!(output.contains("alias t \"make test\""));
         assert!(output.contains("_AM_PROJECT_ALIASES"));
@@ -140,7 +150,7 @@ mod tests {
         // no .aliases file, but previous aliases exist
         let mut security = SecurityConfig::default();
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), Some("old1,old2"), &mut security)
+            generate_hook_with_security(&Shells::Fish, dir.path(), Some("old1,old2"), &mut security, false)
                 .unwrap();
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("functions -e old2"));
@@ -152,7 +162,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut security = SecurityConfig::default();
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(output.is_empty());
     }
 
@@ -170,6 +180,7 @@ mod tests {
             dir.path(),
             Some("old1,old2"),
             &mut security,
+            false,
         )
         .unwrap();
         assert!(output.contains("functions -e old1"));
@@ -192,6 +203,7 @@ mod tests {
             dir.path(),
             Some("old"),
             &mut security,
+            false,
         )
         .unwrap();
         assert!(output.contains("unset -f old"));
@@ -210,7 +222,7 @@ mod tests {
 
         // First hook call — loads b
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(output.contains("alias b \"make build\""));
         assert!(!output.contains("alias t"));
 
@@ -221,7 +233,7 @@ mod tests {
 
         // Second hook call — should unload old and load both
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), Some("b"), &mut security)
+            generate_hook_with_security(&Shells::Fish, dir.path(), Some("b"), &mut security, false)
                 .unwrap();
         assert!(output.contains("functions -e b"));
         assert!(output.contains("alias b \"make build\""));
@@ -240,7 +252,7 @@ mod tests {
 
         // First hook — loads both
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(output.contains("alias b"));
         assert!(output.contains("alias t"));
 
@@ -250,7 +262,7 @@ mod tests {
 
         // Second hook — should unload old (b,t) and only load b
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), Some("b,t"), &mut security)
+            generate_hook_with_security(&Shells::Fish, dir.path(), Some("b,t"), &mut security, false)
                 .unwrap();
         assert!(output.contains("functions -e b"));
         assert!(output.contains("functions -e t"));
@@ -273,6 +285,7 @@ mod tests {
             dir.path(),
             Some("old"),
             &mut security,
+            false,
         )
         .unwrap();
         assert!(output.contains("unset -f old"));
@@ -292,7 +305,7 @@ mod tests {
         trust_file(&mut security, &aliases_path);
 
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, &sub, None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, &sub, None, &mut security, false).unwrap();
         assert!(
             output.contains("alias b \"make build\""),
             "should load aliases from parent .aliases, got: {output}"
@@ -314,7 +327,7 @@ mod tests {
         security.trust(&aliases_path, &hash);
 
         let (output, changed) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(!changed);
         assert!(output.contains("alias b \"make build\""));
         assert!(output.contains("am: loaded .aliases"));
@@ -331,7 +344,7 @@ mod tests {
 
         let mut security = SecurityConfig::default();
         let (output, changed) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(!changed);
         assert!(!output.contains("alias b"));
         assert!(output.contains("am: .aliases found but not trusted"));
@@ -348,7 +361,7 @@ mod tests {
         security.untrust(&aliases_path);
 
         let (output, changed) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(!changed);
         assert!(!output.contains("alias b"));
         assert!(!output.contains("am:"));
@@ -364,7 +377,7 @@ mod tests {
         security.trust(&aliases_path, "wrong_hash");
 
         let (output, changed) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security).unwrap();
+            generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
         assert!(changed);
         assert!(!output.contains("alias b"));
         assert!(output.contains("modified since last trusted"));
@@ -375,7 +388,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut security = SecurityConfig::default();
         let (output, _) =
-            generate_hook_with_security(&Shells::Fish, dir.path(), Some("old1,old2"), &mut security)
+            generate_hook_with_security(&Shells::Fish, dir.path(), Some("old1,old2"), &mut security, false)
                 .unwrap();
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("functions -e old2"));

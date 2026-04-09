@@ -42,8 +42,10 @@ function am --wraps=am
             # profile/global alias change → reload
             command am reload fish | source
         end
-    else if begin; test "$argv[1]" = trust; or test "$argv[1]" = untrust; end
+    else if test "$argv[1]" = trust
         command am hook fish | source
+    else if test "$argv[1]" = untrust
+        command am hook --quiet fish | source
     end
 end
 
@@ -174,6 +176,7 @@ complete -c am -n "__fish_am_using_subcommand trust" -s V -l version -d 'Print v
 complete -c am -n "__fish_am_using_subcommand untrust" -s f -l forget -d 'Forget the path entirely (remove from security tracking instead of marking untrusted)'
 complete -c am -n "__fish_am_using_subcommand untrust" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand untrust" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand hook" -s q -l quiet -d 'Suppress info and warning messages (still unloads/loads aliases)'
 complete -c am -n "__fish_am_using_subcommand hook" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand hook" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand reload" -s h -l help -d 'Print help'

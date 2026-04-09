@@ -44,8 +44,12 @@ function am {
         }
     }
     # trust/untrust — reload project aliases
-    elseif ($args.Count -ge 1 -and $args[0] -in 'trust', 'untrust') {
+    elseif ($args.Count -ge 1 -and $args[0] -eq 'trust') {
         $out = (& $amBin hook powershell) -join "`r`n"
+        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+    }
+    elseif ($args.Count -ge 1 -and $args[0] -eq 'untrust') {
+        $out = (& $amBin hook --quiet powershell) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
 }
@@ -317,6 +321,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;hook' {
+            [System.Management.Automation.CompletionResult]::new('-q', '-q', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
+            [System.Management.Automation.CompletionResult]::new('--quiet', '--quiet', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')

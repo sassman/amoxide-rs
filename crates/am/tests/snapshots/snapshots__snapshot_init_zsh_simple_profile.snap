@@ -26,7 +26,8 @@ am() {
         *\ -l\ *|*\ --local\ *|*\ -l|*\ --local) eval "$(command am hook zsh)" ;;
         *) eval "$(command am reload zsh)" ;;
       esac ;;
-    trust|untrust) eval "$(command am hook zsh)" ;;
+    trust) eval "$(command am hook zsh)" ;;
+    untrust) eval "$(command am hook --quiet zsh)" ;;
   esac
 }
 
@@ -322,6 +323,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (hook)
 _arguments "${_arguments_options[@]}" : \
+'-q[Suppress info and warning messages (still unloads/loads aliases)]' \
+'--quiet[Suppress info and warning messages (still unloads/loads aliases)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \

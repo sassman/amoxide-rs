@@ -269,7 +269,7 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         }
         Commands::Init { shell } => Message::InitShell(shell.clone()),
-        Commands::Hook { shell } => Message::Hook(shell.clone()),
+        Commands::Hook { shell, quiet } => Message::Hook(shell.clone(), *quiet),
         Commands::Reload { shell } => Message::Reload(shell.clone()),
     };
 

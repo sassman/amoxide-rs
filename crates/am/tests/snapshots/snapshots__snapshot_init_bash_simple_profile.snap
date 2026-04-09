@@ -26,7 +26,8 @@ am() {
         *\ -l\ *|*\ --local\ *|*\ -l|*\ --local) eval "$(command am hook bash)" ;;
         *) eval "$(command am reload bash)" ;;
       esac ;;
-    trust|untrust) eval "$(command am hook bash)" ;;
+    trust) eval "$(command am hook bash)" ;;
+    untrust) eval "$(command am hook --quiet bash)" ;;
   esac
 }
 
@@ -589,7 +590,7 @@ _am() {
             return 0
             ;;
         am__hook)
-            opts="-h -V --help --version bash fish powershell zsh"
+            opts="-q -h -V --quiet --help --version bash fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
