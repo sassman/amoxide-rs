@@ -244,18 +244,11 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
         },
         Message::ListProfiles => {
-            let rel_path = model
-                .project_path()
-                .map(|p| crate::dirs::relative_path(&model.cwd, p));
-            let project = model
-                .project_aliases()
-                .filter(|p| !p.aliases.is_empty())
-                .zip(rel_path.as_deref());
             let output = render_listing(
                 &model.config.aliases,
                 model.profile_config(),
                 &model.config.active_profiles,
-                project,
+                model.project_trust(),
             );
             println!("{output}");
             Ok(UpdateResult::done())

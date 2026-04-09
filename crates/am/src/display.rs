@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::project::ProjectAliases;
+use crate::trust::ProjectTrust;
 use crate::{AliasSet, Profile, ProfileConfig};
 
 /// Render profiles + project aliases as a complete two-zone listing.
@@ -14,7 +14,7 @@ pub fn render_listing(
     global_aliases: &AliasSet,
     config: &ProfileConfig,
     active_profiles: &[String],
-    project: Option<(&ProjectAliases, &Path)>,
+    project: Option<&ProjectTrust>,
 ) -> String {
     let mut output = String::new();
 
@@ -29,9 +29,6 @@ pub fn render_listing(
         .iter()
         .filter(|p| !active_profiles.contains(&p.name))
         .collect();
-
-    let project_path = project.map(|(_, path)| path);
-    let project = project.map(|(p, _)| p);
 
     // Determine if there are items after global in the active zone
     let has_active_items = !active_ordered.is_empty() || project.is_some();
@@ -89,15 +86,47 @@ pub fn render_listing(
     }
 
     // Project aliases (last in active zone)
-    if let (Some(proj), Some(path)) = (&project, &project_path) {
-        output.push_str(&format!(
-            "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
-            path.display()
-        ));
-        for (alias_name, alias_value) in proj.aliases.iter() {
-            let name = alias_name.as_ref();
-            let cmd = alias_value.command();
-            output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
+    if let Some(trust) = &project {
+        let path = trust.path();
+        match trust {
+            ProjectTrust::Trusted(proj, _) => {
+                output.push_str(&format!(
+                    "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
+                    path.display()
+                ));
+                for (alias_name, alias_value) in proj.aliases.iter() {
+                    let name = alias_name.as_ref();
+                    let cmd = alias_value.command();
+                    output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
+                }
+            }
+            ProjectTrust::Unknown(_) => {
+                output.push_str(&format!(
+                    "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
+                    path.display()
+                ));
+                output.push_str(
+                    "\n       \u{26A0} untrusted \u{2014} run 'am trust' to review and allow",
+                );
+            }
+            ProjectTrust::Tampered(_) => {
+                output.push_str(&format!(
+                    "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
+                    path.display()
+                ));
+                output.push_str(
+                    "\n       \u{26A0} modified since last trust \u{2014} run 'am trust' to review and allow",
+                );
+            }
+            ProjectTrust::Untrusted(_) => {
+                output.push_str(&format!(
+                    "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
+                    path.display()
+                ));
+                output.push_str(
+                    "\n       \u{26A0} blocked \u{2014} run 'am untrust --forget' to reset",
+                );
+            }
         }
     }
 
@@ -187,6 +216,7 @@ pub fn render_profiles(config: &ProfileConfig, active_profiles: &[String]) -> St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project::ProjectAliases;
     use crate::ProfileConfig;
     use indoc::indoc;
 
@@ -311,13 +341,13 @@ mod tests {
         let path = dir.path().join(".aliases");
         std::fs::write(&path, "[aliases]\nt = \"cargo test\"\n").unwrap();
         let project = ProjectAliases::load(&path).unwrap();
-        let display_path = std::path::Path::new(".aliases");
+        let trust = ProjectTrust::Trusted(project, std::path::PathBuf::from(".aliases"));
 
         let output = render_listing(
             &AliasSet::default(),
             &config,
             &["git".to_string(), "rust".to_string()],
-            Some((&project, display_path)),
+            Some(&trust),
         );
         assert!(output.contains("├─● git (active: 1)"));
         assert!(output.contains("├─● rust (active: 2)"));
@@ -381,13 +411,13 @@ mod tests {
         let path = dir.path().join(".aliases");
         std::fs::write(&path, "[aliases]\nt = \"cargo test\"\n").unwrap();
         let project = ProjectAliases::load(&path).unwrap();
-        let display_path = std::path::Path::new(".aliases");
+        let trust = ProjectTrust::Trusted(project, std::path::PathBuf::from(".aliases"));
 
         let output = render_listing(
             &AliasSet::default(),
             &config,
             &["default".to_string()],
-            Some((&project, display_path)),
+            Some(&trust),
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(output.contains("📁 project"));

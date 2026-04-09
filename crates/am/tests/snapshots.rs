@@ -518,13 +518,13 @@ fn snapshot_display_listing_with_globals_and_project() {
     .unwrap();
     let project = ProjectAliases::load(&path).unwrap();
 
-    // Pass a relative display path (as the real caller computes relative_path(cwd, path))
-    let display_path = std::path::Path::new(".aliases");
+    let trust =
+        amoxide::trust::ProjectTrust::Trusted(project, std::path::PathBuf::from(".aliases"));
     let output = render_listing(
         &globals,
         &config,
         &["rust".to_string()],
-        Some((&project, display_path)),
+        Some(&trust),
     );
     insta::assert_snapshot!(output);
 }
