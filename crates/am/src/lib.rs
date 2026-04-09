@@ -16,6 +16,7 @@ pub mod security;
 pub mod setup;
 pub mod shell;
 pub mod status;
+pub mod trust;
 pub mod update;
 
 pub use alias::*;
