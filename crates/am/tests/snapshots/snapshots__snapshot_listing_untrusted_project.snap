@@ -1,0 +1,8 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+🌐 global
+│
+╰─📁 project (/path/to/project/.aliases)
+       ⚠ blocked — run 'am untrust --forget' to reset

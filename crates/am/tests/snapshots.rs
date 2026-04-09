@@ -530,6 +530,61 @@ fn snapshot_display_listing_with_globals_and_project() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// Trust state listing snapshots
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_listing_unknown_project() {
+    let config = profiles(indoc! {r#"
+        [[profiles]]
+        name = "rust"
+        [profiles.aliases]
+        ct = "cargo test"
+    "#});
+
+    let trust =
+        amoxide::trust::ProjectTrust::Unknown(std::path::PathBuf::from("/path/to/project/.aliases"));
+
+    let output = render_listing(
+        &AliasSet::default(),
+        &config,
+        &["rust".to_string()],
+        Some(&trust),
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_listing_tampered_project() {
+    let trust = amoxide::trust::ProjectTrust::Tampered(std::path::PathBuf::from(
+        "/path/to/project/.aliases",
+    ));
+
+    let output = render_listing(
+        &AliasSet::default(),
+        &ProfileConfig::default(),
+        &[],
+        Some(&trust),
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_listing_untrusted_project() {
+    let trust = amoxide::trust::ProjectTrust::Untrusted(std::path::PathBuf::from(
+        "/path/to/project/.aliases",
+    ));
+
+    let output = render_listing(
+        &AliasSet::default(),
+        &ProfileConfig::default(),
+        &[],
+        Some(&trust),
+    );
+    insta::assert_snapshot!(output);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // Import summary snapshots
 // ═══════════════════════════════════════════════════════════════════════
 
