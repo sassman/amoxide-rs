@@ -34,14 +34,6 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
     frame.render_widget(help, chunks[0]);
 
-    if let Some(ref msg) = model.status_line {
-        let status = Paragraph::new(ratatui::text::Span::styled(
-            msg.clone(),
-            Style::default().fg(TRUST_WARN),
-        ));
-        frame.render_widget(status, chunks[3]);
-    }
-
     // Add 1-column padding on left and right
     let padded = Layout::default()
         .direction(Direction::Horizontal)
@@ -62,18 +54,37 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
             render_left_column(frame, model, columns[0]);
             render_right_column(frame, model, columns[1]);
+            render_status(frame, model, chunks[3]);
         }
         Mode::TextInput(state) => {
             render_left_column(frame, model, content_area);
-            render_text_input(frame, state, content_area);
+            // Bottom row: editor on the left half, status on the right half
+            let bottom = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(chunks[3]);
+            render_text_input(frame, state, bottom[0]);
+            render_status(frame, model, bottom[1]);
         }
         Mode::Confirm(action) => {
             render_left_column(frame, model, content_area);
             render_confirm(frame, action, content_area);
+            render_status(frame, model, chunks[3]);
         }
         Mode::Normal => {
             render_left_column(frame, model, content_area);
+            render_status(frame, model, chunks[3]);
         }
+    }
+}
+
+fn render_status(frame: &mut Frame, model: &TuiModel, area: Rect) {
+    if let Some(ref msg) = model.status_line {
+        let status = Paragraph::new(ratatui::text::Span::styled(
+            msg.clone(),
+            Style::default().fg(TRUST_WARN),
+        ));
+        frame.render_widget(status, area);
     }
 }
 
@@ -182,12 +193,7 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 }
 
 fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
-    let input_area = Rect {
-        x: area.x,
-        y: area.y + area.height.saturating_sub(1),
-        width: area.width,
-        height: 1,
-    };
+    let input_area = area;
     let prompt = match state {
         TextInputState::NewProfile(text) => Line::from(vec![
             Span::styled("  New profile: ", Style::default().fg(GOLD)),
