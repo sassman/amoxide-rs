@@ -112,7 +112,7 @@ impl AppModel {
         Self {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
-            config_dir: crate::dirs::config_dir(),
+            config_dir: PathBuf::new(),
             profile_config,
             security_config: SecurityConfig::default(),
             project_trust: None,
@@ -127,7 +127,7 @@ impl AppModel {
         Self {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
-            config_dir: crate::dirs::config_dir(),
+            config_dir: PathBuf::new(),
             profile_config,
             security_config,
             project_trust: None,
@@ -203,14 +203,23 @@ impl AppModel {
     }
 
     pub fn save_config(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
         self.config.save_to(&self.config_dir)
     }
 
     pub fn save_profiles(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
         self.profile_config.save_to(&self.config_dir)
     }
 
     pub fn save_security(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
         self.security_config.save_to(&self.config_dir)
     }
 
