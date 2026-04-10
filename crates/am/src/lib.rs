@@ -26,5 +26,6 @@ pub use exchange::*;
 pub use messages::*;
 pub use profile::*;
 pub use project::*;
+pub use update::UpdateError;
 
 pub type Result<T> = anyhow::Result<T>;
