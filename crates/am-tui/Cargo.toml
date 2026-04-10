@@ -20,5 +20,5 @@ anyhow = "1.0"
 
 [dev-dependencies]
 amoxide = { path = "../am", version = "0.5.0", features = ["test-util"] }
-toml = "1"
-tempfile = "3"
+toml = { workspace = true }
+tempfile = { workspace = true }

@@ -503,6 +503,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     "{name} {action}, {alias_count} aliases {verb}"
                 )));
             }
+            effects.push(Effect::SaveConfig);
             Ok(UpdateResult::with_effects(&effects))
         }
         Message::UseProfilesAt(names, priority) => {
@@ -525,6 +526,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     priority + i
                 )));
             }
+            effects.push(Effect::SaveConfig);
             Ok(UpdateResult::with_effects(&effects))
         }
         Message::RemoveProfile(name) => {
@@ -947,10 +949,11 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.effects.len(), 2);
+        assert_eq!(result.effects.len(), 3);
         assert!(
             matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated"))
         );
+        assert!(matches!(&result.effects[2], Effect::SaveConfig));
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
@@ -989,13 +992,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.effects.len(), 2);
+        assert_eq!(result.effects.len(), 3);
         assert!(
             matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("position 1"))
         );
         assert!(
             matches!(&result.effects[1], Effect::Print(s) if s.contains("rust") && s.contains("position 2"))
         );
+        assert!(matches!(&result.effects[2], Effect::SaveConfig));
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
@@ -1020,7 +1024,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.effects.len(), 2);
+        assert_eq!(result.effects.len(), 3);
+        assert!(matches!(&result.effects[2], Effect::SaveConfig));
         // node at 1, git at 2, rust at 3
         assert_eq!(
             model.config.active_profiles,
