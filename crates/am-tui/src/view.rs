@@ -20,18 +20,27 @@ const TRUST_TAMPERED: Color = Color::Rgb(220, 80, 80); // red — tampered proje
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
 
-    let help = Paragraph::new(help_bar(&model.mode));
+    let help = Paragraph::new(help_bar(&model.mode, model));
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Min(0),
+            Constraint::Length(1), // help bar
+            Constraint::Length(1), // separator
+            Constraint::Min(0),    // tree content
+            Constraint::Length(1), // status line
         ])
         .split(area);
 
     frame.render_widget(help, chunks[0]);
+
+    if let Some(ref msg) = model.status_line {
+        let status = Paragraph::new(ratatui::text::Span::styled(
+            msg.clone(),
+            Style::default().fg(TRUST_WARN),
+        ));
+        frame.render_widget(status, chunks[3]);
+    }
 
     // Add 1-column padding on left and right
     let padded = Layout::default()
@@ -442,29 +451,41 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
     lines
 }
 
-fn help_bar(mode: &Mode) -> Line<'static> {
+fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
     match mode {
-        Mode::Normal => Line::from(vec![
-            Span::raw("  "),
-            Span::styled("q", Style::default().fg(GOLD)),
-            Span::styled(" quit  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("a", Style::default().fg(GOLD)),
-            Span::styled(" add  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("Space", Style::default().fg(GOLD)),
-            Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("m", Style::default().fg(GOLD)),
-            Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("c", Style::default().fg(GOLD)),
-            Span::styled(" copy  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("n", Style::default().fg(GOLD)),
-            Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("x", Style::default().fg(GOLD)),
-            Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("e", Style::default().fg(GOLD)),
-            Span::styled(" edit  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("u", Style::default().fg(GOLD)),
-            Span::styled(" use", Style::default().fg(TEXT_MUTED)),
-        ]),
+        Mode::Normal => {
+            let on_project = model
+                .tree
+                .get(model.cursor)
+                .is_some_and(|n| n.kind == NodeKind::ProjectHeader);
+
+            let mut spans = vec![
+                Span::raw("  "),
+                Span::styled("q", Style::default().fg(GOLD)),
+                Span::styled(" quit  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("a", Style::default().fg(GOLD)),
+                Span::styled(" add  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("Space", Style::default().fg(GOLD)),
+                Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("m", Style::default().fg(GOLD)),
+                Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("c", Style::default().fg(GOLD)),
+                Span::styled(" copy  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("n", Style::default().fg(GOLD)),
+                Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("x", Style::default().fg(GOLD)),
+                Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("e", Style::default().fg(GOLD)),
+                Span::styled(" edit  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("u", Style::default().fg(GOLD)),
+                Span::styled(" use", Style::default().fg(TEXT_MUTED)),
+            ];
+            if on_project {
+                spans.push(Span::styled("  t", Style::default().fg(GOLD)));
+                spans.push(Span::styled(" trust", Style::default().fg(TEXT_MUTED)));
+            }
+            Line::from(spans)
+        }
         Mode::Transfer(TransferMode::Move) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),
