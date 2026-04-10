@@ -407,6 +407,7 @@ mod tests {
                 a.insert("gs".into(), TomlAlias::Command("git status".into()));
                 a
             },
+            subcommands: Default::default(),
         });
         export
             .local_aliases
@@ -430,6 +431,7 @@ mod tests {
                 a.insert("gs".into(), TomlAlias::Command("git status".into()));
                 a
             },
+            subcommands: Default::default(),
         });
         let toml_str = toml::to_string(&export).unwrap();
         assert!(!toml_str.contains("global_aliases"));
@@ -506,6 +508,7 @@ mod tests {
                 a.insert("gs".into(), TomlAlias::Command("git status".into()));
                 a
             },
+            subcommands: Default::default(),
         });
         export
             .local_aliases
@@ -600,6 +603,7 @@ mod tests {
             profiles: vec![Profile {
                 name: "evil\x1Bprofile".into(),
                 aliases: AliasSet::default(),
+                subcommands: Default::default(),
             }],
             ..Default::default()
         };
@@ -621,6 +625,7 @@ mod tests {
                     );
                     a
                 },
+                subcommands: Default::default(),
             }],
             ..Default::default()
         };

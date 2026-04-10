@@ -224,6 +224,7 @@ fn import_auto_route(
             payload.profiles.push(Profile {
                 name: profile.name.clone(),
                 aliases: accepted,
+                subcommands: Default::default(),
             });
         }
     }
@@ -268,6 +269,7 @@ fn import_with_override(
             payload.profiles.push(Profile {
                 name: name.clone(),
                 aliases: accepted,
+                subcommands: Default::default(),
             });
         }
     }

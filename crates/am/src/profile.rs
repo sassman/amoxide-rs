@@ -4,6 +4,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::dirs::config_dir;
+use crate::subcommand::SubcommandSet;
 use crate::{AliasDetail, AliasName, AliasSet, Result, TomlAlias};
 
 const CONFIG_FILE: &str = "profiles.toml";
@@ -50,6 +51,19 @@ impl ProfileConfig {
             if let Some(profile) = self.get_profile_by_name(name.as_ref()) {
                 for (alias_name, alias) in profile.aliases.iter() {
                     resolved.insert(alias_name.clone(), alias.clone());
+                }
+            }
+        }
+        resolved
+    }
+
+    /// Resolve the merged subcommand set for multiple active profiles.
+    pub fn resolve_active_subcommands(&self, profile_names: &[impl AsRef<str>]) -> SubcommandSet {
+        let mut resolved = SubcommandSet::new();
+        for name in profile_names {
+            if let Some(profile) = self.get_profile_by_name(name.as_ref()) {
+                for (key, values) in &profile.subcommands {
+                    resolved.insert(key.clone(), values.clone());
                 }
             }
         }
@@ -163,6 +177,8 @@ pub struct Profile {
     pub name: String,
     #[serde(default)]
     pub aliases: AliasSet,
+    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
+    pub subcommands: SubcommandSet,
 }
 
 impl Display for Profile {
@@ -196,6 +212,7 @@ impl Profile {
         Self {
             name,
             aliases: Default::default(),
+            subcommands: Default::default(),
         }
     }
 
@@ -220,6 +237,17 @@ impl Profile {
             .remove(&key)
             .ok_or_else(|| anyhow::anyhow!("Alias '{name}' not found"))?;
         Ok(())
+    }
+
+    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
+        self.subcommands.insert(key, long_subcommands);
+    }
+
+    pub fn remove_subcommand(&mut self, key: &str) -> Result<()> {
+        self.subcommands
+            .remove(key)
+            .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))
+            .map(|_| ())
     }
 }
 

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::dirs::home_dir;
+use crate::subcommand::SubcommandSet;
 use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 pub const ALIASES_FILE: &str = ".aliases";
@@ -10,6 +11,8 @@ pub const ALIASES_FILE: &str = ".aliases";
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct ProjectAliases {
     pub aliases: AliasSet,
+    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
+    pub subcommands: SubcommandSet,
 }
 
 impl ProjectAliases {
@@ -119,6 +122,17 @@ impl ProjectAliases {
         };
         self.aliases.insert(key, alias);
     }
+
+    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
+        self.subcommands.insert(key, long_subcommands);
+    }
+
+    pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
+        self.subcommands
+            .remove(key)
+            .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found in {ALIASES_FILE}"))
+            .map(|_| ())
+    }
 }
 
 #[cfg(test)]
@@ -213,5 +227,21 @@ mod tests {
 
         let loaded = ProjectAliases::load(&path).unwrap();
         assert_eq!(loaded.aliases.iter().count(), 1);
+    }
+
+    #[test]
+    fn test_project_with_subcommands_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".aliases");
+
+        let mut project = ProjectAliases::default();
+        project
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        project.save(&path).unwrap();
+
+        let loaded = ProjectAliases::load(&path).unwrap();
+        assert_eq!(loaded.subcommands.len(), 1);
+        assert_eq!(loaded.subcommands["jj:ab"], vec!["abandon"]);
     }
 }

@@ -2,6 +2,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::subcommand::SubcommandSet;
 use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 const CONFIG_FILE: &str = "config.toml";
@@ -10,6 +11,8 @@ const CONFIG_FILE: &str = "config.toml";
 pub struct Config {
     #[serde(default)]
     pub aliases: AliasSet,
+    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
+    pub subcommands: SubcommandSet,
 }
 
 impl Config {
@@ -68,6 +71,17 @@ impl Config {
             .ok_or_else(|| anyhow::anyhow!("Global alias '{name}' not found"))?;
         Ok(())
     }
+
+    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
+        self.subcommands.insert(key, long_subcommands);
+    }
+
+    pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
+        self.subcommands
+            .remove(key)
+            .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))
+            .map(|_| ())
+    }
 }
 
 #[cfg(test)]
@@ -86,6 +100,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config {
             aliases: AliasSet::default(),
+            ..Default::default()
         };
         config.add_alias("ll".to_string(), "ls -lha".to_string(), false);
         config.save_to(dir.path()).unwrap();
@@ -128,5 +143,36 @@ mod tests {
                 .command(),
             "ls -la"
         );
+    }
+
+    #[test]
+    fn test_config_with_subcommands_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        config.save_to(dir.path()).unwrap();
+
+        let loaded = Config::load_from(dir.path()).unwrap();
+        assert_eq!(loaded.subcommands.len(), 1);
+        assert_eq!(loaded.subcommands["jj:ab"], vec!["abandon"]);
+    }
+
+    #[test]
+    fn test_add_and_remove_subcommand() {
+        let mut config = Config::default();
+        config.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        assert_eq!(config.subcommands.len(), 1);
+
+        config.remove_subcommand("jj:ab").unwrap();
+        assert!(config.subcommands.is_empty());
+    }
+
+    #[test]
+    fn test_remove_nonexistent_subcommand() {
+        let mut config = Config::default();
+        let err = config.remove_subcommand("jj:nope").unwrap_err();
+        assert!(err.to_string().contains("not found"));
     }
 }
