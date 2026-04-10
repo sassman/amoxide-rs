@@ -1,7 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::anyhow;
-
 use crate::config::Config;
 use crate::display::render_listing;
 use crate::effects::Effect;
@@ -56,6 +54,7 @@ impl UpdateResult {
 pub struct AppModel {
     pub config: Config,
     pub cwd: std::path::PathBuf,
+    config_dir: PathBuf,
     profile_config: ProfileConfig,
     security_config: SecurityConfig,
     project_trust: Option<ProjectTrust>,
@@ -79,27 +78,41 @@ fn resolve_project_trust(cwd: &Path, security_config: &mut SecurityConfig) -> Op
 
 impl Default for AppModel {
     fn default() -> Self {
-        let profile_config = ProfileConfig::load().unwrap();
-        let config = Config::load().unwrap_or_default();
-        let mut security_config = SecurityConfig::load().unwrap_or_default();
+        Self::load_from_internal(crate::dirs::config_dir())
+    }
+}
+
+impl AppModel {
+    fn load_from_internal(config_dir: PathBuf) -> Self {
+        let config = Config::load_from(&config_dir).unwrap_or_default();
+        let profile_config = ProfileConfig::load_from(&config_dir).unwrap_or_default();
+        let mut security_config = SecurityConfig::load_from(&config_dir).unwrap_or_default();
         let cwd = std::env::current_dir().unwrap_or_default();
         let project_trust = resolve_project_trust(&cwd, &mut security_config);
-
         Self {
             config,
             cwd,
+            config_dir,
             profile_config,
             security_config,
             project_trust,
         }
     }
-}
 
-impl AppModel {
+    #[cfg(feature = "test-util")]
+    pub fn load_from(config_dir: PathBuf) -> Self {
+        Self::load_from_internal(config_dir)
+    }
+
+    pub fn config_dir(&self) -> &Path {
+        &self.config_dir
+    }
+
     pub fn new(config: Config, profile_config: ProfileConfig) -> Self {
         Self {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
+            config_dir: PathBuf::new(),
             profile_config,
             security_config: SecurityConfig::default(),
             project_trust: None,
@@ -114,6 +127,7 @@ impl AppModel {
         Self {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
+            config_dir: PathBuf::new(),
             profile_config,
             security_config,
             project_trust: None,
@@ -187,9 +201,85 @@ impl AppModel {
             .filter_map(|name| self.profile_config.get_profile_by_name(name))
             .collect()
     }
+
+    pub fn save_config(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
+        self.config.save_to(&self.config_dir)
+    }
+
+    pub fn save_profiles(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
+        self.profile_config.save_to(&self.config_dir)
+    }
+
+    pub fn save_security(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
+        self.security_config.save_to(&self.config_dir)
+    }
+
+    /// Add an alias to the project .aliases file, saving to disk.
+    /// Updates project_trust in-memory to reflect the new content.
+    pub fn save_project_aliases_add(
+        &mut self,
+        name: &str,
+        cmd: &str,
+        raw: bool,
+    ) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        project.add_alias(name.to_string(), cmd.to_string(), raw);
+        project.save(&path)?;
+        let hash = crate::trust::compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        Ok(())
+    }
+
+    /// Remove an alias from the project .aliases file, saving to disk.
+    pub fn save_project_aliases_remove(&mut self, name: &str) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        let key = crate::AliasName::from(name);
+        project.aliases.remove(&key);
+        project.save(&path)?;
+        let hash = crate::trust::compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        Ok(())
+    }
 }
 
-pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateResult> {
+#[derive(Debug, thiserror::Error, Clone, PartialEq)]
+pub enum UpdateError {
+    #[error("project aliases are not trusted — run 'am trust'")]
+    ProjectNotTrusted { path: std::path::PathBuf },
+
+    #[error("alias '{name}' not found")]
+    AliasNotFound { name: String, target: String },
+
+    #[error("profile '{name}' not found")]
+    ProfileNotFound { name: String },
+
+    #[error("no .aliases file found in directory tree")]
+    NoProjectFile,
+
+    #[error("{0}")]
+    Other(String),
+}
+
+impl From<anyhow::Error> for UpdateError {
+    fn from(e: anyhow::Error) -> Self {
+        Self::Other(e.to_string())
+    }
+}
+
+pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, UpdateError> {
     match message {
         Message::AddAlias(name, cmd, target, raw) => match target {
             AliasTarget::Global => {
@@ -199,7 +289,9 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             AliasTarget::Local => {
                 if let Some(trust) = model.project_trust() {
                     if !trust.is_trusted() {
-                        return Err(anyhow!("Trust this directory first: run 'am trust'"));
+                        return Err(UpdateError::ProjectNotTrusted {
+                            path: trust.path().to_path_buf(),
+                        });
                     }
                 }
                 Ok(UpdateResult::effect(Effect::AddLocalAlias {
@@ -212,7 +304,9 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
-                            return Err(anyhow!("Trust this directory first: run 'am trust'"));
+                            return Err(UpdateError::ProjectNotTrusted {
+                                path: trust.path().to_path_buf(),
+                            });
                         }
                     }
                     Ok(UpdateResult::effect(Effect::AddLocalAlias {
@@ -227,19 +321,26 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                 let profile = resolve_profile_mut(model, &target)?;
-                profile.add_alias(name, cmd, raw)?;
+                profile
+                    .add_alias(name, cmd, raw)
+                    .map_err(|e| UpdateError::Other(e.to_string()))?;
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
         Message::RemoveAlias(name, target) => match target {
             AliasTarget::Global => {
-                model.config.remove_alias(&name)?;
+                model
+                    .config
+                    .remove_alias(&name)
+                    .map_err(|e| UpdateError::Other(e.to_string()))?;
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
             AliasTarget::Local => {
                 if let Some(trust) = model.project_trust() {
                     if !trust.is_trusted() {
-                        return Err(anyhow!("Trust this directory first: run 'am trust'"));
+                        return Err(UpdateError::ProjectNotTrusted {
+                            path: trust.path().to_path_buf(),
+                        });
                     }
                 }
                 Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
@@ -248,7 +349,9 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
-                            return Err(anyhow!("Trust this directory first: run 'am trust'"));
+                            return Err(UpdateError::ProjectNotTrusted {
+                                path: trust.path().to_path_buf(),
+                            });
                         }
                     }
                     Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
@@ -259,10 +362,65 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                 let profile = resolve_profile_mut(model, &target)?;
-                profile.remove_alias(&name)?;
+                profile
+                    .remove_alias(&name)
+                    .map_err(|e| UpdateError::Other(e.to_string()))?;
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
+        Message::UpdateAlias {
+            target,
+            old_name,
+            new_name,
+            new_command,
+            raw,
+        } => {
+            match target {
+                AliasTarget::Global => {
+                    let key = crate::AliasName::from(old_name.as_str());
+                    model.config.aliases.remove(&key).ok_or_else(|| {
+                        UpdateError::AliasNotFound {
+                            name: old_name.clone(),
+                            target: "global".to_string(),
+                        }
+                    })?;
+                    model.config.add_alias(new_name, new_command, raw);
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+                AliasTarget::Local => {
+                    if let Some(trust) = model.project_trust() {
+                        if !trust.is_trusted() {
+                            return Err(UpdateError::ProjectNotTrusted {
+                                path: trust.path().to_path_buf(),
+                            });
+                        }
+                    }
+                    Ok(UpdateResult::with_effects(&[
+                        Effect::RemoveLocalAlias { name: old_name },
+                        Effect::AddLocalAlias {
+                            name: new_name,
+                            cmd: new_command,
+                            raw,
+                        },
+                    ]))
+                }
+                target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                    let profile = resolve_profile_mut(model, &target)?;
+                    let key = crate::AliasName::from(old_name.as_str());
+                    profile
+                        .aliases
+                        .remove(&key)
+                        .ok_or_else(|| UpdateError::AliasNotFound {
+                            name: old_name.clone(),
+                            target: format!("{target}"),
+                        })?;
+                    profile
+                        .add_alias(new_name, new_command, raw)
+                        .map_err(|e| UpdateError::Other(e.to_string()))?;
+                    Ok(UpdateResult::effect(Effect::SaveProfiles))
+                }
+            }
+        }
         Message::ListProfiles => {
             let output = render_listing(
                 &model.config.aliases,
@@ -273,7 +431,11 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             println!("{output}");
             Ok(UpdateResult::done())
         }
-        Message::CreateProfile(name) => match model.profile_config_mut().add_profile(&name)? {
+        Message::CreateProfile(name) => match model
+            .profile_config_mut()
+            .add_profile(&name)
+            .map_err(|e| UpdateError::Other(e.to_string()))?
+        {
             profile::Response::ProfileAdded(_) => {
                 if !model.config.active_profiles.contains(&name) {
                     model.config.active_profiles.push(name);
@@ -314,7 +476,8 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 prev.as_deref(),
                 &mut model.security_config,
                 quiet,
-            )?;
+            )
+            .map_err(|e| UpdateError::Other(e.to_string()))?;
             if !output.is_empty() {
                 print!("{output}");
             }
@@ -329,7 +492,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 model
                     .profile_config()
                     .get_profile_by_name(name)
-                    .ok_or(anyhow!("Profile '{name}' does not exist."))?;
+                    .ok_or_else(|| UpdateError::ProfileNotFound { name: name.clone() })?;
             }
             let mut effects = Vec::new();
             for name in names {
@@ -349,6 +512,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                     "{name} {action}, {alias_count} aliases {verb}"
                 )));
             }
+            effects.push(Effect::SaveConfig);
             Ok(UpdateResult::with_effects(&effects))
         }
         Message::UseProfilesAt(names, priority) => {
@@ -356,7 +520,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 model
                     .profile_config()
                     .get_profile_by_name(name)
-                    .ok_or(anyhow!("Profile '{name}' does not exist."))?;
+                    .ok_or_else(|| UpdateError::ProfileNotFound { name: name.clone() })?;
             }
             let mut effects = Vec::new();
             for (i, name) in names.into_iter().enumerate() {
@@ -371,10 +535,14 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                     priority + i
                 )));
             }
+            effects.push(Effect::SaveConfig);
             Ok(UpdateResult::with_effects(&effects))
         }
         Message::RemoveProfile(name) => {
-            model.profile_config_mut().remove_profile(&name)?;
+            model
+                .profile_config_mut()
+                .remove_profile(&name)
+                .map_err(|e| UpdateError::Other(e.to_string()))?;
             model.config.active_profiles.retain(|p| p != &name);
             Ok(UpdateResult::effect(Effect::SaveProfiles))
         }
@@ -397,7 +565,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             let path = model
                 .project_trust()
                 .map(|t| t.path().to_path_buf())
-                .ok_or_else(|| anyhow!("No .aliases file found in directory tree"))?;
+                .ok_or(UpdateError::NoProjectFile)?;
 
             if model
                 .project_trust()
@@ -410,11 +578,13 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 ))));
             }
 
-            let hash = crate::trust::compute_file_hash(&path)?;
+            let hash = crate::trust::compute_file_hash(&path)
+                .map_err(|e| UpdateError::Other(e.to_string()))?;
             model.security_config_mut().trust(&path, &hash);
 
             // Reload project aliases now that it's trusted
-            let aliases = ProjectAliases::load(&path)?;
+            let aliases =
+                ProjectAliases::load(&path).map_err(|e| UpdateError::Other(e.to_string()))?;
             model.project_trust = Some(ProjectTrust::Trusted(aliases, path));
 
             Ok(UpdateResult::effect(Effect::SaveSecurity))
@@ -423,7 +593,7 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
             let path = model
                 .project_trust()
                 .map(|t| t.path().to_path_buf())
-                .ok_or_else(|| anyhow!("No .aliases file found in directory tree"))?;
+                .ok_or(UpdateError::NoProjectFile)?;
 
             if forget {
                 model.security_config_mut().forget(&path);
@@ -441,31 +611,177 @@ pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateRe
                 ]))
             }
         }
+        Message::MoveAliases { aliases, to } => transfer_aliases(model, &aliases, &to, true),
+        Message::CopyAliases { aliases, to } => transfer_aliases(model, &aliases, &to, false),
+        Message::RenameProfile { old_name, new_name } => {
+            let profile = model
+                .profile_config_mut()
+                .get_profile_by_name_mut(&old_name)
+                .ok_or_else(|| UpdateError::ProfileNotFound {
+                    name: old_name.clone(),
+                })?;
+            profile.name = new_name.clone();
+            for p in &mut model.config.active_profiles {
+                if *p == old_name {
+                    *p = new_name.clone();
+                }
+            }
+            Ok(UpdateResult::effect(Effect::SaveProfiles))
+        }
     }
 }
 
 fn resolve_profile_mut<'a>(
     model: &'a mut AppModel,
     target: &AliasTarget,
-) -> anyhow::Result<&'a mut Profile> {
+) -> Result<&'a mut Profile, UpdateError> {
     match target {
         AliasTarget::Profile(profile_name) => model
             .profile_config_mut()
             .get_profile_by_name_mut(profile_name)
-            .ok_or_else(|| anyhow!("Profile not found: {profile_name}")),
+            .ok_or_else(|| UpdateError::ProfileNotFound {
+                name: profile_name.clone(),
+            }),
         AliasTarget::ActiveProfile => {
             let active = model
                 .config
                 .active_profiles
                 .last()
                 .cloned()
-                .ok_or_else(|| anyhow!("No active profile. Use -p <profile> or -g for global."))?;
+                .ok_or_else(|| UpdateError::Other("No active profile".into()))?;
             model
                 .profile_config_mut()
                 .get_profile_by_name_mut(&active)
-                .ok_or_else(|| anyhow!("Active profile not found: {active}"))
+                .ok_or(UpdateError::ProfileNotFound { name: active })
         }
         _ => unreachable!(),
+    }
+}
+
+fn transfer_aliases(
+    model: &mut AppModel,
+    aliases: &[crate::AliasId],
+    to: &AliasTarget,
+    delete_source: bool,
+) -> Result<UpdateResult, UpdateError> {
+    use crate::AliasId;
+
+    // Trust-gate the destination if it's Local
+    if *to == AliasTarget::Local {
+        if let Some(trust) = model.project_trust() {
+            if !trust.is_trusted() {
+                return Err(UpdateError::ProjectNotTrusted {
+                    path: trust.path().to_path_buf(),
+                });
+            }
+        }
+    }
+
+    let mut effects: Vec<Effect> = Vec::new();
+    let mut needs_save_config = false;
+    let mut needs_save_profiles = false;
+
+    for id in aliases {
+        // Read alias from source
+        let (cmd, raw) =
+            read_alias_from_model(model, id).ok_or_else(|| UpdateError::AliasNotFound {
+                name: id.name().to_string(),
+                target: format!("{}", id.target()),
+            })?;
+
+        // Remove from source (for move)
+        if delete_source {
+            match id {
+                AliasId::Global { alias_name } => {
+                    let key = crate::AliasName::from(alias_name.as_str());
+                    model.config.aliases.remove(&key);
+                    needs_save_config = true;
+                }
+                AliasId::Profile {
+                    profile_name,
+                    alias_name,
+                } => {
+                    if let Some(p) = model
+                        .profile_config_mut()
+                        .get_profile_by_name_mut(profile_name)
+                    {
+                        let key = crate::AliasName::from(alias_name.as_str());
+                        p.aliases.remove(&key);
+                        needs_save_profiles = true;
+                    }
+                }
+                AliasId::Project { alias_name } => {
+                    effects.push(Effect::RemoveLocalAlias {
+                        name: alias_name.clone(),
+                    });
+                }
+            }
+        }
+
+        // Add to destination
+        let name = id.name().to_string();
+        match to {
+            AliasTarget::Global => {
+                model.config.add_alias(name, cmd, raw);
+                needs_save_config = true;
+            }
+            AliasTarget::Local => {
+                effects.push(Effect::AddLocalAlias { name, cmd, raw });
+            }
+            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                let profile = resolve_profile_mut(model, target)?;
+                profile
+                    .add_alias(name, cmd, raw)
+                    .map_err(|e| UpdateError::Other(e.to_string()))?;
+                needs_save_profiles = true;
+            }
+        }
+    }
+
+    if needs_save_config {
+        effects.push(Effect::SaveConfig);
+    }
+    if needs_save_profiles {
+        effects.push(Effect::SaveProfiles);
+    }
+
+    Ok(UpdateResult::with_effects(&effects))
+}
+
+fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(String, bool)> {
+    use crate::AliasId;
+    match id {
+        AliasId::Global { alias_name } => {
+            let key = crate::AliasName::from(alias_name.as_str());
+            model.config.aliases.get(&key).map(|a| {
+                let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
+                (a.command().to_string(), raw)
+            })
+        }
+        AliasId::Profile {
+            profile_name,
+            alias_name,
+        } => {
+            let key = crate::AliasName::from(alias_name.as_str());
+            model
+                .profile_config()
+                .get_profile_by_name(profile_name)
+                .and_then(|p| p.aliases.get(&key))
+                .map(|a| {
+                    let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
+                    (a.command().to_string(), raw)
+                })
+        }
+        AliasId::Project { alias_name } => {
+            let key = crate::AliasName::from(alias_name.as_str());
+            model
+                .project_aliases()
+                .and_then(|p| p.aliases.get(&key))
+                .map(|a| {
+                    let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
+                    (a.command().to_string(), raw)
+                })
+        }
     }
 }
 
@@ -642,10 +958,11 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.effects.len(), 2);
+        assert_eq!(result.effects.len(), 3);
         assert!(
             matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated"))
         );
+        assert!(matches!(&result.effects[2], Effect::SaveConfig));
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
@@ -664,8 +981,7 @@ mod tests {
             Message::ToggleProfiles(vec!["git".into(), "nope".into()]),
         );
 
-        let err = result.err().expect("should be an error");
-        assert!(err.to_string().contains("nope"));
+        assert!(matches!(result, Err(UpdateError::ProfileNotFound { name }) if name == "nope"));
         // git should NOT have been toggled since validation failed
         assert!(model.config.active_profiles.is_empty());
     }
@@ -685,13 +1001,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.effects.len(), 2);
+        assert_eq!(result.effects.len(), 3);
         assert!(
             matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("position 1"))
         );
         assert!(
             matches!(&result.effects[1], Effect::Print(s) if s.contains("rust") && s.contains("position 2"))
         );
+        assert!(matches!(&result.effects[2], Effect::SaveConfig));
         assert_eq!(
             model.config.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
@@ -716,7 +1033,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.effects.len(), 2);
+        assert_eq!(result.effects.len(), 3);
+        assert!(matches!(&result.effects[2], Effect::SaveConfig));
         // node at 1, git at 2, rust at 3
         assert_eq!(
             model.config.active_profiles,
@@ -909,8 +1227,7 @@ mod tests {
             &mut model,
             Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
         );
-        let err = result.err().expect("should be an error");
-        assert!(err.to_string().contains("Trust this directory first"));
+        assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
     }
 
     #[test]
@@ -932,7 +1249,285 @@ mod tests {
             &mut model,
             Message::RemoveAlias("b".into(), AliasTarget::Local),
         );
-        let err = result.err().expect("should be an error");
-        assert!(err.to_string().contains("Trust this directory first"));
+        assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
+    }
+
+    #[cfg(feature = "test-util")]
+    #[test]
+    fn add_local_alias_on_untrusted_returns_typed_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        std::fs::write(&aliases_path, "[aliases]\nb = \"make build\"\n").unwrap();
+
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut security = SecurityConfig::default();
+        security.untrust(&aliases_path);
+        let mut model = AppModel::new_with_security(config, profile_config, security)
+            .with_cwd(dir.path().to_path_buf());
+
+        let result = update(
+            &mut model,
+            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+        );
+        assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
+    }
+
+    #[test]
+    fn update_alias_renames_global_alias() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let mut model = AppModel::new(config, ProfileConfig::default());
+
+        let result = update(
+            &mut model,
+            Message::UpdateAlias {
+                target: AliasTarget::Global,
+                old_name: "ll".into(),
+                new_name: "la".into(),
+                new_command: "ls -lha".into(),
+                raw: false,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.effects, vec![Effect::SaveConfig]);
+        let key = crate::AliasName::from("la");
+        assert!(model.config.aliases.contains_key(&key));
+        let key_old = crate::AliasName::from("ll");
+        assert!(!model.config.aliases.contains_key(&key_old));
+    }
+
+    #[test]
+    fn update_alias_changes_command_global() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let mut model = AppModel::new(config, ProfileConfig::default());
+
+        update(
+            &mut model,
+            Message::UpdateAlias {
+                target: AliasTarget::Global,
+                old_name: "ll".into(),
+                new_name: "ll".into(),
+                new_command: "ls -la".into(),
+                raw: false,
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        let alias = model.config.aliases.get(&key).unwrap();
+        assert_eq!(alias.command(), "ls -la");
+    }
+
+    #[test]
+    fn update_alias_returns_error_for_missing_alias() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+
+        let result = update(
+            &mut model,
+            Message::UpdateAlias {
+                target: AliasTarget::Global,
+                old_name: "nope".into(),
+                new_name: "nope".into(),
+                new_command: "cmd".into(),
+                raw: false,
+            },
+        );
+        assert!(matches!(result, Err(UpdateError::AliasNotFound { .. })));
+    }
+
+    #[test]
+    fn move_aliases_from_global_to_profile() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::MoveAliases {
+                aliases: vec![crate::AliasId::Global {
+                    alias_name: "ll".into(),
+                }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        assert!(!model.config.aliases.contains_key(&key));
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        assert!(profile.aliases.contains_key(&key));
+        assert!(result.effects.contains(&Effect::SaveConfig));
+        assert!(result.effects.contains(&Effect::SaveProfiles));
+    }
+
+    #[test]
+    fn copy_aliases_preserves_source() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        update(
+            &mut model,
+            Message::CopyAliases {
+                aliases: vec![crate::AliasId::Global {
+                    alias_name: "ll".into(),
+                }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        assert!(model.config.aliases.contains_key(&key));
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        assert!(profile.aliases.contains_key(&key));
+    }
+
+    #[test]
+    fn move_to_untrusted_project_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        std::fs::write(&aliases_path, "[aliases]\n").unwrap();
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let mut security = SecurityConfig::default();
+        security.untrust(&aliases_path);
+        let mut model = AppModel::new_with_security(config, ProfileConfig::default(), security)
+            .with_cwd(dir.path().to_path_buf());
+
+        let result = update(
+            &mut model,
+            Message::MoveAliases {
+                aliases: vec![crate::AliasId::Global {
+                    alias_name: "ll".into(),
+                }],
+                to: AliasTarget::Local,
+            },
+        );
+        assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
+    }
+
+    #[test]
+    fn rename_profile_renames_in_config_and_active_list() {
+        let config = Config {
+            active_profiles: vec!["git".to_string()],
+            ..Config::default()
+        };
+        let profile_config: ProfileConfig = toml::from_str(
+            "[[profiles]]\nname = \"git\"\n[profiles.aliases]\ngs = \"git status\"\n",
+        )
+        .unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::RenameProfile {
+                old_name: "git".into(),
+                new_name: "vcs".into(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.effects, vec![Effect::SaveProfiles]);
+        assert!(model.profile_config().get_profile_by_name("vcs").is_some());
+        assert!(model.profile_config().get_profile_by_name("git").is_none());
+        assert!(model.config.active_profiles.contains(&"vcs".to_string()));
+        assert!(!model.config.active_profiles.contains(&"git".to_string()));
+        // Aliases preserved
+        let profile = model.profile_config().get_profile_by_name("vcs").unwrap();
+        let key = crate::AliasName::from("gs");
+        assert!(profile.aliases.contains_key(&key));
+    }
+
+    #[test]
+    fn rename_profile_returns_error_for_missing_profile() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::RenameProfile {
+                old_name: "nope".into(),
+                new_name: "vcs".into(),
+            },
+        );
+        assert!(matches!(result, Err(UpdateError::ProfileNotFound { .. })));
+    }
+
+    #[cfg(feature = "test-util")]
+    mod load_from_tests {
+        use super::*;
+
+        #[test]
+        fn app_model_load_from_reads_config_from_given_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::write(
+                dir.path().join("config.toml"),
+                "[aliases]\nll = \"ls -lha\"\n",
+            )
+            .unwrap();
+
+            let model = AppModel::load_from(dir.path().to_path_buf());
+            assert_eq!(model.config.aliases.iter().count(), 1);
+            assert_eq!(model.config_dir(), dir.path());
+        }
+
+        #[test]
+        fn app_model_load_from_returns_default_for_empty_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let model = AppModel::load_from(dir.path().to_path_buf());
+            assert!(model.config.aliases.is_empty());
+            assert_eq!(model.config_dir(), dir.path());
+        }
+    }
+
+    #[cfg(feature = "test-util")]
+    mod save_tests {
+        use super::*;
+
+        #[test]
+        fn save_config_writes_to_config_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let mut model = AppModel::load_from(dir.path().to_path_buf());
+            model.config.add_alias("ll".into(), "ls -lha".into(), false);
+            model.save_config().unwrap();
+
+            let saved = Config::load_from(dir.path()).unwrap();
+            assert_eq!(saved.aliases.iter().count(), 1);
+        }
+
+        #[test]
+        fn save_profiles_writes_to_config_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let mut model = AppModel::load_from(dir.path().to_path_buf());
+            let _ = model.profile_config_mut().add_profile("rust");
+            model.save_profiles().unwrap();
+
+            let saved = ProfileConfig::load_from(dir.path()).unwrap();
+            assert!(saved.get_profile_by_name("rust").is_some());
+        }
+
+        #[test]
+        fn save_security_writes_to_config_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let aliases_path = dir.path().join(".aliases");
+            std::fs::write(&aliases_path, "[aliases]\n").unwrap();
+            let mut model = AppModel::load_from(dir.path().to_path_buf());
+            let hash = crate::trust::compute_file_hash(&aliases_path).unwrap();
+            model.security_config_mut().trust(&aliases_path, &hash);
+            model.save_security().unwrap();
+
+            let saved = SecurityConfig::load_from(dir.path()).unwrap();
+            assert!(saved.is_tracked(&aliases_path));
+        }
     }
 }

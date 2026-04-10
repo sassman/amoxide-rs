@@ -2,25 +2,41 @@ use crate::model::{AliasId, NodeKind, TreeNode, TREE_BRANCH, TREE_LAST, TREE_SPA
 use amoxide::update::AppModel;
 use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProjectTrustState {
+    Trusted,
+    Unknown,
+    Untrusted,
+    Tampered,
+}
+
 // ---------------------------------------------------------------------------
 // Public facades
 // ---------------------------------------------------------------------------
 
-pub fn build_tree(app_model: &AppModel, project: Option<&ProjectAliases>) -> Vec<TreeNode> {
+pub fn build_tree(app_model: &AppModel) -> Vec<TreeNode> {
+    let project_trust_state = app_model.project_trust().map(|t| match t {
+        amoxide::trust::ProjectTrust::Trusted(..) => ProjectTrustState::Trusted,
+        amoxide::trust::ProjectTrust::Unknown(..) => ProjectTrustState::Unknown,
+        amoxide::trust::ProjectTrust::Untrusted(..) => ProjectTrustState::Untrusted,
+        amoxide::trust::ProjectTrust::Tampered(..) => ProjectTrustState::Tampered,
+    });
     build_tree_from_parts(
         &app_model.config.aliases,
         app_model.profile_config(),
         &app_model.config.active_profiles,
-        project,
+        app_model.project_aliases(),
+        project_trust_state,
     )
 }
 
-pub fn build_dest_tree(app_model: &AppModel, has_project: bool) -> Vec<TreeNode> {
+pub fn build_dest_tree(app_model: &AppModel) -> Vec<TreeNode> {
+    let project_is_trusted = app_model.project_trust().is_some_and(|t| t.is_trusted());
     build_dest_tree_from_parts(
         &app_model.config.aliases,
         app_model.profile_config(),
         &app_model.config.active_profiles,
-        has_project,
+        project_is_trusted,
     )
 }
 
@@ -40,9 +56,19 @@ pub fn build_tree_from_parts(
     profiles: &ProfileConfig,
     active_profiles: &[String],
     project: Option<&ProjectAliases>,
+    project_trust: Option<ProjectTrustState>,
 ) -> Vec<TreeNode> {
     let mut nodes: Vec<TreeNode> = Vec::new();
-    let has_project = project.is_some_and(|p| !p.aliases.is_empty());
+    // Show the project header when aliases are available (trusted) OR when a
+    // project file was discovered but could not be trusted yet (Unknown,
+    // Untrusted, Tampered). This lets the user see and act on the trust state.
+    let has_project = project.is_some_and(|p| !p.aliases.is_empty())
+        || matches!(
+            &project_trust,
+            Some(ProjectTrustState::Unknown)
+                | Some(ProjectTrustState::Untrusted)
+                | Some(ProjectTrustState::Tampered)
+        );
 
     // Partition profiles into active (in activation order) and inactive (alphabetical).
     let active_names: Vec<&str> = active_profiles
@@ -70,12 +96,11 @@ pub fn build_tree_from_parts(
         label: "global".to_string(),
         prefix: String::new(),
         content_prefix: String::new(),
+        project_trust: None,
     });
 
-    let mut child_idx = 0;
-
     // --- Global aliases ---
-    for (name, alias) in global_aliases.iter() {
+    for (child_idx, (name, alias)) in global_aliases.iter().enumerate() {
         let is_last = child_idx == active_zone_children - 1;
         let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
         nodes.push(TreeNode {
@@ -88,20 +113,14 @@ pub fn build_tree_from_parts(
             label: name.to_string(),
             prefix: String::new(),
             content_prefix: cp.to_string(),
+            project_trust: None,
         });
-        child_idx += 1;
     }
 
     // --- Active profiles (in activation order) ---
     for (i, profile_name) in active_names.iter().enumerate() {
-        let is_last_in_zone = child_idx + (active_names.len() - i - 1) + usize::from(has_project)
-            == active_zone_children - 1
-            && !has_project
-            && i == active_names.len() - 1;
-        // Simpler: compute directly
         let remaining_active = active_names.len() - i - 1;
         let is_last = remaining_active == 0 && !has_project;
-        let _ = is_last_in_zone; // suppress
         let connector = if is_last { TREE_LAST } else { TREE_BRANCH };
         let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
 
@@ -113,6 +132,7 @@ pub fn build_tree_from_parts(
             label: profile_name.to_string(),
             prefix: connector.to_string(),
             content_prefix: format!("{cp}  "),
+            project_trust: None,
         });
 
         if let Some(profile) = profiles.get_profile_by_name(profile_name) {
@@ -128,39 +148,57 @@ pub fn build_tree_from_parts(
                     label: name.to_string(),
                     prefix: String::new(),
                     content_prefix: format!("{cp}  "),
+                    project_trust: None,
                 });
             }
         }
-        child_idx += 1;
     }
 
     // --- Project (last in active zone) ---
     if has_project {
-        let proj = project.unwrap();
         let connector = TREE_LAST;
         let cp = "    ";
+
+        let project_label = match &project_trust {
+            Some(ProjectTrustState::Trusted) | None => "project (.aliases)".to_string(),
+            Some(ProjectTrustState::Unknown) => {
+                "project (.aliases) \u{26a0} untrusted \u{2014} press 't' to trust".to_string()
+            }
+            Some(ProjectTrustState::Untrusted) => {
+                "project (.aliases) \u{26a0} blocked \u{2014} press 't' to trust".to_string()
+            }
+            Some(ProjectTrustState::Tampered) => {
+                "project (.aliases) \u{26a0} modified since last trust \u{2014} press 't' to re-trust"
+                    .to_string()
+            }
+        };
 
         nodes.push(TreeNode {
             kind: NodeKind::ProjectHeader,
             alias_id: None,
             alias_command: None,
             is_active: false,
-            label: "project (.aliases)".to_string(),
+            label: project_label,
             prefix: connector.to_string(),
             content_prefix: cp.to_string(),
+            project_trust: project_trust.clone(),
         });
-        for (name, alias) in proj.aliases.iter() {
-            nodes.push(TreeNode {
-                kind: NodeKind::AliasItem,
-                alias_id: Some(AliasId::Project {
-                    alias_name: name.to_string(),
-                }),
-                alias_command: Some(alias.command().to_string()),
-                is_active: false,
-                label: name.to_string(),
-                prefix: String::new(),
-                content_prefix: cp.to_string(),
-            });
+        // Only list aliases when the project is trusted and aliases exist.
+        if let Some(proj) = project {
+            for (name, alias) in proj.aliases.iter() {
+                nodes.push(TreeNode {
+                    kind: NodeKind::AliasItem,
+                    alias_id: Some(AliasId::Project {
+                        alias_name: name.to_string(),
+                    }),
+                    alias_command: Some(alias.command().to_string()),
+                    is_active: false,
+                    label: name.to_string(),
+                    prefix: String::new(),
+                    content_prefix: cp.to_string(),
+                    project_trust: None,
+                });
+            }
         }
     }
 
@@ -174,6 +212,7 @@ pub fn build_tree_from_parts(
             label: profile_name.to_string(),
             prefix: String::new(),
             content_prefix: TREE_SPACE.to_string(),
+            project_trust: None,
         });
 
         if let Some(profile) = profiles.get_profile_by_name(profile_name) {
@@ -189,6 +228,7 @@ pub fn build_tree_from_parts(
                     label: name.to_string(),
                     prefix: String::new(),
                     content_prefix: TREE_SPACE.to_string(),
+                    project_trust: None,
                 });
             }
         }
@@ -220,8 +260,6 @@ pub fn build_dest_tree_from_parts(
         .filter(|name| !active_profiles.contains(&name.to_string()))
         .collect();
 
-    let active_zone_children = active_names.len() + usize::from(has_project);
-
     // Global header (always present, root)
     nodes.push(TreeNode {
         kind: NodeKind::GlobalHeader,
@@ -231,6 +269,7 @@ pub fn build_dest_tree_from_parts(
         label: "global".to_string(),
         prefix: String::new(),
         content_prefix: String::new(),
+        project_trust: None,
     });
 
     // Active profiles
@@ -248,13 +287,12 @@ pub fn build_dest_tree_from_parts(
             label: profile_name.to_string(),
             prefix: connector.to_string(),
             content_prefix: cp.to_string(),
+            project_trust: None,
         });
     }
 
     // Project header
     if has_project {
-        let is_last = active_zone_children > 0; // project is always last in active zone
-        let _ = is_last;
         nodes.push(TreeNode {
             kind: NodeKind::ProjectHeader,
             alias_id: None,
@@ -263,6 +301,7 @@ pub fn build_dest_tree_from_parts(
             label: "project (.aliases)".to_string(),
             prefix: TREE_LAST.to_string(),
             content_prefix: TREE_SPACE.to_string(),
+            project_trust: None,
         });
     }
 
@@ -276,6 +315,7 @@ pub fn build_dest_tree_from_parts(
             label: profile_name.to_string(),
             prefix: String::new(),
             content_prefix: String::new(),
+            project_trust: None,
         });
     }
 
@@ -356,6 +396,7 @@ mod tests {
                 &profiles,
                 &self.active_profiles,
                 self.project.as_ref(),
+                None,
             )
         }
 
@@ -606,5 +647,30 @@ mod tests {
             .collect();
         // rust (active) comes first, then git, node (inactive, alphabetical)
         assert_eq!(profile_labels, vec!["rust", "git", "node"]);
+    }
+
+    #[test]
+    fn project_header_label_reflects_trust_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        std::fs::write(&aliases_path, "[aliases]\nt = \"cargo test\"\n").unwrap();
+
+        let app_model = amoxide::update::AppModel::new_with_security(
+            amoxide::Config::default(),
+            amoxide::ProfileConfig::default(),
+            amoxide::security::SecurityConfig::default(),
+        )
+        .with_cwd(dir.path().to_path_buf());
+
+        let tree = build_tree(&app_model);
+        let project_node = tree
+            .iter()
+            .find(|n| n.kind == crate::model::NodeKind::ProjectHeader);
+        assert!(project_node.is_some());
+        let label = &project_node.unwrap().label;
+        assert!(
+            label.contains("untrusted") || label.contains("trust"),
+            "expected trust hint in label, got: {label}"
+        );
     }
 }

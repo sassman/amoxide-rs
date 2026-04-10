@@ -19,4 +19,6 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm"]
 anyhow = "1.0"
 
 [dev-dependencies]
-toml = "1"
+amoxide = { path = "../am", version = "0.5.0", features = ["test-util"] }
+toml = { workspace = true }
+tempfile = { workspace = true }
