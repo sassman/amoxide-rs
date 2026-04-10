@@ -73,16 +73,26 @@ pub fn generate_hook_with_security(
             match status {
                 TrustStatus::Trusted => {
                     let project = ProjectAliases::load(&path)?;
-                    if !project.aliases.is_empty() {
+                    if !project.aliases.is_empty() || !project.subcommands.is_empty() {
                         let names: Vec<String> = project
                             .aliases
                             .iter()
                             .map(|(n, _)| n.as_ref().to_string())
                             .collect();
 
+                        let subcmd_groups = crate::subcommand::group_by_program(&project.subcommands);
+                        let subcmd_program_names: Vec<String> =
+                            subcmd_groups.keys().cloned().collect();
+
+                        let mut all_names: Vec<String> = names.clone();
+                        all_names.extend(subcmd_program_names.clone());
+                        all_names.sort();
+                        all_names.dedup();
+
                         // If the same aliases are already loaded, skip entirely.
                         // The hash check guarantees commands haven't changed either.
-                        if names.len() == prev.len() && names.iter().zip(&prev).all(|(a, b)| a == b)
+                        if all_names.len() == prev.len()
+                            && all_names.iter().zip(&prev).all(|(a, b)| a == b.to_owned())
                         {
                             return Ok((String::new(), false));
                         }
@@ -95,11 +105,34 @@ pub fn generate_hook_with_security(
                             }
                         }
 
+                        // Emit regular aliases (skip those with subcommand wrappers)
+                        let programs_set: std::collections::BTreeSet<&str> =
+                            subcmd_groups.keys().map(|s| s.as_str()).collect();
                         for (alias_name, alias_value) in project.aliases.iter() {
-                            lines
-                                .push(shell_impl.alias(&alias_value.as_entry(alias_name.as_ref())));
+                            let name = alias_name.as_ref();
+                            if !programs_set.contains(name) {
+                                lines.push(
+                                    shell_impl.alias(&alias_value.as_entry(name)),
+                                );
+                            }
                         }
-                        lines.push(shell_impl.set_env("_AM_PROJECT_ALIASES", &names.join(",")));
+
+                        // Emit subcommand wrappers
+                        for (program, entries) in &subcmd_groups {
+                            let base_cmd = project
+                                .aliases
+                                .iter()
+                                .find(|(n, _)| n.as_ref() == program.as_str())
+                                .map(|(_, v)| v.command().to_string())
+                                .unwrap_or_else(|| format!("command {program}"));
+                            lines.push(
+                                shell_impl.subcommand_wrapper(program, &base_cmd, entries),
+                            );
+                        }
+
+                        lines.push(
+                            shell_impl.set_env("_AM_PROJECT_ALIASES", &all_names.join(",")),
+                        );
                     }
                 }
                 TrustStatus::Unknown => {
@@ -492,5 +525,21 @@ mod tests {
             !output.contains("am: loaded"),
             "should not show load message for parent .aliases, got: {output}"
         );
+    }
+
+    #[test]
+    fn test_hook_with_project_subcommands() {
+        let mut t = TestBed::new()
+            .with_aliases(
+                "[aliases]\nb = \"make build\"\n\n[subcommands]\n\"jj:ab\" = [\"abandon\"]\n",
+            )
+            .with_security_trusted()
+            .setup();
+
+        let cwd = t.root();
+        let (output, _) = t.run(&Shells::Bash, &cwd, None);
+        assert!(output.contains("b() { make build \"$@\"; }"));
+        assert!(output.contains("jj() {"));
+        assert!(output.contains("ab) shift; command jj abandon"));
     }
 }
