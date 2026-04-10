@@ -2,7 +2,7 @@ use crate::model::{
     AliasField, AliasId, AliasTarget, Column, ConfirmAction, Mode, MoveDestination, NodeKind,
     TextInputState, TransferMode, TreeNode, TuiMessage, TuiModel,
 };
-use amoxide::{AliasName, TomlAlias};
+use amoxide::AliasName;
 
 pub fn update(model: &mut TuiModel, msg: TuiMessage) {
     match msg {
@@ -145,10 +145,18 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
             };
             match node.kind {
                 NodeKind::AliasItem => {
-                    if let Some(ref id) = node.alias_id {
-                        delete_alias(model, id);
-                        save_all(model);
-                        model.rebuild_tree();
+                    if let Some(id) = node.alias_id {
+                        let lib_target = match &id {
+                            AliasId::Global { .. } => amoxide::AliasTarget::Global,
+                            AliasId::Profile { profile_name, .. } => {
+                                amoxide::AliasTarget::Profile(profile_name.clone())
+                            }
+                            AliasId::Project { .. } => amoxide::AliasTarget::Local,
+                        };
+                        let _ = crate::delegation::dispatch(
+                            model,
+                            amoxide::Message::RemoveAlias(id.name().to_string(), lib_target),
+                        );
                     }
                 }
                 NodeKind::ProfileHeader => {
@@ -164,21 +172,31 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
             };
             match action {
                 ConfirmAction::DeleteProfile(name) => {
-                    let _ = model.app_model.profile_config_mut().remove_profile(&name);
-                    model
-                        .app_model
-                        .config
-                        .active_profiles
-                        .retain(|p| p != &name);
-                    save_all(model);
-                    model.rebuild_tree();
+                    let _ = crate::delegation::dispatch(model, amoxide::Message::RemoveProfile(name));
                 }
                 ConfirmAction::OverwriteAliases {
                     aliases,
                     destination,
                     transfer_mode,
                 } => {
-                    do_transfer(model, &aliases, &destination, &transfer_mode);
+                    let lib_dest = match &destination {
+                        MoveDestination::Global => amoxide::AliasTarget::Global,
+                        MoveDestination::Project => amoxide::AliasTarget::Local,
+                        MoveDestination::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
+                    };
+                    let msg = match &transfer_mode {
+                        TransferMode::Move => amoxide::Message::MoveAliases {
+                            aliases: aliases.iter().cloned().collect(),
+                            to: lib_dest,
+                        },
+                        TransferMode::Copy => amoxide::Message::CopyAliases {
+                            aliases: aliases.iter().cloned().collect(),
+                            to: lib_dest,
+                        },
+                    };
+                    let _ = crate::delegation::dispatch(model, msg);
+                    model.selected.clear();
+                    model.active_column = Column::Left;
                 }
             }
             model.mode = Mode::Normal;
@@ -318,9 +336,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     {
                         return;
                     }
-                    let _ = model.app_model.profile_config_mut().add_profile(&name);
-                    save_all(model);
-                    model.rebuild_tree();
+                    let _ = crate::delegation::dispatch(model, amoxide::Message::CreateProfile(name));
                     model.mode = Mode::Normal;
                 }
                 TextInputState::NewAlias {
@@ -334,25 +350,15 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                     if name.is_empty() || command.is_empty() {
                         return;
                     }
-                    match &target {
-                        AliasTarget::Global => {
-                            model.app_model.config.add_alias(name, command, false);
-                        }
-                        AliasTarget::Profile(profile_name) => {
-                            if let Some(p) = model
-                                .app_model
-                                .profile_config_mut()
-                                .get_profile_by_name_mut(profile_name)
-                            {
-                                let _ = p.add_alias(name, command, false);
-                            }
-                        }
-                        AliasTarget::Project => {
-                            let _ = model.app_model.save_project_aliases_add(&name, &command, false);
-                        }
-                    }
-                    save_all(model);
-                    model.rebuild_tree();
+                    let lib_target = match &target {
+                        AliasTarget::Global => amoxide::AliasTarget::Global,
+                        AliasTarget::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
+                        AliasTarget::Project => amoxide::AliasTarget::Local,
+                    };
+                    let _ = crate::delegation::dispatch(
+                        model,
+                        amoxide::Message::AddAlias(name, command, lib_target, false),
+                    );
                     model.mode = Mode::Normal;
                 }
                 TextInputState::EditProfile {
@@ -381,20 +387,13 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                         }
                         return;
                     }
-                    if let Some(profile) = model
-                        .app_model
-                        .profile_config_mut()
-                        .get_profile_by_name_mut(&original_name)
-                    {
-                        profile.name = name.clone();
-                    }
-                    for p in &mut model.app_model.config.active_profiles {
-                        if *p == original_name {
-                            *p = name.clone();
-                        }
-                    }
-                    save_all(model);
-                    model.rebuild_tree();
+                    let _ = crate::delegation::dispatch(
+                        model,
+                        amoxide::Message::RenameProfile {
+                            old_name: original_name,
+                            new_name: name,
+                        },
+                    );
                     model.mode = Mode::Normal;
                 }
                 TextInputState::EditAlias {
@@ -467,30 +466,24 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                             return;
                         }
                     }
-                    // Apply: delete old, add new
-                    delete_alias(model, &alias_id);
-                    match &alias_id {
-                        AliasId::Global { .. } => {
-                            model
-                                .app_model
-                                .config
-                                .add_alias(new_name, new_command, false);
-                        }
+                    // Apply via dispatch
+                    let lib_target = match &alias_id {
+                        AliasId::Global { .. } => amoxide::AliasTarget::Global,
                         AliasId::Profile { profile_name, .. } => {
-                            if let Some(p) = model
-                                .app_model
-                                .profile_config_mut()
-                                .get_profile_by_name_mut(profile_name)
-                            {
-                                let _ = p.add_alias(new_name, new_command, false);
-                            }
+                            amoxide::AliasTarget::Profile(profile_name.clone())
                         }
-                        AliasId::Project { .. } => {
-                            let _ = model.app_model.save_project_aliases_add(&new_name, &new_command, false);
-                        }
-                    }
-                    save_all(model);
-                    model.rebuild_tree();
+                        AliasId::Project { .. } => amoxide::AliasTarget::Local,
+                    };
+                    let _ = crate::delegation::dispatch(
+                        model,
+                        amoxide::Message::UpdateAlias {
+                            target: lib_target,
+                            old_name: original_name,
+                            new_name,
+                            new_command,
+                            raw: false,
+                        },
+                    );
                     model.mode = Mode::Normal;
                 }
             }
@@ -507,9 +500,10 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 None => return,
             };
             if node.kind == NodeKind::ProfileHeader {
-                model.app_model.config.toggle_profile(node.label.clone());
-                save_all(model);
-                model.rebuild_tree();
+                let _ = crate::delegation::dispatch(
+                    model,
+                    amoxide::Message::ToggleProfiles(vec![node.label.clone()]),
+                );
             }
         }
         TuiMessage::UseProfileWithPriority(n) => {
@@ -521,9 +515,10 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 None => return,
             };
             if node.kind == NodeKind::ProfileHeader {
-                model.app_model.config.use_profile_at(node.label.clone(), n);
-                save_all(model);
-                model.rebuild_tree();
+                let _ = crate::delegation::dispatch(
+                    model,
+                    amoxide::Message::UseProfilesAt(vec![node.label.clone()], n),
+                );
             }
         }
         TuiMessage::EditItem => {
@@ -557,6 +552,30 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                 }
                 _ => {}
             }
+        }
+        TuiMessage::ToggleTrust => {
+            if model.mode != Mode::Normal {
+                return;
+            }
+            let node = match model.tree.get(model.cursor) {
+                Some(n) => n.clone(),
+                None => return,
+            };
+            if node.kind != NodeKind::ProjectHeader {
+                return;
+            }
+            let is_trusted = model
+                .app_model
+                .project_trust()
+                .map(|t| t.is_trusted())
+                .unwrap_or(false);
+            let msg = if is_trusted {
+                amoxide::Message::Untrust { forget: false }
+            } else {
+                amoxide::Message::Trust
+            };
+            let _ = crate::delegation::dispatch(model, msg);
+            // rebuild_tree is called by dispatch on success
         }
         _ => {} // remaining messages (Quit, Resize) handled at the app layer
     }
@@ -604,7 +623,25 @@ fn execute_transfer(model: &mut TuiModel) {
         .collect();
 
     if collisions.is_empty() {
-        do_transfer(model, &aliases_to_transfer, &destination, &transfer_mode);
+        let lib_dest = match &destination {
+            MoveDestination::Global => amoxide::AliasTarget::Global,
+            MoveDestination::Project => amoxide::AliasTarget::Local,
+            MoveDestination::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
+        };
+        let msg = match transfer_mode {
+            TransferMode::Move => amoxide::Message::MoveAliases {
+                aliases: aliases_to_transfer.iter().cloned().collect(),
+                to: lib_dest,
+            },
+            TransferMode::Copy => amoxide::Message::CopyAliases {
+                aliases: aliases_to_transfer.iter().cloned().collect(),
+                to: lib_dest,
+            },
+        };
+        let _ = crate::delegation::dispatch(model, msg);
+        model.selected.clear();
+        model.mode = Mode::Normal;
+        model.active_column = Column::Left;
     } else {
         model.mode = Mode::Confirm(ConfirmAction::OverwriteAliases {
             aliases: aliases_to_transfer,
@@ -612,30 +649,6 @@ fn execute_transfer(model: &mut TuiModel) {
             transfer_mode,
         });
     }
-}
-
-fn delete_alias(model: &mut TuiModel, alias_id: &AliasId) {
-    match alias_id {
-        AliasId::Global { alias_name } => {
-            let _ = model.app_model.config.remove_alias(alias_name);
-        }
-        AliasId::Profile {
-            profile_name,
-            alias_name,
-        } => {
-            if let Some(p) = model
-                .app_model
-                .profile_config_mut()
-                .get_profile_by_name_mut(profile_name)
-            {
-                let _ = p.remove_alias(alias_name);
-            }
-        }
-        AliasId::Project { alias_name } => {
-            let _ = model.app_model.save_project_aliases_remove(alias_name);
-        }
-    }
-    model.selected.remove(alias_id);
 }
 
 fn is_same_source(id: &AliasId, dest: &MoveDestination) -> bool {
@@ -667,114 +680,6 @@ fn alias_exists_at_dest(model: &TuiModel, id: &AliasId, dest: &MoveDestination) 
             .profile_config()
             .get_profile_by_name(name)
             .is_some_and(|p| p.aliases.contains_key(&key)),
-    }
-}
-
-fn do_transfer(
-    model: &mut TuiModel,
-    aliases: &[AliasId],
-    dest: &MoveDestination,
-    transfer_mode: &TransferMode,
-) {
-    let delete_source = *transfer_mode == TransferMode::Move;
-    for alias_id in aliases {
-        transfer_single_alias(model, alias_id, dest, delete_source);
-    }
-    save_all(model);
-    model.selected.clear();
-    model.mode = Mode::Normal;
-    model.active_column = Column::Left;
-    model.rebuild_tree();
-}
-
-fn transfer_single_alias(
-    model: &mut TuiModel,
-    alias_id: &AliasId,
-    dest: &MoveDestination,
-    delete_source: bool,
-) {
-    // Read the alias from its source.
-    let (alias_name_str, toml_alias) = match alias_id {
-        AliasId::Global { alias_name } => {
-            let key = AliasName::from(alias_name.as_str());
-            let alias = model.app_model.config.aliases.get(&key).cloned();
-            (alias_name.clone(), alias)
-        }
-        AliasId::Profile {
-            profile_name,
-            alias_name,
-        } => {
-            let key = AliasName::from(alias_name.as_str());
-            let alias = model
-                .app_model
-                .profile_config()
-                .get_profile_by_name(profile_name)
-                .and_then(|p| p.aliases.get(&key).cloned());
-            (alias_name.clone(), alias)
-        }
-        AliasId::Project { alias_name } => {
-            let key = AliasName::from(alias_name.as_str());
-            let alias = model
-                .app_model
-                .project_aliases()
-                .and_then(|p| p.aliases.get(&key).cloned());
-            (alias_name.clone(), alias)
-        }
-    };
-
-    let Some(toml_alias) = toml_alias else {
-        return;
-    };
-
-    let command = toml_alias.command().to_string();
-    let raw = matches!(&toml_alias, TomlAlias::Detailed(d) if d.raw);
-
-    // Remove from source (skip for copy).
-    if delete_source {
-        match alias_id {
-            AliasId::Global { alias_name } => {
-                let _ = model.app_model.config.remove_alias(alias_name);
-            }
-            AliasId::Profile {
-                profile_name,
-                alias_name,
-            } => {
-                if let Some(profile) = model
-                    .app_model
-                    .profile_config_mut()
-                    .get_profile_by_name_mut(profile_name)
-                {
-                    let _ = profile.remove_alias(alias_name);
-                }
-            }
-            AliasId::Project { alias_name } => {
-                let _ = model.app_model.save_project_aliases_remove(alias_name);
-            }
-        }
-    }
-
-    // Add to destination.
-    match dest {
-        MoveDestination::Global => {
-            model
-                .app_model
-                .config
-                .add_alias(alias_name_str, command, raw);
-        }
-        MoveDestination::Project => {
-            let _ = model
-                .app_model
-                .save_project_aliases_add(&alias_name_str, &command, raw);
-        }
-        MoveDestination::Profile(profile_name) => {
-            if let Some(profile) = model
-                .app_model
-                .profile_config_mut()
-                .get_profile_by_name_mut(profile_name)
-            {
-                let _ = profile.add_alias(alias_name_str, command, raw);
-            }
-        }
     }
 }
 
@@ -816,11 +721,6 @@ fn resolve_alias_target(model: &TuiModel) -> Option<AliasTarget> {
             }
         }
     }
-}
-
-fn save_all(model: &TuiModel) {
-    let _ = model.app_model.save_config();
-    let _ = model.app_model.save_profiles();
 }
 
 fn active_tree(model: &TuiModel) -> &[TreeNode] {

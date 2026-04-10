@@ -41,6 +41,7 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
         KeyCode::Char(c @ '1'..='9') => Some(TuiMessage::UseProfileWithPriority(
             c as usize - '0' as usize,
         )),
+        KeyCode::Char('t') => Some(TuiMessage::ToggleTrust),
         KeyCode::Char('q') => Some(TuiMessage::Quit),
         _ => None,
     }

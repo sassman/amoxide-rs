@@ -132,6 +132,7 @@ pub enum TuiMessage {
     TextInputSwitchField,
     ConfirmYes,
     ConfirmNo,
+    ToggleTrust,
     Quit,
     Resize(u16, u16),
 }
