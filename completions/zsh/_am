@@ -80,7 +80,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 '-V[Print version]' \
 '--version[Print version]' \
-":: :_am__subcmd__profile_commands" \
+":: :_am__profile_commands" \
 "*::: :->profile" \
 && ret=0
 
@@ -133,7 +133,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
-":: :_am__subcmd__profile__subcmd__help_commands" \
+":: :_am__profile__help_commands" \
 "*::: :->help" \
 && ret=0
 
@@ -305,7 +305,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (help)
 _arguments "${_arguments_options[@]}" : \
-":: :_am__subcmd__help_commands" \
+":: :_am__help_commands" \
 "*::: :->help" \
 && ret=0
 
@@ -333,7 +333,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (profile)
 _arguments "${_arguments_options[@]}" : \
-":: :_am__subcmd__help__subcmd__profile_commands" \
+":: :_am__help__profile_commands" \
 "*::: :->profile" \
 && ret=0
 
@@ -443,18 +443,18 @@ _am_commands() {
     )
     _describe -t commands 'am commands' commands "$@"
 }
-(( $+functions[_am__subcmd__add_commands] )) ||
-_am__subcmd__add_commands() {
+(( $+functions[_am__add_commands] )) ||
+_am__add_commands() {
     local commands; commands=()
     _describe -t commands 'am add commands' commands "$@"
 }
-(( $+functions[_am__subcmd__export_commands] )) ||
-_am__subcmd__export_commands() {
+(( $+functions[_am__export_commands] )) ||
+_am__export_commands() {
     local commands; commands=()
     _describe -t commands 'am export commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help_commands] )) ||
-_am__subcmd__help_commands() {
+(( $+functions[_am__help_commands] )) ||
+_am__help_commands() {
     local commands; commands=(
 'add:Add a new alias' \
 'remove:Remove an alias' \
@@ -476,43 +476,43 @@ _am__subcmd__help_commands() {
     )
     _describe -t commands 'am help commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__add_commands] )) ||
-_am__subcmd__help__subcmd__add_commands() {
+(( $+functions[_am__help__add_commands] )) ||
+_am__help__add_commands() {
     local commands; commands=()
     _describe -t commands 'am help add commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__export_commands] )) ||
-_am__subcmd__help__subcmd__export_commands() {
+(( $+functions[_am__help__export_commands] )) ||
+_am__help__export_commands() {
     local commands; commands=()
     _describe -t commands 'am help export commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__help_commands] )) ||
-_am__subcmd__help__subcmd__help_commands() {
+(( $+functions[_am__help__help_commands] )) ||
+_am__help__help_commands() {
     local commands; commands=()
     _describe -t commands 'am help help commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__hook_commands] )) ||
-_am__subcmd__help__subcmd__hook_commands() {
+(( $+functions[_am__help__hook_commands] )) ||
+_am__help__hook_commands() {
     local commands; commands=()
     _describe -t commands 'am help hook commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__import_commands] )) ||
-_am__subcmd__help__subcmd__import_commands() {
+(( $+functions[_am__help__import_commands] )) ||
+_am__help__import_commands() {
     local commands; commands=()
     _describe -t commands 'am help import commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__init_commands] )) ||
-_am__subcmd__help__subcmd__init_commands() {
+(( $+functions[_am__help__init_commands] )) ||
+_am__help__init_commands() {
     local commands; commands=()
     _describe -t commands 'am help init commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__ls_commands] )) ||
-_am__subcmd__help__subcmd__ls_commands() {
+(( $+functions[_am__help__ls_commands] )) ||
+_am__help__ls_commands() {
     local commands; commands=()
     _describe -t commands 'am help ls commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__profile_commands] )) ||
-_am__subcmd__help__subcmd__profile_commands() {
+(( $+functions[_am__help__profile_commands] )) ||
+_am__help__profile_commands() {
     local commands; commands=(
 'add:Add a new profile' \
 'use:Toggle one or more profiles as active/inactive, optionally at a specific priority' \
@@ -521,93 +521,93 @@ _am__subcmd__help__subcmd__profile_commands() {
     )
     _describe -t commands 'am help profile commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__profile__subcmd__add_commands] )) ||
-_am__subcmd__help__subcmd__profile__subcmd__add_commands() {
+(( $+functions[_am__help__profile__add_commands] )) ||
+_am__help__profile__add_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile add commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__profile__subcmd__list_commands] )) ||
-_am__subcmd__help__subcmd__profile__subcmd__list_commands() {
+(( $+functions[_am__help__profile__list_commands] )) ||
+_am__help__profile__list_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile list commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__profile__subcmd__remove_commands] )) ||
-_am__subcmd__help__subcmd__profile__subcmd__remove_commands() {
+(( $+functions[_am__help__profile__remove_commands] )) ||
+_am__help__profile__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile remove commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__profile__subcmd__use_commands] )) ||
-_am__subcmd__help__subcmd__profile__subcmd__use_commands() {
+(( $+functions[_am__help__profile__use_commands] )) ||
+_am__help__profile__use_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile use commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__reload_commands] )) ||
-_am__subcmd__help__subcmd__reload_commands() {
+(( $+functions[_am__help__reload_commands] )) ||
+_am__help__reload_commands() {
     local commands; commands=()
     _describe -t commands 'am help reload commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__remove_commands] )) ||
-_am__subcmd__help__subcmd__remove_commands() {
+(( $+functions[_am__help__remove_commands] )) ||
+_am__help__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am help remove commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__setup_commands] )) ||
-_am__subcmd__help__subcmd__setup_commands() {
+(( $+functions[_am__help__setup_commands] )) ||
+_am__help__setup_commands() {
     local commands; commands=()
     _describe -t commands 'am help setup commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__share_commands] )) ||
-_am__subcmd__help__subcmd__share_commands() {
+(( $+functions[_am__help__share_commands] )) ||
+_am__help__share_commands() {
     local commands; commands=()
     _describe -t commands 'am help share commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__status_commands] )) ||
-_am__subcmd__help__subcmd__status_commands() {
+(( $+functions[_am__help__status_commands] )) ||
+_am__help__status_commands() {
     local commands; commands=()
     _describe -t commands 'am help status commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__trust_commands] )) ||
-_am__subcmd__help__subcmd__trust_commands() {
+(( $+functions[_am__help__trust_commands] )) ||
+_am__help__trust_commands() {
     local commands; commands=()
     _describe -t commands 'am help trust commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__tui_commands] )) ||
-_am__subcmd__help__subcmd__tui_commands() {
+(( $+functions[_am__help__tui_commands] )) ||
+_am__help__tui_commands() {
     local commands; commands=()
     _describe -t commands 'am help tui commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__untrust_commands] )) ||
-_am__subcmd__help__subcmd__untrust_commands() {
+(( $+functions[_am__help__untrust_commands] )) ||
+_am__help__untrust_commands() {
     local commands; commands=()
     _describe -t commands 'am help untrust commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__use_commands] )) ||
-_am__subcmd__help__subcmd__use_commands() {
+(( $+functions[_am__help__use_commands] )) ||
+_am__help__use_commands() {
     local commands; commands=()
     _describe -t commands 'am help use commands' commands "$@"
 }
-(( $+functions[_am__subcmd__hook_commands] )) ||
-_am__subcmd__hook_commands() {
+(( $+functions[_am__hook_commands] )) ||
+_am__hook_commands() {
     local commands; commands=()
     _describe -t commands 'am hook commands' commands "$@"
 }
-(( $+functions[_am__subcmd__import_commands] )) ||
-_am__subcmd__import_commands() {
+(( $+functions[_am__import_commands] )) ||
+_am__import_commands() {
     local commands; commands=()
     _describe -t commands 'am import commands' commands "$@"
 }
-(( $+functions[_am__subcmd__init_commands] )) ||
-_am__subcmd__init_commands() {
+(( $+functions[_am__init_commands] )) ||
+_am__init_commands() {
     local commands; commands=()
     _describe -t commands 'am init commands' commands "$@"
 }
-(( $+functions[_am__subcmd__ls_commands] )) ||
-_am__subcmd__ls_commands() {
+(( $+functions[_am__ls_commands] )) ||
+_am__ls_commands() {
     local commands; commands=()
     _describe -t commands 'am ls commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile_commands] )) ||
-_am__subcmd__profile_commands() {
+(( $+functions[_am__profile_commands] )) ||
+_am__profile_commands() {
     local commands; commands=(
 'add:Add a new profile' \
 'use:Toggle one or more profiles as active/inactive, optionally at a specific priority' \
@@ -617,13 +617,13 @@ _am__subcmd__profile_commands() {
     )
     _describe -t commands 'am profile commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__add_commands] )) ||
-_am__subcmd__profile__subcmd__add_commands() {
+(( $+functions[_am__profile__add_commands] )) ||
+_am__profile__add_commands() {
     local commands; commands=()
     _describe -t commands 'am profile add commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__help_commands] )) ||
-_am__subcmd__profile__subcmd__help_commands() {
+(( $+functions[_am__profile__help_commands] )) ||
+_am__profile__help_commands() {
     local commands; commands=(
 'add:Add a new profile' \
 'use:Toggle one or more profiles as active/inactive, optionally at a specific priority' \
@@ -633,88 +633,88 @@ _am__subcmd__profile__subcmd__help_commands() {
     )
     _describe -t commands 'am profile help commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__help__subcmd__add_commands] )) ||
-_am__subcmd__profile__subcmd__help__subcmd__add_commands() {
+(( $+functions[_am__profile__help__add_commands] )) ||
+_am__profile__help__add_commands() {
     local commands; commands=()
     _describe -t commands 'am profile help add commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__help__subcmd__help_commands] )) ||
-_am__subcmd__profile__subcmd__help__subcmd__help_commands() {
+(( $+functions[_am__profile__help__help_commands] )) ||
+_am__profile__help__help_commands() {
     local commands; commands=()
     _describe -t commands 'am profile help help commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__help__subcmd__list_commands] )) ||
-_am__subcmd__profile__subcmd__help__subcmd__list_commands() {
+(( $+functions[_am__profile__help__list_commands] )) ||
+_am__profile__help__list_commands() {
     local commands; commands=()
     _describe -t commands 'am profile help list commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__help__subcmd__remove_commands] )) ||
-_am__subcmd__profile__subcmd__help__subcmd__remove_commands() {
+(( $+functions[_am__profile__help__remove_commands] )) ||
+_am__profile__help__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am profile help remove commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__help__subcmd__use_commands] )) ||
-_am__subcmd__profile__subcmd__help__subcmd__use_commands() {
+(( $+functions[_am__profile__help__use_commands] )) ||
+_am__profile__help__use_commands() {
     local commands; commands=()
     _describe -t commands 'am profile help use commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__list_commands] )) ||
-_am__subcmd__profile__subcmd__list_commands() {
+(( $+functions[_am__profile__list_commands] )) ||
+_am__profile__list_commands() {
     local commands; commands=()
     _describe -t commands 'am profile list commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__remove_commands] )) ||
-_am__subcmd__profile__subcmd__remove_commands() {
+(( $+functions[_am__profile__remove_commands] )) ||
+_am__profile__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am profile remove commands' commands "$@"
 }
-(( $+functions[_am__subcmd__profile__subcmd__use_commands] )) ||
-_am__subcmd__profile__subcmd__use_commands() {
+(( $+functions[_am__profile__use_commands] )) ||
+_am__profile__use_commands() {
     local commands; commands=()
     _describe -t commands 'am profile use commands' commands "$@"
 }
-(( $+functions[_am__subcmd__reload_commands] )) ||
-_am__subcmd__reload_commands() {
+(( $+functions[_am__reload_commands] )) ||
+_am__reload_commands() {
     local commands; commands=()
     _describe -t commands 'am reload commands' commands "$@"
 }
-(( $+functions[_am__subcmd__remove_commands] )) ||
-_am__subcmd__remove_commands() {
+(( $+functions[_am__remove_commands] )) ||
+_am__remove_commands() {
     local commands; commands=()
     _describe -t commands 'am remove commands' commands "$@"
 }
-(( $+functions[_am__subcmd__setup_commands] )) ||
-_am__subcmd__setup_commands() {
+(( $+functions[_am__setup_commands] )) ||
+_am__setup_commands() {
     local commands; commands=()
     _describe -t commands 'am setup commands' commands "$@"
 }
-(( $+functions[_am__subcmd__share_commands] )) ||
-_am__subcmd__share_commands() {
+(( $+functions[_am__share_commands] )) ||
+_am__share_commands() {
     local commands; commands=()
     _describe -t commands 'am share commands' commands "$@"
 }
-(( $+functions[_am__subcmd__status_commands] )) ||
-_am__subcmd__status_commands() {
+(( $+functions[_am__status_commands] )) ||
+_am__status_commands() {
     local commands; commands=()
     _describe -t commands 'am status commands' commands "$@"
 }
-(( $+functions[_am__subcmd__trust_commands] )) ||
-_am__subcmd__trust_commands() {
+(( $+functions[_am__trust_commands] )) ||
+_am__trust_commands() {
     local commands; commands=()
     _describe -t commands 'am trust commands' commands "$@"
 }
-(( $+functions[_am__subcmd__tui_commands] )) ||
-_am__subcmd__tui_commands() {
+(( $+functions[_am__tui_commands] )) ||
+_am__tui_commands() {
     local commands; commands=()
     _describe -t commands 'am tui commands' commands "$@"
 }
-(( $+functions[_am__subcmd__untrust_commands] )) ||
-_am__subcmd__untrust_commands() {
+(( $+functions[_am__untrust_commands] )) ||
+_am__untrust_commands() {
     local commands; commands=()
     _describe -t commands 'am untrust commands' commands "$@"
 }
-(( $+functions[_am__subcmd__use_commands] )) ||
-_am__subcmd__use_commands() {
+(( $+functions[_am__use_commands] )) ||
+_am__use_commands() {
     local commands; commands=()
     _describe -t commands 'am use commands' commands "$@"
 }
