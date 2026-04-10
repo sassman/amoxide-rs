@@ -47,6 +47,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;add' {
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
             [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Profile to add the alias to (defaults to active profile)')
+            [CompletionResult]::new('--sub', '--sub', [CompletionResultType]::ParameterName, 'Define a subcommand alias (repeatable: --sub short long)')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
             [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Add to the project''s .aliases file instead of a profile')
             [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Add as a global alias (always loaded, independent of profile)')
@@ -61,6 +62,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;remove' {
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
             [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
+            [CompletionResult]::new('--sub', '--sub', [CompletionResultType]::ParameterName, 'Remove a subcommand alias (repeatable: --sub short)')
             [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Remove a global alias')
             [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Remove a global alias')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')

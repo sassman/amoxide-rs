@@ -181,7 +181,7 @@ _am() {
             return 0
             ;;
         am__add)
-            opts="-p -l -g -h -V --profile --local --global --raw --help --version <NAME> [COMMAND]..."
+            opts="-p -l -g -h -V --profile --local --global --raw --sub --help --version <NAME> [COMMAND]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -192,6 +192,10 @@ _am() {
                     return 0
                     ;;
                 -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --sub)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -773,7 +777,7 @@ _am() {
             return 0
             ;;
         am__remove)
-            opts="-p -g -h -V --profile --global --help --version <NAME>"
+            opts="-p -g -h -V --profile --global --sub --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -784,6 +788,10 @@ _am() {
                     return 0
                     ;;
                 -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --sub)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
