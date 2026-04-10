@@ -92,7 +92,7 @@ pub fn generate_hook_with_security(
                         // If the same aliases are already loaded, skip entirely.
                         // The hash check guarantees commands haven't changed either.
                         if all_names.len() == prev.len()
-                            && all_names.iter().zip(&prev).all(|(a, b)| a == b.to_owned())
+                            && all_names.iter().zip(&prev).all(|(a, b)| a == b)
                         {
                             return Ok((String::new(), false));
                         }
@@ -100,7 +100,7 @@ pub fn generate_hook_with_security(
                         unload_prev(&mut lines);
 
                         if show_messages {
-                            for line in render_load_message(&project.aliases).lines() {
+                            for line in render_load_message(&project.aliases, &project.subcommands).lines() {
                                 lines.push(shell_impl.echo(line));
                             }
                         }

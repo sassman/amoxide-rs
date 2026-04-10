@@ -45,8 +45,7 @@ impl Shell for PowerShell {
         // For PowerShell, base_cmd is used with & operator for external commands.
         // "command jj" → "& (Get-Command jj -CommandType Application).Source"
         // alias value → "& alias-value"
-        let ps_base = if base_cmd.starts_with("command ") {
-            let bin = &base_cmd["command ".len()..];
+        let ps_base = if let Some(bin) = base_cmd.strip_prefix("command ") {
             format!("& (Get-Command {bin} -CommandType Application).Source")
         } else {
             format!("& {base_cmd}")

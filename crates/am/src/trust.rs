@@ -50,7 +50,11 @@ pub fn compute_hash(content: &[u8]) -> String {
 /// Render the "loaded" info message shown on cd into a trusted directory.
 ///
 /// Alias names are right-padded so `->` and commands align in columns.
-pub fn render_load_message(aliases: &crate::AliasSet) -> String {
+/// Subcommand wrapper programs are listed with their short→long expansions.
+pub fn render_load_message(
+    aliases: &crate::AliasSet,
+    subcommands: &crate::subcommand::SubcommandSet,
+) -> String {
     let mut lines = vec!["am: loaded .aliases".to_string()];
 
     // Find max alias name length for column alignment
@@ -65,6 +69,16 @@ pub fn render_load_message(aliases: &crate::AliasSet) -> String {
         let cmd = alias_value.command();
         let padded = format!("{:width$}", name, width = max_name_len);
         lines.push(format!("  {padded} \u{2192} {cmd}"));
+    }
+
+    let subcmd_groups = crate::subcommand::group_by_program(subcommands);
+    for (program, entries) in &subcmd_groups {
+        lines.push(format!("  {program} (subcommands):"));
+        for entry in entries {
+            let shorts = entry.short_subcommands.join(" ");
+            let longs = entry.long_subcommands.join(" ");
+            lines.push(format!("    {shorts} \u{2192} {longs}"));
+        }
     }
 
     lines.join("\n")
@@ -124,7 +138,7 @@ mod tests {
     #[test]
     fn render_load_message_columnar_alignment() {
         let aliases = test_aliases();
-        let msg = render_load_message(&aliases);
+        let msg = render_load_message(&aliases, &Default::default());
         assert!(msg.starts_with("am: loaded .aliases\n"));
         // All arrows should be at the same column
         let arrow_positions: Vec<usize> = msg
@@ -143,7 +157,7 @@ mod tests {
     #[test]
     fn render_load_message_contains_all_aliases() {
         let aliases = test_aliases();
-        let msg = render_load_message(&aliases);
+        let msg = render_load_message(&aliases, &Default::default());
         assert!(msg.contains("make build"));
         assert!(msg.contains("cargo test"));
         assert!(msg.contains("cargo build"));

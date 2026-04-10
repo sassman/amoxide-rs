@@ -60,7 +60,7 @@ pub fn generate_init(
         let base_cmd = all_aliases
             .filter(|(n, _)| n.as_ref() == program.as_str())
             .map(|(_, v)| v.command().to_string())
-            .next()
+            .last()
             .unwrap_or_else(|| format!("command {program}"));
 
         lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
@@ -144,7 +144,7 @@ pub fn generate_reload(
         let base_cmd = all_aliases
             .filter(|(n, _)| n.as_ref() == program.as_str())
             .map(|(_, v)| v.command().to_string())
-            .next()
+            .last()
             .unwrap_or_else(|| format!("command {program}"));
 
         lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
