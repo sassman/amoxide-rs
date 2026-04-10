@@ -67,6 +67,7 @@ mod tests {
             app_model.profile_config(),
             &app_model.config.active_profiles,
             None,
+            None,
         );
         let dest_tree = build_dest_tree_from_parts(
             &app_model.config.aliases,

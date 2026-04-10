@@ -14,6 +14,8 @@ const SELECTED_ACCENT: Color = Color::Rgb(208, 136, 74); // #d0884a — warm ora
 const SELECTED_ACCENT_MUTED: Color = Color::Rgb(154, 101, 53); // #9a6535 — muted orange for selected commands
 const SELECTED_TEXT: Color = Color::Rgb(232, 232, 234); // #e8e8ea — bright white for selected alias names
 const ERROR_RED: Color = Color::Rgb(220, 80, 80); // #dc5050 — error / validation feedback
+const TRUST_WARN: Color = Color::Rgb(200, 160, 60); // amber — unknown/untrusted project
+const TRUST_TAMPERED: Color = Color::Rgb(220, 80, 80); // red — tampered project
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
@@ -85,7 +87,7 @@ fn render_left_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 fn header_content(node: &TreeNode, activation_order: Option<usize>) -> (String, String) {
     match &node.kind {
         NodeKind::GlobalHeader => (ICON_GLOBAL.to_string(), "global".to_string()),
-        NodeKind::ProjectHeader => (ICON_PROJECT.to_string(), "project (.aliases)".to_string()),
+        NodeKind::ProjectHeader => (ICON_PROJECT.to_string(), node.label.clone()),
         NodeKind::ProfileHeader => {
             let icon = if node.is_active {
                 ICON_ACTIVE
@@ -104,7 +106,19 @@ fn header_content(node: &TreeNode, activation_order: Option<usize>) -> (String, 
 
 /// Returns (label_color, icon_color) for a tree header node.
 fn header_colors(node: &TreeNode, is_cursor: bool) -> (Color, Color) {
-    let highlight = is_cursor || (node.kind == NodeKind::ProfileHeader && node.is_active);
+    if is_cursor {
+        return (GOLD, GOLD);
+    }
+    match &node.project_trust {
+        Some(ProjectTrustState::Unknown) | Some(ProjectTrustState::Untrusted) => {
+            return (TRUST_WARN, TRUST_WARN);
+        }
+        Some(ProjectTrustState::Tampered) => {
+            return (TRUST_TAMPERED, TRUST_TAMPERED);
+        }
+        _ => {}
+    }
+    let highlight = node.kind == NodeKind::ProfileHeader && node.is_active;
     let label_color = if highlight { GOLD } else { HEADER_DEFAULT };
     let icon_color = match &node.kind {
         NodeKind::ProfileHeader if !highlight => TEXT_MUTED,

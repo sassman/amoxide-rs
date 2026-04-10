@@ -2,6 +2,7 @@ use amoxide::update::AppModel;
 use std::collections::BTreeSet;
 
 pub use amoxide::AliasId;
+pub use crate::tree::ProjectTrustState;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
@@ -32,6 +33,8 @@ pub struct TreeNode {
     pub prefix: String,
     /// Prefix for content lines under this node (alias lines, connector lines).
     pub content_prefix: String,
+    /// Trust state for project header nodes; `None` for all other node kinds.
+    pub project_trust: Option<ProjectTrustState>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
