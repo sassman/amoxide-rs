@@ -570,6 +570,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 ]))
             }
         }
+        Message::MoveAliases { aliases, to } => transfer_aliases(model, &aliases, &to, true),
+        Message::CopyAliases { aliases, to } => transfer_aliases(model, &aliases, &to, false),
     }
 }
 
@@ -595,6 +597,114 @@ fn resolve_profile_mut<'a>(
                 .ok_or_else(|| UpdateError::ProfileNotFound { name: active })
         }
         _ => unreachable!(),
+    }
+}
+
+fn transfer_aliases(
+    model: &mut AppModel,
+    aliases: &[crate::AliasId],
+    to: &AliasTarget,
+    delete_source: bool,
+) -> Result<UpdateResult, UpdateError> {
+    use crate::AliasId;
+
+    // Trust-gate the destination if it's Local
+    if *to == AliasTarget::Local {
+        if let Some(trust) = model.project_trust() {
+            if !trust.is_trusted() {
+                return Err(UpdateError::ProjectNotTrusted {
+                    path: trust.path().to_path_buf(),
+                });
+            }
+        }
+    }
+
+    let mut effects: Vec<Effect> = Vec::new();
+    let mut needs_save_config = false;
+    let mut needs_save_profiles = false;
+
+    for id in aliases {
+        // Read alias from source
+        let (cmd, raw) = read_alias_from_model(model, id)
+            .ok_or_else(|| UpdateError::AliasNotFound {
+                name: id.name().to_string(),
+                target: format!("{}", id.target()),
+            })?;
+
+        // Remove from source (for move)
+        if delete_source {
+            match id {
+                AliasId::Global { alias_name } => {
+                    let key = crate::AliasName::from(alias_name.as_str());
+                    model.config.aliases.remove(&key);
+                    needs_save_config = true;
+                }
+                AliasId::Profile { profile_name, alias_name } => {
+                    if let Some(p) = model.profile_config_mut().get_profile_by_name_mut(profile_name) {
+                        let key = crate::AliasName::from(alias_name.as_str());
+                        p.aliases.remove(&key);
+                        needs_save_profiles = true;
+                    }
+                }
+                AliasId::Project { alias_name } => {
+                    effects.push(Effect::RemoveLocalAlias { name: alias_name.clone() });
+                }
+            }
+        }
+
+        // Add to destination
+        let name = id.name().to_string();
+        match to {
+            AliasTarget::Global => {
+                model.config.add_alias(name, cmd, raw);
+                needs_save_config = true;
+            }
+            AliasTarget::Local => {
+                effects.push(Effect::AddLocalAlias { name, cmd, raw });
+            }
+            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                let profile = resolve_profile_mut(model, target)?;
+                profile.add_alias(name, cmd, raw)
+                    .map_err(|e| UpdateError::Other(e.to_string()))?;
+                needs_save_profiles = true;
+            }
+        }
+    }
+
+    if needs_save_config { effects.push(Effect::SaveConfig); }
+    if needs_save_profiles { effects.push(Effect::SaveProfiles); }
+
+    Ok(UpdateResult::with_effects(&effects))
+}
+
+fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(String, bool)> {
+    use crate::AliasId;
+    match id {
+        AliasId::Global { alias_name } => {
+            let key = crate::AliasName::from(alias_name.as_str());
+            model.config.aliases.get(&key).map(|a| {
+                let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
+                (a.command().to_string(), raw)
+            })
+        }
+        AliasId::Profile { profile_name, alias_name } => {
+            let key = crate::AliasName::from(alias_name.as_str());
+            model.profile_config().get_profile_by_name(profile_name)
+                .and_then(|p| p.aliases.get(&key))
+                .map(|a| {
+                    let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
+                    (a.command().to_string(), raw)
+                })
+        }
+        AliasId::Project { alias_name } => {
+            let key = crate::AliasName::from(alias_name.as_str());
+            model.project_aliases()
+                .and_then(|p| p.aliases.get(&key))
+                .map(|a| {
+                    let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
+                    (a.command().to_string(), raw)
+                })
+        }
     }
 }
 
@@ -1146,6 +1256,76 @@ mod tests {
             },
         );
         assert!(matches!(result, Err(UpdateError::AliasNotFound { .. })));
+    }
+
+    #[test]
+    fn move_aliases_from_global_to_profile() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::MoveAliases {
+                aliases: vec![crate::AliasId::Global { alias_name: "ll".into() }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        assert!(!model.config.aliases.contains_key(&key));
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        assert!(profile.aliases.contains_key(&key));
+        assert!(result.effects.contains(&Effect::SaveConfig));
+        assert!(result.effects.contains(&Effect::SaveProfiles));
+    }
+
+    #[test]
+    fn copy_aliases_preserves_source() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        update(
+            &mut model,
+            Message::CopyAliases {
+                aliases: vec![crate::AliasId::Global { alias_name: "ll".into() }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        assert!(model.config.aliases.contains_key(&key));
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        assert!(profile.aliases.contains_key(&key));
+    }
+
+    #[test]
+    fn move_to_untrusted_project_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let aliases_path = dir.path().join(".aliases");
+        std::fs::write(&aliases_path, "[aliases]\n").unwrap();
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let mut security = SecurityConfig::default();
+        security.untrust(&aliases_path);
+        let mut model = AppModel::new_with_security(config, ProfileConfig::default(), security)
+            .with_cwd(dir.path().to_path_buf());
+
+        let result = update(
+            &mut model,
+            Message::MoveAliases {
+                aliases: vec![crate::AliasId::Global { alias_name: "ll".into() }],
+                to: AliasTarget::Local,
+            },
+        );
+        assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
     }
 
     #[cfg(feature = "test-util")]

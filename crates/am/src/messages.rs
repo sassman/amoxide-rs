@@ -48,4 +48,16 @@ pub enum Message {
 
     Trust,
     Untrust { forget: bool },
+
+    /// Move one or more aliases to another scope (source deleted).
+    MoveAliases {
+        aliases: Vec<crate::AliasId>,
+        to: AliasTarget,
+    },
+
+    /// Copy one or more aliases to another scope (source retained).
+    CopyAliases {
+        aliases: Vec<crate::AliasId>,
+        to: AliasTarget,
+    },
 }
