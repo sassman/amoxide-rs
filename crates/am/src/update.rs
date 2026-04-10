@@ -215,6 +215,38 @@ impl AppModel {
     pub fn save_security(&self) -> crate::Result<()> {
         self.security_config.save_to(&self.config_dir)
     }
+
+    /// Add an alias to the project .aliases file, saving to disk.
+    /// Updates project_trust in-memory to reflect the new content.
+    pub fn save_project_aliases_add(&mut self, name: &str, cmd: &str, raw: bool) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self
+            .project_aliases()
+            .cloned()
+            .unwrap_or_default();
+        project.add_alias(name.to_string(), cmd.to_string(), raw);
+        project.save(&path)?;
+        let hash = crate::trust::compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        Ok(())
+    }
+
+    /// Remove an alias from the project .aliases file, saving to disk.
+    pub fn save_project_aliases_remove(&mut self, name: &str) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self
+            .project_aliases()
+            .cloned()
+            .unwrap_or_default();
+        let key = crate::AliasName::from(name);
+        project.aliases.remove(&key);
+        project.save(&path)?;
+        let hash = crate::trust::compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        Ok(())
+    }
 }
 
 pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateResult> {
