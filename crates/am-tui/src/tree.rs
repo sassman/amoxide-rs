@@ -31,9 +31,7 @@ pub fn build_tree(app_model: &AppModel) -> Vec<TreeNode> {
 }
 
 pub fn build_dest_tree(app_model: &AppModel) -> Vec<TreeNode> {
-    let project_is_trusted = app_model
-        .project_trust()
-        .is_some_and(|t| t.is_trusted());
+    let project_is_trusted = app_model.project_trust().is_some_and(|t| t.is_trusted());
     build_dest_tree_from_parts(
         &app_model.config.aliases,
         app_model.profile_config(),
@@ -124,14 +122,8 @@ pub fn build_tree_from_parts(
 
     // --- Active profiles (in activation order) ---
     for (i, profile_name) in active_names.iter().enumerate() {
-        let is_last_in_zone = child_idx + (active_names.len() - i - 1) + usize::from(has_project)
-            == active_zone_children - 1
-            && !has_project
-            && i == active_names.len() - 1;
-        // Simpler: compute directly
         let remaining_active = active_names.len() - i - 1;
         let is_last = remaining_active == 0 && !has_project;
-        let _ = is_last_in_zone; // suppress
         let connector = if is_last { TREE_LAST } else { TREE_BRANCH };
         let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
 
@@ -307,8 +299,6 @@ pub fn build_dest_tree_from_parts(
 
     // Project header
     if has_project {
-        let is_last = active_zone_children > 0; // project is always last in active zone
-        let _ = is_last;
         nodes.push(TreeNode {
             kind: NodeKind::ProjectHeader,
             alias_id: None,
