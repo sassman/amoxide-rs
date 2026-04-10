@@ -26,6 +26,9 @@ serde = { version = "1.0", features = ["derive"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 blake3 = "1"
 
+[features]
+test-util = []
+
 [dev-dependencies]
 tempfile = "3"
 indoc = "2.0"

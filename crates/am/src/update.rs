@@ -56,6 +56,7 @@ impl UpdateResult {
 pub struct AppModel {
     pub config: Config,
     pub cwd: std::path::PathBuf,
+    config_dir: PathBuf,
     profile_config: ProfileConfig,
     security_config: SecurityConfig,
     project_trust: Option<ProjectTrust>,
@@ -79,27 +80,41 @@ fn resolve_project_trust(cwd: &Path, security_config: &mut SecurityConfig) -> Op
 
 impl Default for AppModel {
     fn default() -> Self {
-        let profile_config = ProfileConfig::load().unwrap();
-        let config = Config::load().unwrap_or_default();
-        let mut security_config = SecurityConfig::load().unwrap_or_default();
+        Self::load_from_internal(crate::dirs::config_dir())
+    }
+}
+
+impl AppModel {
+    fn load_from_internal(config_dir: PathBuf) -> Self {
+        let config = Config::load_from(&config_dir).unwrap_or_default();
+        let profile_config = ProfileConfig::load_from(&config_dir).unwrap_or_default();
+        let mut security_config = SecurityConfig::load_from(&config_dir).unwrap_or_default();
         let cwd = std::env::current_dir().unwrap_or_default();
         let project_trust = resolve_project_trust(&cwd, &mut security_config);
-
         Self {
             config,
             cwd,
+            config_dir,
             profile_config,
             security_config,
             project_trust,
         }
     }
-}
 
-impl AppModel {
+    #[cfg(feature = "test-util")]
+    pub fn load_from(config_dir: PathBuf) -> Self {
+        Self::load_from_internal(config_dir)
+    }
+
+    pub fn config_dir(&self) -> &Path {
+        &self.config_dir
+    }
+
     pub fn new(config: Config, profile_config: ProfileConfig) -> Self {
         Self {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
+            config_dir: crate::dirs::config_dir(),
             profile_config,
             security_config: SecurityConfig::default(),
             project_trust: None,
@@ -114,6 +129,7 @@ impl AppModel {
         Self {
             config,
             cwd: std::env::current_dir().unwrap_or_default(),
+            config_dir: crate::dirs::config_dir(),
             profile_config,
             security_config,
             project_trust: None,
@@ -934,5 +950,32 @@ mod tests {
         );
         let err = result.err().expect("should be an error");
         assert!(err.to_string().contains("Trust this directory first"));
+    }
+
+    #[cfg(feature = "test-util")]
+    mod load_from_tests {
+        use super::*;
+
+        #[test]
+        fn app_model_load_from_reads_config_from_given_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::write(
+                dir.path().join("config.toml"),
+                "[aliases]\nll = \"ls -lha\"\n",
+            )
+            .unwrap();
+
+            let model = AppModel::load_from(dir.path().to_path_buf());
+            assert_eq!(model.config.aliases.iter().count(), 1);
+            assert_eq!(model.config_dir(), dir.path());
+        }
+
+        #[test]
+        fn app_model_load_from_returns_default_for_empty_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let model = AppModel::load_from(dir.path().to_path_buf());
+            assert!(model.config.aliases.is_empty());
+            assert_eq!(model.config_dir(), dir.path());
+        }
     }
 }
