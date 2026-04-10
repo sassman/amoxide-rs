@@ -472,10 +472,11 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
 fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
     match mode {
         Mode::Normal => {
-            let on_project = model
-                .tree
-                .get(model.cursor)
-                .is_some_and(|n| n.kind == NodeKind::ProjectHeader);
+            let cursor_node = model.tree.get(model.cursor);
+            let on_project = cursor_node.is_some_and(|n| n.kind == NodeKind::ProjectHeader);
+            let on_profile = cursor_node.is_some_and(|n| n.kind == NodeKind::ProfileHeader);
+            let profile_is_active = on_profile
+                && cursor_node.is_some_and(|n| n.is_active);
 
             let mut spans = vec![
                 Span::raw("  "),
@@ -494,10 +495,13 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
                 Span::styled("x", Style::default().fg(GOLD)),
                 Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
                 Span::styled("e", Style::default().fg(GOLD)),
-                Span::styled(" edit  ", Style::default().fg(TEXT_MUTED)),
-                Span::styled("u", Style::default().fg(GOLD)),
-                Span::styled(" use", Style::default().fg(TEXT_MUTED)),
+                Span::styled(" edit", Style::default().fg(TEXT_MUTED)),
             ];
+            if on_profile {
+                let use_label = if profile_is_active { " unuse" } else { " use" };
+                spans.push(Span::styled("  u", Style::default().fg(GOLD)));
+                spans.push(Span::styled(use_label, Style::default().fg(TEXT_MUTED)));
+            }
             if on_project {
                 spans.push(Span::styled("  t", Style::default().fg(GOLD)));
                 spans.push(Span::styled(" trust", Style::default().fg(TEXT_MUTED)));
