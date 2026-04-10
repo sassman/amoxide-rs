@@ -10,10 +10,10 @@ use crate::{AliasSet, Profile, ProfileConfig};
 ///   remaining profiles
 pub fn render_listing(
     global_aliases: &AliasSet,
+    global_subcommands: &crate::subcommand::SubcommandSet,
     config: &ProfileConfig,
     active_profiles: &[String],
     project: Option<&ProjectTrust>,
-    subcommands: &crate::subcommand::SubcommandSet,
 ) -> String {
     let mut output = String::new();
 
@@ -46,7 +46,7 @@ pub fn render_listing(
         }
     }
     // Global subcommand aliases
-    let subcmd_groups = crate::subcommand::group_by_program(subcommands);
+    let subcmd_groups = crate::subcommand::group_by_program(global_subcommands);
     for (program, entries) in &subcmd_groups {
         if has_active_items {
             output.push_str(&format!("\n\u{2502} {program} (subcommands):"));
@@ -97,6 +97,17 @@ pub fn render_listing(
             output.push_str(&format!("\n{trunk} {name} \u{2192} {cmd}"));
         }
 
+        // Profile subcommand aliases
+        let profile_subcmd_groups = crate::subcommand::group_by_program(&profile.subcommands);
+        for (program, entries) in &profile_subcmd_groups {
+            output.push_str(&format!("\n{trunk} {program} (subcommands):"));
+            for entry in entries {
+                let shorts = entry.short_subcommands.join(" ");
+                let longs = entry.long_subcommands.join(" ");
+                output.push_str(&format!("\n{trunk}   {shorts} \u{2192} {longs}"));
+            }
+        }
+
         // Blank line after profile (trunk continues if not last)
         if !is_last_active_item {
             output.push_str(&format!("\n{trunk}"));
@@ -116,6 +127,16 @@ pub fn render_listing(
                     let name = alias_name.as_ref();
                     let cmd = alias_value.command();
                     output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
+                }
+                // Project subcommand aliases
+                let proj_subcmd_groups = crate::subcommand::group_by_program(&proj.subcommands);
+                for (program, entries) in &proj_subcmd_groups {
+                    output.push_str(&format!("\n  {program} (subcommands):"));
+                    for entry in entries {
+                        let shorts = entry.short_subcommands.join(" ");
+                        let longs = entry.long_subcommands.join(" ");
+                        output.push_str(&format!("\n    {shorts} \u{2192} {longs}"));
+                    }
                 }
             }
             ProjectTrust::Unknown(_) => {
@@ -158,6 +179,17 @@ pub fn render_listing(
                 let name = alias_name.as_ref();
                 let cmd = alias_value.command();
                 output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
+            }
+            // Inactive profile subcommand aliases
+            let inactive_subcmd_groups =
+                crate::subcommand::group_by_program(&profile.subcommands);
+            for (program, entries) in &inactive_subcmd_groups {
+                output.push_str(&format!("\n  {program} (subcommands):"));
+                for entry in entries {
+                    let shorts = entry.short_subcommands.join(" ");
+                    let longs = entry.long_subcommands.join(" ");
+                    output.push_str(&format!("\n    {shorts} \u{2192} {longs}"));
+                }
             }
             output.push('\n');
         }
@@ -333,7 +365,7 @@ mod tests {
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
 
-        let output = render_listing(&globals, &config, &["rust".to_string()], None, &crate::subcommand::SubcommandSet::new());
+        let output = render_listing(&globals, &crate::subcommand::SubcommandSet::new(), &config, &["rust".to_string()], None);
         // Global with trunk
         assert!(output.contains("🌐 global"));
         assert!(output.contains("│ ll → ls -lha"));
@@ -363,10 +395,10 @@ mod tests {
 
         let output = render_listing(
             &AliasSet::default(),
+            &crate::subcommand::SubcommandSet::new(),
             &config,
             &["git".to_string(), "rust".to_string()],
             Some(&trust),
-            &crate::subcommand::SubcommandSet::new(),
         );
         assert!(output.contains("├─● git (active: 1)"));
         assert!(output.contains("├─● rust (active: 2)"));
@@ -383,7 +415,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_listing(&AliasSet::default(), &config, &["rust".to_string()], None, &crate::subcommand::SubcommandSet::new());
+        let output = render_listing(&AliasSet::default(), &crate::subcommand::SubcommandSet::new(), &config, &["rust".to_string()], None);
         assert!(output.contains("╰─● rust (active: 1)"));
     }
 
@@ -401,7 +433,7 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_listing(&AliasSet::default(), &config, &["rust".to_string()], None, &crate::subcommand::SubcommandSet::new());
+        let output = render_listing(&AliasSet::default(), &crate::subcommand::SubcommandSet::new(), &config, &["rust".to_string()], None);
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
         assert!(output.contains("  sayt → echo say it"));
@@ -411,7 +443,7 @@ mod tests {
     fn test_listing_global_alone_no_trunk() {
         let config: ProfileConfig = ProfileConfig::default();
 
-        let output = render_listing(&AliasSet::default(), &config, &[], None, &crate::subcommand::SubcommandSet::new());
+        let output = render_listing(&AliasSet::default(), &crate::subcommand::SubcommandSet::new(), &config, &[], None);
         assert!(output.contains("🌐 global"));
         // No trunk when global stands alone
         assert!(!output.contains("│"));
@@ -434,10 +466,10 @@ mod tests {
 
         let output = render_listing(
             &AliasSet::default(),
+            &crate::subcommand::SubcommandSet::new(),
             &config,
             &["default".to_string()],
             Some(&trust),
-            &crate::subcommand::SubcommandSet::new(),
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(output.contains("📁 project"));
@@ -453,10 +485,10 @@ mod tests {
 
         let output = render_listing(
             &AliasSet::default(),
+            &crate::subcommand::SubcommandSet::new(),
             &config,
             &["default".to_string()],
             None,
-            &crate::subcommand::SubcommandSet::new(),
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(!output.contains("📁"));
@@ -473,10 +505,10 @@ mod tests {
 
         let output = render_listing(
             &AliasSet::default(),
+            &subs,
             &config,
             &[],
             None,
-            &subs,
         );
         assert!(output.contains("jj (subcommands)"));
         assert!(output.contains("ab → abandon"));

@@ -531,7 +531,7 @@ fn snapshot_display_listing_with_globals_and_project() {
 
     let trust =
         amoxide::trust::ProjectTrust::Trusted(project, std::path::PathBuf::from(".aliases"));
-    let output = render_listing(&globals, &config, &["rust".to_string()], Some(&trust), &SubcommandSet::new());
+    let output = render_listing(&globals, &SubcommandSet::new(), &config, &["rust".to_string()], Some(&trust));
     insta::assert_snapshot!(output);
 }
 
@@ -554,10 +554,10 @@ fn snapshot_listing_unknown_project() {
 
     let output = render_listing(
         &AliasSet::default(),
+        &SubcommandSet::new(),
         &config,
         &["rust".to_string()],
         Some(&trust),
-        &SubcommandSet::new(),
     );
     insta::assert_snapshot!(output);
 }
@@ -570,10 +570,10 @@ fn snapshot_listing_tampered_project() {
 
     let output = render_listing(
         &AliasSet::default(),
+        &SubcommandSet::new(),
         &ProfileConfig::default(),
         &[],
         Some(&trust),
-        &SubcommandSet::new(),
     );
     insta::assert_snapshot!(output);
 }
@@ -586,10 +586,10 @@ fn snapshot_listing_untrusted_project() {
 
     let output = render_listing(
         &AliasSet::default(),
+        &SubcommandSet::new(),
         &ProfileConfig::default(),
         &[],
         Some(&trust),
-        &SubcommandSet::new(),
     );
     insta::assert_snapshot!(output);
 }

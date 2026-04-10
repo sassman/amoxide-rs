@@ -10,6 +10,7 @@ pub const ALIASES_FILE: &str = ".aliases";
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct ProjectAliases {
+    #[serde(default)]
     pub aliases: AliasSet,
     #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
     pub subcommands: SubcommandSet,
