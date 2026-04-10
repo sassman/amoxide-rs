@@ -353,6 +353,45 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
+        Message::UpdateAlias { target, old_name, new_name, new_command, raw } => {
+            match target {
+                AliasTarget::Global => {
+                    let key = crate::AliasName::from(old_name.as_str());
+                    model.config.aliases.remove(&key)
+                        .ok_or_else(|| UpdateError::AliasNotFound {
+                            name: old_name.clone(),
+                            target: "global".to_string(),
+                        })?;
+                    model.config.add_alias(new_name, new_command, raw);
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+                AliasTarget::Local => {
+                    if let Some(trust) = model.project_trust() {
+                        if !trust.is_trusted() {
+                            return Err(UpdateError::ProjectNotTrusted {
+                                path: trust.path().to_path_buf(),
+                            });
+                        }
+                    }
+                    Ok(UpdateResult::with_effects(&[
+                        Effect::RemoveLocalAlias { name: old_name },
+                        Effect::AddLocalAlias { name: new_name, cmd: new_command, raw },
+                    ]))
+                }
+                target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                    let profile = resolve_profile_mut(model, &target)?;
+                    let key = crate::AliasName::from(old_name.as_str());
+                    profile.aliases.remove(&key)
+                        .ok_or_else(|| UpdateError::AliasNotFound {
+                            name: old_name.clone(),
+                            target: format!("{target}"),
+                        })?;
+                    profile.add_alias(new_name, new_command, raw)
+                        .map_err(|e| UpdateError::Other(e.to_string()))?;
+                    Ok(UpdateResult::effect(Effect::SaveProfiles))
+                }
+            }
+        }
         Message::ListProfiles => {
             let output = render_listing(
                 &model.config.aliases,
@@ -1042,6 +1081,71 @@ mod tests {
             Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
+    }
+
+    #[test]
+    fn update_alias_renames_global_alias() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let mut model = AppModel::new(config, ProfileConfig::default());
+
+        let result = update(
+            &mut model,
+            Message::UpdateAlias {
+                target: AliasTarget::Global,
+                old_name: "ll".into(),
+                new_name: "la".into(),
+                new_command: "ls -lha".into(),
+                raw: false,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.effects, vec![Effect::SaveConfig]);
+        let key = crate::AliasName::from("la");
+        assert!(model.config.aliases.contains_key(&key));
+        let key_old = crate::AliasName::from("ll");
+        assert!(!model.config.aliases.contains_key(&key_old));
+    }
+
+    #[test]
+    fn update_alias_changes_command_global() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false);
+        let mut model = AppModel::new(config, ProfileConfig::default());
+
+        update(
+            &mut model,
+            Message::UpdateAlias {
+                target: AliasTarget::Global,
+                old_name: "ll".into(),
+                new_name: "ll".into(),
+                new_command: "ls -la".into(),
+                raw: false,
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        let alias = model.config.aliases.get(&key).unwrap();
+        assert_eq!(alias.command(), "ls -la");
+    }
+
+    #[test]
+    fn update_alias_returns_error_for_missing_alias() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+
+        let result = update(
+            &mut model,
+            Message::UpdateAlias {
+                target: AliasTarget::Global,
+                old_name: "nope".into(),
+                new_name: "nope".into(),
+                new_command: "cmd".into(),
+                raw: false,
+            },
+        );
+        assert!(matches!(result, Err(UpdateError::AliasNotFound { .. })));
     }
 
     #[cfg(feature = "test-util")]

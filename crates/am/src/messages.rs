@@ -26,6 +26,14 @@ impl Display for AliasTarget {
 pub enum Message {
     AddAlias(String, String, AliasTarget, bool),
     RemoveAlias(String, AliasTarget),
+    /// Update an alias in place — renames, changes command, or both.
+    UpdateAlias {
+        target: AliasTarget,
+        old_name: String,
+        new_name: String,
+        new_command: String,
+        raw: bool,
+    },
     InitShell(Shells),
     Hook(Shells, bool),
     Reload(Shells),
