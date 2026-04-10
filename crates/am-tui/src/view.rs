@@ -365,6 +365,24 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Span::styled(icon, Style::default().fg(icon_color)),
                     Span::styled(label, Style::default().fg(label_color).bold()),
                 ]));
+
+                // Breathing room after an empty section (no alias items follow before the next header)
+                if node.kind == NodeKind::ProfileHeader {
+                    let next_is_header = model.tree.get(i + 1).is_some_and(|n| {
+                        matches!(
+                            n.kind,
+                            NodeKind::GlobalHeader
+                                | NodeKind::ProjectHeader
+                                | NodeKind::ProfileHeader
+                        )
+                    });
+                    if next_is_header {
+                        lines.push(Line::from(Span::styled(
+                            node.content_prefix.clone(),
+                            Style::default().fg(TREE_CONNECTOR),
+                        )));
+                    }
+                }
             }
             NodeKind::AliasItem => {
                 let is_last_alias = model
