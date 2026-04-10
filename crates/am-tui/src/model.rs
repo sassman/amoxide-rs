@@ -1,21 +1,7 @@
 use amoxide::update::AppModel;
-use amoxide::ProjectAliases;
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub enum AliasId {
-    Global {
-        alias_name: String,
-    },
-    Profile {
-        profile_name: String,
-        alias_name: String,
-    },
-    Project {
-        alias_name: String,
-    },
-}
+pub use amoxide::AliasId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
@@ -172,9 +158,6 @@ pub const MARKER_NONE: &str = "  ";
 
 pub struct TuiModel {
     pub app_model: AppModel,
-    pub project_aliases: Option<ProjectAliases>,
-    pub project_path: Option<PathBuf>,
-    pub config_dir: Option<PathBuf>,
     pub tree: Vec<TreeNode>,
     pub cursor: usize,
     pub selected: BTreeSet<AliasId>,
@@ -183,22 +166,14 @@ pub struct TuiModel {
     pub dest_cursor: usize,
     pub active_column: Column,
     pub scroll_offset: usize,
+    pub status_line: Option<String>,
 }
 
 impl TuiModel {
     pub fn new() -> anyhow::Result<Self> {
         let app_model = AppModel::default();
-        let cwd = std::env::current_dir()?;
-        let project_path = ProjectAliases::find_path(&cwd)?;
-        let project_aliases = match &project_path {
-            Some(path) => Some(ProjectAliases::load(path)?),
-            None => None,
-        };
         let mut model = Self {
             app_model,
-            project_aliases,
-            project_path,
-            config_dir: None,
             tree: Vec::new(),
             cursor: 0,
             selected: BTreeSet::new(),
@@ -207,15 +182,15 @@ impl TuiModel {
             dest_cursor: 0,
             active_column: Column::Left,
             scroll_offset: 0,
+            status_line: None,
         };
         model.rebuild_tree();
         Ok(model)
     }
 
     pub fn rebuild_tree(&mut self) {
-        self.tree = crate::tree::build_tree(&self.app_model, self.project_aliases.as_ref());
-        self.dest_tree =
-            crate::tree::build_dest_tree(&self.app_model, self.project_aliases.is_some());
+        self.tree = crate::tree::build_tree(&self.app_model);
+        self.dest_tree = crate::tree::build_dest_tree(&self.app_model);
         if !self.tree.is_empty() {
             if self.cursor >= self.tree.len() {
                 self.cursor = self.tree.len() - 1;

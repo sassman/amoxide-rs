@@ -6,21 +6,24 @@ use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 // Public facades
 // ---------------------------------------------------------------------------
 
-pub fn build_tree(app_model: &AppModel, project: Option<&ProjectAliases>) -> Vec<TreeNode> {
+pub fn build_tree(app_model: &AppModel) -> Vec<TreeNode> {
     build_tree_from_parts(
         &app_model.config.aliases,
         app_model.profile_config(),
         &app_model.config.active_profiles,
-        project,
+        app_model.project_aliases(),
     )
 }
 
-pub fn build_dest_tree(app_model: &AppModel, has_project: bool) -> Vec<TreeNode> {
+pub fn build_dest_tree(app_model: &AppModel) -> Vec<TreeNode> {
+    let project_is_trusted = app_model
+        .project_trust()
+        .is_some_and(|t| t.is_trusted());
     build_dest_tree_from_parts(
         &app_model.config.aliases,
         app_model.profile_config(),
         &app_model.config.active_profiles,
-        has_project,
+        project_is_trusted,
     )
 }
 

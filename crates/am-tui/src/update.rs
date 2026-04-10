@@ -2,7 +2,7 @@ use crate::model::{
     AliasField, AliasId, AliasTarget, Column, ConfirmAction, Mode, MoveDestination, NodeKind,
     TextInputState, TransferMode, TreeNode, TuiMessage, TuiModel,
 };
-use amoxide::{AliasName, ProjectAliases, TomlAlias};
+use amoxide::{AliasName, TomlAlias};
 
 pub fn update(model: &mut TuiModel, msg: TuiMessage) {
     match msg {
@@ -348,15 +348,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                             }
                         }
                         AliasTarget::Project => {
-                            let project = model
-                                .project_aliases
-                                .get_or_insert_with(ProjectAliases::default);
-                            project.add_alias(name, command, false);
-                            if model.project_path.is_none() {
-                                model.project_path = Some(
-                                    std::env::current_dir().unwrap_or_default().join(".aliases"),
-                                );
-                            }
+                            let _ = model.app_model.save_project_aliases_add(&name, &command, false);
                         }
                     }
                     save_all(model);
@@ -437,8 +429,8 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                                 .get_profile_by_name(profile_name)
                                 .and_then(|p| p.aliases.get(&key).map(|a| a.command().to_string())),
                             AliasId::Project { .. } => model
-                                .project_aliases
-                                .as_ref()
+                                .app_model
+                                .project_aliases()
                                 .and_then(|p| p.aliases.get(&key).map(|a| a.command().to_string())),
                         };
                         if original_command.as_deref() == Some(new_command.as_str()) {
@@ -459,8 +451,8 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                                 .get_profile_by_name(profile_name)
                                 .is_some_and(|p| p.aliases.contains_key(&key)),
                             AliasId::Project { .. } => model
-                                .project_aliases
-                                .as_ref()
+                                .app_model
+                                .project_aliases()
                                 .is_some_and(|p| p.aliases.contains_key(&key)),
                         };
                         if exists {
@@ -494,10 +486,7 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
                             }
                         }
                         AliasId::Project { .. } => {
-                            let project = model
-                                .project_aliases
-                                .get_or_insert_with(ProjectAliases::default);
-                            project.add_alias(new_name, new_command, false);
+                            let _ = model.app_model.save_project_aliases_add(&new_name, &new_command, false);
                         }
                     }
                     save_all(model);
@@ -643,10 +632,7 @@ fn delete_alias(model: &mut TuiModel, alias_id: &AliasId) {
             }
         }
         AliasId::Project { alias_name } => {
-            if let Some(ref mut p) = model.project_aliases {
-                let key = amoxide::AliasName::from(alias_name.as_str());
-                p.aliases.remove(&key);
-            }
+            let _ = model.app_model.save_project_aliases_remove(alias_name);
         }
     }
     model.selected.remove(alias_id);
@@ -673,8 +659,8 @@ fn alias_exists_at_dest(model: &TuiModel, id: &AliasId, dest: &MoveDestination) 
     match dest {
         MoveDestination::Global => model.app_model.config.aliases.contains_key(&key),
         MoveDestination::Project => model
-            .project_aliases
-            .as_ref()
+            .app_model
+            .project_aliases()
             .is_some_and(|p| p.aliases.contains_key(&key)),
         MoveDestination::Profile(name) => model
             .app_model
@@ -729,8 +715,8 @@ fn transfer_single_alias(
         AliasId::Project { alias_name } => {
             let key = AliasName::from(alias_name.as_str());
             let alias = model
-                .project_aliases
-                .as_ref()
+                .app_model
+                .project_aliases()
                 .and_then(|p| p.aliases.get(&key).cloned());
             (alias_name.clone(), alias)
         }
@@ -762,10 +748,7 @@ fn transfer_single_alias(
                 }
             }
             AliasId::Project { alias_name } => {
-                if let Some(proj) = model.project_aliases.as_mut() {
-                    let key = AliasName::from(alias_name.as_str());
-                    proj.aliases.remove(&key);
-                }
+                let _ = model.app_model.save_project_aliases_remove(alias_name);
             }
         }
     }
@@ -779,14 +762,9 @@ fn transfer_single_alias(
                 .add_alias(alias_name_str, command, raw);
         }
         MoveDestination::Project => {
-            if let Some(proj) = model.project_aliases.as_mut() {
-                proj.add_alias(alias_name_str, command, raw);
-            } else {
-                // Create project aliases if they don't exist yet.
-                let mut proj = ProjectAliases::default();
-                proj.add_alias(alias_name_str, command, raw);
-                model.project_aliases = Some(proj);
-            }
+            let _ = model
+                .app_model
+                .save_project_aliases_add(&alias_name_str, &command, raw);
         }
         MoveDestination::Profile(profile_name) => {
             if let Some(profile) = model
@@ -841,16 +819,8 @@ fn resolve_alias_target(model: &TuiModel) -> Option<AliasTarget> {
 }
 
 fn save_all(model: &TuiModel) {
-    if let Some(ref dir) = model.config_dir {
-        let _ = model.app_model.config.save_to(dir);
-        let _ = model.app_model.profile_config().save_to(dir);
-    } else {
-        let _ = model.app_model.config.save();
-        let _ = model.app_model.profile_config().save();
-    }
-    if let (Some(proj), Some(path)) = (&model.project_aliases, &model.project_path) {
-        let _ = proj.save(path);
-    }
+    let _ = model.app_model.save_config();
+    let _ = model.app_model.save_profiles();
 }
 
 fn active_tree(model: &TuiModel) -> &[TreeNode] {
@@ -899,13 +869,8 @@ mod tests {
             &app_model.config.active_profiles,
             false,
         );
-        // Use a temp dir so save_all() never touches real config files
-        let temp_dir = std::env::temp_dir().join(format!("am-tui-test-{}", std::process::id()));
         TuiModel {
             app_model,
-            project_aliases: None,
-            project_path: None,
-            config_dir: Some(temp_dir),
             tree,
             cursor: 0,
             selected: BTreeSet::new(),
@@ -914,6 +879,7 @@ mod tests {
             dest_cursor: 0,
             active_column: Column::Left,
             scroll_offset: 0,
+            status_line: None,
         }
     }
 
