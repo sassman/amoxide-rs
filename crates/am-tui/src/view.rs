@@ -503,8 +503,12 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
                 spans.push(Span::styled(use_label, Style::default().fg(TEXT_MUTED)));
             }
             if on_project {
+                let project_is_trusted = cursor_node
+                    .and_then(|n| n.project_trust.as_ref())
+                    .is_some_and(|t| matches!(t, ProjectTrustState::Trusted));
+                let trust_label = if project_is_trusted { " untrust" } else { " trust" };
                 spans.push(Span::styled("  t", Style::default().fg(GOLD)));
-                spans.push(Span::styled(" trust", Style::default().fg(TEXT_MUTED)));
+                spans.push(Span::styled(trust_label, Style::default().fg(TEXT_MUTED)));
             }
             Line::from(spans)
         }
