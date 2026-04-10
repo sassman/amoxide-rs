@@ -53,10 +53,14 @@ impl Shell for Fish {
         }
 
         for (first_short, group) in &groups {
-            let single: Vec<&&SubcommandEntry> =
-                group.iter().filter(|e| e.short_subcommands.len() == 1).collect();
-            let deeper: Vec<&&SubcommandEntry> =
-                group.iter().filter(|e| e.short_subcommands.len() > 1).collect();
+            let single: Vec<&&SubcommandEntry> = group
+                .iter()
+                .filter(|e| e.short_subcommands.len() == 1)
+                .collect();
+            let deeper: Vec<&&SubcommandEntry> = group
+                .iter()
+                .filter(|e| e.short_subcommands.len() > 1)
+                .collect();
 
             lines.push(format!("    case {first_short}"));
             if deeper.is_empty() {

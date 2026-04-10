@@ -129,9 +129,9 @@ impl ProjectAliases {
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
-        self.subcommands
-            .remove(key)
-            .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found in {ALIASES_FILE}"))?;
+        self.subcommands.remove(key).ok_or_else(|| {
+            anyhow::anyhow!("Subcommand alias '{key}' not found in {ALIASES_FILE}")
+        })?;
         Ok(())
     }
 }

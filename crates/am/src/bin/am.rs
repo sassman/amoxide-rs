@@ -86,7 +86,8 @@ fn main() -> anyhow::Result<()> {
                         .chain(pairs.iter().map(|(short, _)| *short))
                         .collect::<Vec<_>>()
                         .join(":");
-                    let longs: Vec<String> = pairs.iter().map(|(_, long)| long.to_string()).collect();
+                    let longs: Vec<String> =
+                        pairs.iter().map(|(_, long)| long.to_string()).collect();
                     (key, longs)
                 };
 
@@ -361,9 +362,10 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             Effect::SaveProfiles => model.profile_config().save()?,
             Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
-            Effect::AddLocalSubcommand { key, long_subcommands } => {
-                add_local_subcommand(key, long_subcommands)?
-            }
+            Effect::AddLocalSubcommand {
+                key,
+                long_subcommands,
+            } => add_local_subcommand(key, long_subcommands)?,
             Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(key)?,
             Effect::Print(text) => println!("{text}"),
             Effect::SaveSecurity => model.security_config().save()?,
@@ -483,8 +485,8 @@ fn add_local_subcommand(key: &str, long_subcommands: &[String]) -> anyhow::Resul
 
 fn remove_local_subcommand(key: &str) -> anyhow::Result<()> {
     let cwd = std::env::current_dir()?;
-    let path =
-        ProjectAliases::find_local_path().ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
+    let path = ProjectAliases::find_local_path()
+        .ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
     let mut project = ProjectAliases::load(&path)?;
     project.remove_subcommand(key)?;
     project.save(&path)?;

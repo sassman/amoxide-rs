@@ -181,8 +181,7 @@ pub fn render_listing(
                 output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
             }
             // Inactive profile subcommand aliases
-            let inactive_subcmd_groups =
-                crate::subcommand::group_by_program(&profile.subcommands);
+            let inactive_subcmd_groups = crate::subcommand::group_by_program(&profile.subcommands);
             for (program, entries) in &inactive_subcmd_groups {
                 output.push_str(&format!("\n  {program} (subcommands):"));
                 for entry in entries {
@@ -365,7 +364,13 @@ mod tests {
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
 
-        let output = render_listing(&globals, &crate::subcommand::SubcommandSet::new(), &config, &["rust".to_string()], None);
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &["rust".to_string()],
+            None,
+        );
         // Global with trunk
         assert!(output.contains("🌐 global"));
         assert!(output.contains("│ ll → ls -lha"));
@@ -415,7 +420,13 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_listing(&AliasSet::default(), &crate::subcommand::SubcommandSet::new(), &config, &["rust".to_string()], None);
+        let output = render_listing(
+            &AliasSet::default(),
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &["rust".to_string()],
+            None,
+        );
         assert!(output.contains("╰─● rust (active: 1)"));
     }
 
@@ -433,7 +444,13 @@ mod tests {
             ct = "cargo test"
         "#});
 
-        let output = render_listing(&AliasSet::default(), &crate::subcommand::SubcommandSet::new(), &config, &["rust".to_string()], None);
+        let output = render_listing(
+            &AliasSet::default(),
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &["rust".to_string()],
+            None,
+        );
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
         assert!(output.contains("  sayt → echo say it"));
@@ -443,7 +460,13 @@ mod tests {
     fn test_listing_global_alone_no_trunk() {
         let config: ProfileConfig = ProfileConfig::default();
 
-        let output = render_listing(&AliasSet::default(), &crate::subcommand::SubcommandSet::new(), &config, &[], None);
+        let output = render_listing(
+            &AliasSet::default(),
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &[],
+            None,
+        );
         assert!(output.contains("🌐 global"));
         // No trunk when global stands alone
         assert!(!output.contains("│"));
@@ -503,13 +526,7 @@ mod tests {
         subs.insert("jj:ab".into(), vec!["abandon".into()]);
         subs.insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
 
-        let output = render_listing(
-            &AliasSet::default(),
-            &subs,
-            &config,
-            &[],
-            None,
-        );
+        let output = render_listing(&AliasSet::default(), &subs, &config, &[], None);
         assert!(output.contains("jj (subcommands)"));
         assert!(output.contains("ab → abandon"));
         assert!(output.contains("b l → branch list"));

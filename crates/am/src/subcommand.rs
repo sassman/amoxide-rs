@@ -61,10 +61,7 @@ pub fn group_by_program(set: &SubcommandSet) -> BTreeMap<String, Vec<SubcommandE
     for (key, values) in set {
         match SubcommandEntry::parse_key(key, values.clone()) {
             Ok(entry) => {
-                groups
-                    .entry(entry.program.clone())
-                    .or_default()
-                    .push(entry);
+                groups.entry(entry.program.clone()).or_default().push(entry);
             }
             Err(e) => {
                 warn!("Skipping invalid subcommand alias '{key}': {e}");

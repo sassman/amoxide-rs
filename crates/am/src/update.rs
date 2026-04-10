@@ -1398,11 +1398,7 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddSubcommandAlias(
-                "jj:ab".into(),
-                vec!["abandon".into()],
-                AliasTarget::Local,
-            ),
+            Message::AddSubcommandAlias("jj:ab".into(), vec!["abandon".into()], AliasTarget::Local),
         )
         .unwrap();
 

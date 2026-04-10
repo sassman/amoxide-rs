@@ -80,7 +80,8 @@ pub fn generate_hook_with_security(
                             .map(|(n, _)| n.as_ref().to_string())
                             .collect();
 
-                        let subcmd_groups = crate::subcommand::group_by_program(&project.subcommands);
+                        let subcmd_groups =
+                            crate::subcommand::group_by_program(&project.subcommands);
                         let subcmd_program_names: Vec<String> =
                             subcmd_groups.keys().cloned().collect();
 
@@ -100,7 +101,9 @@ pub fn generate_hook_with_security(
                         unload_prev(&mut lines);
 
                         if show_messages {
-                            for line in render_load_message(&project.aliases, &project.subcommands).lines() {
+                            for line in
+                                render_load_message(&project.aliases, &project.subcommands).lines()
+                            {
                                 lines.push(shell_impl.echo(line));
                             }
                         }
@@ -111,9 +114,7 @@ pub fn generate_hook_with_security(
                         for (alias_name, alias_value) in project.aliases.iter() {
                             let name = alias_name.as_ref();
                             if !programs_set.contains(name) {
-                                lines.push(
-                                    shell_impl.alias(&alias_value.as_entry(name)),
-                                );
+                                lines.push(shell_impl.alias(&alias_value.as_entry(name)));
                             }
                         }
 
@@ -125,14 +126,10 @@ pub fn generate_hook_with_security(
                                 .find(|(n, _)| n.as_ref() == program.as_str())
                                 .map(|(_, v)| v.command().to_string())
                                 .unwrap_or_else(|| format!("command {program}"));
-                            lines.push(
-                                shell_impl.subcommand_wrapper(program, &base_cmd, entries),
-                            );
+                            lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
                         }
 
-                        lines.push(
-                            shell_impl.set_env("_AM_PROJECT_ALIASES", &all_names.join(",")),
-                        );
+                        lines.push(shell_impl.set_env("_AM_PROJECT_ALIASES", &all_names.join(",")));
                     }
                 }
                 TrustStatus::Unknown => {

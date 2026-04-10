@@ -55,10 +55,14 @@ impl Shell for NixShell {
 
         for (first_short, group) in &groups {
             // Separate single-level (depth=1) from deeper entries
-            let single: Vec<&&SubcommandEntry> =
-                group.iter().filter(|e| e.short_subcommands.len() == 1).collect();
-            let deeper: Vec<&&SubcommandEntry> =
-                group.iter().filter(|e| e.short_subcommands.len() > 1).collect();
+            let single: Vec<&&SubcommandEntry> = group
+                .iter()
+                .filter(|e| e.short_subcommands.len() == 1)
+                .collect();
+            let deeper: Vec<&&SubcommandEntry> = group
+                .iter()
+                .filter(|e| e.short_subcommands.len() > 1)
+                .collect();
 
             if deeper.is_empty() {
                 // Simple single-level case
