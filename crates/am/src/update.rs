@@ -203,6 +203,18 @@ impl AppModel {
             .filter_map(|name| self.profile_config.get_profile_by_name(name))
             .collect()
     }
+
+    pub fn save_config(&self) -> crate::Result<()> {
+        self.config.save_to(&self.config_dir)
+    }
+
+    pub fn save_profiles(&self) -> crate::Result<()> {
+        self.profile_config.save_to(&self.config_dir)
+    }
+
+    pub fn save_security(&self) -> crate::Result<()> {
+        self.security_config.save_to(&self.config_dir)
+    }
 }
 
 pub fn update(model: &mut AppModel, message: Message) -> anyhow::Result<UpdateResult> {
@@ -976,6 +988,47 @@ mod tests {
             let model = AppModel::load_from(dir.path().to_path_buf());
             assert!(model.config.aliases.is_empty());
             assert_eq!(model.config_dir(), dir.path());
+        }
+    }
+
+    #[cfg(feature = "test-util")]
+    mod save_tests {
+        use super::*;
+
+        #[test]
+        fn save_config_writes_to_config_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let mut model = AppModel::load_from(dir.path().to_path_buf());
+            model.config.add_alias("ll".into(), "ls -lha".into(), false);
+            model.save_config().unwrap();
+
+            let saved = Config::load_from(dir.path()).unwrap();
+            assert_eq!(saved.aliases.iter().count(), 1);
+        }
+
+        #[test]
+        fn save_profiles_writes_to_config_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let mut model = AppModel::load_from(dir.path().to_path_buf());
+            let _ = model.profile_config_mut().add_profile("rust");
+            model.save_profiles().unwrap();
+
+            let saved = ProfileConfig::load_from(dir.path()).unwrap();
+            assert!(saved.get_profile_by_name("rust").is_some());
+        }
+
+        #[test]
+        fn save_security_writes_to_config_dir() {
+            let dir = tempfile::tempdir().unwrap();
+            let aliases_path = dir.path().join(".aliases");
+            std::fs::write(&aliases_path, "[aliases]\n").unwrap();
+            let mut model = AppModel::load_from(dir.path().to_path_buf());
+            let hash = crate::trust::compute_file_hash(&aliases_path).unwrap();
+            model.security_config_mut().trust(&aliases_path, &hash);
+            model.save_security().unwrap();
+
+            let saved = SecurityConfig::load_from(dir.path()).unwrap();
+            assert!(saved.is_tracked(&aliases_path));
         }
     }
 }
