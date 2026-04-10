@@ -51,6 +51,9 @@ pub enum Message {
 
     Import(ImportPayload),
 
+    AddSubcommandAlias(String, Vec<String>, AliasTarget),
+    RemoveSubcommandAlias(String, AliasTarget),
+
     Trust,
     Untrust {
         forget: bool,

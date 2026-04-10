@@ -265,6 +265,34 @@ impl AppModel {
         self.project_trust = Some(ProjectTrust::Trusted(project, path));
         Ok(())
     }
+
+    /// Add a subcommand alias to the project .aliases file, saving to disk.
+    pub fn save_project_subcommand_add(
+        &mut self,
+        key: &str,
+        long_subcommands: &[String],
+    ) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+        project.save(&path)?;
+        let hash = crate::trust::compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        Ok(())
+    }
+
+    /// Remove a subcommand alias from the project .aliases file, saving to disk.
+    pub fn save_project_subcommand_remove(&mut self, key: &str) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        project.remove_subcommand(key)?;
+        project.save(&path)?;
+        let hash = crate::trust::compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        Ok(())
+    }
 }
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]
@@ -433,6 +461,84 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
             }
         }
+        Message::AddSubcommandAlias(key, long_subcommands, target) => match target {
+            AliasTarget::Global => {
+                model.config.add_subcommand(key, long_subcommands);
+                Ok(UpdateResult::effect(Effect::SaveConfig))
+            }
+            AliasTarget::Local => {
+                if let Some(trust) = model.project_trust() {
+                    if !trust.is_trusted() {
+                        return Err(UpdateError::ProjectNotTrusted {
+                            path: trust.path().to_path_buf(),
+                        });
+                    }
+                }
+                Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
+                    key,
+                    long_subcommands,
+                }))
+            }
+            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+                if model.project_path().is_some() {
+                    if let Some(trust) = model.project_trust() {
+                        if !trust.is_trusted() {
+                            return Err(UpdateError::ProjectNotTrusted {
+                                path: trust.path().to_path_buf(),
+                            });
+                        }
+                    }
+                    Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
+                        key,
+                        long_subcommands,
+                    }))
+                } else {
+                    model.config.add_subcommand(key, long_subcommands);
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+            }
+            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                let profile = resolve_profile_mut(model, &target)?;
+                profile.add_subcommand(key, long_subcommands);
+                Ok(UpdateResult::effect(Effect::SaveProfiles))
+            }
+        },
+        Message::RemoveSubcommandAlias(key, target) => match target {
+            AliasTarget::Global => {
+                model.config.remove_subcommand(&key)?;
+                Ok(UpdateResult::effect(Effect::SaveConfig))
+            }
+            AliasTarget::Local => {
+                if let Some(trust) = model.project_trust() {
+                    if !trust.is_trusted() {
+                        return Err(UpdateError::ProjectNotTrusted {
+                            path: trust.path().to_path_buf(),
+                        });
+                    }
+                }
+                Ok(UpdateResult::effect(Effect::RemoveLocalSubcommand { key }))
+            }
+            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+                if model.project_path().is_some() {
+                    if let Some(trust) = model.project_trust() {
+                        if !trust.is_trusted() {
+                            return Err(UpdateError::ProjectNotTrusted {
+                                path: trust.path().to_path_buf(),
+                            });
+                        }
+                    }
+                    Ok(UpdateResult::effect(Effect::RemoveLocalSubcommand { key }))
+                } else {
+                    model.config.remove_subcommand(&key)?;
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+            }
+            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                let profile = resolve_profile_mut(model, &target)?;
+                profile.remove_subcommand(&key)?;
+                Ok(UpdateResult::effect(Effect::SaveProfiles))
+            }
+        },
         Message::ListProfiles => {
             let output = render_listing(
                 &model.config.aliases,
@@ -1223,6 +1329,91 @@ mod tests {
             Some(ProjectTrust::Unknown(_))
         ));
         assert!(!model.security_config().is_tracked(&aliases_path));
+    }
+
+    #[test]
+    fn add_global_subcommand_alias() {
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::AddSubcommandAlias(
+                "jj:ab".into(),
+                vec!["abandon".into()],
+                AliasTarget::Global,
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(model.config.subcommands.len(), 1);
+        assert_eq!(model.config.subcommands["jj:ab"], vec!["abandon"]);
+        assert_eq!(result.effects, vec![Effect::SaveConfig]);
+    }
+
+    #[test]
+    fn remove_global_subcommand_alias() {
+        let mut config = Config::default();
+        config.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        let profile_config = ProfileConfig::default();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::RemoveSubcommandAlias("jj:ab".into(), AliasTarget::Global),
+        )
+        .unwrap();
+
+        assert!(model.config.subcommands.is_empty());
+        assert_eq!(result.effects, vec![Effect::SaveConfig]);
+    }
+
+    #[test]
+    fn add_local_subcommand_alias_returns_effect() {
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::AddSubcommandAlias(
+                "jj:ab".into(),
+                vec!["abandon".into()],
+                AliasTarget::Local,
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.effects,
+            vec![Effect::AddLocalSubcommand {
+                key: "jj:ab".into(),
+                long_subcommands: vec!["abandon".into()],
+            }]
+        );
+    }
+
+    #[test]
+    fn add_subcommand_to_named_profile() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"rust\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::AddSubcommandAlias(
+                "cargo:t".into(),
+                vec!["test".into()],
+                AliasTarget::Profile("rust".into()),
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(result.effects, vec![Effect::SaveProfiles]);
+        let profile = model.profile_config().get_profile_by_name("rust").unwrap();
+        assert_eq!(profile.subcommands.len(), 1);
     }
 
     #[test]

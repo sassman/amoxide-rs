@@ -11,6 +11,13 @@ pub enum Effect {
     RemoveLocalAlias {
         name: String,
     },
+    AddLocalSubcommand {
+        key: String,
+        long_subcommands: Vec<String>,
+    },
+    RemoveLocalSubcommand {
+        key: String,
+    },
     Print(String),
     SaveSecurity,
 }
@@ -30,6 +37,12 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         }
         Effect::RemoveLocalAlias { name } => {
             model.save_project_aliases_remove(name)?;
+        }
+        Effect::AddLocalSubcommand { key, long_subcommands } => {
+            model.save_project_subcommand_add(key, long_subcommands)?;
+        }
+        Effect::RemoveLocalSubcommand { key } => {
+            model.save_project_subcommand_remove(key)?;
         }
         Effect::Print(_) => {} // caller's responsibility
     }

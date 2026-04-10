@@ -5,11 +5,13 @@ use std::io::Write;
 
 use amoxide::{
     cli::*,
+    dirs::relative_path,
     effects::Effect,
     exchange::{render_suspicious_warning, scan_suspicious, ExportAll},
     import_export::{handle_export, handle_import, handle_share},
-    project::ProjectAliases,
+    project::{ProjectAliases, ALIASES_FILE},
     prompt::{ask_user, Answer},
+    trust::compute_file_hash,
     update::{update, AppModel},
     AliasTarget, Message,
 };
@@ -287,15 +289,150 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<()> {
+    let has_local_mutation = effects.iter().any(|e| {
+        matches!(
+            e,
+            Effect::AddLocalAlias { .. }
+                | Effect::RemoveLocalAlias { .. }
+                | Effect::AddLocalSubcommand { .. }
+                | Effect::RemoveLocalSubcommand { .. }
+        )
+    });
+
     for effect in effects {
         match effect {
-            Effect::Print(text) => {
-                println!("{text}");
+            Effect::SaveConfig => model.config.save()?,
+            Effect::SaveProfiles => model.profile_config().save()?,
+            Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
+            Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
+            Effect::AddLocalSubcommand { key, long_subcommands } => {
+                add_local_subcommand(key, long_subcommands)?
             }
-            other => {
-                amoxide::execute_effect(model, other)?;
+            Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(key)?,
+            Effect::Print(text) => println!("{text}"),
+            Effect::SaveSecurity => model.security_config().save()?,
+        }
+    }
+
+    // After local alias mutations, update the security hash
+    if has_local_mutation {
+        if let Some(path) = model.project_path() {
+            let path = path.to_path_buf();
+            let new_hash = compute_file_hash(&path)?;
+            model.security_config_mut().update_hash(&path, &new_hash);
+            model.security_config().save()?;
+        }
+    }
+
+    Ok(())
+}
+
+fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let local_path = cwd.join(ALIASES_FILE);
+
+    if local_path.exists() {
+        let mut project = ProjectAliases::load(&local_path)?;
+        project.add_alias(name.to_string(), command.to_string(), raw);
+        project.save(&local_path)?;
+        println!("Added `{name}` to {ALIASES_FILE}");
+        return Ok(());
+    }
+
+    // No .aliases in CWD — check if one exists up the tree
+    if let Some(parent) = cwd.parent() {
+        if let Some(existing_path) = ProjectAliases::find_path(parent)? {
+            let rel = relative_path(&cwd, &existing_path);
+            let question = format!(
+                "Found existing {ALIASES_FILE} at {}\nAdd to that file instead?",
+                rel.display()
+            );
+            match ask_user(&question, Answer::No, true, &mut std::io::stdin().lock())? {
+                Answer::Yes => {
+                    let mut project = ProjectAliases::load(&existing_path)?;
+                    project.add_alias(name.to_string(), command.to_string(), raw);
+                    project.save(&existing_path)?;
+                    println!("Added `{name}` to {}", rel.display());
+                    return Ok(());
+                }
+                Answer::No => {} // fall through to create new
+                Answer::Cancel => {
+                    println!("Cancelled.");
+                    return Ok(());
+                }
             }
         }
     }
+
+    // Create new .aliases in CWD
+    let mut project = ProjectAliases::default();
+    project.add_alias(name.to_string(), command.to_string(), raw);
+    project.save(&local_path)?;
+    println!("Created {ALIASES_FILE} with alias `{name}`");
+    Ok(())
+}
+
+fn remove_local_alias(name: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let path = ProjectAliases::remove_from_local(name)?;
+    let rel = relative_path(&cwd, &path);
+    println!("Removed `{name}` from {}", rel.display());
+    Ok(())
+}
+
+fn add_local_subcommand(key: &str, long_subcommands: &[String]) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let local_path = cwd.join(ALIASES_FILE);
+
+    if local_path.exists() {
+        let mut project = ProjectAliases::load(&local_path)?;
+        project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+        project.save(&local_path)?;
+        println!("Added subcommand alias `{key}` to {ALIASES_FILE}");
+        return Ok(());
+    }
+
+    // No .aliases in CWD — check if one exists up the tree
+    if let Some(parent) = cwd.parent() {
+        if let Some(existing_path) = ProjectAliases::find_path(parent)? {
+            let rel = relative_path(&cwd, &existing_path);
+            let question = format!(
+                "Found existing {ALIASES_FILE} at {}\nAdd to that file instead?",
+                rel.display()
+            );
+            match ask_user(&question, Answer::No, true, &mut std::io::stdin().lock())? {
+                Answer::Yes => {
+                    let mut project = ProjectAliases::load(&existing_path)?;
+                    project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+                    project.save(&existing_path)?;
+                    println!("Added subcommand alias `{key}` to {}", rel.display());
+                    return Ok(());
+                }
+                Answer::No => {} // fall through to create new
+                Answer::Cancel => {
+                    println!("Cancelled.");
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Create new .aliases in CWD
+    let mut project = ProjectAliases::default();
+    project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+    project.save(&local_path)?;
+    println!("Created {ALIASES_FILE} with subcommand alias `{key}`");
+    Ok(())
+}
+
+fn remove_local_subcommand(key: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let path =
+        ProjectAliases::find_local_path().ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
+    let mut project = ProjectAliases::load(&path)?;
+    project.remove_subcommand(key)?;
+    project.save(&path)?;
+    let rel = relative_path(&cwd, &path);
+    println!("Removed subcommand alias `{key}` from {}", rel.display());
     Ok(())
 }
