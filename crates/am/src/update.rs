@@ -571,7 +571,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let resolved = model
                 .profile_config()
                 .resolve_active_aliases(&model.session.active_profiles);
-            let output = generate_init(&shell, &model.config.aliases, &resolved);
+            let resolved_subs = model
+                .profile_config()
+                .resolve_active_subcommands(&model.session.active_profiles);
+            let mut all_subs = model.config.subcommands.clone();
+            for (k, v) in resolved_subs {
+                all_subs.insert(k, v);
+            }
+            let output = generate_init(&shell, &model.config.aliases, &resolved, &all_subs);
             print!("{output}");
             Ok(UpdateResult::done())
         }
@@ -579,8 +586,21 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let resolved = model
                 .profile_config()
                 .resolve_active_aliases(&model.session.active_profiles);
+            let resolved_subs = model
+                .profile_config()
+                .resolve_active_subcommands(&model.session.active_profiles);
+            let mut all_subs = model.config.subcommands.clone();
+            for (k, v) in resolved_subs {
+                all_subs.insert(k, v);
+            }
             let prev = std::env::var("_AM_ALIASES").ok();
-            let output = generate_reload(&shell, &model.config.aliases, &resolved, prev.as_deref());
+            let output = generate_reload(
+                &shell,
+                &model.config.aliases,
+                &resolved,
+                &all_subs,
+                prev.as_deref(),
+            );
             if !output.is_empty() {
                 print!("{output}");
             }
