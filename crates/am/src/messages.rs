@@ -43,6 +43,8 @@ pub enum Message {
     RemoveProfile(String),
     ListProfiles,
     CreateProfile(String),
+    /// Rename a profile, preserving its aliases and activation state.
+    RenameProfile { old_name: String, new_name: String },
 
     Import(ImportPayload),
 

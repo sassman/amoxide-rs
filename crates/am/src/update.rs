@@ -572,6 +572,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         }
         Message::MoveAliases { aliases, to } => transfer_aliases(model, &aliases, &to, true),
         Message::CopyAliases { aliases, to } => transfer_aliases(model, &aliases, &to, false),
+        Message::RenameProfile { old_name, new_name } => {
+            let profile = model
+                .profile_config_mut()
+                .get_profile_by_name_mut(&old_name)
+                .ok_or_else(|| UpdateError::ProfileNotFound { name: old_name.clone() })?;
+            profile.name = new_name.clone();
+            for p in &mut model.config.active_profiles {
+                if *p == old_name {
+                    *p = new_name.clone();
+                }
+            }
+            Ok(UpdateResult::effect(Effect::SaveProfiles))
+        }
     }
 }
 
@@ -1326,6 +1339,48 @@ mod tests {
             },
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
+    }
+
+    #[test]
+    fn rename_profile_renames_in_config_and_active_list() {
+        let config = Config {
+            active_profiles: vec!["git".to_string()],
+            ..Config::default()
+        };
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n[profiles.aliases]\ngs = \"git status\"\n")
+                .unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::RenameProfile { old_name: "git".into(), new_name: "vcs".into() },
+        )
+        .unwrap();
+
+        assert_eq!(result.effects, vec![Effect::SaveProfiles]);
+        assert!(model.profile_config().get_profile_by_name("vcs").is_some());
+        assert!(model.profile_config().get_profile_by_name("git").is_none());
+        assert!(model.config.active_profiles.contains(&"vcs".to_string()));
+        assert!(!model.config.active_profiles.contains(&"git".to_string()));
+        // Aliases preserved
+        let profile = model.profile_config().get_profile_by_name("vcs").unwrap();
+        let key = crate::AliasName::from("gs");
+        assert!(profile.aliases.contains_key(&key));
+    }
+
+    #[test]
+    fn rename_profile_returns_error_for_missing_profile() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(
+            &mut model,
+            Message::RenameProfile { old_name: "nope".into(), new_name: "vcs".into() },
+        );
+        assert!(matches!(result, Err(UpdateError::ProfileNotFound { .. })));
     }
 
     #[cfg(feature = "test-util")]
