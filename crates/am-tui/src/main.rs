@@ -1,5 +1,4 @@
 mod app;
-mod delegation;
 mod input;
 mod model;
 mod tree;
