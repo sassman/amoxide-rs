@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use super::{has_template_args, substitute_powershell, Shell};
 use crate::alias::AliasEntry;
+use crate::subcommand::SubcommandEntry;
 
 #[derive(Debug, Default)]
 pub struct PowerShell;
@@ -34,12 +35,50 @@ impl Shell for PowerShell {
     fn echo(&self, message: &str) -> String {
         format!("Write-Host '{}'", message.replace('\'', "''"))
     }
+
+    fn subcommand_wrapper(
+        &self,
+        program: &str,
+        base_cmd: &str,
+        entries: &[SubcommandEntry],
+    ) -> String {
+        // For PowerShell, base_cmd is used with & operator for external commands.
+        // "command jj" → "& (Get-Command jj -CommandType Application).Source"
+        // alias value → "& alias-value"
+        let ps_base = if base_cmd.starts_with("command ") {
+            let bin = &base_cmd["command ".len()..];
+            format!("& (Get-Command {bin} -CommandType Application).Source")
+        } else {
+            format!("& {base_cmd}")
+        };
+
+        let mut lines = Vec::new();
+        lines.push(format!("function global:{program} {{"));
+        lines.push("  switch ($args[0]) {".into());
+
+        // Only handle single-level for now (multi-level nesting in PS is verbose)
+        for entry in entries {
+            if entry.short_subcommands.len() == 1 {
+                let short = &entry.short_subcommands[0];
+                let expansion = &entry.long_subcommands[0];
+                lines.push(format!(
+                    "    '{short}' {{ {ps_base} {expansion} ($args | Select-Object -Skip 1) }}"
+                ));
+            }
+        }
+
+        lines.push(format!("    default {{ {ps_base} @args }}"));
+        lines.push("  }".into());
+        lines.push("}".into());
+        lines.join("\n")
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::shell::test_helpers::{raw, simple};
+    use crate::subcommand::SubcommandEntry;
 
     #[test]
     fn test_simple_alias() {
@@ -88,5 +127,19 @@ mod tests {
             PowerShell.unset_env("FOO"),
             "Remove-Item -ErrorAction SilentlyContinue Env:FOO"
         );
+    }
+
+    #[test]
+    fn test_powershell_subcommand_wrapper() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["ab".into()],
+            long_subcommands: vec!["abandon".into()],
+        }];
+        let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
+        assert!(output.contains("function global:jj {"));
+        assert!(output.contains("'ab'"));
+        assert!(output.contains("abandon"));
+        assert!(output.contains("default"));
     }
 }

@@ -24,4 +24,13 @@ impl Shell for Brush {
     fn echo(&self, message: &str) -> String {
         NixShell.echo(message)
     }
+
+    fn subcommand_wrapper(
+        &self,
+        program: &str,
+        base_cmd: &str,
+        entries: &[crate::subcommand::SubcommandEntry],
+    ) -> String {
+        NixShell.subcommand_wrapper(program, base_cmd, entries)
+    }
 }

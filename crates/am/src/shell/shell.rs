@@ -10,6 +10,15 @@ pub trait Shell: Send + Sync + Debug {
     fn set_env(&self, var_name: &str, value: &str) -> String;
     fn unset_env(&self, var_name: &str) -> String;
     fn echo(&self, message: &str) -> String;
+
+    /// Generate a wrapper function for a program with subcommand aliases.
+    /// `base_cmd` is either `"command <program>"` (no regular alias) or the alias expansion.
+    fn subcommand_wrapper(
+        &self,
+        program: &str,
+        base_cmd: &str,
+        entries: &[crate::subcommand::SubcommandEntry],
+    ) -> String;
 }
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
