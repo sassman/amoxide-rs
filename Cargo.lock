@@ -34,6 +34,7 @@ dependencies = [
  "regex",
  "serde",
  "tempfile",
+ "thiserror",
  "toml",
  "ureq",
 ]
@@ -45,6 +46,7 @@ dependencies = [
  "amoxide",
  "anyhow",
  "ratatui",
+ "tempfile",
  "toml",
 ]
 

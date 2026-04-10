@@ -169,7 +169,8 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     {
                         return;
                     }
-                    let _ = super::delegation::dispatch(model, amoxide::Message::CreateProfile(name));
+                    let _ =
+                        super::delegation::dispatch(model, amoxide::Message::CreateProfile(name));
                     model.mode = Mode::Normal;
                 }
                 TextInputState::NewAlias {

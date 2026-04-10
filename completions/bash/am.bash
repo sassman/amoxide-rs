@@ -17,148 +17,148 @@ _am() {
                 cmd="am"
                 ;;
             am,add)
-                cmd="am__add"
+                cmd="am__subcmd__add"
                 ;;
             am,export)
-                cmd="am__export"
+                cmd="am__subcmd__export"
                 ;;
             am,help)
-                cmd="am__help"
+                cmd="am__subcmd__help"
                 ;;
             am,hook)
-                cmd="am__hook"
+                cmd="am__subcmd__hook"
                 ;;
             am,import)
-                cmd="am__import"
+                cmd="am__subcmd__import"
                 ;;
             am,init)
-                cmd="am__init"
+                cmd="am__subcmd__init"
                 ;;
             am,ls)
-                cmd="am__ls"
+                cmd="am__subcmd__ls"
                 ;;
             am,profile)
-                cmd="am__profile"
+                cmd="am__subcmd__profile"
                 ;;
             am,reload)
-                cmd="am__reload"
+                cmd="am__subcmd__reload"
                 ;;
             am,remove)
-                cmd="am__remove"
+                cmd="am__subcmd__remove"
                 ;;
             am,setup)
-                cmd="am__setup"
+                cmd="am__subcmd__setup"
                 ;;
             am,share)
-                cmd="am__share"
+                cmd="am__subcmd__share"
                 ;;
             am,status)
-                cmd="am__status"
+                cmd="am__subcmd__status"
                 ;;
             am,trust)
-                cmd="am__trust"
+                cmd="am__subcmd__trust"
                 ;;
             am,tui)
-                cmd="am__tui"
+                cmd="am__subcmd__tui"
                 ;;
             am,untrust)
-                cmd="am__untrust"
+                cmd="am__subcmd__untrust"
                 ;;
             am,use)
-                cmd="am__use"
+                cmd="am__subcmd__use"
                 ;;
-            am__help,add)
-                cmd="am__help__add"
+            am__subcmd__help,add)
+                cmd="am__subcmd__help__subcmd__add"
                 ;;
-            am__help,export)
-                cmd="am__help__export"
+            am__subcmd__help,export)
+                cmd="am__subcmd__help__subcmd__export"
                 ;;
-            am__help,help)
-                cmd="am__help__help"
+            am__subcmd__help,help)
+                cmd="am__subcmd__help__subcmd__help"
                 ;;
-            am__help,hook)
-                cmd="am__help__hook"
+            am__subcmd__help,hook)
+                cmd="am__subcmd__help__subcmd__hook"
                 ;;
-            am__help,import)
-                cmd="am__help__import"
+            am__subcmd__help,import)
+                cmd="am__subcmd__help__subcmd__import"
                 ;;
-            am__help,init)
-                cmd="am__help__init"
+            am__subcmd__help,init)
+                cmd="am__subcmd__help__subcmd__init"
                 ;;
-            am__help,ls)
-                cmd="am__help__ls"
+            am__subcmd__help,ls)
+                cmd="am__subcmd__help__subcmd__ls"
                 ;;
-            am__help,profile)
-                cmd="am__help__profile"
+            am__subcmd__help,profile)
+                cmd="am__subcmd__help__subcmd__profile"
                 ;;
-            am__help,reload)
-                cmd="am__help__reload"
+            am__subcmd__help,reload)
+                cmd="am__subcmd__help__subcmd__reload"
                 ;;
-            am__help,remove)
-                cmd="am__help__remove"
+            am__subcmd__help,remove)
+                cmd="am__subcmd__help__subcmd__remove"
                 ;;
-            am__help,setup)
-                cmd="am__help__setup"
+            am__subcmd__help,setup)
+                cmd="am__subcmd__help__subcmd__setup"
                 ;;
-            am__help,share)
-                cmd="am__help__share"
+            am__subcmd__help,share)
+                cmd="am__subcmd__help__subcmd__share"
                 ;;
-            am__help,status)
-                cmd="am__help__status"
+            am__subcmd__help,status)
+                cmd="am__subcmd__help__subcmd__status"
                 ;;
-            am__help,trust)
-                cmd="am__help__trust"
+            am__subcmd__help,trust)
+                cmd="am__subcmd__help__subcmd__trust"
                 ;;
-            am__help,tui)
-                cmd="am__help__tui"
+            am__subcmd__help,tui)
+                cmd="am__subcmd__help__subcmd__tui"
                 ;;
-            am__help,untrust)
-                cmd="am__help__untrust"
+            am__subcmd__help,untrust)
+                cmd="am__subcmd__help__subcmd__untrust"
                 ;;
-            am__help,use)
-                cmd="am__help__use"
+            am__subcmd__help,use)
+                cmd="am__subcmd__help__subcmd__use"
                 ;;
-            am__help__profile,add)
-                cmd="am__help__profile__add"
+            am__subcmd__help__subcmd__profile,add)
+                cmd="am__subcmd__help__subcmd__profile__subcmd__add"
                 ;;
-            am__help__profile,list)
-                cmd="am__help__profile__list"
+            am__subcmd__help__subcmd__profile,list)
+                cmd="am__subcmd__help__subcmd__profile__subcmd__list"
                 ;;
-            am__help__profile,remove)
-                cmd="am__help__profile__remove"
+            am__subcmd__help__subcmd__profile,remove)
+                cmd="am__subcmd__help__subcmd__profile__subcmd__remove"
                 ;;
-            am__help__profile,use)
-                cmd="am__help__profile__use"
+            am__subcmd__help__subcmd__profile,use)
+                cmd="am__subcmd__help__subcmd__profile__subcmd__use"
                 ;;
-            am__profile,add)
-                cmd="am__profile__add"
+            am__subcmd__profile,add)
+                cmd="am__subcmd__profile__subcmd__add"
                 ;;
-            am__profile,help)
-                cmd="am__profile__help"
+            am__subcmd__profile,help)
+                cmd="am__subcmd__profile__subcmd__help"
                 ;;
-            am__profile,list)
-                cmd="am__profile__list"
+            am__subcmd__profile,list)
+                cmd="am__subcmd__profile__subcmd__list"
                 ;;
-            am__profile,remove)
-                cmd="am__profile__remove"
+            am__subcmd__profile,remove)
+                cmd="am__subcmd__profile__subcmd__remove"
                 ;;
-            am__profile,use)
-                cmd="am__profile__use"
+            am__subcmd__profile,use)
+                cmd="am__subcmd__profile__subcmd__use"
                 ;;
-            am__profile__help,add)
-                cmd="am__profile__help__add"
+            am__subcmd__profile__subcmd__help,add)
+                cmd="am__subcmd__profile__subcmd__help__subcmd__add"
                 ;;
-            am__profile__help,help)
-                cmd="am__profile__help__help"
+            am__subcmd__profile__subcmd__help,help)
+                cmd="am__subcmd__profile__subcmd__help__subcmd__help"
                 ;;
-            am__profile__help,list)
-                cmd="am__profile__help__list"
+            am__subcmd__profile__subcmd__help,list)
+                cmd="am__subcmd__profile__subcmd__help__subcmd__list"
                 ;;
-            am__profile__help,remove)
-                cmd="am__profile__help__remove"
+            am__subcmd__profile__subcmd__help,remove)
+                cmd="am__subcmd__profile__subcmd__help__subcmd__remove"
                 ;;
-            am__profile__help,use)
-                cmd="am__profile__help__use"
+            am__subcmd__profile__subcmd__help,use)
+                cmd="am__subcmd__profile__subcmd__help__subcmd__use"
                 ;;
             *)
                 ;;
@@ -180,7 +180,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__add)
+        am__subcmd__add)
             opts="-p -l -g -h -V --profile --local --global --raw --help --version <NAME> [COMMAND]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -202,7 +202,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__export)
+        am__subcmd__export)
             opts="-l -g -p -b -h -V --local --global --profile --all --base64 --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -224,7 +224,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help)
+        am__subcmd__help)
             opts="add remove ls status profile init setup use tui export import share trust untrust hook reload help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -238,7 +238,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__add)
+        am__subcmd__help__subcmd__add)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -252,7 +252,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__export)
+        am__subcmd__help__subcmd__export)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -266,7 +266,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__help)
+        am__subcmd__help__subcmd__help)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -280,7 +280,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__hook)
+        am__subcmd__help__subcmd__hook)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -294,7 +294,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__import)
+        am__subcmd__help__subcmd__import)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -308,7 +308,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__init)
+        am__subcmd__help__subcmd__init)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -322,7 +322,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__ls)
+        am__subcmd__help__subcmd__ls)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -336,7 +336,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__profile)
+        am__subcmd__help__subcmd__profile)
             opts="add use remove list"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -350,7 +350,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__profile__add)
+        am__subcmd__help__subcmd__profile__subcmd__add)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -364,7 +364,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__profile__list)
+        am__subcmd__help__subcmd__profile__subcmd__list)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -378,7 +378,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__profile__remove)
+        am__subcmd__help__subcmd__profile__subcmd__remove)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -392,7 +392,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__profile__use)
+        am__subcmd__help__subcmd__profile__subcmd__use)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -406,7 +406,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__reload)
+        am__subcmd__help__subcmd__reload)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -420,7 +420,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__remove)
+        am__subcmd__help__subcmd__remove)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -434,7 +434,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__setup)
+        am__subcmd__help__subcmd__setup)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -448,7 +448,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__share)
+        am__subcmd__help__subcmd__share)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -462,7 +462,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__status)
+        am__subcmd__help__subcmd__status)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -476,7 +476,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__trust)
+        am__subcmd__help__subcmd__trust)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -490,7 +490,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__tui)
+        am__subcmd__help__subcmd__tui)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -504,7 +504,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__untrust)
+        am__subcmd__help__subcmd__untrust)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -518,7 +518,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__help__use)
+        am__subcmd__help__subcmd__use)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -532,7 +532,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__hook)
+        am__subcmd__hook)
             opts="-q -h -V --quiet --help --version bash fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -546,7 +546,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__import)
+        am__subcmd__import)
             opts="-l -g -p -b -y -h -V --local --global --profile --all --base64 --yes --trust --help --version <SOURCE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -568,7 +568,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__init)
+        am__subcmd__init)
             opts="-h -V --help --version bash fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -582,7 +582,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__ls)
+        am__subcmd__ls)
             opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -596,7 +596,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile)
+        am__subcmd__profile)
             opts="-h -V --help --version add use remove list help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -610,7 +610,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__add)
+        am__subcmd__profile__subcmd__add)
             opts="-h -V --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -624,7 +624,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__help)
+        am__subcmd__profile__subcmd__help)
             opts="add use remove list help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -638,7 +638,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__help__add)
+        am__subcmd__profile__subcmd__help__subcmd__add)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -652,7 +652,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__help__help)
+        am__subcmd__profile__subcmd__help__subcmd__help)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -666,7 +666,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__help__list)
+        am__subcmd__profile__subcmd__help__subcmd__list)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -680,7 +680,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__help__remove)
+        am__subcmd__profile__subcmd__help__subcmd__remove)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -694,7 +694,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__help__use)
+        am__subcmd__profile__subcmd__help__subcmd__use)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -708,7 +708,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__list)
+        am__subcmd__profile__subcmd__list)
             opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -722,7 +722,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__remove)
+        am__subcmd__profile__subcmd__remove)
             opts="-f -h -V --force --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -736,7 +736,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__profile__use)
+        am__subcmd__profile__subcmd__use)
             opts="-n -i -h -V --priority --inverse --help --version [NAMES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -758,7 +758,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__reload)
+        am__subcmd__reload)
             opts="-h -V --help --version bash fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -772,7 +772,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__remove)
+        am__subcmd__remove)
             opts="-p -g -h -V --profile --global --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -794,7 +794,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__setup)
+        am__subcmd__setup)
             opts="-h -V --help --version bash fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -808,7 +808,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__share)
+        am__subcmd__share)
             opts="-l -g -p -h -V --local --global --profile --all --termbin --paste-rs --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -830,7 +830,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__status)
+        am__subcmd__status)
             opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -844,7 +844,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__trust)
+        am__subcmd__trust)
             opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -858,7 +858,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__tui)
+        am__subcmd__tui)
             opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -872,7 +872,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__untrust)
+        am__subcmd__untrust)
             opts="-f -h -V --forget --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -886,7 +886,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__use)
+        am__subcmd__use)
             opts="-n -i -h -V --priority --inverse --help --version [NAMES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

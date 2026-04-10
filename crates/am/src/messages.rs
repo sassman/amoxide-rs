@@ -44,12 +44,17 @@ pub enum Message {
     ListProfiles,
     CreateProfile(String),
     /// Rename a profile, preserving its aliases and activation state.
-    RenameProfile { old_name: String, new_name: String },
+    RenameProfile {
+        old_name: String,
+        new_name: String,
+    },
 
     Import(ImportPayload),
 
     Trust,
-    Untrust { forget: bool },
+    Untrust {
+        forget: bool,
+    },
 
     /// Move one or more aliases to another scope (source deleted).
     MoveAliases {

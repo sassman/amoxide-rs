@@ -299,4 +299,3 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
     }
     Ok(())
 }
-

@@ -42,9 +42,7 @@ fn execute_effects(model: &mut TuiModel, effects: &[Effect]) -> anyhow::Result<(
 
 fn tui_error_message(err: &UpdateError) -> String {
     match err {
-        UpdateError::ProjectNotTrusted { .. } => {
-            "press 't' to trust this project".to_string()
-        }
+        UpdateError::ProjectNotTrusted { .. } => "press 't' to trust this project".to_string(),
         UpdateError::AliasNotFound { name, .. } => format!("alias '{name}' not found"),
         UpdateError::ProfileNotFound { name } => format!("profile '{name}' not found"),
         UpdateError::NoProjectFile => "no .aliases file in this tree".to_string(),
@@ -55,9 +53,9 @@ fn tui_error_message(err: &UpdateError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use amoxide::{AliasTarget, Config, Message, ProfileConfig};
-    use amoxide::update::AppModel;
     use crate::model::{Column, Mode, TuiModel};
+    use amoxide::update::AppModel;
+    use amoxide::{AliasTarget, Config, Message, ProfileConfig};
     use std::collections::BTreeSet;
 
     fn make_model() -> TuiModel {
@@ -98,12 +96,9 @@ mod tests {
         std::fs::write(&aliases_path, "[aliases]\nt = \"cargo test\"\n").unwrap();
         let mut security = amoxide::security::SecurityConfig::default();
         security.untrust(&aliases_path);
-        let app_model = AppModel::new_with_security(
-            Config::default(),
-            ProfileConfig::default(),
-            security,
-        )
-        .with_cwd(dir.path().to_path_buf());
+        let app_model =
+            AppModel::new_with_security(Config::default(), ProfileConfig::default(), security)
+                .with_cwd(dir.path().to_path_buf());
         let tree = crate::tree::build_tree(&app_model);
         let dest_tree = crate::tree::build_dest_tree(&app_model);
         let mut model = TuiModel {
@@ -143,15 +138,14 @@ mod tests {
         model.tree = tree;
         model.dest_tree = dest_tree;
 
-        dispatch(
-            &mut model,
-            Message::ToggleProfiles(vec!["git".into()]),
-        )
-        .unwrap();
+        dispatch(&mut model, Message::ToggleProfiles(vec!["git".into()])).unwrap();
 
         // ToggleProfiles emits a Print effect with activation message
         assert!(model.status_line.is_some());
         let msg = model.status_line.as_ref().unwrap();
-        assert!(msg.contains("git"), "expected profile name in status, got: {msg}");
+        assert!(
+            msg.contains("git"),
+            "expected profile name in status, got: {msg}"
+        );
     }
 }
