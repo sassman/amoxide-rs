@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
 use anyhow::anyhow;
-#[allow(unused_imports)]
-use serde::{Deserialize, Serialize};
+use log::warn;
 
 /// A parsed subcommand alias.
 ///
@@ -60,11 +59,16 @@ pub type SubcommandSet = BTreeMap<String, Vec<String>>;
 pub fn group_by_program(set: &SubcommandSet) -> BTreeMap<String, Vec<SubcommandEntry>> {
     let mut groups: BTreeMap<String, Vec<SubcommandEntry>> = BTreeMap::new();
     for (key, values) in set {
-        if let Ok(entry) = SubcommandEntry::parse_key(key, values.clone()) {
-            groups
-                .entry(entry.program.clone())
-                .or_default()
-                .push(entry);
+        match SubcommandEntry::parse_key(key, values.clone()) {
+            Ok(entry) => {
+                groups
+                    .entry(entry.program.clone())
+                    .or_default()
+                    .push(entry);
+            }
+            Err(e) => {
+                warn!("Skipping invalid subcommand alias '{key}': {e}");
+            }
         }
     }
     groups
@@ -134,5 +138,20 @@ mod tests {
         let set = SubcommandSet::new();
         let groups = group_by_program(&set);
         assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn group_by_program_skips_invalid_entries() {
+        let mut set = SubcommandSet::new();
+        set.insert("jj:ab".into(), vec!["abandon".into()]);
+        // mismatched counts — invalid
+        set.insert("jj:b:l".into(), vec!["branch".into()]);
+        // no colon — invalid
+        set.insert("bad".into(), vec!["whatever".into()]);
+
+        let groups = group_by_program(&set);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups["jj"].len(), 1);
+        assert_eq!(groups["jj"][0].short_subcommands, vec!["ab"]);
     }
 }
