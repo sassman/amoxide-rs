@@ -18,6 +18,7 @@ pub mod session;
 pub mod setup;
 pub mod shell;
 pub mod status;
+pub mod subcommand;
 pub mod trust;
 pub mod update;
 
@@ -30,6 +31,7 @@ pub use messages::*;
 pub use profile::*;
 pub use project::*;
 pub use session::*;
+pub use subcommand::*;
 pub use update::UpdateError;
 
 pub type Result<T> = anyhow::Result<T>;
