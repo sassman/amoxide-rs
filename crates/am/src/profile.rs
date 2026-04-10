@@ -246,8 +246,8 @@ impl Profile {
     pub fn remove_subcommand(&mut self, key: &str) -> Result<()> {
         self.subcommands
             .remove(key)
-            .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))
-            .map(|_| ())
+            .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))?;
+        Ok(())
     }
 }
 

@@ -680,6 +680,7 @@ fn snapshot_export_all() {
         profiles: vec![amoxide::Profile {
             name: "git".into(),
             aliases: aliases(&[("gs", "git status")]),
+            subcommands: Default::default(),
         }],
         local_aliases: aliases(&[("t", "cargo test")]),
     };
@@ -723,6 +724,7 @@ fn test_export_import_roundtrip_all() {
         profiles: vec![amoxide::Profile {
             name: "git".into(),
             aliases: aliases(&[("gs", "git status")]),
+            subcommands: Default::default(),
         }],
         local_aliases: aliases(&[("t", "cargo test")]),
     };
@@ -775,6 +777,7 @@ fn test_import_payload_through_update() {
         profiles: vec![amoxide::Profile {
             name: "git".into(),
             aliases: aliases(&[("gp", "git push")]),
+            subcommands: Default::default(),
         }],
         local_aliases: None,
     };
