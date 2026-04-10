@@ -99,10 +99,8 @@ pub fn build_tree_from_parts(
         project_trust: None,
     });
 
-    let mut child_idx = 0;
-
     // --- Global aliases ---
-    for (name, alias) in global_aliases.iter() {
+    for (child_idx, (name, alias)) in global_aliases.iter().enumerate() {
         let is_last = child_idx == active_zone_children - 1;
         let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
         nodes.push(TreeNode {
@@ -117,7 +115,6 @@ pub fn build_tree_from_parts(
             content_prefix: cp.to_string(),
             project_trust: None,
         });
-        child_idx += 1;
     }
 
     // --- Active profiles (in activation order) ---
@@ -155,7 +152,6 @@ pub fn build_tree_from_parts(
                 });
             }
         }
-        child_idx += 1;
     }
 
     // --- Project (last in active zone) ---
@@ -263,8 +259,6 @@ pub fn build_dest_tree_from_parts(
         .map(|p| p.name.as_str())
         .filter(|name| !active_profiles.contains(&name.to_string()))
         .collect();
-
-    let active_zone_children = active_names.len() + usize::from(has_project);
 
     // Global header (always present, root)
     nodes.push(TreeNode {

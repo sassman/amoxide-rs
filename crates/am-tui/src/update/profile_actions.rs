@@ -42,7 +42,8 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
             };
             match action {
                 ConfirmAction::DeleteProfile(name) => {
-                    let _ = super::delegation::dispatch(model, amoxide::Message::RemoveProfile(name));
+                    let _ =
+                        super::delegation::dispatch(model, amoxide::Message::RemoveProfile(name));
                 }
                 ConfirmAction::OverwriteAliases {
                     aliases,
@@ -56,11 +57,11 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     };
                     let msg = match &transfer_mode {
                         TransferMode::Move => amoxide::Message::MoveAliases {
-                            aliases: aliases.iter().cloned().collect(),
+                            aliases: aliases.to_vec(),
                             to: lib_dest,
                         },
                         TransferMode::Copy => amoxide::Message::CopyAliases {
-                            aliases: aliases.iter().cloned().collect(),
+                            aliases: aliases.to_vec(),
                             to: lib_dest,
                         },
                     };

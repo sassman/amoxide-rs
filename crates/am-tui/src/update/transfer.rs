@@ -1,4 +1,7 @@
-use crate::model::{AliasId, Column, ConfirmAction, Mode, MoveDestination, NodeKind, TransferMode, TuiMessage, TuiModel};
+use crate::model::{
+    AliasId, Column, ConfirmAction, Mode, MoveDestination, NodeKind, TransferMode, TuiMessage,
+    TuiModel,
+};
 use amoxide::AliasName;
 
 pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
@@ -103,11 +106,11 @@ fn execute_transfer(model: &mut TuiModel) {
         };
         let msg = match transfer_mode {
             TransferMode::Move => amoxide::Message::MoveAliases {
-                aliases: aliases_to_transfer.iter().cloned().collect(),
+                aliases: aliases_to_transfer.to_vec(),
                 to: lib_dest,
             },
             TransferMode::Copy => amoxide::Message::CopyAliases {
-                aliases: aliases_to_transfer.iter().cloned().collect(),
+                aliases: aliases_to_transfer.to_vec(),
                 to: lib_dest,
             },
         };
