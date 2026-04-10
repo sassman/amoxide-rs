@@ -1,8 +1,8 @@
 use amoxide::update::AppModel;
 use std::collections::BTreeSet;
 
-pub use amoxide::AliasId;
 pub use crate::tree::ProjectTrustState;
+pub use amoxide::AliasId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
@@ -241,8 +241,11 @@ impl TuiModel {
                 break;
             }
             line += 1;
-            // Account for blank separator line after last alias before a header
-            if node.kind == NodeKind::AliasItem {
+            // Account for blank separator line after a section boundary:
+            // either after the last alias of a non-empty section, or after an empty ProfileHeader
+            let is_empty_profile_header = node.kind == NodeKind::ProfileHeader;
+            let is_last_alias = node.kind == NodeKind::AliasItem;
+            if is_last_alias || is_empty_profile_header {
                 let next_is_header = self.tree.get(i + 1).is_some_and(|n| {
                     matches!(
                         n.kind,
