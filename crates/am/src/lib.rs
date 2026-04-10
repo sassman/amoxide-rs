@@ -1,4 +1,5 @@
 pub mod alias;
+pub mod alias_id;
 pub mod cli;
 pub mod config;
 pub mod dirs;
@@ -20,6 +21,7 @@ pub mod trust;
 pub mod update;
 
 pub use alias::*;
+pub use alias_id::*;
 pub use config::*;
 pub use effects::*;
 pub use exchange::*;
