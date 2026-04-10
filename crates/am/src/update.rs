@@ -540,11 +540,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
         },
         Message::ListProfiles => {
+            let resolved_subs = model
+                .profile_config()
+                .resolve_active_subcommands(&model.config.active_profiles);
+            let mut all_subs = model.config.subcommands.clone();
+            for (k, v) in resolved_subs {
+                all_subs.insert(k, v);
+            }
             let output = render_listing(
                 &model.config.aliases,
                 model.profile_config(),
                 &model.session.active_profiles,
                 model.project_trust(),
+                &all_subs,
             );
             println!("{output}");
             Ok(UpdateResult::done())
