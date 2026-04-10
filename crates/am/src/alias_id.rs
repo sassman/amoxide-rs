@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn alias_id_ordering_is_stable() {
-        let mut ids = vec![
+        let mut ids = [
             AliasId::Profile {
                 profile_name: "z".into(),
                 alias_name: "b".into(),
