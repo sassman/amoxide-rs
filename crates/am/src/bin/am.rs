@@ -49,12 +49,8 @@ fn main() -> anyhow::Result<()> {
             raw,
             name,
             command,
+            sub,
         }) => {
-            let alias_cmd = match command {
-                Some(parts) => parts.join(" "),
-                None => bail!("No command provided. Usage: am add <name> <command...>"),
-            };
-
             let target = if *global {
                 AliasTarget::Global
             } else if *local {
@@ -66,13 +62,57 @@ fn main() -> anyhow::Result<()> {
                     .unwrap_or(AliasTarget::ActiveProfile)
             };
 
-            info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
-            Message::AddAlias(name.clone(), alias_cmd, target, *raw)
+            // Check if this is a subcommand alias
+            let is_colon_notation = name.contains(':');
+            let has_sub_flag = !sub.is_empty();
+
+            if is_colon_notation || has_sub_flag {
+                // Build the subcommand key and long_subcommands
+                let (key, long_subcommands) = if is_colon_notation {
+                    // Colon notation: jj:ab abandon or jj:b:l branch list
+                    let cmd_parts: Vec<String> = match command {
+                        Some(parts) => parts.clone(),
+                        None => bail!("No expansion provided. Usage: am add jj:ab abandon"),
+                    };
+                    (name.clone(), cmd_parts)
+                } else {
+                    // --sub flag: jj --sub ab abandon --sub b branch
+                    // sub is a flat Vec: ["ab", "abandon", "b", "branch", ...]
+                    let pairs: Vec<(&str, &str)> = sub
+                        .chunks(2)
+                        .map(|chunk| (chunk[0].as_str(), chunk[1].as_str()))
+                        .collect();
+                    let key = std::iter::once(name.as_str())
+                        .chain(pairs.iter().map(|(short, _)| *short))
+                        .collect::<Vec<_>>()
+                        .join(":");
+                    let longs: Vec<String> = pairs.iter().map(|(_, long)| long.to_string()).collect();
+                    (key, longs)
+                };
+
+                // Validate
+                let _entry = amoxide::subcommand::SubcommandEntry::parse_key(
+                    &key,
+                    long_subcommands.clone(),
+                )?;
+
+                info!("Adding subcommand alias `{key}` to {target}");
+                Message::AddSubcommandAlias(key, long_subcommands, target)
+            } else {
+                // Regular alias
+                let alias_cmd = match command {
+                    Some(parts) => parts.join(" "),
+                    None => bail!("No command provided. Usage: am add <name> <command...>"),
+                };
+                info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
+                Message::AddAlias(name.clone(), alias_cmd, target, *raw)
+            }
         }
         Commands::Remove {
             profile,
             global,
             name,
+            sub,
         } => {
             let target = if *global {
                 AliasTarget::Global
@@ -83,8 +123,24 @@ fn main() -> anyhow::Result<()> {
                     .unwrap_or(AliasTarget::ActiveProfile)
             };
 
-            info!("Removing alias `{name}` from {target}");
-            Message::RemoveAlias(name.clone(), target)
+            let is_colon_notation = name.contains(':');
+            let has_sub_flag = !sub.is_empty();
+
+            if is_colon_notation || has_sub_flag {
+                let key = if is_colon_notation {
+                    name.clone()
+                } else {
+                    std::iter::once(name.as_str())
+                        .chain(sub.iter().map(|s| s.as_str()))
+                        .collect::<Vec<_>>()
+                        .join(":")
+                };
+                info!("Removing subcommand alias `{key}` from {target}");
+                Message::RemoveSubcommandAlias(key, target)
+            } else {
+                info!("Removing alias `{name}` from {target}");
+                Message::RemoveAlias(name.clone(), target)
+            }
         }
         Commands::Ls => Message::ListProfiles,
         Commands::Status => {
