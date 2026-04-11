@@ -5,8 +5,17 @@ import matter from 'gray-matter'
 
 const base = process.env.VITEPRESS_BASE || '/'
 
-const cargoToml = fs.readFileSync(path.resolve(__dirname, '../../Cargo.toml'), 'utf-8')
-const appVersion = cargoToml.match(/^version = "(.+)"/m)?.[1] ?? '0.0.0'
+let appVersion = '0.0.0'
+try {
+  const res = await fetch('https://crates.io/api/v1/crates/amoxide', {
+    headers: { 'User-Agent': 'amoxide-website/1.0 (https://amoxide.rs)' },
+  })
+  const data = await res.json() as any
+  appVersion = data.crate.newest_version ?? appVersion
+} catch {
+  const cargoToml = fs.readFileSync(path.resolve(__dirname, '../../Cargo.toml'), 'utf-8')
+  appVersion = cargoToml.match(/^version = "(.+)"/m)?.[1] ?? appVersion
+}
 
 // Build showcase sidebar from community folder
 function buildShowcaseSidebar() {
