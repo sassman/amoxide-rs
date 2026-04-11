@@ -15,6 +15,58 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
             if model.mode != Mode::Normal {
                 return;
             }
+            // If cursor is on a subcommand node, open the subcommand editor
+            let node_kind = model.tree.get(model.cursor).map(|n| n.kind.clone());
+            match node_kind {
+                Some(NodeKind::SubcommandProgramHeader) => {
+                    let program = model
+                        .tree
+                        .get(model.cursor)
+                        .and_then(|n| n.label.split_whitespace().next().map(|s| s.to_string()))
+                        .unwrap_or_default();
+                    let target = resolve_scope_from_ancestors(model).unwrap_or(AliasTarget::Global);
+                    model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+                        program,
+                        pairs: vec![("".into(), "".into())],
+                        active_pair: 0,
+                        active_field: SubcommandField::Short,
+                        target,
+                        original_key: None,
+                    });
+                    return;
+                }
+                Some(NodeKind::SubcommandGroupNode) => {
+                    let target = resolve_scope_from_ancestors(model).unwrap_or(AliasTarget::Global);
+                    let program = find_parent_program(model).unwrap_or_default();
+                    let pairs = collect_pairs_to_cursor(model);
+                    let active_pair = pairs.len().saturating_sub(1);
+                    model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+                        program,
+                        pairs,
+                        active_pair,
+                        active_field: SubcommandField::Short,
+                        target,
+                        original_key: None,
+                    });
+                    return;
+                }
+                Some(NodeKind::SubcommandItem) => {
+                    let target = resolve_scope_from_ancestors(model).unwrap_or(AliasTarget::Global);
+                    let program = find_parent_program(model).unwrap_or_default();
+                    let pairs = collect_pairs_to_cursor(model);
+                    let active_pair = pairs.len().saturating_sub(1);
+                    model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+                        program,
+                        pairs,
+                        active_pair,
+                        active_field: SubcommandField::Short,
+                        target,
+                        original_key: None,
+                    });
+                    return;
+                }
+                _ => {}
+            }
             // Determine target scope from cursor position
             let target = resolve_alias_target(model);
             if let Some(target) = target {
@@ -54,6 +106,29 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             error: None,
                         });
                     }
+                }
+                NodeKind::SubcommandItem => {
+                    if let Some(AliasId::Subcommand { scope, key }) = &node.alias_id {
+                        let target = match scope {
+                            amoxide::SubcommandScope::Global => AliasTarget::Global,
+                            amoxide::SubcommandScope::Profile(n) => AliasTarget::Profile(n.clone()),
+                            amoxide::SubcommandScope::Project => AliasTarget::Project,
+                        };
+                        let pairs = collect_pairs_to_cursor(model);
+                        let program = key.split(':').next().unwrap_or("").to_string();
+                        let active_pair = pairs.len().saturating_sub(1);
+                        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+                            program,
+                            pairs,
+                            active_pair,
+                            active_field: SubcommandField::Short,
+                            target,
+                            original_key: Some(key.clone()),
+                        });
+                    }
+                }
+                NodeKind::SubcommandGroupNode | NodeKind::SubcommandProgramHeader => {
+                    handle(model, TuiMessage::StartAddAlias);
                 }
                 _ => {}
             }
@@ -426,7 +501,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
             }
         }
         TuiMessage::StartSubcommandInput => {
-            // TODO Task 5: open subcommand editor from cursor context
+            handle(model, TuiMessage::StartAddAlias);
         }
         _ => {}
     }
@@ -470,4 +545,49 @@ pub(super) fn resolve_scope_from_ancestors(model: &TuiModel) -> Option<AliasTarg
         }
     }
     Some(AliasTarget::Global)
+}
+
+/// Walk backward to find the nearest SubcommandProgramHeader and return its program name.
+fn find_parent_program(model: &TuiModel) -> Option<String> {
+    for i in (0..=model.cursor).rev() {
+        if model.tree[i].kind == NodeKind::SubcommandProgramHeader {
+            return model.tree[i]
+                .label
+                .split_whitespace()
+                .next()
+                .map(|s| s.to_string());
+        }
+    }
+    None
+}
+
+/// Collect short→long pairs from the SubcommandProgramHeader down to the cursor.
+/// Group nodes contribute (short, "") and leaf items contribute (short, long).
+fn collect_pairs_to_cursor(model: &TuiModel) -> Vec<(String, String)> {
+    let header_idx = (0..=model.cursor)
+        .rev()
+        .find(|&i| model.tree[i].kind == NodeKind::SubcommandProgramHeader);
+    let Some(start) = header_idx else {
+        return vec![("".into(), "".into())];
+    };
+    let mut pairs = vec![];
+    for node in &model.tree[start + 1..=model.cursor] {
+        match node.kind {
+            NodeKind::SubcommandGroupNode => {
+                pairs.push((node.label.clone(), String::new()));
+            }
+            NodeKind::SubcommandItem => {
+                if let Some((short, long)) = node.label.split_once(" \u{2192} ") {
+                    pairs.push((short.trim().to_string(), long.trim().to_string()));
+                } else {
+                    pairs.push((node.label.clone(), String::new()));
+                }
+            }
+            _ => {}
+        }
+    }
+    if pairs.is_empty() {
+        pairs.push(("".into(), "".into()));
+    }
+    pairs
 }

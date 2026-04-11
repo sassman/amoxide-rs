@@ -53,7 +53,8 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 mod tests {
     use super::*;
     use crate::model::{
-        AliasId, ConfirmAction, Mode, NodeKind, TextInputState, TransferMode, TuiMessage, TuiModel,
+        AliasId, AliasTarget, ConfirmAction, Mode, NodeKind, SubcommandField, TextInputState,
+        TransferMode, TuiMessage, TuiModel,
     };
     use crate::tree::{build_dest_tree_from_parts, build_tree_from_parts};
     use amoxide::update::AppModel;
@@ -815,5 +816,70 @@ mod tests {
         assert_eq!(model.tree[model.cursor].kind, NodeKind::GlobalHeader);
         update(&mut model, TuiMessage::EditItem);
         assert_eq!(model.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn test_start_add_alias_on_subcommand_program_header_opens_subcmd_editor() {
+        let mut model = test_model("profiles = []");
+        model
+            .app_model
+            .config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        model.rebuild_tree();
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandProgramHeader)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::StartAddAlias);
+        assert!(
+            matches!(
+                model.mode,
+                Mode::TextInput(TextInputState::SubcommandInput { .. })
+            ),
+            "expected SubcommandInput mode, got {:?}",
+            model.mode
+        );
+    }
+
+    #[test]
+    fn test_subcmd_add_pair_extends_pairs() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            active_pair: 0,
+            active_field: SubcommandField::Short,
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::SubcommandAddPair);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs, active_pair, ..
+            }) => {
+                assert_eq!(pairs.len(), 2);
+                assert_eq!(*active_pair, 1);
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_subcmd_confirm_dispatches_add() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(model.mode, Mode::Normal);
+        assert!(model.app_model.config.subcommands.contains_key("jj:ab"));
     }
 }

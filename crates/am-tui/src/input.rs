@@ -1,4 +1,4 @@
-use crate::model::{Mode, TuiMessage};
+use crate::model::{Mode, TextInputState, TuiMessage};
 use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use std::time::{Duration, Instant};
 
@@ -16,6 +16,7 @@ fn map_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
     }
     match mode {
         Mode::Normal | Mode::Transfer(_) => map_normal_key(key, mode),
+        Mode::TextInput(TextInputState::SubcommandInput { .. }) => map_subcmd_input_key(key),
         Mode::TextInput(_) => map_text_input_key(key),
         Mode::Confirm(_) => map_confirm_key(key),
     }
@@ -43,6 +44,18 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
         )),
         KeyCode::Char('t') => Some(TuiMessage::ToggleTrust),
         KeyCode::Char('q') => Some(TuiMessage::Quit),
+        _ => None,
+    }
+}
+
+fn map_subcmd_input_key(key: &KeyEvent) -> Option<TuiMessage> {
+    match key.code {
+        KeyCode::Enter => Some(TuiMessage::TextInputConfirm),
+        KeyCode::Esc => Some(TuiMessage::TextInputCancel),
+        KeyCode::Tab | KeyCode::Left | KeyCode::Right => Some(TuiMessage::TextInputSwitchField),
+        KeyCode::Backspace => Some(TuiMessage::TextInputBackspace),
+        KeyCode::Char('a') => Some(TuiMessage::SubcommandAddPair),
+        KeyCode::Char(c) => Some(TuiMessage::TextInputChar(c)),
         _ => None,
     }
 }
