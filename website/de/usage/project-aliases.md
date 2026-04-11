@@ -25,9 +25,7 @@ t = "./x.py test"
 b = "./x.py build"
 ```
 
-## Vertrauensmodell
-
-<VersionBadge v="0.5.0" />
+## Vertrauensmodell <VersionBadge v="0.5.0" />
 
 Projekt-`.aliases`-Dateien können beliebige Shell-Befehle enthalten. Da jeder eine `.aliases`-Datei in ein Repository legen könnte, verlangt amoxide, dass du jede Datei explizit als vertrauenswürdig markierst, bevor ihre Aliase geladen werden — ähnlich wie [direnv](https://direnv.net) mit `.envrc`-Dateien umgeht.
 

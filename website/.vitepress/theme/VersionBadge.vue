@@ -3,10 +3,7 @@ defineProps<{ v: string }>()
 </script>
 
 <template>
-  <span class="version-badge">
-    <span class="version-badge-label">since</span>
-    <span class="version-badge-version">v{{ v }}</span>
-  </span>
+  <span class="version-badge" :data-v="v"></span>
 </template>
 
 <style scoped>
@@ -22,13 +19,15 @@ defineProps<{ v: string }>()
   margin-left: 8px;
 }
 
-.version-badge-label {
+.version-badge::before {
+  content: "since";
   padding: 3px 6px;
   background: var(--vp-c-default-1, #e2e2e3);
   color: var(--vp-c-text-2);
 }
 
-.version-badge-version {
+.version-badge::after {
+  content: "v" attr(data-v);
   padding: 3px 6px;
   background: var(--vp-c-brand-1);
   color: var(--vp-button-brand-text, #fff);
