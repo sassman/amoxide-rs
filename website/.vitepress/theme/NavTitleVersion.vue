@@ -14,6 +14,6 @@ const version = __APP_VERSION__;
     color: var(--am-version-color);
     margin-left: 6px;
     position: relative;
-    bottom: -6px;
+    bottom: -5px;
 }
 </style>
