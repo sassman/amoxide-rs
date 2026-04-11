@@ -1,6 +1,23 @@
-/* Navbar title: slightly larger font */
+/* Navbar title: larger logo, larger font, gradient text matching hero */
+:root {
+  --vp-nav-logo-height: 30px;
+}
+
 .VPNavBarTitle .title {
-  font-size: 18px;
+  font-size: 20px;
+}
+
+.VPNavBarTitle .title span:not(.nav-version) {
+  background: -webkit-linear-gradient(120deg, #1a8a4a 30%, #0d7fa5);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark .VPNavBarTitle .title span:not(.nav-version) {
+  background: -webkit-linear-gradient(120deg, #50fa7b 30%, #8be9fd);
+  -webkit-background-clip: text;
+  background-clip: text;
 }
 
 /* Dracula-inspired theme — matching amoxide TUI */

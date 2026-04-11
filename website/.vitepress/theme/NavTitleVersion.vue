@@ -14,6 +14,6 @@ const version = __APP_VERSION__
   color: var(--vp-c-text-3);
   margin-left: 6px;
   position: relative;
-  top: 3px;
+  top: 4px;
 }
 </style>
