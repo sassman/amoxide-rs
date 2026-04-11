@@ -90,7 +90,8 @@ pub fn quote_cmd(cmd: &str) -> String {
     format!("{quotes}{cmd}{quotes}")
 }
 
-static TEMPLATE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{\{([1-9]|@)\}\}").unwrap());
+pub(super) static TEMPLATE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{\{([1-9]|@)\}\}").unwrap());
 
 /// Returns true if the command contains valid template args like `{{1}}`, `{{@}}`.
 pub fn has_template_args(cmd: &str) -> bool {

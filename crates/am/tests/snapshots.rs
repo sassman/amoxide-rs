@@ -425,7 +425,7 @@ fn snapshot_hook_fish_with_aliases() {
     security.trust(&aliases_path, &hash);
 
     let (output, _) =
-        generate_hook_with_security(&Shells::Fish, dir.path(), None, &mut security, false).unwrap();
+        generate_hook_with_security(&Shells::Fish, dir.path(), None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -448,7 +448,7 @@ fn snapshot_hook_zsh_with_aliases() {
     security.trust(&aliases_path, &hash);
 
     let (output, _) =
-        generate_hook_with_security(&Shells::Zsh, dir.path(), None, &mut security, false).unwrap();
+        generate_hook_with_security(&Shells::Zsh, dir.path(), None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -471,7 +471,7 @@ fn snapshot_hook_powershell_with_aliases() {
     security.trust(&aliases_path, &hash);
 
     let (output, _) =
-        generate_hook_with_security(&Shells::Powershell, dir.path(), None, &mut security, false)
+        generate_hook_with_security(&Shells::Powershell, dir.path(), None, None, &mut security, false)
             .unwrap();
     insta::assert_snapshot!(output);
 }
@@ -495,7 +495,7 @@ fn snapshot_hook_bash_with_aliases() {
     security.trust(&aliases_path, &hash);
 
     let (output, _) =
-        generate_hook_with_security(&Shells::Bash, dir.path(), None, &mut security, false).unwrap();
+        generate_hook_with_security(&Shells::Bash, dir.path(), None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -520,6 +520,7 @@ fn snapshot_hook_fish_transition() {
         &Shells::Fish,
         dir.path(),
         Some("old_a,old_b"),
+        None,
         &mut security,
         false,
     )
@@ -536,6 +537,7 @@ fn snapshot_hook_fish_leaving_project() {
         &Shells::Fish,
         dir.path(),
         Some("old_a,old_b"),
+        None,
         &mut security,
         false,
     )

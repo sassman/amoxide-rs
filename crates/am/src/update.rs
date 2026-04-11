@@ -609,10 +609,12 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         }
         Message::Hook(shell, quiet) => {
             let prev = std::env::var("_AM_PROJECT_ALIASES").ok();
+            let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
             let (output, security_changed) = crate::hook::generate_hook_with_security(
                 &shell,
                 &model.cwd,
                 prev.as_deref(),
+                prev_project_path.as_deref(),
                 &mut model.security_config,
                 quiet,
             )

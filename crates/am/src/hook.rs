@@ -15,8 +15,15 @@ pub fn generate_hook(
     previous_aliases: Option<&str>,
 ) -> crate::Result<String> {
     let mut security = SecurityConfig::load().unwrap_or_default();
-    let (output, _changed) =
-        generate_hook_with_security(shell, cwd, previous_aliases, &mut security, false)?;
+    let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+    let (output, _changed) = generate_hook_with_security(
+        shell,
+        cwd,
+        previous_aliases,
+        prev_project_path.as_deref(),
+        &mut security,
+        false,
+    )?;
     Ok(output)
 }
 
@@ -27,10 +34,15 @@ pub fn generate_hook(
 ///
 /// When `quiet` is true, info and warning echo messages are suppressed
 /// (alias loading/unloading still happens).
+///
+/// `prev_project_path` — the value of `_AM_PROJECT_PATH` from the shell
+/// environment, used to suppress duplicate warnings. Pass `None` to treat
+/// the env var as unset (e.g. in tests).
 pub fn generate_hook_with_security(
     shell: &Shells,
     cwd: &Path,
     previous_aliases: Option<&str>,
+    prev_project_path: Option<&str>,
     security_config: &mut SecurityConfig,
     quiet: bool,
 ) -> crate::Result<(String, bool)> {
@@ -43,8 +55,9 @@ pub fn generate_hook_with_security(
         .map(|s| s.split(',').collect())
         .unwrap_or_default();
 
-    // Track which .aliases file was last seen, to avoid repeating warnings.
-    let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+    // `prev_project_path` tracks which .aliases file was last seen, to avoid
+    // repeating warnings. It is passed in explicitly rather than read from the
+    // environment so that callers (e.g. tests) can control it independently.
 
     // Helper: generate unalias commands for previously loaded aliases
     let unload_prev = |lines: &mut Vec<String>| {
@@ -66,7 +79,6 @@ pub fn generate_hook_with_security(
             // - we haven't already shown a message for this exact file
             let is_direct = path.parent().is_some_and(|p| p == cwd);
             let already_seen = prev_project_path
-                .as_deref()
                 .is_some_and(|p| Path::new(p) == path);
             let show_messages = !quiet && is_direct && !already_seen;
 
@@ -269,7 +281,7 @@ mod tests {
         }
 
         fn run(&mut self, shell: &Shells, cwd: &Path, prev: Option<&str>) -> (String, bool) {
-            generate_hook_with_security(shell, cwd, prev, &mut self.security, false).unwrap()
+            generate_hook_with_security(shell, cwd, prev, None, &mut self.security, false).unwrap()
         }
 
         /// Update the .aliases content and re-trust.

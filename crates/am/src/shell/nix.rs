@@ -67,10 +67,17 @@ impl Shell for NixShell {
             if deeper.is_empty() {
                 // Simple single-level case
                 let entry = single[0];
-                lines.push(format!(
-                    "    {first_short}) shift; {base_cmd} {} \"$@\" ;;",
-                    entry.long_subcommands[0]
-                ));
+                let long = &entry.long_subcommands[0];
+                if has_template_args(long) {
+                    lines.push(format!(
+                        "    {first_short}) shift; {base_cmd} {} ;;",
+                        substitute_nix(long)
+                    ));
+                } else {
+                    lines.push(format!(
+                        "    {first_short}) shift; {base_cmd} {long} \"$@\" ;;"
+                    ));
+                }
             } else {
                 // Nested case — first_short opens a sub-case
                 lines.push(format!("    {first_short})"));
@@ -83,16 +90,30 @@ impl Shell for NixShell {
                         .map(|s| s.as_str())
                         .collect::<Vec<_>>()
                         .join(" ");
-                    lines.push(format!(
-                        "        {second_short}) shift 2; {base_cmd} {expansion} \"$@\" ;;"
-                    ));
+                    if has_template_args(&expansion) {
+                        lines.push(format!(
+                            "        {second_short}) shift 2; {base_cmd} {} ;;",
+                            substitute_nix(&expansion)
+                        ));
+                    } else {
+                        lines.push(format!(
+                            "        {second_short}) shift 2; {base_cmd} {expansion} \"$@\" ;;"
+                        ));
+                    }
                 }
                 // If there's also a single-level entry for this first_short, handle the default
                 if let Some(entry) = single.first() {
-                    lines.push(format!(
-                        "        *) shift; {base_cmd} {} \"$@\" ;;",
-                        entry.long_subcommands[0]
-                    ));
+                    let long = &entry.long_subcommands[0];
+                    if has_template_args(long) {
+                        lines.push(format!(
+                            "        *) shift; {base_cmd} {} ;;",
+                            substitute_nix(long)
+                        ));
+                    } else {
+                        lines.push(format!(
+                            "        *) shift; {base_cmd} {long} \"$@\" ;;"
+                        ));
+                    }
                 } else {
                     lines.push(format!("        *) {base_cmd} \"$@\" ;;"));
                 }
@@ -176,6 +197,41 @@ mod tests {
         let output = NixShell.subcommand_wrapper("jj", "just-a-joke", &entries);
         assert!(output.contains("ab) shift; just-a-joke abandon \"$@\" ;;"));
         assert!(output.contains("*) just-a-joke \"$@\" ;;"));
+    }
+
+    #[test]
+    fn test_nix_subcommand_wrapper_parameterized_single() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["ab".into()],
+            long_subcommands: vec!["abandon --rev {{1}}".into()],
+        }];
+        let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
+        assert!(output.contains("ab) shift; command jj abandon --rev \"$1\" ;;"));
+        // No trailing "$@" when templates are used
+        assert!(!output.contains("\"$1\" \"$@\""));
+    }
+
+    #[test]
+    fn test_nix_subcommand_wrapper_parameterized_all_args() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["l".into()],
+            long_subcommands: vec!["log --template {{@}}".into()],
+        }];
+        let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
+        assert!(output.contains("l) shift; command jj log --template \"$@\" ;;"));
+    }
+
+    #[test]
+    fn test_nix_subcommand_wrapper_parameterized_multi_level() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["b".into(), "l".into()],
+            long_subcommands: vec!["branch".into(), "list --limit {{1}}".into()],
+        }];
+        let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
+        assert!(output.contains("l) shift 2; command jj branch list --limit \"$1\" ;;"));
     }
 
     #[test]

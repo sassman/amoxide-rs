@@ -1,6 +1,20 @@
 use std::fmt::Debug;
 
-use super::{has_template_args, substitute_powershell, Shell};
+use super::{has_template_args, substitute_powershell, Shell, TEMPLATE_RE};
+
+/// Substitute `{{N}}` → `$($args[N-1+offset])` and `{{@}}` → `($args | Select-Object -Skip offset)`.
+/// Used in subcommand wrappers where PowerShell doesn't shift args.
+fn substitute_offset(cmd: &str, offset: usize) -> String {
+    TEMPLATE_RE
+        .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
+            "@" => format!("($args | Select-Object -Skip {offset})"),
+            n => {
+                let idx: usize = n.parse::<usize>().unwrap() - 1 + offset;
+                format!("$($args[{idx}])")
+            }
+        })
+        .to_string()
+}
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
@@ -60,9 +74,16 @@ impl Shell for PowerShell {
             if entry.short_subcommands.len() == 1 {
                 let short = &entry.short_subcommands[0];
                 let expansion = &entry.long_subcommands[0];
-                lines.push(format!(
-                    "    '{short}' {{ {ps_base} {expansion} ($args | Select-Object -Skip 1) }}"
-                ));
+                if has_template_args(expansion) {
+                    lines.push(format!(
+                        "    '{short}' {{ {ps_base} {} }}",
+                        substitute_offset(expansion, 1)
+                    ));
+                } else {
+                    lines.push(format!(
+                        "    '{short}' {{ {ps_base} {expansion} ($args | Select-Object -Skip 1) }}"
+                    ));
+                }
             }
         }
 
@@ -126,6 +147,31 @@ mod tests {
             PowerShell.unset_env("FOO"),
             "Remove-Item -ErrorAction SilentlyContinue Env:FOO"
         );
+    }
+
+    #[test]
+    fn test_powershell_subcommand_wrapper_parameterized() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["ab".into()],
+            long_subcommands: vec!["abandon --rev {{1}}".into()],
+        }];
+        let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
+        // offset=1: {{1}} → $($args[1])
+        assert!(output.contains("$($args[1])"));
+        assert!(!output.contains("Select-Object -Skip 1")); // no trailing spread when templates used
+    }
+
+    #[test]
+    fn test_powershell_subcommand_wrapper_parameterized_all_args() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["l".into()],
+            long_subcommands: vec!["log {{@}}".into()],
+        }];
+        let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
+        // offset=1: {{@}} → ($args | Select-Object -Skip 1)
+        assert!(output.contains("($args | Select-Object -Skip 1)"));
     }
 
     #[test]

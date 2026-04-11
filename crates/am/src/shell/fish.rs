@@ -1,6 +1,21 @@
 use std::fmt::Debug;
 
-use super::{has_template_args, quote_cmd, substitute_fish, Shell};
+use super::{has_template_args, quote_cmd, substitute_fish, Shell, TEMPLATE_RE};
+
+/// Substitute `{{N}}` → `$argv[N+offset]` and `{{@}}` → `$argv[offset+1..]`.
+/// Used in subcommand wrappers where fish doesn't shift args, so the subcommand
+/// tokens at positions 1..=offset must be skipped.
+fn substitute_offset(cmd: &str, offset: usize) -> String {
+    TEMPLATE_RE
+        .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
+            "@" => format!("$argv[{}..]", offset + 1),
+            n => {
+                let idx: usize = n.parse::<usize>().unwrap() + offset;
+                format!("$argv[{idx}]")
+            }
+        })
+        .to_string()
+}
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
@@ -65,10 +80,12 @@ impl Shell for Fish {
             lines.push(format!("    case {first_short}"));
             if deeper.is_empty() {
                 let entry = single[0];
-                lines.push(format!(
-                    "      {base_cmd} {} $argv[2..]",
-                    entry.long_subcommands[0]
-                ));
+                let long = &entry.long_subcommands[0];
+                if has_template_args(long) {
+                    lines.push(format!("      {base_cmd} {}", substitute_offset(long, 1)));
+                } else {
+                    lines.push(format!("      {base_cmd} {long} $argv[2..]"));
+                }
             } else {
                 lines.push("      switch $argv[2]".into());
                 for entry in &deeper {
@@ -80,14 +97,23 @@ impl Shell for Fish {
                         .collect::<Vec<_>>()
                         .join(" ");
                     lines.push(format!("        case {second_short}"));
-                    lines.push(format!("          {base_cmd} {expansion} $argv[3..]"));
+                    if has_template_args(&expansion) {
+                        lines.push(format!(
+                            "          {base_cmd} {}",
+                            substitute_offset(&expansion, 2)
+                        ));
+                    } else {
+                        lines.push(format!("          {base_cmd} {expansion} $argv[3..]"));
+                    }
                 }
                 if let Some(entry) = single.first() {
+                    let long = &entry.long_subcommands[0];
                     lines.push("        case '*'".into());
-                    lines.push(format!(
-                        "          {base_cmd} {} $argv[2..]",
-                        entry.long_subcommands[0]
-                    ));
+                    if has_template_args(long) {
+                        lines.push(format!("          {base_cmd} {}", substitute_offset(long, 1)));
+                    } else {
+                        lines.push(format!("          {base_cmd} {long} $argv[2..]"));
+                    }
                 } else {
                     lines.push("        case '*'".into());
                     lines.push(format!("          {base_cmd} $argv"));
@@ -166,6 +192,43 @@ mod tests {
         assert!(output.contains("command jj abandon $argv[2..]"));
         assert!(output.contains("case '*'"));
         assert!(output.contains("command jj $argv"));
+    }
+
+    #[test]
+    fn test_fish_subcommand_wrapper_parameterized_single() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["ab".into()],
+            long_subcommands: vec!["abandon --rev {{1}}".into()],
+        }];
+        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        // offset=1: {{1}} → $argv[2]
+        assert!(output.contains("command jj abandon --rev $argv[2]"));
+        assert!(!output.contains("$argv[2..]")); // no trailing spread when templates used
+    }
+
+    #[test]
+    fn test_fish_subcommand_wrapper_parameterized_all_args() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["l".into()],
+            long_subcommands: vec!["log --template {{@}}".into()],
+        }];
+        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        // offset=1: {{@}} → $argv[2..]
+        assert!(output.contains("command jj log --template $argv[2..]"));
+    }
+
+    #[test]
+    fn test_fish_subcommand_wrapper_parameterized_multi_level() {
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["b".into(), "l".into()],
+            long_subcommands: vec!["branch".into(), "list --limit {{1}}".into()],
+        }];
+        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        // offset=2: {{1}} → $argv[3]
+        assert!(output.contains("command jj branch list --limit $argv[3]"));
     }
 
     #[test]
