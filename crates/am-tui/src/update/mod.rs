@@ -66,6 +66,7 @@ mod tests {
         let app_model = AppModel::new(config, profiles);
         let tree = build_tree_from_parts(
             &app_model.config.aliases,
+            &app_model.config.subcommands,
             app_model.profile_config(),
             &app_model.session.active_profiles,
             None,

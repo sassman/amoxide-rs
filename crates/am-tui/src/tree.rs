@@ -2,6 +2,136 @@ use crate::model::{AliasId, NodeKind, TreeNode, TREE_BRANCH, TREE_LAST, TREE_SPA
 use amoxide::update::AppModel;
 use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 
+// ---------------------------------------------------------------------------
+// Subcommand trie types and helpers
+// ---------------------------------------------------------------------------
+
+/// Private trie node for building recursive subcommand trees.
+struct SubcmdTrieNode {
+    /// If this is a leaf, the long form for this level.
+    leaf_long: Option<String>,
+    children: std::collections::BTreeMap<String, SubcmdTrieNode>,
+}
+
+impl Default for SubcmdTrieNode {
+    fn default() -> Self {
+        Self {
+            leaf_long: None,
+            children: Default::default(),
+        }
+    }
+}
+
+/// Build a per-program trie from a flat SubcommandSet.
+/// Only includes entries whose key starts with `program:`.
+fn build_subcmd_trie(subcommands: &amoxide::SubcommandSet, program: &str) -> SubcmdTrieNode {
+    let prefix = format!("{program}:");
+    let mut root = SubcmdTrieNode::default();
+    for (key, longs) in subcommands {
+        let Some(rest) = key.strip_prefix(&prefix) else {
+            continue;
+        };
+        let segments: Vec<&str> = rest.split(':').collect();
+        if segments.len() != longs.len() {
+            continue;
+        }
+        let mut node = &mut root;
+        for (i, seg) in segments.iter().enumerate() {
+            let child = node.children.entry(seg.to_string()).or_default();
+            if i == segments.len() - 1 {
+                child.leaf_long = Some(longs[i].clone());
+            }
+            node = child;
+        }
+    }
+    root
+}
+
+/// Emit TreeNode entries for one program's subcommand trie.
+fn emit_subcommand_nodes(
+    program: &str,
+    header_prefix: String,
+    children_prefix: String,
+    root: &SubcmdTrieNode,
+    subcommand_scope: &amoxide::SubcommandScope,
+    nodes: &mut Vec<TreeNode>,
+) {
+    nodes.push(TreeNode {
+        kind: NodeKind::SubcommandProgramHeader,
+        alias_id: None,
+        alias_command: None,
+        is_active: false,
+        label: format!("{program} (subcommands)"),
+        prefix: header_prefix,
+        content_prefix: children_prefix.clone(),
+        project_trust: None,
+    });
+    emit_trie_children(program, &[], root, &children_prefix, subcommand_scope, nodes);
+}
+
+/// Recursively emit SubcommandGroupNode and SubcommandItem for a trie level.
+fn emit_trie_children(
+    program: &str,
+    key_prefix_segments: &[String],
+    node: &SubcmdTrieNode,
+    parent_content_prefix: &str,
+    scope: &amoxide::SubcommandScope,
+    nodes: &mut Vec<TreeNode>,
+) {
+    let count = node.children.len();
+    for (idx, (short, child)) in node.children.iter().enumerate() {
+        let is_last = idx == count - 1;
+        let arm = if is_last { TREE_LAST } else { TREE_BRANCH };
+        let child_content_prefix = format!(
+            "{}{}",
+            parent_content_prefix,
+            if is_last { TREE_SPACE } else { TREE_TRUNK }
+        );
+        let mut segments = key_prefix_segments.to_vec();
+        segments.push(short.clone());
+        let full_key = format!("{}:{}", program, segments.join(":"));
+
+        if child.children.is_empty() {
+            let long = child.leaf_long.as_deref().unwrap_or("");
+            nodes.push(TreeNode {
+                kind: NodeKind::SubcommandItem,
+                alias_id: Some(AliasId::Subcommand {
+                    scope: scope.clone(),
+                    key: full_key,
+                }),
+                alias_command: None,
+                is_active: false,
+                label: format!("{short} \u{2192} {long}"),
+                prefix: format!("{parent_content_prefix}{arm}"),
+                content_prefix: child_content_prefix.clone(),
+                project_trust: None,
+            });
+        } else {
+            nodes.push(TreeNode {
+                kind: NodeKind::SubcommandGroupNode,
+                alias_id: None,
+                alias_command: None,
+                is_active: false,
+                label: short.clone(),
+                prefix: format!("{parent_content_prefix}{arm}"),
+                content_prefix: child_content_prefix.clone(),
+                project_trust: None,
+            });
+            emit_trie_children(program, &segments, child, &child_content_prefix, scope, nodes);
+        }
+    }
+}
+
+fn collect_prog_names(subcommands: &amoxide::SubcommandSet) -> Vec<String> {
+    let mut names = std::collections::BTreeSet::new();
+    for key in subcommands.keys() {
+        if let Some(prog) = key.split(':').next() {
+            names.insert(prog.to_string());
+        }
+    }
+    names.into_iter().collect()
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProjectTrustState {
     Trusted,
@@ -23,6 +153,7 @@ pub fn build_tree(app_model: &AppModel) -> Vec<TreeNode> {
     });
     build_tree_from_parts(
         &app_model.config.aliases,
+        &app_model.config.subcommands,
         app_model.profile_config(),
         &app_model.session.active_profiles,
         app_model.project_aliases(),
@@ -53,6 +184,7 @@ pub fn build_dest_tree(app_model: &AppModel) -> Vec<TreeNode> {
 ///   remaining profiles, alphabetical
 pub fn build_tree_from_parts(
     global_aliases: &AliasSet,
+    global_subcommands: &amoxide::SubcommandSet,
     profiles: &ProfileConfig,
     active_profiles: &[String],
     project: Option<&ProjectAliases>,
@@ -62,7 +194,7 @@ pub fn build_tree_from_parts(
     // Show the project header when aliases are available (trusted) OR when a
     // project file was discovered but could not be trusted yet (Unknown,
     // Untrusted, Tampered). This lets the user see and act on the trust state.
-    let has_project = project.is_some_and(|p| !p.aliases.is_empty())
+    let has_project = project.is_some_and(|p| !p.aliases.is_empty() || !p.subcommands.is_empty())
         || matches!(
             &project_trust,
             Some(ProjectTrustState::Unknown)
@@ -82,10 +214,15 @@ pub fn build_tree_from_parts(
         .filter(|name| !active_profiles.contains(&name.to_string()))
         .collect();
 
-    // Active zone: global + global aliases + active profiles + project
+    // Collect unique program names from global subcommands.
+    let global_prog_names = collect_prog_names(global_subcommands);
+
+    // Active zone: global aliases + global subcommand programs + active profiles + project
     // All connected by trunk lines.
-    let active_zone_children =
-        global_aliases.iter().count() + active_names.len() + usize::from(has_project);
+    let active_zone_children = global_aliases.iter().count()
+        + global_prog_names.len()
+        + active_names.len()
+        + usize::from(has_project);
 
     // --- Global root ---
     nodes.push(TreeNode {
@@ -115,6 +252,26 @@ pub fn build_tree_from_parts(
             content_prefix: cp.to_string(),
             project_trust: None,
         });
+    }
+
+    // --- Global subcommand program headers ---
+    for (prog_idx, program) in global_prog_names.iter().enumerate() {
+        let item_position = global_aliases.iter().count() + prog_idx;
+        let is_last = item_position == active_zone_children - 1;
+        let arm = if is_last { TREE_LAST } else { TREE_BRANCH };
+        let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
+        let header_prefix = arm.to_string();
+        let children_prefix = format!("{cp} ");
+
+        let trie = build_subcmd_trie(global_subcommands, program);
+        emit_subcommand_nodes(
+            program,
+            header_prefix,
+            children_prefix,
+            &trie,
+            &amoxide::SubcommandScope::Global,
+            &mut nodes,
+        );
     }
 
     // --- Active profiles (in activation order) ---
@@ -150,6 +307,21 @@ pub fn build_tree_from_parts(
                     content_prefix: format!("{cp}  "),
                     project_trust: None,
                 });
+            }
+
+            let prof_prog_names = collect_prog_names(&profile.subcommands);
+            for program in &prof_prog_names {
+                let header_prefix = format!("{cp}  {TREE_LAST}");
+                let children_prefix = format!("{cp}      ");
+                let trie = build_subcmd_trie(&profile.subcommands, program);
+                emit_subcommand_nodes(
+                    program,
+                    header_prefix,
+                    children_prefix,
+                    &trie,
+                    &amoxide::SubcommandScope::Profile(profile_name.to_string()),
+                    &mut nodes,
+                );
             }
         }
     }
@@ -199,6 +371,21 @@ pub fn build_tree_from_parts(
                     project_trust: None,
                 });
             }
+
+            let proj_prog_names = collect_prog_names(&proj.subcommands);
+            for program in &proj_prog_names {
+                let header_prefix = format!("{cp}{TREE_LAST}");
+                let children_prefix = format!("{}    ", cp);
+                let trie = build_subcmd_trie(&proj.subcommands, program);
+                emit_subcommand_nodes(
+                    program,
+                    header_prefix,
+                    children_prefix,
+                    &trie,
+                    &amoxide::SubcommandScope::Project,
+                    &mut nodes,
+                );
+            }
         }
     }
 
@@ -230,6 +417,22 @@ pub fn build_tree_from_parts(
                     content_prefix: TREE_SPACE.to_string(),
                     project_trust: None,
                 });
+            }
+
+            let prof_prog_names = collect_prog_names(&profile.subcommands);
+            for program in &prof_prog_names {
+                let cp = TREE_SPACE;
+                let header_prefix = format!("{cp}  {TREE_LAST}");
+                let children_prefix = format!("{cp}      ");
+                let trie = build_subcmd_trie(&profile.subcommands, program);
+                emit_subcommand_nodes(
+                    program,
+                    header_prefix,
+                    children_prefix,
+                    &trie,
+                    &amoxide::SubcommandScope::Profile(profile_name.to_string()),
+                    &mut nodes,
+                );
             }
         }
     }
@@ -373,6 +576,13 @@ mod tests {
             self
         }
 
+        fn global_subcommand(mut self, key: &str, longs: &[&str]) -> Self {
+            self.config
+                .subcommands
+                .insert(key.into(), longs.iter().map(|s| s.to_string()).collect());
+            self
+        }
+
         fn project_alias(mut self, name: &str, cmd: &str) -> Self {
             self.project
                 .get_or_insert_with(ProjectAliases::default)
@@ -393,6 +603,7 @@ mod tests {
             };
             build_tree_from_parts(
                 &self.config.aliases,
+                &self.config.subcommands,
                 &profiles,
                 &self.active_profiles,
                 self.project.as_ref(),
@@ -672,5 +883,43 @@ mod tests {
             label.contains("untrusted") || label.contains("trust"),
             "expected trust hint in label, got: {label}"
         );
+    }
+
+    #[test]
+    fn test_global_subcommand_program_header_appears_after_aliases() {
+        let tree = TestConfigBuilder::new()
+            .global_alias("ll", "ls -la")
+            .global_subcommand("jj:ab", &["abandon"])
+            .build_tree();
+        assert_eq!(tree[0].kind, NodeKind::GlobalHeader);
+        assert_eq!(tree[1].kind, NodeKind::AliasItem);
+        assert_eq!(tree[2].kind, NodeKind::SubcommandProgramHeader);
+        assert!(tree[2].label.contains("jj"));
+    }
+
+    #[test]
+    fn test_subcommand_item_emitted_as_leaf() {
+        let tree = TestConfigBuilder::new()
+            .global_subcommand("jj:ab", &["abandon"])
+            .build_tree();
+        let subcmd_item = tree.iter().find(|n| n.kind == NodeKind::SubcommandItem);
+        assert!(subcmd_item.is_some());
+        let item = subcmd_item.unwrap();
+        assert!(item.label.contains("ab"));
+        assert!(item.label.contains("abandon"));
+        assert!(item.alias_id.is_some());
+    }
+
+    #[test]
+    fn test_subcommand_group_node_emitted_for_intermediate() {
+        let tree = TestConfigBuilder::new()
+            .global_subcommand("jj:b:l", &["branch", "list"])
+            .build_tree();
+        let group = tree.iter().find(|n| n.kind == NodeKind::SubcommandGroupNode);
+        assert!(group.is_some());
+        assert_eq!(group.unwrap().label, "b");
+        let leaf = tree.iter().find(|n| n.kind == NodeKind::SubcommandItem);
+        assert!(leaf.is_some());
+        assert!(leaf.unwrap().label.contains("l"));
     }
 }
