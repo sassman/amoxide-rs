@@ -5,6 +5,9 @@ import matter from 'gray-matter'
 
 const base = process.env.VITEPRESS_BASE || '/'
 
+const cargoToml = fs.readFileSync(path.resolve(__dirname, '../../Cargo.toml'), 'utf-8')
+const appVersion = cargoToml.match(/^version = "(.+)"/m)?.[1] ?? '0.0.0'
+
 // Build showcase sidebar from community folder
 function buildShowcaseSidebar() {
   const communityDir = path.resolve(__dirname, '../../community')
@@ -64,6 +67,11 @@ function buildShowcaseSidebar() {
 export default defineConfig({
   base,
   title: 'amoxide',
+  vite: {
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
+  },
   description: 'Shell aliases that follow your context — like direnv, but for aliases.',
   head: [
     ['link', { rel: 'icon', href: `${base}logo.svg` }],
