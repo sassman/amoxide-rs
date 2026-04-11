@@ -1,5 +1,17 @@
+use std::path::Path;
+
 use crate::trust::ProjectTrust;
 use crate::{AliasSet, Profile, ProfileConfig};
+
+/// Display a path as `~/…` when it falls under the user's home directory.
+fn display_path(path: &Path) -> String {
+    if let Some(home) = crate::dirs::home_dir() {
+        if let Ok(rel) = path.strip_prefix(&home) {
+            return format!("~/{}", rel.display());
+        }
+    }
+    path.display().to_string()
+}
 
 /// Render profiles + project aliases as a complete two-zone listing.
 ///
@@ -121,7 +133,7 @@ pub fn render_listing(
             ProjectTrust::Trusted(proj, _) => {
                 output.push_str(&format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
-                    path.display()
+                    display_path(path)
                 ));
                 for (alias_name, alias_value) in proj.aliases.iter() {
                     let name = alias_name.as_ref();
@@ -142,7 +154,7 @@ pub fn render_listing(
             ProjectTrust::Unknown(_) => {
                 output.push_str(&format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
-                    path.display()
+                    display_path(path)
                 ));
                 output.push_str(
                     "\n       \u{26A0} untrusted \u{2014} run 'am trust' to review and allow",
@@ -151,7 +163,7 @@ pub fn render_listing(
             ProjectTrust::Tampered(_) => {
                 output.push_str(&format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
-                    path.display()
+                    display_path(path)
                 ));
                 output.push_str(
                     "\n       \u{26A0} modified since last trust \u{2014} run 'am trust' to review and allow",
@@ -160,7 +172,7 @@ pub fn render_listing(
             ProjectTrust::Untrusted(_) => {
                 output.push_str(&format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
-                    path.display()
+                    display_path(path)
                 ));
                 output.push_str(
                     "\n       \u{26A0} blocked \u{2014} run 'am untrust --forget' to reset",
