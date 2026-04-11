@@ -25,12 +25,6 @@
   background-clip: text;
 }
 
-/* Pull VersionBadge tight against its heading */
-:is(h1, h2, h3) + p:has(> .version-badge) {
-  margin-top: 0.25rem;
-  margin-bottom: 1rem;
-}
-
 /* Dracula-inspired theme — matching amoxide TUI */
 
 :root {
