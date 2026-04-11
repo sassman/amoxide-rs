@@ -719,3 +719,44 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
         ]),
     }
 }
+
+#[cfg(test)]
+mod subcommand_render {
+    use super::*;
+    use crate::model::TuiModel;
+    use amoxide::{Config, ProfileConfig};
+
+    fn make_model_with_subcommand() -> TuiModel {
+        let mut config = Config::default();
+        config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
+        let mut model = TuiModel::new().unwrap();
+        model.app_model = app;
+        model.rebuild_tree();
+        model
+    }
+
+    #[test]
+    fn subcommand_program_header_renders_with_diamond() {
+        let model = make_model_with_subcommand();
+        let lines = render_tree_lines(&model);
+        let rendered: String = lines
+            .iter()
+            .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
+            .collect();
+        assert!(rendered.contains("◆"), "expected ◆ diamond marker");
+        assert!(rendered.contains("jj (subcommands)"));
+    }
+
+    #[test]
+    fn subcommand_item_renders_arrow() {
+        let model = make_model_with_subcommand();
+        let lines = render_tree_lines(&model);
+        let rendered: String = lines
+            .iter()
+            .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
+            .collect();
+        assert!(rendered.contains("ab"));
+        assert!(rendered.contains("abandon"));
+    }
+}
