@@ -1,3 +1,9 @@
+/* Navbar title: larger font, baseline-align title + version badge */
+.VPNavBarTitle .title {
+  font-size: 18px;
+  align-items: baseline;
+}
+
 /* Dracula-inspired theme — matching amoxide TUI */
 
 :root {
