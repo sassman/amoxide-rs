@@ -1,5 +1,6 @@
 use crate::model::{
-    AliasField, AliasId, AliasTarget, Mode, NodeKind, TextInputState, TuiMessage, TuiModel,
+    AliasField, AliasId, AliasTarget, Mode, NodeKind, SubcommandField, TextInputState, TuiMessage,
+    TuiModel,
 };
 use amoxide::AliasName;
 
@@ -93,6 +94,19 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             AliasField::Command => command.push(c),
                         }
                     }
+                    TextInputState::SubcommandInput {
+                        pairs,
+                        active_pair,
+                        active_field,
+                        ..
+                    } => {
+                        if let Some((short, long)) = pairs.get_mut(*active_pair) {
+                            match active_field {
+                                SubcommandField::Short => short.push(c),
+                                SubcommandField::Long => long.push(c),
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -136,19 +150,52 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             }
                         }
                     }
+                    TextInputState::SubcommandInput {
+                        pairs,
+                        active_pair,
+                        active_field,
+                        ..
+                    } => {
+                        if let Some((short, long)) = pairs.get_mut(*active_pair) {
+                            match active_field {
+                                SubcommandField::Short => { short.pop(); }
+                                SubcommandField::Long => { long.pop(); }
+                            }
+                        }
+                    }
                 }
             }
         }
         TuiMessage::TextInputSwitchField => {
-            if let Mode::TextInput(
-                TextInputState::NewAlias { active_field, .. }
-                | TextInputState::EditAlias { active_field, .. },
-            ) = &mut model.mode
-            {
-                *active_field = match active_field {
-                    AliasField::Name => AliasField::Command,
-                    AliasField::Command => AliasField::Name,
-                };
+            match &mut model.mode {
+                Mode::TextInput(
+                    TextInputState::NewAlias { active_field, .. }
+                    | TextInputState::EditAlias { active_field, .. },
+                ) => {
+                    *active_field = match active_field {
+                        AliasField::Name => AliasField::Command,
+                        AliasField::Command => AliasField::Name,
+                    };
+                }
+                Mode::TextInput(TextInputState::SubcommandInput {
+                    pairs,
+                    active_pair,
+                    active_field,
+                    ..
+                }) => match active_field {
+                    SubcommandField::Short => {
+                        *active_field = SubcommandField::Long;
+                    }
+                    SubcommandField::Long => {
+                        if *active_pair + 1 < pairs.len() {
+                            *active_pair += 1;
+                            *active_field = SubcommandField::Short;
+                        } else {
+                            *active_field = SubcommandField::Short;
+                        }
+                    }
+                },
+                _ => {}
             }
         }
         TuiMessage::TextInputConfirm => {
@@ -245,6 +292,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         AliasId::Global { alias_name }
                         | AliasId::Profile { alias_name, .. }
                         | AliasId::Project { alias_name } => alias_name.clone(),
+                        AliasId::Subcommand { key, .. } => key.clone(),
                     };
                     // No change — just exit
                     if new_name == original_name {
@@ -265,6 +313,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                                 .app_model
                                 .project_aliases()
                                 .and_then(|p| p.aliases.get(&key).map(|a| a.command().to_string())),
+                            AliasId::Subcommand { .. } => None,
                         };
                         if original_command.as_deref() == Some(new_command.as_str()) {
                             model.mode = Mode::Normal;
@@ -287,6 +336,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                                 .app_model
                                 .project_aliases()
                                 .is_some_and(|p| p.aliases.contains_key(&key)),
+                            AliasId::Subcommand { .. } => false,
                         };
                         if exists {
                             if let Mode::TextInput(TextInputState::EditAlias { error, .. }) =
@@ -307,6 +357,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             amoxide::AliasTarget::Profile(profile_name.clone())
                         }
                         AliasId::Project { .. } => amoxide::AliasTarget::Local,
+                        AliasId::Subcommand { .. } => return, // handled by SubcommandInput arm
                     };
                     let _ = super::delegation::dispatch(
                         model,
@@ -320,10 +371,62 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     );
                     model.mode = Mode::Normal;
                 }
+                TextInputState::SubcommandInput {
+                    program,
+                    pairs,
+                    target,
+                    original_key,
+                    ..
+                } => {
+                    let valid = pairs.iter().all(|(s, l)| !s.is_empty() && !l.is_empty());
+                    if !valid {
+                        return;
+                    }
+                    let key = format!(
+                        "{}:{}",
+                        program,
+                        pairs.iter().map(|(s, _)| s.as_str()).collect::<Vec<_>>().join(":")
+                    );
+                    let long_subcommands: Vec<String> =
+                        pairs.iter().map(|(_, l)| l.clone()).collect();
+                    let lib_target = match &target {
+                        AliasTarget::Global => amoxide::AliasTarget::Global,
+                        AliasTarget::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
+                        AliasTarget::Project => amoxide::AliasTarget::Local,
+                    };
+                    let msg = if let Some(orig) = original_key.clone() {
+                        amoxide::Message::UpdateSubcommandAlias {
+                            original_key: orig,
+                            new_key: key,
+                            long_subcommands,
+                            target: lib_target,
+                        }
+                    } else {
+                        amoxide::Message::AddSubcommandAlias(key, long_subcommands, lib_target)
+                    };
+                    let _ = super::delegation::dispatch(model, msg);
+                    model.mode = Mode::Normal;
+                }
             }
         }
         TuiMessage::TextInputCancel => {
             model.mode = Mode::Normal;
+        }
+        TuiMessage::SubcommandAddPair => {
+            if let Mode::TextInput(TextInputState::SubcommandInput {
+                pairs,
+                active_pair,
+                active_field,
+                ..
+            }) = &mut model.mode
+            {
+                pairs.push(("".into(), "".into()));
+                *active_pair = pairs.len() - 1;
+                *active_field = SubcommandField::Short;
+            }
+        }
+        TuiMessage::StartSubcommandInput => {
+            // TODO Task 5: open subcommand editor from cursor context
         }
         _ => {}
     }
@@ -345,8 +448,26 @@ pub(super) fn resolve_alias_target(model: &TuiModel) -> Option<AliasTarget> {
                     Some(AliasTarget::Profile(profile_name.clone()))
                 }
                 Some(AliasId::Project { .. }) => Some(AliasTarget::Project),
-                None => None,
+                Some(AliasId::Subcommand { .. }) | None => None,
             }
         }
+        NodeKind::SubcommandProgramHeader
+        | NodeKind::SubcommandGroupNode
+        | NodeKind::SubcommandItem => resolve_scope_from_ancestors(model),
     }
+}
+
+/// Walk backward through the tree to find the parent scope header.
+pub(super) fn resolve_scope_from_ancestors(model: &TuiModel) -> Option<AliasTarget> {
+    for i in (0..=model.cursor).rev() {
+        match &model.tree[i].kind {
+            NodeKind::GlobalHeader => return Some(AliasTarget::Global),
+            NodeKind::ProjectHeader => return Some(AliasTarget::Project),
+            NodeKind::ProfileHeader => {
+                return Some(AliasTarget::Profile(model.tree[i].label.clone()))
+            }
+            _ => {}
+        }
+    }
+    Some(AliasTarget::Global)
 }

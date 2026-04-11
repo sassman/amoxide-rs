@@ -23,12 +23,14 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 
         TuiMessage::StartCreateProfile
         | TuiMessage::StartAddAlias
+        | TuiMessage::StartSubcommandInput
         | TuiMessage::EditItem
         | TuiMessage::TextInputChar(_)
         | TuiMessage::TextInputBackspace
         | TuiMessage::TextInputConfirm
         | TuiMessage::TextInputCancel
-        | TuiMessage::TextInputSwitchField => text_input::handle(model, msg),
+        | TuiMessage::TextInputSwitchField
+        | TuiMessage::SubcommandAddPair => text_input::handle(model, msg),
 
         TuiMessage::EnterMoveMode
         | TuiMessage::EnterCopyMode

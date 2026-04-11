@@ -139,22 +139,39 @@ pub(super) fn is_same_source(id: &AliasId, dest: &MoveDestination) -> bool {
 }
 
 pub(super) fn alias_exists_at_dest(model: &TuiModel, id: &AliasId, dest: &MoveDestination) -> bool {
-    let alias_name_str = match id {
-        AliasId::Global { alias_name }
-        | AliasId::Profile { alias_name, .. }
-        | AliasId::Project { alias_name } => alias_name.as_str(),
-    };
-    let key = AliasName::from(alias_name_str);
-    match dest {
-        MoveDestination::Global => model.app_model.config.aliases.contains_key(&key),
-        MoveDestination::Project => model
-            .app_model
-            .project_aliases()
-            .is_some_and(|p| p.aliases.contains_key(&key)),
-        MoveDestination::Profile(name) => model
-            .app_model
-            .profile_config()
-            .get_profile_by_name(name)
-            .is_some_and(|p| p.aliases.contains_key(&key)),
+    match id {
+        AliasId::Subcommand { key, .. } => match dest {
+            MoveDestination::Global => model.app_model.config.subcommands.contains_key(key),
+            MoveDestination::Project => model
+                .app_model
+                .project_aliases()
+                .is_some_and(|p| p.subcommands.contains_key(key)),
+            MoveDestination::Profile(name) => model
+                .app_model
+                .profile_config()
+                .get_profile_by_name(name)
+                .is_some_and(|p| p.subcommands.contains_key(key)),
+        },
+        _ => {
+            let alias_name_str = match id {
+                AliasId::Global { alias_name }
+                | AliasId::Profile { alias_name, .. }
+                | AliasId::Project { alias_name } => alias_name.as_str(),
+                AliasId::Subcommand { .. } => unreachable!(),
+            };
+            let key = AliasName::from(alias_name_str);
+            match dest {
+                MoveDestination::Global => model.app_model.config.aliases.contains_key(&key),
+                MoveDestination::Project => model
+                    .app_model
+                    .project_aliases()
+                    .is_some_and(|p| p.aliases.contains_key(&key)),
+                MoveDestination::Profile(name) => model
+                    .app_model
+                    .profile_config()
+                    .get_profile_by_name(name)
+                    .is_some_and(|p| p.aliases.contains_key(&key)),
+            }
+        }
     }
 }

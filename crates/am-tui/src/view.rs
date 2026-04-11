@@ -16,6 +16,7 @@ const SELECTED_TEXT: Color = Color::Rgb(232, 232, 234); // #e8e8ea — bright wh
 const ERROR_RED: Color = Color::Rgb(220, 80, 80); // #dc5050 — error / validation feedback
 const TRUST_WARN: Color = Color::Rgb(200, 160, 60); // amber — unknown/untrusted project
 const TRUST_TAMPERED: Color = Color::Rgb(220, 80, 80); // red — tampered project
+const SUBCOMMAND_COLOR: Color = Color::Rgb(80, 180, 160); // teal for subcommand nodes
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
@@ -120,7 +121,10 @@ fn header_content(node: &TreeNode, activation_order: Option<usize>) -> (String, 
             };
             (format!("{icon} "), format!("{}{tag}", node.label))
         }
-        NodeKind::AliasItem => unreachable!(),
+        NodeKind::AliasItem
+        | NodeKind::SubcommandProgramHeader
+        | NodeKind::SubcommandGroupNode
+        | NodeKind::SubcommandItem => unreachable!(),
     }
 }
 
@@ -252,6 +256,48 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 err_span,
             ])
         }
+        TextInputState::SubcommandInput {
+            program,
+            pairs,
+            active_pair,
+            active_field,
+            ..
+        } => {
+            let mut spans: Vec<Span<'_>> = vec![Span::styled(
+                format!("  {program}: "),
+                Style::default().fg(GOLD),
+            )];
+            for (i, (short, long)) in pairs.iter().enumerate() {
+                if i > 0 {
+                    spans.push(Span::styled(" › ", Style::default().fg(TEXT_MUTED)));
+                }
+                let is_active_pair = i == *active_pair;
+                let short_style = if is_active_pair && *active_field == SubcommandField::Short {
+                    Style::default().fg(TEXT_PRIMARY)
+                } else {
+                    Style::default().fg(TEXT_MUTED)
+                };
+                let long_style = if is_active_pair && *active_field == SubcommandField::Long {
+                    Style::default().fg(TEXT_PRIMARY)
+                } else {
+                    Style::default().fg(TEXT_MUTED)
+                };
+                spans.push(Span::styled(short.clone(), short_style));
+                if is_active_pair && *active_field == SubcommandField::Short {
+                    spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                }
+                spans.push(Span::styled(" → ", Style::default().fg(TEXT_MUTED)));
+                spans.push(Span::styled(long.clone(), long_style));
+                if is_active_pair && *active_field == SubcommandField::Long {
+                    spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                }
+            }
+            spans.push(Span::styled(
+                "   (a: add pair, ↵: confirm, esc: cancel)",
+                Style::default().fg(TEXT_MUTED),
+            ));
+            Line::from(spans)
+        }
         TextInputState::EditAlias {
             alias_id,
             name,
@@ -263,6 +309,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 AliasId::Global { .. } => "global",
                 AliasId::Profile { profile_name, .. } => profile_name.as_str(),
                 AliasId::Project { .. } => "project",
+                AliasId::Subcommand { .. } => "subcmd",
             };
             let name_style = if *active_field == AliasField::Name {
                 Style::default().fg(TEXT_PRIMARY)
@@ -390,11 +437,87 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     }
                 }
             }
+            NodeKind::SubcommandProgramHeader => {
+                let marker = if is_cursor { MARKER_CURSOR } else { MARKER_NONE };
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { SUBCOMMAND_COLOR };
+                let label_color = if is_cursor { GOLD } else { SUBCOMMAND_COLOR };
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{}{marker}", node.prefix),
+                        Style::default().fg(conn),
+                    ),
+                    Span::styled(
+                        format!("{ICON_SUBCOMMAND} "),
+                        Style::default().fg(label_color),
+                    ),
+                    Span::styled(node.label.clone(), Style::default().fg(label_color).bold()),
+                ]));
+            }
+            NodeKind::SubcommandGroupNode => {
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else if is_selected {
+                    MARKER_SELECTED
+                } else {
+                    MARKER_NONE
+                };
+                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { SUBCOMMAND_COLOR };
+                let marker_style = if is_selected {
+                    Style::default().fg(SELECTED_ACCENT)
+                } else {
+                    Style::default().fg(conn)
+                };
+                let label_color = if is_cursor {
+                    GOLD
+                } else if is_selected {
+                    SELECTED_TEXT
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                lines.push(Line::from(vec![
+                    Span::styled(node.prefix.clone(), Style::default().fg(conn)),
+                    Span::styled(marker.to_string(), marker_style),
+                    Span::styled(node.label.clone(), Style::default().fg(label_color)),
+                ]));
+            }
+            NodeKind::SubcommandItem => {
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else if is_selected {
+                    MARKER_SELECTED
+                } else {
+                    MARKER_NONE
+                };
+                let conn = if is_cursor {
+                    TREE_CONNECTOR_ACTIVE
+                } else if is_selected {
+                    SELECTED_ACCENT_MUTED
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                let marker_style = if is_selected {
+                    Style::default().fg(SELECTED_ACCENT)
+                } else {
+                    Style::default().fg(conn)
+                };
+                let label_color = if is_cursor {
+                    GOLD
+                } else if is_selected {
+                    SELECTED_TEXT
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                lines.push(Line::from(vec![
+                    Span::styled(node.prefix.clone(), Style::default().fg(conn)),
+                    Span::styled(marker.to_string(), marker_style),
+                    Span::styled(node.label.clone(), Style::default().fg(label_color)),
+                ]));
+            }
             NodeKind::AliasItem => {
                 let is_last_alias = model
                     .tree
                     .get(i + 1)
-                    .is_none_or(|next| next.kind != NodeKind::AliasItem);
+                    .is_none_or(|next| !matches!(next.kind, NodeKind::AliasItem | NodeKind::SubcommandProgramHeader));
 
                 let arm = if is_last_alias {
                     TREE_LAST
@@ -459,6 +582,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                             NodeKind::GlobalHeader
                                 | NodeKind::ProjectHeader
                                 | NodeKind::ProfileHeader
+                                | NodeKind::SubcommandProgramHeader
                         )
                     });
                     if next_is_header {
@@ -570,6 +694,17 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::raw("  "),
             Span::styled("Tab", Style::default().fg(GOLD)),
             Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
+        Mode::TextInput(TextInputState::SubcommandInput { .. }) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Tab/←→", Style::default().fg(GOLD)),
+            Span::styled(" switch field/pair  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("a", Style::default().fg(GOLD)),
+            Span::styled(" add pair  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Esc", Style::default().fg(GOLD)),
             Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Enter", Style::default().fg(GOLD)),

@@ -10,6 +10,9 @@ pub enum NodeKind {
     ProfileHeader,
     AliasItem,
     ProjectHeader,
+    SubcommandProgramHeader,
+    SubcommandGroupNode,
+    SubcommandItem,
 }
 
 impl NodeKind {
@@ -17,7 +20,13 @@ impl NodeKind {
         true
     }
     pub fn is_selectable(&self) -> bool {
-        matches!(self, NodeKind::AliasItem)
+        matches!(
+            self,
+            NodeKind::AliasItem
+                | NodeKind::SubcommandProgramHeader
+                | NodeKind::SubcommandGroupNode
+                | NodeKind::SubcommandItem
+        )
     }
 }
 
@@ -41,6 +50,12 @@ pub struct TreeNode {
 pub enum AliasField {
     Name,
     Command,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SubcommandField {
+    Short,
+    Long,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,6 +91,14 @@ pub enum TextInputState {
         command: String,
         active_field: AliasField,
         error: Option<String>,
+    },
+    SubcommandInput {
+        program: String,
+        pairs: Vec<(String, String)>,
+        active_pair: usize,
+        active_field: SubcommandField,
+        target: AliasTarget,
+        original_key: Option<String>,
     },
 }
 
@@ -138,6 +161,8 @@ pub enum TuiMessage {
     ToggleTrust,
     Quit,
     Resize(u16, u16),
+    StartSubcommandInput,
+    SubcommandAddPair,
 }
 
 pub const MIN_WIDTH: u16 = 60;
@@ -154,6 +179,7 @@ pub const ICON_GLOBAL: &str = "🌐 ";
 pub const ICON_PROJECT: &str = "📁 ";
 pub const ICON_ACTIVE: &str = "●";
 pub const ICON_INACTIVE: &str = "○";
+pub const ICON_SUBCOMMAND: &str = "◆";
 
 // Cursor and selection markers
 pub const MARKER_CURSOR: &str = "▸ ";
@@ -233,7 +259,7 @@ impl TuiModel {
         }
     }
 
-    fn estimate_line_for_cursor(&self) -> usize {
+    pub fn estimate_line_for_cursor(&self) -> usize {
         // Each node renders as 1 line (compact style), plus separator lines between sections
         let mut line = 0;
         for (i, node) in self.tree.iter().enumerate() {
@@ -245,11 +271,20 @@ impl TuiModel {
             // either after the last alias of a non-empty section, or after an empty ProfileHeader
             let is_empty_profile_header = node.kind == NodeKind::ProfileHeader;
             let is_last_alias = node.kind == NodeKind::AliasItem;
-            if is_last_alias || is_empty_profile_header {
+            let is_subcommand_node = matches!(
+                node.kind,
+                NodeKind::SubcommandItem
+                    | NodeKind::SubcommandGroupNode
+                    | NodeKind::SubcommandProgramHeader
+            );
+            if is_last_alias || is_empty_profile_header || is_subcommand_node {
                 let next_is_header = self.tree.get(i + 1).is_some_and(|n| {
                     matches!(
                         n.kind,
-                        NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader
+                        NodeKind::GlobalHeader
+                            | NodeKind::ProjectHeader
+                            | NodeKind::ProfileHeader
+                            | NodeKind::SubcommandProgramHeader
                     )
                 });
                 if next_is_header {
@@ -258,5 +293,37 @@ impl TuiModel {
             }
         }
         line
+    }
+}
+
+#[cfg(test)]
+mod new_types_exist {
+    use super::*;
+
+    #[test]
+    fn subcommand_node_kinds_exist() {
+        let _ = NodeKind::SubcommandProgramHeader;
+        let _ = NodeKind::SubcommandGroupNode;
+        let _ = NodeKind::SubcommandItem;
+        let f: SubcommandField = SubcommandField::Short;
+        assert_eq!(f, SubcommandField::Short);
+    }
+
+    #[test]
+    fn subcommand_input_state_exists() {
+        let _ = TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            target: AliasTarget::Global,
+            original_key: None,
+        };
+    }
+
+    #[test]
+    fn tui_message_variants_exist() {
+        let _ = TuiMessage::StartSubcommandInput;
+        let _ = TuiMessage::SubcommandAddPair;
     }
 }
