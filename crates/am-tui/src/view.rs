@@ -14,18 +14,21 @@ const SELECTED_ACCENT: Color = Color::Rgb(208, 136, 74); // #d0884a — warm ora
 const SELECTED_ACCENT_MUTED: Color = Color::Rgb(154, 101, 53); // #9a6535 — muted orange for selected commands
 const SELECTED_TEXT: Color = Color::Rgb(232, 232, 234); // #e8e8ea — bright white for selected alias names
 const ERROR_RED: Color = Color::Rgb(220, 80, 80); // #dc5050 — error / validation feedback
+const TRUST_WARN: Color = Color::Rgb(200, 160, 60); // amber — unknown/untrusted project
+const TRUST_TAMPERED: Color = Color::Rgb(220, 80, 80); // red — tampered project
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
 
-    let help = Paragraph::new(help_bar(&model.mode));
+    let help = Paragraph::new(help_bar(&model.mode, model));
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Min(0),
+            Constraint::Length(1), // help bar
+            Constraint::Length(1), // separator
+            Constraint::Min(0),    // tree content
+            Constraint::Length(1), // status line
         ])
         .split(area);
 
@@ -51,18 +54,37 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
             render_left_column(frame, model, columns[0]);
             render_right_column(frame, model, columns[1]);
+            render_status(frame, model, chunks[3]);
         }
         Mode::TextInput(state) => {
             render_left_column(frame, model, content_area);
-            render_text_input(frame, state, content_area);
+            // Bottom row: editor on the left half, status on the right half
+            let bottom = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(chunks[3]);
+            render_text_input(frame, state, bottom[0]);
+            render_status(frame, model, bottom[1]);
         }
         Mode::Confirm(action) => {
             render_left_column(frame, model, content_area);
             render_confirm(frame, action, content_area);
+            render_status(frame, model, chunks[3]);
         }
         Mode::Normal => {
             render_left_column(frame, model, content_area);
+            render_status(frame, model, chunks[3]);
         }
+    }
+}
+
+fn render_status(frame: &mut Frame, model: &TuiModel, area: Rect) {
+    if let Some(ref msg) = model.status_line {
+        let status = Paragraph::new(ratatui::text::Span::styled(
+            msg.clone(),
+            Style::default().fg(TRUST_WARN),
+        ));
+        frame.render_widget(status, area);
     }
 }
 
@@ -85,7 +107,7 @@ fn render_left_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 fn header_content(node: &TreeNode, activation_order: Option<usize>) -> (String, String) {
     match &node.kind {
         NodeKind::GlobalHeader => (ICON_GLOBAL.to_string(), "global".to_string()),
-        NodeKind::ProjectHeader => (ICON_PROJECT.to_string(), "project (.aliases)".to_string()),
+        NodeKind::ProjectHeader => (ICON_PROJECT.to_string(), node.label.clone()),
         NodeKind::ProfileHeader => {
             let icon = if node.is_active {
                 ICON_ACTIVE
@@ -104,7 +126,19 @@ fn header_content(node: &TreeNode, activation_order: Option<usize>) -> (String, 
 
 /// Returns (label_color, icon_color) for a tree header node.
 fn header_colors(node: &TreeNode, is_cursor: bool) -> (Color, Color) {
-    let highlight = is_cursor || (node.kind == NodeKind::ProfileHeader && node.is_active);
+    if is_cursor {
+        return (GOLD, GOLD);
+    }
+    match &node.project_trust {
+        Some(ProjectTrustState::Unknown) | Some(ProjectTrustState::Untrusted) => {
+            return (TRUST_WARN, TRUST_WARN);
+        }
+        Some(ProjectTrustState::Tampered) => {
+            return (TRUST_TAMPERED, TRUST_TAMPERED);
+        }
+        _ => {}
+    }
+    let highlight = node.kind == NodeKind::ProfileHeader && node.is_active;
     let label_color = if highlight { GOLD } else { HEADER_DEFAULT };
     let icon_color = match &node.kind {
         NodeKind::ProfileHeader if !highlight => TEXT_MUTED,
@@ -159,12 +193,7 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 }
 
 fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
-    let input_area = Rect {
-        x: area.x,
-        y: area.y + area.height.saturating_sub(1),
-        width: area.width,
-        height: 1,
-    };
+    let input_area = area;
     let prompt = match state {
         TextInputState::NewProfile(text) => Line::from(vec![
             Span::styled("  New profile: ", Style::default().fg(GOLD)),
@@ -342,6 +371,24 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Span::styled(icon, Style::default().fg(icon_color)),
                     Span::styled(label, Style::default().fg(label_color).bold()),
                 ]));
+
+                // Breathing room after an empty section (no alias items follow before the next header)
+                if node.kind == NodeKind::ProfileHeader {
+                    let next_is_header = model.tree.get(i + 1).is_some_and(|n| {
+                        matches!(
+                            n.kind,
+                            NodeKind::GlobalHeader
+                                | NodeKind::ProjectHeader
+                                | NodeKind::ProfileHeader
+                        )
+                    });
+                    if next_is_header {
+                        lines.push(Line::from(Span::styled(
+                            node.content_prefix.clone(),
+                            Style::default().fg(TREE_CONNECTOR),
+                        )));
+                    }
+                }
             }
             NodeKind::AliasItem => {
                 let is_last_alias = model
@@ -428,29 +475,52 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
     lines
 }
 
-fn help_bar(mode: &Mode) -> Line<'static> {
+fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
     match mode {
-        Mode::Normal => Line::from(vec![
-            Span::raw("  "),
-            Span::styled("q", Style::default().fg(GOLD)),
-            Span::styled(" quit  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("a", Style::default().fg(GOLD)),
-            Span::styled(" add  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("Space", Style::default().fg(GOLD)),
-            Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("m", Style::default().fg(GOLD)),
-            Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("c", Style::default().fg(GOLD)),
-            Span::styled(" copy  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("n", Style::default().fg(GOLD)),
-            Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("x", Style::default().fg(GOLD)),
-            Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("e", Style::default().fg(GOLD)),
-            Span::styled(" edit  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("u", Style::default().fg(GOLD)),
-            Span::styled(" use", Style::default().fg(TEXT_MUTED)),
-        ]),
+        Mode::Normal => {
+            let cursor_node = model.tree.get(model.cursor);
+            let on_project = cursor_node.is_some_and(|n| n.kind == NodeKind::ProjectHeader);
+            let on_profile = cursor_node.is_some_and(|n| n.kind == NodeKind::ProfileHeader);
+            let profile_is_active = on_profile && cursor_node.is_some_and(|n| n.is_active);
+
+            let mut spans = vec![
+                Span::raw("  "),
+                Span::styled("q", Style::default().fg(GOLD)),
+                Span::styled(" quit  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("a", Style::default().fg(GOLD)),
+                Span::styled(" add  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("Space", Style::default().fg(GOLD)),
+                Span::styled(" select  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("m", Style::default().fg(GOLD)),
+                Span::styled(" move  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("c", Style::default().fg(GOLD)),
+                Span::styled(" copy  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("n", Style::default().fg(GOLD)),
+                Span::styled(" new profile  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("x", Style::default().fg(GOLD)),
+                Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("e", Style::default().fg(GOLD)),
+                Span::styled(" edit", Style::default().fg(TEXT_MUTED)),
+            ];
+            if on_profile {
+                let use_label = if profile_is_active { " unuse" } else { " use" };
+                spans.push(Span::styled("  u", Style::default().fg(GOLD)));
+                spans.push(Span::styled(use_label, Style::default().fg(TEXT_MUTED)));
+            }
+            if on_project {
+                let project_is_trusted = cursor_node
+                    .and_then(|n| n.project_trust.as_ref())
+                    .is_some_and(|t| matches!(t, ProjectTrustState::Trusted));
+                let trust_label = if project_is_trusted {
+                    " untrust"
+                } else {
+                    " trust"
+                };
+                spans.push(Span::styled("  t", Style::default().fg(GOLD)));
+                spans.push(Span::styled(trust_label, Style::default().fg(TEXT_MUTED)));
+            }
+            Line::from(spans)
+        }
         Mode::Transfer(TransferMode::Move) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),

@@ -130,6 +130,17 @@ impl ProfileConfig {
         Ok(decoded)
     }
 
+    pub fn load_from(config_dir: &std::path::Path) -> Result<Self> {
+        let profile_config_file = config_dir.join(CONFIG_FILE);
+        if !profile_config_file.exists() {
+            return Ok(Self::default());
+        }
+        let toml_str = std::fs::read_to_string(profile_config_file)?;
+        let mut decoded: ProfileConfig = toml::from_str(&toml_str)?;
+        decoded.profiles.sort();
+        Ok(decoded)
+    }
+
     pub fn save(&self) -> Result<()> {
         self.save_to(&config_dir())
     }
@@ -358,5 +369,23 @@ mod tests {
 
         let resolved = config.resolve_active_aliases(&[] as &[&str]);
         assert!(resolved.is_empty());
+    }
+
+    #[test]
+    fn profile_config_load_from_reads_from_given_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let toml = "[[profiles]]\nname = \"git\"\n";
+        std::fs::write(dir.path().join("profiles.toml"), toml).unwrap();
+
+        let config = ProfileConfig::load_from(dir.path()).unwrap();
+        assert_eq!(config.len(), 1);
+        assert!(config.get_profile_by_name("git").is_some());
+    }
+
+    #[test]
+    fn profile_config_load_from_returns_default_when_file_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = ProfileConfig::load_from(dir.path()).unwrap();
+        assert!(config.is_empty());
     }
 }

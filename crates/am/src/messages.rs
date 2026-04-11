@@ -26,6 +26,14 @@ impl Display for AliasTarget {
 pub enum Message {
     AddAlias(String, String, AliasTarget, bool),
     RemoveAlias(String, AliasTarget),
+    /// Update an alias in place — renames, changes command, or both.
+    UpdateAlias {
+        target: AliasTarget,
+        old_name: String,
+        new_name: String,
+        new_command: String,
+        raw: bool,
+    },
     InitShell(Shells),
     Hook(Shells, bool),
     Reload(Shells),
@@ -35,9 +43,28 @@ pub enum Message {
     RemoveProfile(String),
     ListProfiles,
     CreateProfile(String),
+    /// Rename a profile, preserving its aliases and activation state.
+    RenameProfile {
+        old_name: String,
+        new_name: String,
+    },
 
     Import(ImportPayload),
 
     Trust,
-    Untrust { forget: bool },
+    Untrust {
+        forget: bool,
+    },
+
+    /// Move one or more aliases to another scope (source deleted).
+    MoveAliases {
+        aliases: Vec<crate::AliasId>,
+        to: AliasTarget,
+    },
+
+    /// Copy one or more aliases to another scope (source retained).
+    CopyAliases {
+        aliases: Vec<crate::AliasId>,
+        to: AliasTarget,
+    },
 }

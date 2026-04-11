@@ -1,21 +1,8 @@
 use amoxide::update::AppModel;
-use amoxide::ProjectAliases;
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub enum AliasId {
-    Global {
-        alias_name: String,
-    },
-    Profile {
-        profile_name: String,
-        alias_name: String,
-    },
-    Project {
-        alias_name: String,
-    },
-}
+pub use crate::tree::ProjectTrustState;
+pub use amoxide::AliasId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
@@ -46,6 +33,8 @@ pub struct TreeNode {
     pub prefix: String,
     /// Prefix for content lines under this node (alias lines, connector lines).
     pub content_prefix: String,
+    /// Trust state for project header nodes; `None` for all other node kinds.
+    pub project_trust: Option<ProjectTrustState>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -146,6 +135,7 @@ pub enum TuiMessage {
     TextInputSwitchField,
     ConfirmYes,
     ConfirmNo,
+    ToggleTrust,
     Quit,
     Resize(u16, u16),
 }
@@ -172,9 +162,6 @@ pub const MARKER_NONE: &str = "  ";
 
 pub struct TuiModel {
     pub app_model: AppModel,
-    pub project_aliases: Option<ProjectAliases>,
-    pub project_path: Option<PathBuf>,
-    pub config_dir: Option<PathBuf>,
     pub tree: Vec<TreeNode>,
     pub cursor: usize,
     pub selected: BTreeSet<AliasId>,
@@ -183,22 +170,14 @@ pub struct TuiModel {
     pub dest_cursor: usize,
     pub active_column: Column,
     pub scroll_offset: usize,
+    pub status_line: Option<String>,
 }
 
 impl TuiModel {
     pub fn new() -> anyhow::Result<Self> {
         let app_model = AppModel::default();
-        let cwd = std::env::current_dir()?;
-        let project_path = ProjectAliases::find_path(&cwd)?;
-        let project_aliases = match &project_path {
-            Some(path) => Some(ProjectAliases::load(path)?),
-            None => None,
-        };
         let mut model = Self {
             app_model,
-            project_aliases,
-            project_path,
-            config_dir: None,
             tree: Vec::new(),
             cursor: 0,
             selected: BTreeSet::new(),
@@ -207,15 +186,15 @@ impl TuiModel {
             dest_cursor: 0,
             active_column: Column::Left,
             scroll_offset: 0,
+            status_line: None,
         };
         model.rebuild_tree();
         Ok(model)
     }
 
     pub fn rebuild_tree(&mut self) {
-        self.tree = crate::tree::build_tree(&self.app_model, self.project_aliases.as_ref());
-        self.dest_tree =
-            crate::tree::build_dest_tree(&self.app_model, self.project_aliases.is_some());
+        self.tree = crate::tree::build_tree(&self.app_model);
+        self.dest_tree = crate::tree::build_dest_tree(&self.app_model);
         if !self.tree.is_empty() {
             if self.cursor >= self.tree.len() {
                 self.cursor = self.tree.len() - 1;
@@ -262,8 +241,11 @@ impl TuiModel {
                 break;
             }
             line += 1;
-            // Account for blank separator line after last alias before a header
-            if node.kind == NodeKind::AliasItem {
+            // Account for blank separator line after a section boundary:
+            // either after the last alias of a non-empty section, or after an empty ProfileHeader
+            let is_empty_profile_header = node.kind == NodeKind::ProfileHeader;
+            let is_last_alias = node.kind == NodeKind::AliasItem;
+            if is_last_alias || is_empty_profile_header {
                 let next_is_header = self.tree.get(i + 1).is_some_and(|n| {
                     matches!(
                         n.kind,
