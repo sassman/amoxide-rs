@@ -104,17 +104,7 @@ fn execute_transfer(model: &mut TuiModel) {
             MoveDestination::Project => amoxide::AliasTarget::Local,
             MoveDestination::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
         };
-        let msg = match transfer_mode {
-            TransferMode::Move => amoxide::Message::MoveAliases {
-                aliases: aliases_to_transfer.to_vec(),
-                to: lib_dest,
-            },
-            TransferMode::Copy => amoxide::Message::CopyAliases {
-                aliases: aliases_to_transfer.to_vec(),
-                to: lib_dest,
-            },
-        };
-        let _ = super::delegation::dispatch(model, msg);
+        dispatch_transfer(model, &aliases_to_transfer, &transfer_mode, lib_dest);
         model.selected.clear();
         model.mode = Mode::Normal;
         model.active_column = Column::Left;
@@ -127,12 +117,83 @@ fn execute_transfer(model: &mut TuiModel) {
     }
 }
 
+/// Dispatch the appropriate transfer messages for a mixed set of alias IDs.
+/// Subcommand aliases are grouped by source scope and dispatched via
+/// Copy/MoveSubcommandAliases; regular aliases use Copy/MoveAliases.
+pub(super) fn dispatch_transfer(
+    model: &mut crate::model::TuiModel,
+    aliases: &[AliasId],
+    transfer_mode: &TransferMode,
+    lib_dest: amoxide::AliasTarget,
+) {
+    // Separate subcommand IDs from regular IDs
+    let (subcmd_ids, alias_ids): (Vec<_>, Vec<_>) = aliases
+        .iter()
+        .cloned()
+        .partition(|id| matches!(id, AliasId::Subcommand { .. }));
+
+    // For subcommand IDs, group by source scope and dispatch one message per source
+    use std::collections::BTreeMap;
+    let mut by_source: BTreeMap<String, (amoxide::AliasTarget, Vec<String>)> = BTreeMap::new();
+    for id in &subcmd_ids {
+        if let AliasId::Subcommand { scope, key } = id {
+            let from_target = subcmd_scope_to_target(scope);
+            let source_key = format!("{scope:?}");
+            by_source
+                .entry(source_key)
+                .or_insert_with(|| (from_target, Vec::new()))
+                .1
+                .push(key.clone());
+        }
+    }
+    for (_, (from_target, keys)) in by_source {
+        let to = match &lib_dest {
+            amoxide::AliasTarget::Global => amoxide::AliasTarget::Global,
+            amoxide::AliasTarget::Local => amoxide::AliasTarget::Local,
+            amoxide::AliasTarget::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
+            amoxide::AliasTarget::ActiveProfile => amoxide::AliasTarget::ActiveProfile,
+        };
+        let msg = match transfer_mode {
+            TransferMode::Move => amoxide::Message::MoveSubcommandAliases { keys, from: from_target, to },
+            TransferMode::Copy => amoxide::Message::CopySubcommandAliases { keys, from: from_target, to },
+        };
+        let _ = super::delegation::dispatch(model, msg);
+    }
+
+    // Regular aliases
+    if !alias_ids.is_empty() {
+        let to = lib_dest;
+        let msg = match transfer_mode {
+            TransferMode::Move => amoxide::Message::MoveAliases { aliases: alias_ids, to },
+            TransferMode::Copy => amoxide::Message::CopyAliases { aliases: alias_ids, to },
+        };
+        let _ = super::delegation::dispatch(model, msg);
+    }
+}
+
+fn subcmd_scope_to_target(scope: &amoxide::SubcommandScope) -> amoxide::AliasTarget {
+    match scope {
+        amoxide::SubcommandScope::Global => amoxide::AliasTarget::Global,
+        amoxide::SubcommandScope::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
+        amoxide::SubcommandScope::Project => amoxide::AliasTarget::Local,
+    }
+}
+
 pub(super) fn is_same_source(id: &AliasId, dest: &MoveDestination) -> bool {
     match (id, dest) {
         (AliasId::Global { .. }, MoveDestination::Global) => true,
         (AliasId::Project { .. }, MoveDestination::Project) => true,
         (AliasId::Profile { profile_name, .. }, MoveDestination::Profile(dest_name)) => {
             profile_name == dest_name
+        }
+        (AliasId::Subcommand { scope, .. }, MoveDestination::Global) => {
+            matches!(scope, amoxide::SubcommandScope::Global)
+        }
+        (AliasId::Subcommand { scope, .. }, MoveDestination::Project) => {
+            matches!(scope, amoxide::SubcommandScope::Project)
+        }
+        (AliasId::Subcommand { scope, .. }, MoveDestination::Profile(dest_name)) => {
+            matches!(scope, amoxide::SubcommandScope::Profile(n) if n == dest_name)
         }
         _ => false,
     }

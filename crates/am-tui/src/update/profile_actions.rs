@@ -1,6 +1,5 @@
 use crate::model::{
-    AliasId, Column, ConfirmAction, Mode, MoveDestination, NodeKind, TransferMode, TuiMessage,
-    TuiModel,
+    AliasId, Column, ConfirmAction, Mode, MoveDestination, NodeKind, TuiMessage, TuiModel,
 };
 
 pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
@@ -112,17 +111,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         MoveDestination::Project => amoxide::AliasTarget::Local,
                         MoveDestination::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
                     };
-                    let msg = match &transfer_mode {
-                        TransferMode::Move => amoxide::Message::MoveAliases {
-                            aliases: aliases.to_vec(),
-                            to: lib_dest,
-                        },
-                        TransferMode::Copy => amoxide::Message::CopyAliases {
-                            aliases: aliases.to_vec(),
-                            to: lib_dest,
-                        },
-                    };
-                    let _ = super::delegation::dispatch(model, msg);
+                    super::transfer::dispatch_transfer(model, &aliases, &transfer_mode, lib_dest);
                     model.selected.clear();
                     model.active_column = Column::Left;
                 }

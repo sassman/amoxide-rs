@@ -882,4 +882,84 @@ mod tests {
         assert_eq!(model.mode, Mode::Normal);
         assert!(model.app_model.config.subcommands.contains_key("jj:ab"));
     }
+
+    fn make_subcmd_model(keys: &[(&str, &[&str])]) -> TuiModel {
+        let mut config = amoxide::Config::default();
+        for (key, longs) in keys {
+            config
+                .subcommands
+                .insert(key.to_string(), longs.iter().map(|s| s.to_string()).collect());
+        }
+        let app_model = AppModel::new(config, ProfileConfig::default());
+        let tree = build_tree_from_parts(
+            &app_model.config.aliases,
+            &app_model.config.subcommands,
+            app_model.profile_config(),
+            &app_model.config.active_profiles,
+            None,
+            None,
+        );
+        let dest_tree = build_dest_tree_from_parts(
+            &app_model.config.aliases,
+            app_model.profile_config(),
+            &app_model.config.active_profiles,
+            false,
+        );
+        TuiModel {
+            app_model,
+            tree,
+            cursor: 0,
+            selected: BTreeSet::new(),
+            mode: Mode::Normal,
+            dest_tree,
+            dest_cursor: 0,
+            active_column: crate::model::Column::Left,
+            scroll_offset: 0,
+            status_line: None,
+        }
+    }
+
+    #[test]
+    fn test_delete_subcommand_item() {
+        let mut model = make_subcmd_model(&[("jj:ab", &["abandon"])]);
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandItem)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::DeleteItem);
+        assert!(!model.app_model.config.subcommands.contains_key("jj:ab"));
+    }
+
+    #[test]
+    fn test_delete_subcommand_program_header_removes_all_keys() {
+        let mut model = make_subcmd_model(&[
+            ("jj:ab", &["abandon"]),
+            ("jj:b:l", &["branch", "list"]),
+        ]);
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandProgramHeader)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::DeleteItem);
+        assert!(model.app_model.config.subcommands.is_empty());
+    }
+
+    #[test]
+    fn test_toggle_select_on_subcommand_item_adds_to_selected() {
+        let mut model = make_subcmd_model(&[("jj:ab", &["abandon"])]);
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandItem)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::ToggleSelect);
+        assert_eq!(model.selected.len(), 1);
+        let id = model.selected.iter().next().unwrap();
+        assert!(matches!(id, AliasId::Subcommand { .. }));
+    }
 }

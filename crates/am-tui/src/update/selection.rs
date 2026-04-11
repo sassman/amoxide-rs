@@ -32,19 +32,30 @@ pub fn handle_toggle(model: &mut TuiModel) {
     }
 }
 
-/// Collect all AliasItem ids that belong to the container at `header_idx`.
-/// Walks forward from the header, collecting consecutive AliasItem nodes.
+/// Collect all selectable ids that belong to the container at `header_idx`.
+/// For scope headers (Global/Profile/Project), collects aliases and subcommand leaf items.
+/// For SubcommandProgramHeader/GroupNode, collects only the SubcommandItem leaves within.
 pub(super) fn collect_child_aliases(model: &TuiModel, header_idx: usize) -> Vec<AliasId> {
     let mut ids = Vec::new();
+    let start_kind = &model.tree[header_idx].kind;
     for node in model.tree.iter().skip(header_idx + 1) {
         match node.kind {
-            NodeKind::AliasItem => {
+            NodeKind::AliasItem | NodeKind::SubcommandItem => {
                 if let Some(ref id) = node.alias_id {
                     ids.push(id.clone());
                 }
             }
-            // Stop at the next header — those aliases belong to a different container
-            _ => break,
+            // Structural subcommand nodes — descend through them
+            NodeKind::SubcommandGroupNode => {}
+            // A new program header stops collection when we're collecting for a scope header.
+            // When collecting for a SubcommandProgramHeader, it stops at the next program header.
+            NodeKind::SubcommandProgramHeader => {
+                if *start_kind != NodeKind::SubcommandGroupNode {
+                    break;
+                }
+            }
+            // Stop at scope headers — they belong to a different container
+            NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader => break,
         }
     }
     ids
