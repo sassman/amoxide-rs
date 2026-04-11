@@ -7,7 +7,7 @@ use crate::{AliasSet, Profile, ProfileConfig};
 fn display_path(path: &Path) -> String {
     if let Some(home) = crate::dirs::home_dir() {
         if let Ok(rel) = path.strip_prefix(&home) {
-            return format!("~/{}", rel.display());
+            return format!("~{}{}", std::path::MAIN_SEPARATOR, rel.display());
         }
     }
     path.display().to_string()
