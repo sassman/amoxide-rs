@@ -1,20 +1,18 @@
 use std::fmt::Debug;
 
-use super::{has_template_args, quote_cmd, substitute_fish, Shell, TEMPLATE_RE};
+use super::{has_template_args, quote_cmd, substitute_fish, substitute_quote_aware, Shell};
 
 /// Substitute `{{N}}` → `$argv[N+offset]` and `{{@}}` → `$argv[offset+1..]`.
 /// Used in subcommand wrappers where fish doesn't shift args, so the subcommand
 /// tokens at positions 1..=offset must be skipped.
 fn substitute_offset(cmd: &str, offset: usize) -> String {
-    TEMPLATE_RE
-        .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
-            "@" => format!("$argv[{}..]", offset + 1),
-            n => {
-                let idx: usize = n.parse::<usize>().unwrap() + offset;
-                format!("$argv[{idx}]")
-            }
-        })
-        .to_string()
+    substitute_quote_aware(cmd, |n| match n {
+        "@" => format!("$argv[{}..]", offset + 1),
+        n => {
+            let idx: usize = n.parse::<usize>().unwrap() + offset;
+            format!("$argv[{idx}]")
+        }
+    })
 }
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;

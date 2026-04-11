@@ -1,19 +1,17 @@
 use std::fmt::Debug;
 
-use super::{has_template_args, substitute_powershell, Shell, TEMPLATE_RE};
+use super::{has_template_args, substitute_powershell, substitute_quote_aware, Shell};
 
 /// Substitute `{{N}}` → `$($args[N-1+offset])` and `{{@}}` → `($args | Select-Object -Skip offset)`.
 /// Used in subcommand wrappers where PowerShell doesn't shift args.
 fn substitute_offset(cmd: &str, offset: usize) -> String {
-    TEMPLATE_RE
-        .replace_all(cmd, |caps: &regex::Captures| match &caps[1] {
-            "@" => format!("($args | Select-Object -Skip {offset})"),
-            n => {
-                let idx: usize = n.parse::<usize>().unwrap() - 1 + offset;
-                format!("$($args[{idx}])")
-            }
-        })
-        .to_string()
+    substitute_quote_aware(cmd, |n| match n {
+        "@" => format!("($args | Select-Object -Skip {offset})"),
+        n => {
+            let idx: usize = n.parse::<usize>().unwrap() - 1 + offset;
+            format!("$($args[{idx}])")
+        }
+    })
 }
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
