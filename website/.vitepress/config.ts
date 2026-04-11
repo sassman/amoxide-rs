@@ -5,6 +5,18 @@ import matter from 'gray-matter'
 
 const base = process.env.VITEPRESS_BASE || '/'
 
+let appVersion = '0.0.0'
+try {
+  const res = await fetch('https://crates.io/api/v1/crates/amoxide', {
+    headers: { 'User-Agent': 'amoxide-website/1.0 (https://amoxide.rs)' },
+  })
+  const data = await res.json() as any
+  appVersion = data.crate.newest_version ?? appVersion
+} catch {
+  const cargoToml = fs.readFileSync(path.resolve(__dirname, '../../Cargo.toml'), 'utf-8')
+  appVersion = cargoToml.match(/^version = "(.+)"/m)?.[1] ?? appVersion
+}
+
 // Build showcase sidebar from community folder
 function buildShowcaseSidebar() {
   const communityDir = path.resolve(__dirname, '../../community')
@@ -64,6 +76,11 @@ function buildShowcaseSidebar() {
 export default defineConfig({
   base,
   title: 'amoxide',
+  vite: {
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
+  },
   description: 'Shell aliases that follow your context — like direnv, but for aliases.',
   head: [
     ['link', { rel: 'icon', href: `${base}logo.svg` }],
