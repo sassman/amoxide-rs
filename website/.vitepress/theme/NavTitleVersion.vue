@@ -11,7 +11,7 @@ const version = __APP_VERSION__;
 .nav-version {
     font-size: 0.7rem;
     font-family: var(--vp-font-family-mono);
-    color: var(--vp-c-text-2);
+    color: var(--am-version-color);
     margin-left: 6px;
     position: relative;
     bottom: -6px;

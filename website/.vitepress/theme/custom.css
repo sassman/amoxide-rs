@@ -1,6 +1,11 @@
 /* Navbar title: larger logo, larger font, gradient text matching hero */
 :root {
   --vp-nav-logo-height: 30px;
+  --am-version-color: #4a90b8;
+}
+
+.dark {
+  --am-version-color: #8be9fd;
 }
 
 .VPNavBarTitle .title {
