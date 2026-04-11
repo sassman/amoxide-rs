@@ -54,7 +54,9 @@ b = "npm run build"
 
 Jeder `[[profiles]]`-Block definiert ein benanntes Profil mit seinen Aliasen. Beachte, dass verschiedene Profile den gleichen Alias-Namen verwenden können (z.B. `t` in `rust` und `node`) — welches Profil höhere Priorität in `active_profiles` hat, gewinnt.
 
-## `security.toml` — Vertrauensentscheidungen <VersionBadge v="0.5.0" />
+## `security.toml` — Vertrauensentscheidungen
+
+<VersionBadge v="0.5.0" />
 
 Verfolgt, welche Projekt-`.aliases`-Dateien du überprüft und als vertrauenswürdig markiert hast. Wird automatisch von `am trust` und `am untrust` verwaltet — du solltest diese Datei nicht manuell bearbeiten müssen.
 

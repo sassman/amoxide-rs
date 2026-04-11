@@ -25,7 +25,9 @@ t = "./x.py test"
 b = "./x.py build"
 ```
 
-## Trust Model <VersionBadge v="0.5.0" />
+## Trust Model
+
+<VersionBadge v="0.5.0" />
 
 Project `.aliases` files can contain arbitrary shell commands. Since anyone could put a `.aliases` file into a repository, amoxide requires you to explicitly trust each file before its aliases are loaded — similar to how [direnv](https://direnv.net) handles `.envrc` files.
 
