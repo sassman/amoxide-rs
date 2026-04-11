@@ -539,6 +539,198 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
+        Message::UpdateSubcommandAlias {
+            original_key,
+            new_key,
+            long_subcommands,
+            target,
+        } => match target {
+            AliasTarget::Global => {
+                model.config.subcommands.remove(&original_key);
+                model.config.add_subcommand(new_key, long_subcommands);
+                Ok(UpdateResult::effect(Effect::SaveConfig))
+            }
+            AliasTarget::Local => {
+                if let Some(trust) = model.project_trust() {
+                    if !trust.is_trusted() {
+                        return Err(UpdateError::ProjectNotTrusted {
+                            path: trust.path().to_path_buf(),
+                        });
+                    }
+                }
+                Ok(UpdateResult::new(
+                    Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
+                    &[Effect::RemoveLocalSubcommand { key: original_key }],
+                ))
+            }
+            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                let profile = resolve_profile_mut(model, &target)?;
+                profile.subcommands.remove(&original_key);
+                profile.add_subcommand(new_key, long_subcommands);
+                Ok(UpdateResult::effect(Effect::SaveProfiles))
+            }
+        },
+        Message::CopySubcommandAliases { keys, from, to } => {
+            let pairs: Vec<(String, Vec<String>)> = keys
+                .iter()
+                .filter_map(|k| {
+                    let longs = match &from {
+                        AliasTarget::Global => model.config.subcommands.get(k).cloned(),
+                        AliasTarget::Local => model
+                            .project_aliases()
+                            .and_then(|p| p.subcommands.get(k).cloned()),
+                        AliasTarget::ActiveProfile | AliasTarget::Profile(_) => model
+                            .profile_config()
+                            .get_profile_by_name(match &from {
+                                AliasTarget::Profile(n) => n,
+                                _ => model.config.active_profiles.first().map(|s| s.as_str()).unwrap_or(""),
+                            })
+                            .and_then(|p| p.subcommands.get(k).cloned()),
+                    }?;
+                    Some((k.clone(), longs))
+                })
+                .collect();
+
+            if matches!(to, AliasTarget::Local) {
+                if let Some(trust) = model.project_trust() {
+                    if !trust.is_trusted() {
+                        return Err(UpdateError::ProjectNotTrusted {
+                            path: trust.path().to_path_buf(),
+                        });
+                    }
+                }
+            }
+
+            match to {
+                AliasTarget::Global => {
+                    for (key, longs) in pairs {
+                        model.config.add_subcommand(key, longs);
+                    }
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+                AliasTarget::Local => {
+                    let effects: Vec<Effect> = pairs
+                        .into_iter()
+                        .map(|(key, long_subcommands)| Effect::AddLocalSubcommand {
+                            key,
+                            long_subcommands,
+                        })
+                        .collect();
+                    Ok(UpdateResult::with_effects(&effects))
+                }
+                target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                    let profile = resolve_profile_mut(model, &target)?;
+                    for (key, longs) in pairs {
+                        profile.add_subcommand(key, longs);
+                    }
+                    Ok(UpdateResult::effect(Effect::SaveProfiles))
+                }
+            }
+        },
+        Message::MoveSubcommandAliases { keys, from, to } => {
+            let pairs: Vec<(String, Vec<String>)> = keys
+                .iter()
+                .filter_map(|k| {
+                    let longs = match &from {
+                        AliasTarget::Global => model.config.subcommands.get(k).cloned(),
+                        AliasTarget::Local => model
+                            .project_aliases()
+                            .and_then(|p| p.subcommands.get(k).cloned()),
+                        AliasTarget::ActiveProfile | AliasTarget::Profile(_) => model
+                            .profile_config()
+                            .get_profile_by_name(match &from {
+                                AliasTarget::Profile(n) => n,
+                                _ => model.config.active_profiles.first().map(|s| s.as_str()).unwrap_or(""),
+                            })
+                            .and_then(|p| p.subcommands.get(k).cloned()),
+                    }?;
+                    Some((k.clone(), longs))
+                })
+                .collect();
+
+            let need_local_src = matches!(from, AliasTarget::Local);
+            let need_local_dst = matches!(to, AliasTarget::Local);
+            if need_local_src || need_local_dst {
+                if let Some(trust) = model.project_trust() {
+                    if !trust.is_trusted() {
+                        return Err(UpdateError::ProjectNotTrusted {
+                            path: trust.path().to_path_buf(),
+                        });
+                    }
+                }
+            }
+
+            // Remove from source
+            match &from {
+                AliasTarget::Global => {
+                    for (key, _) in &pairs {
+                        model.config.subcommands.remove(key);
+                    }
+                }
+                AliasTarget::Local => {} // handled via effects below
+                AliasTarget::Profile(name) => {
+                    if let Some(profile) = model.profile_config_mut().get_profile_by_name_mut(name) {
+                        for (key, _) in &pairs {
+                            profile.subcommands.remove(key);
+                        }
+                    }
+                }
+                AliasTarget::ActiveProfile => {
+                    let active: Vec<String> = model.config.active_profiles.clone();
+                    for name in &active {
+                        if let Some(profile) =
+                            model.profile_config_mut().get_profile_by_name_mut(name)
+                        {
+                            for (key, _) in &pairs {
+                                profile.subcommands.remove(key);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Add to destination
+            match to {
+                AliasTarget::Global => {
+                    for (key, longs) in pairs {
+                        model.config.add_subcommand(key, longs);
+                    }
+                    let needs_profiles = matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile);
+                    if needs_profiles {
+                        Ok(UpdateResult::with_effects(&[Effect::SaveConfig, Effect::SaveProfiles]))
+                    } else {
+                        Ok(UpdateResult::effect(Effect::SaveConfig))
+                    }
+                }
+                AliasTarget::Local => {
+                    let mut effects: Vec<Effect> = pairs
+                        .into_iter()
+                        .map(|(key, long_subcommands)| Effect::AddLocalSubcommand {
+                            key,
+                            long_subcommands,
+                        })
+                        .collect();
+                    if matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile) {
+                        effects.push(Effect::SaveProfiles);
+                    } else if matches!(from, AliasTarget::Global) {
+                        effects.push(Effect::SaveConfig);
+                    }
+                    Ok(UpdateResult::with_effects(&effects))
+                }
+                target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
+                    let profile = resolve_profile_mut(model, &target)?;
+                    for (key, longs) in pairs {
+                        profile.add_subcommand(key, longs);
+                    }
+                    let needs_config = matches!(from, AliasTarget::Global);
+                    if needs_config {
+                        Ok(UpdateResult::with_effects(&[Effect::SaveProfiles, Effect::SaveConfig]))
+                    } else {
+                        Ok(UpdateResult::effect(Effect::SaveProfiles))
+                    }
+                }
+            }
+        },
         Message::ListProfiles => {
             let output = render_listing(
                 &model.config.aliases,
@@ -862,6 +1054,10 @@ fn transfer_aliases(
                         name: alias_name.clone(),
                     });
                 }
+                AliasId::Subcommand { .. } => {
+                    // Subcommand aliases are handled by CopySubcommandAliases / MoveSubcommandAliases
+                    unreachable!("subcommand aliases must not flow through copy_or_move_aliases");
+                }
             }
         }
 
@@ -929,6 +1125,7 @@ fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(Strin
                     (a.command().to_string(), raw)
                 })
         }
+        AliasId::Subcommand { .. } => None,
     }
 }
 
@@ -937,6 +1134,70 @@ mod tests {
     use super::*;
     use crate::config::Config;
     use crate::effects::Effect;
+
+    #[test]
+    fn update_subcommand_alias_replaces_key() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        model.config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        let result = update(
+            &mut model,
+            Message::UpdateSubcommandAlias {
+                original_key: "jj:ab".into(),
+                new_key: "jj:a".into(),
+                long_subcommands: vec!["abandon".into()],
+                target: AliasTarget::Global,
+            },
+        )
+        .unwrap();
+        assert!(!model.config.subcommands.contains_key("jj:ab"));
+        assert_eq!(
+            model.config.subcommands.get("jj:a"),
+            Some(&vec!["abandon".to_string()])
+        );
+        assert!(result.effects.iter().any(|e| matches!(e, Effect::SaveConfig)));
+    }
+
+    #[test]
+    fn copy_subcommand_aliases_adds_to_destination() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        model.config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        model.profile_config_mut().add_profile("rust").unwrap();
+        let _ = update(
+            &mut model,
+            Message::CopySubcommandAliases {
+                keys: vec!["jj:ab".into()],
+                from: AliasTarget::Global,
+                to: AliasTarget::Profile("rust".into()),
+            },
+        )
+        .unwrap();
+        let profile = model.profile_config().get_profile_by_name("rust").unwrap();
+        assert_eq!(
+            profile.subcommands.get("jj:ab"),
+            Some(&vec!["abandon".to_string()])
+        );
+        // Source preserved
+        assert!(model.config.subcommands.contains_key("jj:ab"));
+    }
+
+    #[test]
+    fn move_subcommand_aliases_removes_from_source() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        model.config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        model.profile_config_mut().add_profile("rust").unwrap();
+        let _ = update(
+            &mut model,
+            Message::MoveSubcommandAliases {
+                keys: vec!["jj:ab".into()],
+                from: AliasTarget::Global,
+                to: AliasTarget::Profile("rust".into()),
+            },
+        )
+        .unwrap();
+        assert!(!model.config.subcommands.contains_key("jj:ab"));
+        let profile = model.profile_config().get_profile_by_name("rust").unwrap();
+        assert!(profile.subcommands.contains_key("jj:ab"));
+    }
 
     #[test]
     fn update_result_done_has_no_message_or_effects() {

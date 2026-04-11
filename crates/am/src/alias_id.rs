@@ -1,5 +1,12 @@
 use crate::AliasTarget;
 
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum SubcommandScope {
+    Global,
+    Profile(String),
+    Project,
+}
+
 /// Canonical reference to a single alias across any scope.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum AliasId {
@@ -13,6 +20,10 @@ pub enum AliasId {
     Project {
         alias_name: String,
     },
+    Subcommand {
+        scope: SubcommandScope,
+        key: String,
+    },
 }
 
 impl AliasId {
@@ -21,6 +32,7 @@ impl AliasId {
             AliasId::Global { alias_name }
             | AliasId::Profile { alias_name, .. }
             | AliasId::Project { alias_name } => alias_name.as_str(),
+            AliasId::Subcommand { key, .. } => key.as_str(),
         }
     }
 
@@ -29,6 +41,11 @@ impl AliasId {
             AliasId::Global { .. } => AliasTarget::Global,
             AliasId::Profile { profile_name, .. } => AliasTarget::Profile(profile_name.clone()),
             AliasId::Project { .. } => AliasTarget::Local,
+            AliasId::Subcommand { scope, .. } => match scope {
+                SubcommandScope::Global => AliasTarget::Global,
+                SubcommandScope::Profile(name) => AliasTarget::Profile(name.clone()),
+                SubcommandScope::Project => AliasTarget::Local,
+            },
         }
     }
 }
@@ -87,6 +104,43 @@ mod tests {
             .target(),
             AliasTarget::Local
         );
+    }
+
+    #[test]
+    fn subcommand_scope_to_alias_target() {
+        assert_eq!(
+            AliasId::Subcommand {
+                scope: SubcommandScope::Global,
+                key: "jj:ab".into(),
+            }
+            .target(),
+            AliasTarget::Global
+        );
+        assert_eq!(
+            AliasId::Subcommand {
+                scope: SubcommandScope::Profile("rust".into()),
+                key: "cargo:t".into(),
+            }
+            .target(),
+            AliasTarget::Profile("rust".into())
+        );
+        assert_eq!(
+            AliasId::Subcommand {
+                scope: SubcommandScope::Project,
+                key: "k:gp".into(),
+            }
+            .target(),
+            AliasTarget::Local
+        );
+    }
+
+    #[test]
+    fn subcommand_alias_id_name_returns_last_segment() {
+        let id = AliasId::Subcommand {
+            scope: SubcommandScope::Global,
+            key: "jj:b:l".into(),
+        };
+        assert_eq!(id.name(), "jj:b:l");
     }
 
     #[test]
