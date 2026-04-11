@@ -2,7 +2,9 @@
 import { data } from './community.data'
 </script>
 
-# Community Showcase <VersionBadge v="0.4.0" />
+# Community Showcase
+
+<VersionBadge v="0.4.0" />
 
 Browse alias profiles shared by the community. Find something useful, inspect the aliases, and import with one command.
 

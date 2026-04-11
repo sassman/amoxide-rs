@@ -1,4 +1,6 @@
-# Aliase teilen <VersionBadge v="0.4.0" />
+# Aliase teilen
+
+<VersionBadge v="0.4.0" />
 
 Teile deine Aliase mit Kollegen, Teams oder der Community. Exportiere auf stdout, importiere von einer URL oder Datei.
 
