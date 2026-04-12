@@ -506,7 +506,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 *active_field = SubcommandField::Short;
             }
         }
-_ => {}
+        _ => {}
     }
 }
 

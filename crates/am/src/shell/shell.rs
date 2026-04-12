@@ -91,7 +91,6 @@ pub(super) struct WrapperNode {
     pub children: BTreeMap<String, WrapperNode>,
 }
 
-
 /// Build a trie from a flat list of subcommand entries grouped under one program.
 /// Returns a map from first-level short token → node.
 pub(super) fn build_wrapper_trie(
@@ -102,9 +101,7 @@ pub(super) fn build_wrapper_trie(
         if entry.short_subcommands.is_empty() {
             continue;
         }
-        let node = roots
-            .entry(entry.short_subcommands[0].clone())
-            .or_default();
+        let node = roots.entry(entry.short_subcommands[0].clone()).or_default();
         trie_insert(node, &entry.short_subcommands[1..], &entry.long_subcommands);
     }
     roots
@@ -114,10 +111,7 @@ fn trie_insert(node: &mut WrapperNode, remaining: &[String], full_longs: &[Strin
     if remaining.is_empty() {
         node.leaf_longs = Some(full_longs.to_vec());
     } else {
-        let child = node
-            .children
-            .entry(remaining[0].clone())
-            .or_default();
+        let child = node.children.entry(remaining[0].clone()).or_default();
         trie_insert(child, &remaining[1..], full_longs);
     }
 }

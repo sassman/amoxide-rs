@@ -179,9 +179,7 @@ pub fn render_import_summary_subcommands(
     result: &SubcommandMergeResult,
 ) -> String {
     let total = result.new_subcommands.len() + result.conflicts.len();
-    let mut output = format!(
-        "Importing subcommands into \"{scope_name}\" ({total} entries)\n"
-    );
+    let mut output = format!("Importing subcommands into \"{scope_name}\" ({total} entries)\n");
 
     if !result.new_subcommands.is_empty() {
         output.push_str("\n  new:\n");

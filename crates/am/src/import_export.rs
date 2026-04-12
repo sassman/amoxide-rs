@@ -221,8 +221,7 @@ fn import_auto_route(
 
     if !parsed.global_subcommands.is_empty() {
         let merge = subcommand_merge_check(&model.config.subcommands, &parsed.global_subcommands);
-        if let Some(accepted) =
-            prompt_merge_subcommands(&Scope::Global, &merge, auto_yes, reader)?
+        if let Some(accepted) = prompt_merge_subcommands(&Scope::Global, &merge, auto_yes, reader)?
         {
             payload.global_subcommands = Some(accepted);
         }
@@ -248,11 +247,9 @@ fn import_auto_route(
                 existing.aliases.clone()
             };
 
-        let subcmd_merge =
-            subcommand_merge_check(&existing.subcommands, &profile.subcommands);
+        let subcmd_merge = subcommand_merge_check(&existing.subcommands, &profile.subcommands);
         let accepted_subcommands = if !profile.subcommands.is_empty() {
-            prompt_merge_subcommands(&scope, &subcmd_merge, auto_yes, reader)?
-                .unwrap_or_default()
+            prompt_merge_subcommands(&scope, &subcmd_merge, auto_yes, reader)?.unwrap_or_default()
         } else {
             Default::default()
         };
@@ -281,10 +278,8 @@ fn import_auto_route(
     }
 
     if !parsed.local_subcommands.is_empty() {
-        let merge =
-            subcommand_merge_check(&existing_local_subcommands, &parsed.local_subcommands);
-        if let Some(accepted) = prompt_merge_subcommands(&Scope::Local, &merge, auto_yes, reader)?
-        {
+        let merge = subcommand_merge_check(&existing_local_subcommands, &parsed.local_subcommands);
+        if let Some(accepted) = prompt_merge_subcommands(&Scope::Local, &merge, auto_yes, reader)? {
             payload.local_subcommands = Some(accepted);
         }
     }
@@ -309,8 +304,7 @@ fn import_with_override(
             payload.global_aliases = Some(accepted);
         }
         if !flattened_subcommands.is_empty() {
-            let merge =
-                subcommand_merge_check(&model.config.subcommands, &flattened_subcommands);
+            let merge = subcommand_merge_check(&model.config.subcommands, &flattened_subcommands);
             if let Some(accepted) =
                 prompt_merge_subcommands(&Scope::Global, &merge, auto_yes, reader)?
             {
@@ -339,11 +333,9 @@ fn import_with_override(
                 existing.aliases.clone()
             };
 
-        let subcmd_merge =
-            subcommand_merge_check(&existing.subcommands, &flattened_subcommands);
+        let subcmd_merge = subcommand_merge_check(&existing.subcommands, &flattened_subcommands);
         let accepted_subcommands = if !flattened_subcommands.is_empty() {
-            prompt_merge_subcommands(&scope, &subcmd_merge, auto_yes, reader)?
-                .unwrap_or_default()
+            prompt_merge_subcommands(&scope, &subcmd_merge, auto_yes, reader)?.unwrap_or_default()
         } else {
             Default::default()
         };
@@ -362,8 +354,7 @@ fn import_with_override(
     }
 
     if scope_args.local {
-        let (existing_aliases, existing_subcommands) =
-            model.project_alias_set_and_subcommands();
+        let (existing_aliases, existing_subcommands) = model.project_alias_set_and_subcommands();
         let merge = existing_aliases.merge_check(&flattened_aliases);
         if let Some(accepted) = prompt_merge(&Scope::Local, &merge, auto_yes, reader)? {
             payload.local_aliases = Some(accepted);

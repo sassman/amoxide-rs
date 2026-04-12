@@ -305,8 +305,7 @@ fn main() -> anyhow::Result<()> {
                 let cmd = alias_value.command();
                 println!("  {:width$} \u{2192} {cmd}", name, width = max_name_len);
             }
-            let subcmd_groups =
-                amoxide::subcommand::group_by_program(&project.subcommands);
+            let subcmd_groups = amoxide::subcommand::group_by_program(&project.subcommands);
             if !subcmd_groups.is_empty() {
                 println!();
                 for (program, entries) in &subcmd_groups {
@@ -337,12 +336,7 @@ fn main() -> anyhow::Result<()> {
             };
 
             // Prompt
-            let answer = ask_user(
-                prompt,
-                Answer::Yes,
-                false,
-                &mut std::io::stdin().lock(),
-            )?;
+            let answer = ask_user(prompt, Answer::Yes, false, &mut std::io::stdin().lock())?;
 
             if answer == Answer::Yes {
                 let result = update(&mut model, Message::Trust)?;
