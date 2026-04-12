@@ -571,25 +571,22 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
         },
         Message::CopySubcommandAliases { keys, from, to } => {
-            let pairs: Vec<(String, Vec<String>)> = keys
-                .iter()
-                .filter_map(|k| {
-                    let longs = match &from {
-                        AliasTarget::Global => model.config.subcommands.get(k).cloned(),
-                        AliasTarget::Local => model
-                            .project_aliases()
-                            .and_then(|p| p.subcommands.get(k).cloned()),
-                        AliasTarget::ActiveProfile | AliasTarget::Profile(_) => model
-                            .profile_config()
-                            .get_profile_by_name(match &from {
-                                AliasTarget::Profile(n) => n,
-                                _ => model.config.active_profiles.first().map(|s| s.as_str()).unwrap_or(""),
-                            })
-                            .and_then(|p| p.subcommands.get(k).cloned()),
-                    }?;
-                    Some((k.clone(), longs))
-                })
-                .collect();
+            let pairs: Vec<(String, Vec<String>)> = {
+                let src_subcommands = match &from {
+                    AliasTarget::Global => Some(&model.config.subcommands),
+                    AliasTarget::Local => model.project_aliases().map(|p| &p.subcommands),
+                    AliasTarget::ActiveProfile | AliasTarget::Profile(_) => {
+                        Some(&resolve_profile(model, &from)?.subcommands)
+                    }
+                };
+                match src_subcommands {
+                    Some(subs) => keys
+                        .iter()
+                        .filter_map(|k| Some((k.clone(), subs.get(k)?.clone())))
+                        .collect(),
+                    None => vec![],
+                }
+            };
 
             if matches!(to, AliasTarget::Local) {
                 if let Some(trust) = model.project_trust() {
@@ -628,25 +625,22 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
         },
         Message::MoveSubcommandAliases { keys, from, to } => {
-            let pairs: Vec<(String, Vec<String>)> = keys
-                .iter()
-                .filter_map(|k| {
-                    let longs = match &from {
-                        AliasTarget::Global => model.config.subcommands.get(k).cloned(),
-                        AliasTarget::Local => model
-                            .project_aliases()
-                            .and_then(|p| p.subcommands.get(k).cloned()),
-                        AliasTarget::ActiveProfile | AliasTarget::Profile(_) => model
-                            .profile_config()
-                            .get_profile_by_name(match &from {
-                                AliasTarget::Profile(n) => n,
-                                _ => model.config.active_profiles.first().map(|s| s.as_str()).unwrap_or(""),
-                            })
-                            .and_then(|p| p.subcommands.get(k).cloned()),
-                    }?;
-                    Some((k.clone(), longs))
-                })
-                .collect();
+            let pairs: Vec<(String, Vec<String>)> = {
+                let src_subcommands = match &from {
+                    AliasTarget::Global => Some(&model.config.subcommands),
+                    AliasTarget::Local => model.project_aliases().map(|p| &p.subcommands),
+                    AliasTarget::ActiveProfile | AliasTarget::Profile(_) => {
+                        Some(&resolve_profile(model, &from)?.subcommands)
+                    }
+                };
+                match src_subcommands {
+                    Some(subs) => keys
+                        .iter()
+                        .filter_map(|k| Some((k.clone(), subs.get(k)?.clone())))
+                        .collect(),
+                    None => vec![],
+                }
+            };
 
             let need_local_src = matches!(from, AliasTarget::Local);
             let need_local_dst = matches!(to, AliasTarget::Local);
@@ -967,6 +961,33 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Effect::SaveSession,
             ]))
         }
+    }
+}
+
+fn resolve_profile<'a>(
+    model: &'a AppModel,
+    target: &AliasTarget,
+) -> Result<&'a Profile, UpdateError> {
+    match target {
+        AliasTarget::Profile(profile_name) => model
+            .profile_config()
+            .get_profile_by_name(profile_name)
+            .ok_or_else(|| UpdateError::ProfileNotFound {
+                name: profile_name.clone(),
+            }),
+        AliasTarget::ActiveProfile => {
+            let active = model
+                .config
+                .active_profiles
+                .last()
+                .cloned()
+                .ok_or_else(|| UpdateError::Other("No active profile".into()))?;
+            model
+                .profile_config()
+                .get_profile_by_name(&active)
+                .ok_or(UpdateError::ProfileNotFound { name: active })
+        }
+        _ => unreachable!(),
     }
 }
 

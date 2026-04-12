@@ -561,8 +561,9 @@ fn find_parent_program(model: &TuiModel) -> Option<String> {
     None
 }
 
-/// Collect short→long pairs from the SubcommandProgramHeader down to the cursor.
-/// Group nodes contribute (short, "") and leaf items contribute (short, long).
+/// Collect short→long pairs representing the path from the SubcommandProgramHeader to the cursor.
+/// Only ancestor GroupNodes (identified by having a strictly shorter prefix than the previous
+/// collected node) are included, avoiding sibling contamination.
 fn collect_pairs_to_cursor(model: &TuiModel) -> Vec<(String, String)> {
     let header_idx = (0..=model.cursor)
         .rev()
@@ -570,24 +571,38 @@ fn collect_pairs_to_cursor(model: &TuiModel) -> Vec<(String, String)> {
     let Some(start) = header_idx else {
         return vec![("".into(), "".into())];
     };
-    let mut pairs = vec![];
-    for node in &model.tree[start + 1..=model.cursor] {
-        match node.kind {
-            NodeKind::SubcommandGroupNode => {
-                pairs.push((node.label.clone(), String::new()));
+
+    let cursor_node = &model.tree[model.cursor];
+    let cursor_pair = match cursor_node.kind {
+        NodeKind::SubcommandItem => {
+            if let Some((short, long)) = cursor_node.label.split_once(" \u{2192} ") {
+                (short.trim().to_string(), long.trim().to_string())
+            } else {
+                (cursor_node.label.clone(), String::new())
             }
-            NodeKind::SubcommandItem => {
-                if let Some((short, long)) = node.label.split_once(" \u{2192} ") {
-                    pairs.push((short.trim().to_string(), long.trim().to_string()));
-                } else {
-                    pairs.push((node.label.clone(), String::new()));
-                }
-            }
-            _ => {}
+        }
+        NodeKind::SubcommandGroupNode => (cursor_node.label.clone(), String::new()),
+        _ => ("".into(), "".into()),
+    };
+
+    // Walk backwards from just before the cursor.
+    // A GroupNode is an ancestor of the cursor if its prefix is strictly shorter
+    // than the last collected node's prefix (deeper nodes have longer prefixes).
+    let mut path = vec![cursor_pair];
+    let mut min_prefix_len = cursor_node.prefix.len();
+
+    for i in (start + 1..model.cursor).rev() {
+        let node = &model.tree[i];
+        if node.kind == NodeKind::SubcommandGroupNode && node.prefix.len() < min_prefix_len {
+            path.push((node.label.clone(), String::new()));
+            min_prefix_len = node.prefix.len();
         }
     }
-    if pairs.is_empty() {
-        pairs.push(("".into(), "".into()));
+
+    path.reverse();
+
+    if path.is_empty() {
+        path.push(("".into(), "".into()));
     }
-    pairs
+    path
 }

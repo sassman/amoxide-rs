@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::{Debug, Display};
 use std::sync::LazyLock;
 
@@ -77,6 +78,54 @@ impl From<Shells> for Box<dyn Shell> {
             // #[cfg(windows)]
             // Shells::Cmd => Box::from(super::windows_cmd::WindowsCmd),
         }
+    }
+}
+
+/// A trie node used to build recursive subcommand wrapper functions.
+/// Each node may represent an intermediate group or a leaf alias (or both).
+pub(super) struct WrapperNode {
+    /// Full long subcommands for a complete entry at this depth (if one exists).
+    pub leaf_longs: Option<Vec<String>>,
+    /// Children keyed by the next short subcommand token.
+    pub children: BTreeMap<String, WrapperNode>,
+}
+
+impl Default for WrapperNode {
+    fn default() -> Self {
+        Self {
+            leaf_longs: None,
+            children: BTreeMap::new(),
+        }
+    }
+}
+
+/// Build a trie from a flat list of subcommand entries grouped under one program.
+/// Returns a map from first-level short token → node.
+pub(super) fn build_wrapper_trie(
+    entries: &[crate::subcommand::SubcommandEntry],
+) -> BTreeMap<String, WrapperNode> {
+    let mut roots: BTreeMap<String, WrapperNode> = BTreeMap::new();
+    for entry in entries {
+        if entry.short_subcommands.is_empty() {
+            continue;
+        }
+        let node = roots
+            .entry(entry.short_subcommands[0].clone())
+            .or_insert_with(WrapperNode::default);
+        trie_insert(node, &entry.short_subcommands[1..], &entry.long_subcommands);
+    }
+    roots
+}
+
+fn trie_insert(node: &mut WrapperNode, remaining: &[String], full_longs: &[String]) {
+    if remaining.is_empty() {
+        node.leaf_longs = Some(full_longs.to_vec());
+    } else {
+        let child = node
+            .children
+            .entry(remaining[0].clone())
+            .or_insert_with(WrapperNode::default);
+        trie_insert(child, &remaining[1..], full_longs);
     }
 }
 

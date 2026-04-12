@@ -1,6 +1,7 @@
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{has_template_args, quote_cmd, substitute_fish, Shell, TEMPLATE_RE};
+use super::{build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, Shell, WrapperNode, TEMPLATE_RE};
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
@@ -37,15 +38,32 @@ fn substitute_offset(cmd: &str, offset: usize) -> String {
                 if let Some(close_rel) = after_open.find('\'') {
                     let sq_content = &after_open[..close_rel];
                     if has_template_args(sq_content) {
-                        // Convert this single-quoted token to a double-quoted token so
-                        // Fish expands `$argv[N]` without any single-quote interference.
+                        // Break the single-quoted token at each `{{N}}` and concatenate
+                        // with the unquoted variable reference.  This keeps static content
+                        // inside single quotes (no escaping needed) and lets Fish expand
+                        // `$argv[N]` in the unquoted segments between them.
+                        //
+                        // e.g. 'toggle({{1}})' → 'toggle('$argv[2]')'
                         result.push_str(&rest[..sq]);
-                        result.push('"');
-                        let inner = sq_content.replace('"', "\\\"");
-                        let subbed = TEMPLATE_RE
-                            .replace_all(&inner, |caps: &regex::Captures| make_sub(&caps[1]));
-                        result.push_str(&subbed);
-                        result.push('"');
+                        result.push('\'');
+                        let mut inner = sq_content;
+                        while !inner.is_empty() {
+                            match TEMPLATE_RE.find(inner) {
+                                Some(m) => {
+                                    result.push_str(&inner[..m.start()]);
+                                    result.push('\''); // close single-quote
+                                    let cap = TEMPLATE_RE.captures(inner).unwrap();
+                                    result.push_str(&make_sub(&cap[1]));
+                                    result.push('\''); // reopen single-quote
+                                    inner = &inner[m.end()..];
+                                }
+                                None => {
+                                    result.push_str(inner);
+                                    break;
+                                }
+                            }
+                        }
+                        result.push('\'');
                         rest = &after_open[close_rel + 1..];
                     } else {
                         // No template in this region: keep as-is.
@@ -113,77 +131,66 @@ impl Shell for Fish {
     ) -> String {
         let mut lines = Vec::new();
         lines.push(format!("function {program} --wraps={program}"));
-        lines.push("  switch $argv[1]".into());
-
-        let mut groups: std::collections::BTreeMap<String, Vec<&SubcommandEntry>> =
-            std::collections::BTreeMap::new();
-        for entry in entries {
-            groups
-                .entry(entry.short_subcommands[0].clone())
-                .or_default()
-                .push(entry);
-        }
-
-        for (first_short, group) in &groups {
-            let single: Vec<&&SubcommandEntry> = group
-                .iter()
-                .filter(|e| e.short_subcommands.len() == 1)
-                .collect();
-            let deeper: Vec<&&SubcommandEntry> = group
-                .iter()
-                .filter(|e| e.short_subcommands.len() > 1)
-                .collect();
-
-            lines.push(format!("    case {first_short}"));
-            if deeper.is_empty() {
-                let entry = single[0];
-                let long = &entry.long_subcommands[0];
-                if has_template_args(long) {
-                    lines.push(format!("      {base_cmd} {}", substitute_offset(long, 1)));
-                } else {
-                    lines.push(format!("      {base_cmd} {long} $argv[2..]"));
-                }
-            } else {
-                lines.push("      switch $argv[2]".into());
-                for entry in &deeper {
-                    let second_short = &entry.short_subcommands[1];
-                    let expansion = entry
-                        .long_subcommands
-                        .iter()
-                        .map(|s| s.as_str())
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    lines.push(format!("        case {second_short}"));
-                    if has_template_args(&expansion) {
-                        lines.push(format!(
-                            "          {base_cmd} {}",
-                            substitute_offset(&expansion, 2)
-                        ));
-                    } else {
-                        lines.push(format!("          {base_cmd} {expansion} $argv[3..]"));
-                    }
-                }
-                if let Some(entry) = single.first() {
-                    let long = &entry.long_subcommands[0];
-                    lines.push("        case '*'".into());
-                    if has_template_args(long) {
-                        lines.push(format!("          {base_cmd} {}", substitute_offset(long, 1)));
-                    } else {
-                        lines.push(format!("          {base_cmd} {long} $argv[2..]"));
-                    }
-                } else {
-                    lines.push("        case '*'".into());
-                    lines.push(format!("          {base_cmd} $argv"));
-                }
-                lines.push("      end".into());
-            }
-        }
-
-        lines.push("    case '*'".into());
-        lines.push(format!("      {base_cmd} $argv"));
-        lines.push("  end".into());
+        let roots = build_wrapper_trie(entries);
+        emit_fish_switch(&mut lines, &roots, 1, base_cmd, "  ");
         lines.push("end".into());
         lines.join("\n")
+    }
+}
+
+/// Emit a `switch $argv[{argv_depth}]` block for the given set of trie nodes.
+fn emit_fish_switch(
+    lines: &mut Vec<String>,
+    nodes: &BTreeMap<String, WrapperNode>,
+    argv_depth: usize,
+    base_cmd: &str,
+    indent: &str,
+) {
+    lines.push(format!("{indent}switch $argv[{argv_depth}]"));
+    for (short, node) in nodes {
+        lines.push(format!("{indent}  case {short}"));
+        emit_fish_node_body(lines, node, argv_depth, base_cmd, &format!("{indent}    "));
+    }
+    lines.push(format!("{indent}  case '*'"));
+    lines.push(format!("{indent}    {base_cmd} $argv"));
+    lines.push(format!("{indent}end"));
+}
+
+/// Emit the body of a matched case at `argv_depth`.
+/// If the node has children, a nested switch is emitted; otherwise the leaf expansion.
+fn emit_fish_node_body(
+    lines: &mut Vec<String>,
+    node: &WrapperNode,
+    argv_depth: usize,
+    base_cmd: &str,
+    indent: &str,
+) {
+    let next_depth = argv_depth + 1;
+    if node.children.is_empty() {
+        let expansion = node.leaf_longs.as_deref().unwrap_or_default().join(" ");
+        if has_template_args(&expansion) {
+            lines.push(format!("{indent}{base_cmd} {}", substitute_offset(&expansion, argv_depth)));
+        } else {
+            lines.push(format!("{indent}{base_cmd} {expansion} $argv[{next_depth}..]"));
+        }
+    } else {
+        lines.push(format!("{indent}switch $argv[{next_depth}]"));
+        for (short, child) in &node.children {
+            lines.push(format!("{indent}  case {short}"));
+            emit_fish_node_body(lines, child, next_depth, base_cmd, &format!("{indent}    "));
+        }
+        lines.push(format!("{indent}  case '*'"));
+        if let Some(longs) = &node.leaf_longs {
+            let expansion = longs.join(" ");
+            if has_template_args(&expansion) {
+                lines.push(format!("{indent}    {base_cmd} {}", substitute_offset(&expansion, argv_depth)));
+            } else {
+                lines.push(format!("{indent}    {base_cmd} {expansion} $argv[{next_depth}..]"));
+            }
+        } else {
+            lines.push(format!("{indent}    {base_cmd} $argv"));
+        }
+        lines.push(format!("{indent}end"));
     }
 }
 
@@ -275,11 +282,11 @@ mod tests {
             long_subcommands: vec!["rebase -s 'mega()' -d 'toggle({{1}})'".into()],
         }];
         let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
-        // $argv[2] must NOT be trapped inside single quotes
-        assert!(!output.contains("'$argv[2]'"), "variable must not be single-quoted: {output}");
+        // The expansion should break the single-quoted token at the template boundary
+        // so Fish can expand $argv[2] between the two single-quoted fragments.
+        assert!(output.contains("'toggle('$argv[2]')'"), "expected broken single-quote expansion: {output}");
+        // The variable must NOT be trapped entirely inside a single-quoted string.
         assert!(!output.contains("'toggle($argv[2])'"), "broken output found: {output}");
-        // The expansion should produce a double-quoted token for the affected revset
-        assert!(output.contains("\"toggle($argv[2])\""), "expected double-quoted expansion: {output}");
     }
 
     #[test]
@@ -326,5 +333,21 @@ mod tests {
         assert!(output.contains("switch $argv[2]"));
         assert!(output.contains("case l"));
         assert!(output.contains("command jj branch list $argv[3..]"));
+    }
+
+    #[test]
+    fn test_fish_subcommand_wrapper_depth3() {
+        let entries = vec![
+            SubcommandEntry {
+                program: "jj".into(),
+                short_subcommands: vec!["b".into(), "l".into(), "x".into()],
+                long_subcommands: vec!["branch".into(), "list".into(), "extra".into()],
+            },
+        ];
+        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        assert!(output.contains("switch $argv[2]"), "depth-2 switch missing");
+        assert!(output.contains("switch $argv[3]"), "depth-3 switch missing");
+        assert!(output.contains("case x"), "depth-3 case missing");
+        assert!(output.contains("command jj branch list extra $argv[4..]"), "depth-3 expansion wrong");
     }
 }

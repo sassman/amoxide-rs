@@ -500,17 +500,40 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 } else {
                     Style::default().fg(conn)
                 };
-                let label_color = if is_cursor {
+                let key_color = if is_cursor {
                     GOLD
                 } else if is_selected {
                     SELECTED_TEXT
                 } else {
                     SUBCOMMAND_COLOR
                 };
+                let exp_color = if is_cursor {
+                    HEADER_DEFAULT
+                } else if is_selected {
+                    SELECTED_ACCENT_MUTED
+                } else {
+                    TEXT_MUTED
+                };
+                let (key_span, arrow_span, exp_span) =
+                    if let Some((key, exp)) = node.label.split_once(" \u{2192} ") {
+                        (
+                            Span::styled(key.to_string(), Style::default().fg(key_color)),
+                            Span::styled(" \u{2192} ", Style::default().fg(TEXT_MUTED)),
+                            Span::styled(exp.to_string(), Style::default().fg(exp_color)),
+                        )
+                    } else {
+                        (
+                            Span::styled(node.label.clone(), Style::default().fg(key_color)),
+                            Span::raw(""),
+                            Span::raw(""),
+                        )
+                    };
                 lines.push(Line::from(vec![
                     Span::styled(node.prefix.clone(), Style::default().fg(conn)),
                     Span::styled(marker.to_string(), marker_style),
-                    Span::styled(node.label.clone(), Style::default().fg(label_color)),
+                    key_span,
+                    arrow_span,
+                    exp_span,
                 ]));
             }
             NodeKind::AliasItem => {
