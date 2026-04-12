@@ -623,7 +623,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
-        },
+        }
         Message::MoveSubcommandAliases { keys, from, to } => {
             let pairs: Vec<(String, Vec<String>)> = {
                 let src_subcommands = match &from {
@@ -663,7 +663,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
                 AliasTarget::Local => {} // handled via effects below
                 AliasTarget::Profile(name) => {
-                    if let Some(profile) = model.profile_config_mut().get_profile_by_name_mut(name) {
+                    if let Some(profile) = model.profile_config_mut().get_profile_by_name_mut(name)
+                    {
                         for (key, _) in &pairs {
                             profile.subcommands.remove(key);
                         }
@@ -689,9 +690,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     for (key, longs) in pairs {
                         model.config.add_subcommand(key, longs);
                     }
-                    let needs_profiles = matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile);
+                    let needs_profiles =
+                        matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile);
                     if needs_profiles {
-                        Ok(UpdateResult::with_effects(&[Effect::SaveConfig, Effect::SaveProfiles]))
+                        Ok(UpdateResult::with_effects(&[
+                            Effect::SaveConfig,
+                            Effect::SaveProfiles,
+                        ]))
                     } else {
                         Ok(UpdateResult::effect(Effect::SaveConfig))
                     }
@@ -718,13 +723,16 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     }
                     let needs_config = matches!(from, AliasTarget::Global);
                     if needs_config {
-                        Ok(UpdateResult::with_effects(&[Effect::SaveProfiles, Effect::SaveConfig]))
+                        Ok(UpdateResult::with_effects(&[
+                            Effect::SaveProfiles,
+                            Effect::SaveConfig,
+                        ]))
                     } else {
                         Ok(UpdateResult::effect(Effect::SaveProfiles))
                     }
                 }
             }
-        },
+        }
         Message::ListProfiles => {
             let output = render_listing(
                 &model.config.aliases,
@@ -1159,7 +1167,10 @@ mod tests {
     #[test]
     fn update_subcommand_alias_replaces_key() {
         let mut model = AppModel::new(Config::default(), ProfileConfig::default());
-        model.config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        model
+            .config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
         let result = update(
             &mut model,
             Message::UpdateSubcommandAlias {
@@ -1175,13 +1186,19 @@ mod tests {
             model.config.subcommands.get("jj:a"),
             Some(&vec!["abandon".to_string()])
         );
-        assert!(result.effects.iter().any(|e| matches!(e, Effect::SaveConfig)));
+        assert!(result
+            .effects
+            .iter()
+            .any(|e| matches!(e, Effect::SaveConfig)));
     }
 
     #[test]
     fn copy_subcommand_aliases_adds_to_destination() {
         let mut model = AppModel::new(Config::default(), ProfileConfig::default());
-        model.config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        model
+            .config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
             &mut model,
@@ -1204,7 +1221,10 @@ mod tests {
     #[test]
     fn move_subcommand_aliases_removes_from_source() {
         let mut model = AppModel::new(Config::default(), ProfileConfig::default());
-        model.config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        model
+            .config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
             &mut model,

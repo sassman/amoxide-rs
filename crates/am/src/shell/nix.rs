@@ -264,6 +264,9 @@ mod tests {
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("case \"$2\" in"), "depth-2 switch missing");
         assert!(output.contains("case \"$3\" in"), "depth-3 switch missing");
-        assert!(output.contains("x) shift 3; command jj branch list extra \"$@\" ;;"), "depth-3 expansion wrong");
+        assert!(
+            output.contains("x) shift 3; command jj branch list extra \"$@\" ;;"),
+            "depth-3 expansion wrong"
+        );
     }
 }

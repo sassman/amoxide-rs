@@ -38,7 +38,10 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::RemoveLocalAlias { name } => {
             model.save_project_aliases_remove(name)?;
         }
-        Effect::AddLocalSubcommand { key, long_subcommands } => {
+        Effect::AddLocalSubcommand {
+            key,
+            long_subcommands,
+        } => {
             model.save_project_subcommand_add(key, long_subcommands)?;
         }
         Effect::RemoveLocalSubcommand { key } => {

@@ -154,8 +154,16 @@ pub(super) fn dispatch_transfer(
             amoxide::AliasTarget::ActiveProfile => amoxide::AliasTarget::ActiveProfile,
         };
         let msg = match transfer_mode {
-            TransferMode::Move => amoxide::Message::MoveSubcommandAliases { keys, from: from_target, to },
-            TransferMode::Copy => amoxide::Message::CopySubcommandAliases { keys, from: from_target, to },
+            TransferMode::Move => amoxide::Message::MoveSubcommandAliases {
+                keys,
+                from: from_target,
+                to,
+            },
+            TransferMode::Copy => amoxide::Message::CopySubcommandAliases {
+                keys,
+                from: from_target,
+                to,
+            },
         };
         let _ = super::delegation::dispatch(model, msg);
     }
@@ -164,8 +172,14 @@ pub(super) fn dispatch_transfer(
     if !alias_ids.is_empty() {
         let to = lib_dest;
         let msg = match transfer_mode {
-            TransferMode::Move => amoxide::Message::MoveAliases { aliases: alias_ids, to },
-            TransferMode::Copy => amoxide::Message::CopyAliases { aliases: alias_ids, to },
+            TransferMode::Move => amoxide::Message::MoveAliases {
+                aliases: alias_ids,
+                to,
+            },
+            TransferMode::Copy => amoxide::Message::CopyAliases {
+                aliases: alias_ids,
+                to,
+            },
         };
         let _ = super::delegation::dispatch(model, msg);
     }

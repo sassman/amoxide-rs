@@ -233,46 +233,48 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     } => {
                         if let Some((short, long)) = pairs.get_mut(*active_pair) {
                             match active_field {
-                                SubcommandField::Short => { short.pop(); }
-                                SubcommandField::Long => { long.pop(); }
+                                SubcommandField::Short => {
+                                    short.pop();
+                                }
+                                SubcommandField::Long => {
+                                    long.pop();
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        TuiMessage::TextInputSwitchField => {
-            match &mut model.mode {
-                Mode::TextInput(
-                    TextInputState::NewAlias { active_field, .. }
-                    | TextInputState::EditAlias { active_field, .. },
-                ) => {
-                    *active_field = match active_field {
-                        AliasField::Name => AliasField::Command,
-                        AliasField::Command => AliasField::Name,
-                    };
-                }
-                Mode::TextInput(TextInputState::SubcommandInput {
-                    pairs,
-                    active_pair,
-                    active_field,
-                    ..
-                }) => match active_field {
-                    SubcommandField::Short => {
-                        *active_field = SubcommandField::Long;
-                    }
-                    SubcommandField::Long => {
-                        if *active_pair + 1 < pairs.len() {
-                            *active_pair += 1;
-                            *active_field = SubcommandField::Short;
-                        } else {
-                            *active_field = SubcommandField::Short;
-                        }
-                    }
-                },
-                _ => {}
+        TuiMessage::TextInputSwitchField => match &mut model.mode {
+            Mode::TextInput(
+                TextInputState::NewAlias { active_field, .. }
+                | TextInputState::EditAlias { active_field, .. },
+            ) => {
+                *active_field = match active_field {
+                    AliasField::Name => AliasField::Command,
+                    AliasField::Command => AliasField::Name,
+                };
             }
-        }
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs,
+                active_pair,
+                active_field,
+                ..
+            }) => match active_field {
+                SubcommandField::Short => {
+                    *active_field = SubcommandField::Long;
+                }
+                SubcommandField::Long => {
+                    if *active_pair + 1 < pairs.len() {
+                        *active_pair += 1;
+                        *active_field = SubcommandField::Short;
+                    } else {
+                        *active_field = SubcommandField::Short;
+                    }
+                }
+            },
+            _ => {}
+        },
         TuiMessage::TextInputConfirm => {
             let state = match &model.mode {
                 Mode::TextInput(s) => s.clone(),
@@ -460,7 +462,11 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     let key = format!(
                         "{}:{}",
                         program,
-                        pairs.iter().map(|(s, _)| s.as_str()).collect::<Vec<_>>().join(":")
+                        pairs
+                            .iter()
+                            .map(|(s, _)| s.as_str())
+                            .collect::<Vec<_>>()
+                            .join(":")
                     );
                     let long_subcommands: Vec<String> =
                         pairs.iter().map(|(_, l)| l.clone()).collect();
@@ -500,10 +506,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 *active_field = SubcommandField::Short;
             }
         }
-        TuiMessage::StartSubcommandInput => {
-            handle(model, TuiMessage::StartAddAlias);
-        }
-        _ => {}
+_ => {}
     }
 }
 

@@ -39,13 +39,21 @@ fn render_items(
 
     for (i, (name, cmd)) in alias_items.iter().enumerate() {
         let is_last = i + 1 == total;
-        let conn = if is_last { "\u{2570}\u{2500}" } else { "\u{251c}\u{2500}" };
+        let conn = if is_last {
+            "\u{2570}\u{2500}"
+        } else {
+            "\u{251c}\u{2500}"
+        };
         output.push_str(&format!("\n{prefix}{conn} {name} \u{2192} {cmd}"));
     }
 
     for (gi, (program, entries)) in group_items.iter().enumerate() {
         let is_last = alias_count + gi + 1 == total;
-        let conn = if is_last { "\u{2570}\u{2500}" } else { "\u{251c}\u{2500}" };
+        let conn = if is_last {
+            "\u{2570}\u{2500}"
+        } else {
+            "\u{251c}\u{2500}"
+        };
         output.push_str(&format!("\n{prefix}{conn}\u{25c6} {program} (subcommands)"));
 
         // Continuation prefix for items inside the group.
@@ -105,8 +113,17 @@ pub fn render_listing(
 
     // Global header (always present)
     output.push_str("\u{1f310} global");
-    let global_prefix = if has_active_items { "\u{2502}  " } else { "   " };
-    render_items(&mut output, global_prefix, global_aliases, global_subcommands);
+    let global_prefix = if has_active_items {
+        "\u{2502}  "
+    } else {
+        "   "
+    };
+    render_items(
+        &mut output,
+        global_prefix,
+        global_aliases,
+        global_subcommands,
+    );
 
     // Blank line under global aliases (trunk continues if more items)
     if has_active_items {
@@ -138,7 +155,12 @@ pub fn render_listing(
         // Items are indented under the profile connector (├─● or ╰─●).
         // Trunk width is 1 char (│ or space); we add 3 spaces to align past ─●·.
         let profile_prefix = format!("{trunk}   ");
-        render_items(&mut output, &profile_prefix, &profile.aliases, &profile.subcommands);
+        render_items(
+            &mut output,
+            &profile_prefix,
+            &profile.aliases,
+            &profile.subcommands,
+        );
 
         // Blank line after profile (trunk continues if not last)
         if !is_last_active_item {

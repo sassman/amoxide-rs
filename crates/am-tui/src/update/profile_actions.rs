@@ -65,7 +65,12 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     }
                 }
                 NodeKind::SubcommandProgramHeader => {
-                    let program = node.label.split_whitespace().next().unwrap_or("").to_string();
+                    let program = node
+                        .label
+                        .split_whitespace()
+                        .next()
+                        .unwrap_or("")
+                        .to_string();
                     let prog_prefix = format!("{program}:");
                     let keys_to_remove: Vec<String> = {
                         let lib_target = derive_target_from_cursor(model);

@@ -83,6 +83,7 @@ impl From<Shells> for Box<dyn Shell> {
 
 /// A trie node used to build recursive subcommand wrapper functions.
 /// Each node may represent an intermediate group or a leaf alias (or both).
+#[derive(Default)]
 pub(super) struct WrapperNode {
     /// Full long subcommands for a complete entry at this depth (if one exists).
     pub leaf_longs: Option<Vec<String>>,
@@ -90,14 +91,6 @@ pub(super) struct WrapperNode {
     pub children: BTreeMap<String, WrapperNode>,
 }
 
-impl Default for WrapperNode {
-    fn default() -> Self {
-        Self {
-            leaf_longs: None,
-            children: BTreeMap::new(),
-        }
-    }
-}
 
 /// Build a trie from a flat list of subcommand entries grouped under one program.
 /// Returns a map from first-level short token → node.
@@ -111,7 +104,7 @@ pub(super) fn build_wrapper_trie(
         }
         let node = roots
             .entry(entry.short_subcommands[0].clone())
-            .or_insert_with(WrapperNode::default);
+            .or_default();
         trie_insert(node, &entry.short_subcommands[1..], &entry.long_subcommands);
     }
     roots
@@ -124,7 +117,7 @@ fn trie_insert(node: &mut WrapperNode, remaining: &[String], full_longs: &[Strin
         let child = node
             .children
             .entry(remaining[0].clone())
-            .or_insert_with(WrapperNode::default);
+            .or_default();
         trie_insert(child, &remaining[1..], full_longs);
     }
 }
@@ -291,10 +284,7 @@ mod tests {
             substitute_nix("rebase -s 'mega()' -d 'toggle({{1}})'"),
             "rebase -s 'mega()' -d 'toggle('\"$1\"')'"
         );
-        assert_eq!(
-            substitute_nix("'{{@}}'"),
-            "''\"$@\"''"
-        );
+        assert_eq!(substitute_nix("'{{@}}'"), "''\"$@\"''");
     }
 
     #[test]
@@ -308,7 +298,10 @@ mod tests {
     #[test]
     fn test_substitute_unquoted_template_unchanged_behavior() {
         // Templates outside single quotes work as before.
-        assert_eq!(substitute_nix("abandon --rev {{1}}"), "abandon --rev \"$1\"");
+        assert_eq!(
+            substitute_nix("abandon --rev {{1}}"),
+            "abandon --rev \"$1\""
+        );
         assert_eq!(substitute_fish("log --limit {{@}}"), "log --limit $argv");
     }
 

@@ -438,8 +438,16 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 }
             }
             NodeKind::SubcommandProgramHeader => {
-                let marker = if is_cursor { MARKER_CURSOR } else { MARKER_NONE };
-                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { SUBCOMMAND_COLOR };
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else {
+                    MARKER_NONE
+                };
+                let conn = if is_cursor {
+                    TREE_CONNECTOR_ACTIVE
+                } else {
+                    SUBCOMMAND_COLOR
+                };
                 let label_color = if is_cursor { GOLD } else { SUBCOMMAND_COLOR };
                 lines.push(Line::from(vec![
                     Span::styled(
@@ -461,7 +469,11 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 } else {
                     MARKER_NONE
                 };
-                let conn = if is_cursor { TREE_CONNECTOR_ACTIVE } else { SUBCOMMAND_COLOR };
+                let conn = if is_cursor {
+                    TREE_CONNECTOR_ACTIVE
+                } else {
+                    SUBCOMMAND_COLOR
+                };
                 let marker_style = if is_selected {
                     Style::default().fg(SELECTED_ACCENT)
                 } else {
@@ -537,10 +549,12 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 ]));
             }
             NodeKind::AliasItem => {
-                let is_last_alias = model
-                    .tree
-                    .get(i + 1)
-                    .is_none_or(|next| !matches!(next.kind, NodeKind::AliasItem | NodeKind::SubcommandProgramHeader));
+                let is_last_alias = model.tree.get(i + 1).is_none_or(|next| {
+                    !matches!(
+                        next.kind,
+                        NodeKind::AliasItem | NodeKind::SubcommandProgramHeader
+                    )
+                });
 
                 let arm = if is_last_alias {
                     TREE_LAST
@@ -751,7 +765,9 @@ mod subcommand_render {
 
     fn make_model_with_subcommand() -> TuiModel {
         let mut config = Config::default();
-        config.subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
         let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
         let mut model = TuiModel::new().unwrap();
         model.app_model = app;

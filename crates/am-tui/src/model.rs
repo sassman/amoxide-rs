@@ -161,7 +161,6 @@ pub enum TuiMessage {
     ToggleTrust,
     Quit,
     Resize(u16, u16),
-    StartSubcommandInput,
     SubcommandAddPair,
 }
 
@@ -323,7 +322,6 @@ mod new_types_exist {
 
     #[test]
     fn tui_message_variants_exist() {
-        let _ = TuiMessage::StartSubcommandInput;
         let _ = TuiMessage::SubcommandAddPair;
     }
 }

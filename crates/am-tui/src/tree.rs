@@ -7,19 +7,11 @@ use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 // ---------------------------------------------------------------------------
 
 /// Private trie node for building recursive subcommand trees.
+#[derive(Default)]
 struct SubcmdTrieNode {
     /// If this is a leaf, the long form for this level.
     leaf_long: Option<String>,
     children: std::collections::BTreeMap<String, SubcmdTrieNode>,
-}
-
-impl Default for SubcmdTrieNode {
-    fn default() -> Self {
-        Self {
-            leaf_long: None,
-            children: Default::default(),
-        }
-    }
 }
 
 /// Build a per-program trie from a flat SubcommandSet.
@@ -66,7 +58,14 @@ fn emit_subcommand_nodes(
         content_prefix: children_prefix.clone(),
         project_trust: None,
     });
-    emit_trie_children(program, &[], root, &children_prefix, subcommand_scope, nodes);
+    emit_trie_children(
+        program,
+        &[],
+        root,
+        &children_prefix,
+        subcommand_scope,
+        nodes,
+    );
 }
 
 /// Recursively emit SubcommandGroupNode and SubcommandItem for a trie level.
@@ -117,7 +116,14 @@ fn emit_trie_children(
                 content_prefix: child_content_prefix.clone(),
                 project_trust: None,
             });
-            emit_trie_children(program, &segments, child, &child_content_prefix, scope, nodes);
+            emit_trie_children(
+                program,
+                &segments,
+                child,
+                &child_content_prefix,
+                scope,
+                nodes,
+            );
         }
     }
 }
@@ -915,7 +921,9 @@ mod tests {
         let tree = TestConfigBuilder::new()
             .global_subcommand("jj:b:l", &["branch", "list"])
             .build_tree();
-        let group = tree.iter().find(|n| n.kind == NodeKind::SubcommandGroupNode);
+        let group = tree
+            .iter()
+            .find(|n| n.kind == NodeKind::SubcommandGroupNode);
         assert!(group.is_some());
         assert_eq!(group.unwrap().label, "b");
         let leaf = tree.iter().find(|n| n.kind == NodeKind::SubcommandItem);

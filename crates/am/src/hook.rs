@@ -78,8 +78,7 @@ pub fn generate_hook_with_security(
             // - the .aliases file is directly in cwd (not inherited from parent)
             // - we haven't already shown a message for this exact file
             let is_direct = path.parent().is_some_and(|p| p == cwd);
-            let already_seen = prev_project_path
-                .is_some_and(|p| Path::new(p) == path);
+            let already_seen = prev_project_path.is_some_and(|p| Path::new(p) == path);
             let show_messages = !quiet && is_direct && !already_seen;
 
             match status {

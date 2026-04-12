@@ -23,7 +23,6 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 
         TuiMessage::StartCreateProfile
         | TuiMessage::StartAddAlias
-        | TuiMessage::StartSubcommandInput
         | TuiMessage::EditItem
         | TuiMessage::TextInputChar(_)
         | TuiMessage::TextInputBackspace
@@ -886,9 +885,10 @@ mod tests {
     fn make_subcmd_model(keys: &[(&str, &[&str])]) -> TuiModel {
         let mut config = amoxide::Config::default();
         for (key, longs) in keys {
-            config
-                .subcommands
-                .insert(key.to_string(), longs.iter().map(|s| s.to_string()).collect());
+            config.subcommands.insert(
+                key.to_string(),
+                longs.iter().map(|s| s.to_string()).collect(),
+            );
         }
         let app_model = AppModel::new(config, ProfileConfig::default());
         let tree = build_tree_from_parts(
@@ -934,10 +934,8 @@ mod tests {
 
     #[test]
     fn test_delete_subcommand_program_header_removes_all_keys() {
-        let mut model = make_subcmd_model(&[
-            ("jj:ab", &["abandon"]),
-            ("jj:b:l", &["branch", "list"]),
-        ]);
+        let mut model =
+            make_subcmd_model(&[("jj:ab", &["abandon"]), ("jj:b:l", &["branch", "list"])]);
         let idx = model
             .tree
             .iter()

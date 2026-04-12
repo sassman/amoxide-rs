@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, Shell, WrapperNode, TEMPLATE_RE};
+use super::{
+    build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, Shell, WrapperNode,
+    TEMPLATE_RE,
+};
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
@@ -169,9 +172,14 @@ fn emit_fish_node_body(
     if node.children.is_empty() {
         let expansion = node.leaf_longs.as_deref().unwrap_or_default().join(" ");
         if has_template_args(&expansion) {
-            lines.push(format!("{indent}{base_cmd} {}", substitute_offset(&expansion, argv_depth)));
+            lines.push(format!(
+                "{indent}{base_cmd} {}",
+                substitute_offset(&expansion, argv_depth)
+            ));
         } else {
-            lines.push(format!("{indent}{base_cmd} {expansion} $argv[{next_depth}..]"));
+            lines.push(format!(
+                "{indent}{base_cmd} {expansion} $argv[{next_depth}..]"
+            ));
         }
     } else {
         lines.push(format!("{indent}switch $argv[{next_depth}]"));
@@ -183,9 +191,14 @@ fn emit_fish_node_body(
         if let Some(longs) = &node.leaf_longs {
             let expansion = longs.join(" ");
             if has_template_args(&expansion) {
-                lines.push(format!("{indent}    {base_cmd} {}", substitute_offset(&expansion, argv_depth)));
+                lines.push(format!(
+                    "{indent}    {base_cmd} {}",
+                    substitute_offset(&expansion, argv_depth)
+                ));
             } else {
-                lines.push(format!("{indent}    {base_cmd} {expansion} $argv[{next_depth}..]"));
+                lines.push(format!(
+                    "{indent}    {base_cmd} {expansion} $argv[{next_depth}..]"
+                ));
             }
         } else {
             lines.push(format!("{indent}    {base_cmd} $argv"));
@@ -284,9 +297,15 @@ mod tests {
         let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
         // The expansion should break the single-quoted token at the template boundary
         // so Fish can expand $argv[2] between the two single-quoted fragments.
-        assert!(output.contains("'toggle('$argv[2]')'"), "expected broken single-quote expansion: {output}");
+        assert!(
+            output.contains("'toggle('$argv[2]')'"),
+            "expected broken single-quote expansion: {output}"
+        );
         // The variable must NOT be trapped entirely inside a single-quoted string.
-        assert!(!output.contains("'toggle($argv[2])'"), "broken output found: {output}");
+        assert!(
+            !output.contains("'toggle($argv[2])'"),
+            "broken output found: {output}"
+        );
     }
 
     #[test]
@@ -337,17 +356,18 @@ mod tests {
 
     #[test]
     fn test_fish_subcommand_wrapper_depth3() {
-        let entries = vec![
-            SubcommandEntry {
-                program: "jj".into(),
-                short_subcommands: vec!["b".into(), "l".into(), "x".into()],
-                long_subcommands: vec!["branch".into(), "list".into(), "extra".into()],
-            },
-        ];
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["b".into(), "l".into(), "x".into()],
+            long_subcommands: vec!["branch".into(), "list".into(), "extra".into()],
+        }];
         let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("switch $argv[2]"), "depth-2 switch missing");
         assert!(output.contains("switch $argv[3]"), "depth-3 switch missing");
         assert!(output.contains("case x"), "depth-3 case missing");
-        assert!(output.contains("command jj branch list extra $argv[4..]"), "depth-3 expansion wrong");
+        assert!(
+            output.contains("command jj branch list extra $argv[4..]"),
+            "depth-3 expansion wrong"
+        );
     }
 }
