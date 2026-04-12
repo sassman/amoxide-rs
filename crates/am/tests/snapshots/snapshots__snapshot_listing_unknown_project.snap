@@ -5,7 +5,7 @@ expression: output
 🌐 global
 │
 ├─● rust (active: 1)
-│ ct → cargo test
+│   ╰─ ct → cargo test
 │
 ╰─📁 project (/path/to/project/.aliases)
        ⚠ untrusted — run 'am trust' to review and allow

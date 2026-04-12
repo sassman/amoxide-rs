@@ -13,6 +13,63 @@ fn display_path(path: &Path) -> String {
     path.display().to_string()
 }
 
+/// Render one section's aliases and subcommand groups with `├─`/`╰─` connectors.
+///
+/// `prefix` is prepended before each connector — it carries the outer trunk
+/// context (e.g. `"│ "` under global, `"│   "` inside an active profile, `"  "` under project).
+fn render_items(
+    output: &mut String,
+    prefix: &str,
+    aliases: &AliasSet,
+    subcommands: &crate::subcommand::SubcommandSet,
+) {
+    let subcmd_groups = crate::subcommand::group_by_program(subcommands);
+
+    // Chain aliases then subcommand groups into one peekable stream.
+    // Each "item" is rendered with ├─ unless peek() returns None (last item).
+    let alias_items: Vec<(String, String)> = aliases
+        .iter()
+        .map(|(k, v)| (k.as_ref().to_string(), v.command().to_string()))
+        .collect();
+    let group_items: Vec<(String, Vec<crate::subcommand::SubcommandEntry>)> =
+        subcmd_groups.into_iter().collect();
+
+    let alias_count = alias_items.len();
+    let total = alias_count + group_items.len();
+
+    for (i, (name, cmd)) in alias_items.iter().enumerate() {
+        let is_last = i + 1 == total;
+        let conn = if is_last { "\u{2570}\u{2500}" } else { "\u{251c}\u{2500}" };
+        output.push_str(&format!("\n{prefix}{conn} {name} \u{2192} {cmd}"));
+    }
+
+    for (gi, (program, entries)) in group_items.iter().enumerate() {
+        let is_last = alias_count + gi + 1 == total;
+        let conn = if is_last { "\u{2570}\u{2500}" } else { "\u{251c}\u{2500}" };
+        output.push_str(&format!("\n{prefix}{conn}\u{25c6} {program} (subcommands)"));
+
+        // Continuation prefix for items inside the group.
+        // ├─ keeps a trunk; ╰─ uses spaces only.
+        let inner: String = if is_last {
+            format!("{}  ", prefix)
+        } else {
+            format!("{}\u{2502} ", prefix)
+        };
+
+        let mut entry_iter = entries.iter().peekable();
+        while let Some(entry) = entry_iter.next() {
+            let entry_conn = if entry_iter.peek().is_none() {
+                "\u{2570}\u{2500}"
+            } else {
+                "\u{251c}\u{2500}"
+            };
+            let shorts = entry.short_subcommands.join(" ");
+            let longs = entry.long_subcommands.join(" ");
+            output.push_str(&format!("\n{inner}{entry_conn} {shorts} \u{2192} {longs}"));
+        }
+    }
+}
+
 /// Render profiles + project aliases as a complete two-zone listing.
 ///
 /// **Active zone** (connected by tree trunk):
@@ -48,33 +105,8 @@ pub fn render_listing(
 
     // Global header (always present)
     output.push_str("\u{1f310} global");
-    for (alias_name, alias_value) in global_aliases.iter() {
-        let name = alias_name.as_ref();
-        let cmd = alias_value.command();
-        if has_active_items {
-            output.push_str(&format!("\n\u{2502} {name} \u{2192} {cmd}"));
-        } else {
-            output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
-        }
-    }
-    // Global subcommand aliases
-    let subcmd_groups = crate::subcommand::group_by_program(global_subcommands);
-    for (program, entries) in &subcmd_groups {
-        if has_active_items {
-            output.push_str(&format!("\n\u{2502} {program} (subcommands):"));
-        } else {
-            output.push_str(&format!("\n  {program} (subcommands):"));
-        }
-        for entry in entries {
-            let shorts = entry.short_subcommands.join(" ");
-            let longs = entry.long_subcommands.join(" ");
-            if has_active_items {
-                output.push_str(&format!("\n\u{2502}   {shorts} \u{2192} {longs}"));
-            } else {
-                output.push_str(&format!("\n    {shorts} \u{2192} {longs}"));
-            }
-        }
-    }
+    let global_prefix = if has_active_items { "\u{2502}  " } else { "   " };
+    render_items(&mut output, global_prefix, global_aliases, global_subcommands);
 
     // Blank line under global aliases (trunk continues if more items)
     if has_active_items {
@@ -103,22 +135,10 @@ pub fn render_listing(
             profile.name
         ));
 
-        for (alias_name, alias_value) in profile.aliases.iter() {
-            let name = alias_name.as_ref();
-            let cmd = alias_value.command();
-            output.push_str(&format!("\n{trunk} {name} \u{2192} {cmd}"));
-        }
-
-        // Profile subcommand aliases
-        let profile_subcmd_groups = crate::subcommand::group_by_program(&profile.subcommands);
-        for (program, entries) in &profile_subcmd_groups {
-            output.push_str(&format!("\n{trunk} {program} (subcommands):"));
-            for entry in entries {
-                let shorts = entry.short_subcommands.join(" ");
-                let longs = entry.long_subcommands.join(" ");
-                output.push_str(&format!("\n{trunk}   {shorts} \u{2192} {longs}"));
-            }
-        }
+        // Items are indented under the profile connector (├─● or ╰─●).
+        // Trunk width is 1 char (│ or space); we add 3 spaces to align past ─●·.
+        let profile_prefix = format!("{trunk}   ");
+        render_items(&mut output, &profile_prefix, &profile.aliases, &profile.subcommands);
 
         // Blank line after profile (trunk continues if not last)
         if !is_last_active_item {
@@ -135,21 +155,7 @@ pub fn render_listing(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
                     display_path(path)
                 ));
-                for (alias_name, alias_value) in proj.aliases.iter() {
-                    let name = alias_name.as_ref();
-                    let cmd = alias_value.command();
-                    output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
-                }
-                // Project subcommand aliases
-                let proj_subcmd_groups = crate::subcommand::group_by_program(&proj.subcommands);
-                for (program, entries) in &proj_subcmd_groups {
-                    output.push_str(&format!("\n  {program} (subcommands):"));
-                    for entry in entries {
-                        let shorts = entry.short_subcommands.join(" ");
-                        let longs = entry.long_subcommands.join(" ");
-                        output.push_str(&format!("\n    {shorts} \u{2192} {longs}"));
-                    }
-                }
+                render_items(&mut output, "  ", &proj.aliases, &proj.subcommands);
             }
             ProjectTrust::Unknown(_) => {
                 output.push_str(&format!(
@@ -187,21 +193,7 @@ pub fn render_listing(
         output.push('\n');
         for profile in &inactive {
             output.push_str(&format!("\n\u{25cb} {}", profile.name));
-            for (alias_name, alias_value) in profile.aliases.iter() {
-                let name = alias_name.as_ref();
-                let cmd = alias_value.command();
-                output.push_str(&format!("\n  {name} \u{2192} {cmd}"));
-            }
-            // Inactive profile subcommand aliases
-            let inactive_subcmd_groups = crate::subcommand::group_by_program(&profile.subcommands);
-            for (program, entries) in &inactive_subcmd_groups {
-                output.push_str(&format!("\n  {program} (subcommands):"));
-                for entry in entries {
-                    let shorts = entry.short_subcommands.join(" ");
-                    let longs = entry.long_subcommands.join(" ");
-                    output.push_str(&format!("\n    {shorts} \u{2192} {longs}"));
-                }
-            }
+            render_items(&mut output, "  ", &profile.aliases, &profile.subcommands);
             output.push('\n');
         }
     }
@@ -385,7 +377,7 @@ mod tests {
         );
         // Global with trunk
         assert!(output.contains("🌐 global"));
-        assert!(output.contains("│ ll → ls -lha"));
+        assert!(output.contains("│  ╰─ ll → ls -lha"));
         // Active profile with connector
         assert!(output.contains("╰─● rust (active: 1)"));
     }
@@ -465,7 +457,7 @@ mod tests {
         );
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
-        assert!(output.contains("  sayt → echo say it"));
+        assert!(output.contains("  ╰─ sayt → echo say it"));
     }
 
     #[test]
