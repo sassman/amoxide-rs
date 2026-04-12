@@ -1,4 +1,4 @@
-# Subcommand-Aliase
+# Subcommand-Aliase <VersionBadge v="0.5.0" />
 
 Viele Tools wie `jj`, `git`, `cargo` und `kubectl` organisieren ihre Befehle als Subcommands. Subcommand-Aliase ermöglichen es, Kurzformen für diese Subcommands zu erstellen — ohne Shell-Completions oder das Weiterleitungsverhalten zu verlieren.
 

@@ -1,4 +1,4 @@
-# Subcommand Aliases
+# Subcommand Aliases <VersionBadge v="0.5.0" />
 
 Many tools like `jj`, `git`, `cargo`, and `kubectl` organize their commands as subcommands. Subcommand aliases let you create short forms for those subcommands — without losing shell completions or wrapping behavior.
 
