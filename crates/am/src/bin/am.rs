@@ -275,6 +275,7 @@ fn main() -> anyhow::Result<()> {
             // Check for suspicious characters (reuse from exchange)
             let export = ExportAll {
                 local_aliases: project.aliases.clone(),
+                local_subcommands: project.subcommands.clone(),
                 ..Default::default()
             };
             let findings = scan_suspicious(&export);
@@ -304,11 +305,40 @@ fn main() -> anyhow::Result<()> {
                 let cmd = alias_value.command();
                 println!("  {:width$} \u{2192} {cmd}", name, width = max_name_len);
             }
+            let subcmd_groups =
+                amoxide::subcommand::group_by_program(&project.subcommands);
+            if !subcmd_groups.is_empty() {
+                println!();
+                for (program, entries) in &subcmd_groups {
+                    println!("  {program} (subcommands):");
+                    let max_short_len = entries
+                        .iter()
+                        .map(|e| e.short_subcommands.join(" ").len())
+                        .max()
+                        .unwrap_or(0);
+                    for entry in entries {
+                        let shorts = entry.short_subcommands.join(" ");
+                        let longs = entry.long_subcommands.join(" ");
+                        println!(
+                            "    {:width$} \u{2192} {longs}",
+                            shorts,
+                            width = max_short_len
+                        );
+                    }
+                }
+            }
             println!();
+
+            let has_subcommands = !project.subcommands.is_empty();
+            let prompt = if has_subcommands {
+                "Trust these aliases and subcommand aliases?"
+            } else {
+                "Trust these aliases?"
+            };
 
             // Prompt
             let answer = ask_user(
-                "Trust these aliases?",
+                prompt,
                 Answer::Yes,
                 false,
                 &mut std::io::stdin().lock(),
