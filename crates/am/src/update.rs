@@ -157,11 +157,21 @@ impl AppModel {
         self.project_trust.as_ref().map(|t| t.path())
     }
 
-    /// Get project aliases' AliasSet, or empty default
+    /// Get project aliases' AliasSet, or empty default.
     pub fn project_alias_set(&self) -> AliasSet {
         self.project_aliases()
             .map(|p| p.aliases.clone())
             .unwrap_or_default()
+    }
+
+    /// Get project aliases and subcommands together; both empty if project is absent/untrusted.
+    pub fn project_alias_set_and_subcommands(
+        &self,
+    ) -> (AliasSet, crate::subcommand::SubcommandSet) {
+        match self.project_aliases() {
+            Some(p) => (p.aliases.clone(), p.subcommands.clone()),
+            None => (AliasSet::default(), crate::subcommand::SubcommandSet::new()),
+        }
     }
 
     /// Get or create the project path (for saving new .aliases files).
@@ -275,6 +285,23 @@ impl AppModel {
         let path = self.project_path_or_create();
         let mut project = self.project_aliases().cloned().unwrap_or_default();
         project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+        project.save(&path)?;
+        let hash = crate::trust::compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        Ok(())
+    }
+
+    /// Merge a full SubcommandSet into the project .aliases file, saving to disk.
+    pub fn save_project_subcommands(
+        &mut self,
+        subcommands: crate::subcommand::SubcommandSet,
+    ) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        for (key, longs) in subcommands {
+            project.subcommands.insert(key, longs);
+        }
         project.save(&path)?;
         let hash = crate::trust::compute_file_hash(&path)?;
         self.security_config_mut().trust(&path, &hash);
@@ -890,13 +917,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 model.config.merge_aliases(aliases);
                 effects.push(Effect::SaveConfig);
             }
+            if let Some(subcommands) = payload.global_subcommands {
+                for (key, longs) in subcommands {
+                    model.config.subcommands.insert(key, longs);
+                }
+                effects.push(Effect::SaveConfig);
+            }
             for profile in payload.profiles {
                 model.profile_config_mut().merge_profile(profile);
                 if !effects.contains(&Effect::SaveProfiles) {
                     effects.push(Effect::SaveProfiles);
                 }
             }
-            // local_aliases are saved by the CLI layer (needs file path)
+            // local_aliases and local_subcommands are saved by the CLI layer (needs file path)
             Ok(UpdateResult::with_effects(&effects))
         }
         Message::Trust => {

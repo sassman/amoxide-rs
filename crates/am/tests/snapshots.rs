@@ -765,6 +765,7 @@ fn snapshot_export_all() {
             subcommands: Default::default(),
         }],
         local_aliases: aliases(&[("t", "cargo test")]),
+        ..Default::default()
     };
     let output = toml::to_string(&export).unwrap();
     insta::assert_snapshot!(output);
@@ -809,6 +810,7 @@ fn test_export_import_roundtrip_all() {
             subcommands: Default::default(),
         }],
         local_aliases: aliases(&[("t", "cargo test")]),
+        ..Default::default()
     };
 
     let exported = toml::to_string(&export).unwrap();
@@ -861,7 +863,7 @@ fn test_import_payload_through_update() {
             aliases: aliases(&[("gp", "git push")]),
             subcommands: Default::default(),
         }],
-        local_aliases: None,
+        ..Default::default()
     };
 
     let result = update(&mut model, amoxide::Message::Import(payload)).unwrap();
@@ -890,8 +892,7 @@ fn test_import_payload_global_only_no_save_profiles() {
 
     let payload = ImportPayload {
         global_aliases: Some(aliases(&[("ll", "ls -lha")])),
-        profiles: vec![],
-        local_aliases: None,
+        ..Default::default()
     };
 
     let result = update(&mut model, amoxide::Message::Import(payload)).unwrap();

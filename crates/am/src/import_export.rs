@@ -5,8 +5,9 @@ use crate::alias::MergeResult;
 use crate::cli::{ExportArgs, ImportArgs, ShareArgs};
 use crate::effects::Effect;
 use crate::exchange::{
-    base64_decode, base64_encode, parse_import, render_import_summary, render_suspicious_warning,
-    scan_suspicious, ExportAll, ImportPayload, SanitizedName, Scope,
+    base64_decode, base64_encode, parse_import, render_import_summary,
+    render_import_summary_subcommands, render_suspicious_warning, scan_suspicious,
+    subcommand_merge_check, ExportAll, ImportPayload, SanitizedName, Scope,
 };
 use crate::prompt::{ask_user, Answer};
 use crate::update::{update, AppModel};
@@ -29,11 +30,13 @@ pub fn handle_export(model: &AppModel, args: &ExportArgs) -> anyhow::Result<Stri
 fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
     if args.scope.all {
         // --all: everything — only include local if trusted
-        let project_aliases = model.project_alias_set(); // returns empty if not trusted
+        let (project_aliases, project_subcommands) = model.project_alias_set_and_subcommands();
         let export = ExportAll {
             global_aliases: model.config.aliases.clone(),
+            global_subcommands: model.config.subcommands.clone(),
             profiles: model.profile_config().to_vec(),
             local_aliases: project_aliases,
+            local_subcommands: project_subcommands,
         };
         return Ok(toml::to_string(&export)?);
     }
@@ -48,11 +51,13 @@ fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
             .filter_map(|name| model.profile_config().get_profile_by_name(name))
             .cloned()
             .collect();
-        let project_aliases = model.project_alias_set(); // returns empty if not trusted
+        let (project_aliases, project_subcommands) = model.project_alias_set_and_subcommands();
         let export = ExportAll {
             global_aliases: model.config.aliases.clone(),
+            global_subcommands: model.config.subcommands.clone(),
             profiles: active_profiles,
             local_aliases: project_aliases,
+            local_subcommands: project_subcommands,
         };
         return Ok(toml::to_string(&export)?);
     }
@@ -62,6 +67,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
 
     if args.scope.global {
         export.global_aliases = model.config.aliases.clone();
+        export.global_subcommands = model.config.subcommands.clone();
     }
 
     for name in &args.scope.profile {
@@ -82,6 +88,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
             .project_aliases()
             .ok_or_else(|| anyhow::anyhow!("No .aliases file found in directory tree"))?;
         export.local_aliases = project.aliases.clone();
+        export.local_subcommands = project.subcommands.clone();
     }
 
     Ok(toml::to_string(&export)?)
@@ -212,28 +219,73 @@ fn import_auto_route(
         }
     }
 
+    if !parsed.global_subcommands.is_empty() {
+        let merge = subcommand_merge_check(&model.config.subcommands, &parsed.global_subcommands);
+        if let Some(accepted) =
+            prompt_merge_subcommands(&Scope::Global, &merge, auto_yes, reader)?
+        {
+            payload.global_subcommands = Some(accepted);
+        }
+    }
+
     for profile in &parsed.profiles {
-        let existing_aliases = model
+        let existing = model
             .profile_config()
             .get_profile_by_name(&profile.name)
-            .map(|p| p.aliases.clone())
-            .unwrap_or_default();
-        let merge = existing_aliases.merge_check(&profile.aliases);
+            .cloned()
+            .unwrap_or_else(|| Profile {
+                name: profile.name.clone(),
+                aliases: AliasSet::default(),
+                subcommands: Default::default(),
+            });
         let scope = Scope::Profile(SanitizedName::new(&profile.name));
-        if let Some(accepted) = prompt_merge(&scope, &merge, auto_yes, reader)? {
+
+        let alias_merge = existing.aliases.merge_check(&profile.aliases);
+        let accepted_aliases =
+            if let Some(a) = prompt_merge(&scope, &alias_merge, auto_yes, reader)? {
+                a
+            } else {
+                existing.aliases.clone()
+            };
+
+        let subcmd_merge =
+            subcommand_merge_check(&existing.subcommands, &profile.subcommands);
+        let accepted_subcommands = if !profile.subcommands.is_empty() {
+            prompt_merge_subcommands(&scope, &subcmd_merge, auto_yes, reader)?
+                .unwrap_or_default()
+        } else {
+            Default::default()
+        };
+
+        if !alias_merge.new_aliases.is_empty()
+            || !alias_merge.conflicts.is_empty()
+            || !subcmd_merge.new_subcommands.is_empty()
+            || !subcmd_merge.conflicts.is_empty()
+        {
             payload.profiles.push(Profile {
                 name: profile.name.clone(),
-                aliases: accepted,
-                subcommands: Default::default(),
+                aliases: accepted_aliases,
+                subcommands: accepted_subcommands,
             });
         }
     }
 
+    let (existing_local_aliases, existing_local_subcommands) =
+        model.project_alias_set_and_subcommands();
+
     if !parsed.local_aliases.is_empty() {
-        let existing = model.project_alias_set();
-        let merge = existing.merge_check(&parsed.local_aliases);
+        let merge = existing_local_aliases.merge_check(&parsed.local_aliases);
         if let Some(accepted) = prompt_merge(&Scope::Local, &merge, auto_yes, reader)? {
             payload.local_aliases = Some(accepted);
+        }
+    }
+
+    if !parsed.local_subcommands.is_empty() {
+        let merge =
+            subcommand_merge_check(&existing_local_subcommands, &parsed.local_subcommands);
+        if let Some(accepted) = prompt_merge_subcommands(&Scope::Local, &merge, auto_yes, reader)?
+        {
+            payload.local_subcommands = Some(accepted);
         }
     }
 
@@ -247,38 +299,82 @@ fn import_with_override(
     parsed: &ExportAll,
     reader: &mut dyn BufRead,
 ) -> anyhow::Result<()> {
-    let flattened = parsed.flatten();
+    let flattened_aliases = parsed.flatten();
+    let flattened_subcommands = parsed.flatten_subcommands();
     let mut payload = ImportPayload::default();
 
     if scope_args.global {
-        let merge = model.config.aliases.merge_check(&flattened);
+        let merge = model.config.aliases.merge_check(&flattened_aliases);
         if let Some(accepted) = prompt_merge(&Scope::Global, &merge, auto_yes, reader)? {
             payload.global_aliases = Some(accepted);
+        }
+        if !flattened_subcommands.is_empty() {
+            let merge =
+                subcommand_merge_check(&model.config.subcommands, &flattened_subcommands);
+            if let Some(accepted) =
+                prompt_merge_subcommands(&Scope::Global, &merge, auto_yes, reader)?
+            {
+                payload.global_subcommands = Some(accepted);
+            }
         }
     }
 
     for name in &scope_args.profile {
-        let existing_aliases = model
+        let existing = model
             .profile_config()
             .get_profile_by_name(name)
-            .map(|p| p.aliases.clone())
-            .unwrap_or_default();
-        let merge = existing_aliases.merge_check(&flattened);
+            .cloned()
+            .unwrap_or_else(|| Profile {
+                name: name.clone(),
+                aliases: AliasSet::default(),
+                subcommands: Default::default(),
+            });
         let scope = Scope::Profile(SanitizedName::new(name));
-        if let Some(accepted) = prompt_merge(&scope, &merge, auto_yes, reader)? {
+
+        let alias_merge = existing.aliases.merge_check(&flattened_aliases);
+        let accepted_aliases =
+            if let Some(a) = prompt_merge(&scope, &alias_merge, auto_yes, reader)? {
+                a
+            } else {
+                existing.aliases.clone()
+            };
+
+        let subcmd_merge =
+            subcommand_merge_check(&existing.subcommands, &flattened_subcommands);
+        let accepted_subcommands = if !flattened_subcommands.is_empty() {
+            prompt_merge_subcommands(&scope, &subcmd_merge, auto_yes, reader)?
+                .unwrap_or_default()
+        } else {
+            Default::default()
+        };
+
+        if !alias_merge.new_aliases.is_empty()
+            || !alias_merge.conflicts.is_empty()
+            || !subcmd_merge.new_subcommands.is_empty()
+            || !subcmd_merge.conflicts.is_empty()
+        {
             payload.profiles.push(Profile {
                 name: name.clone(),
-                aliases: accepted,
-                subcommands: Default::default(),
+                aliases: accepted_aliases,
+                subcommands: accepted_subcommands,
             });
         }
     }
 
     if scope_args.local {
-        let existing = model.project_alias_set();
-        let merge = existing.merge_check(&flattened);
+        let (existing_aliases, existing_subcommands) =
+            model.project_alias_set_and_subcommands();
+        let merge = existing_aliases.merge_check(&flattened_aliases);
         if let Some(accepted) = prompt_merge(&Scope::Local, &merge, auto_yes, reader)? {
             payload.local_aliases = Some(accepted);
+        }
+        if !flattened_subcommands.is_empty() {
+            let merge = subcommand_merge_check(&existing_subcommands, &flattened_subcommands);
+            if let Some(accepted) =
+                prompt_merge_subcommands(&Scope::Local, &merge, auto_yes, reader)?
+            {
+                payload.local_subcommands = Some(accepted);
+            }
         }
     }
 
@@ -346,8 +442,76 @@ pub fn prompt_merge(
     Ok(Some(accepted))
 }
 
+pub fn prompt_merge_subcommands(
+    scope: &Scope,
+    merge: &crate::exchange::SubcommandMergeResult,
+    auto_yes: bool,
+    reader: &mut dyn BufRead,
+) -> anyhow::Result<Option<crate::subcommand::SubcommandSet>> {
+    if merge.new_subcommands.is_empty() && merge.conflicts.is_empty() {
+        return Ok(None);
+    }
+
+    eprint!(
+        "{}",
+        render_import_summary_subcommands(&scope.to_string(), merge)
+    );
+    eprintln!();
+
+    if !auto_yes {
+        let answer = ask_user(
+            &format!("Merge subcommands into \"{scope}\"?"),
+            crate::prompt::Answer::Yes,
+            false,
+            reader,
+        )?;
+        if answer != crate::prompt::Answer::Yes {
+            eprintln!("Skipped subcommands for \"{scope}\"");
+            return Ok(None);
+        }
+    }
+
+    let mut accepted = merge.new_subcommands.clone();
+
+    if !merge.conflicts.is_empty() {
+        let n = merge.conflicts.len();
+        let label = if n == 1 { "overwrite" } else { "overwrites" };
+        let apply_overwrites = if auto_yes {
+            true
+        } else {
+            let answer = ask_user(
+                &format!("Apply {n} subcommand {label}?"),
+                crate::prompt::Answer::No,
+                false,
+                reader,
+            )?;
+            answer == crate::prompt::Answer::Yes
+        };
+
+        if apply_overwrites {
+            for conflict in &merge.conflicts {
+                accepted.insert(conflict.key.clone(), conflict.incoming.clone());
+            }
+        }
+
+        let imported = accepted.len();
+        let skipped = if apply_overwrites { 0 } else { n };
+        eprintln!(
+            "\u{2713} Imported {imported} subcommand aliases into \"{scope}\" ({skipped} skipped)"
+        );
+    } else {
+        eprintln!(
+            "\u{2713} Imported {} subcommand aliases into \"{scope}\"",
+            accepted.len()
+        );
+    }
+
+    Ok(Some(accepted))
+}
+
 fn apply_import(model: &mut AppModel, payload: ImportPayload) -> anyhow::Result<()> {
     let local_aliases = payload.local_aliases.clone();
+    let local_subcommands = payload.local_subcommands.clone();
 
     // Dispatch through message pipeline — returns effects
     let result = update(model, Message::Import(payload))?;
@@ -361,9 +525,12 @@ fn apply_import(model: &mut AppModel, payload: ImportPayload) -> anyhow::Result<
         }
     }
 
-    // Save local aliases directly (needs file path, not handled by effects)
+    // Save local aliases/subcommands directly (need file path, not handled by effects)
     if let Some(aliases) = local_aliases {
         model.save_project_aliases(aliases)?;
+    }
+    if let Some(subcommands) = local_subcommands {
+        model.save_project_subcommands(subcommands)?;
     }
 
     Ok(())
@@ -776,8 +943,7 @@ mod tests {
 
         let payload = ImportPayload {
             global_aliases: Some(global),
-            profiles: vec![],
-            local_aliases: None,
+            ..Default::default()
         };
 
         // apply_import calls update() + saves — config save will fail
