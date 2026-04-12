@@ -8,6 +8,8 @@ amoxide organizes aliases in three layers, from broadest to most specific:
 
 Each layer can override the previous one. Project aliases override profile aliases, which override global aliases.
 
+All three layers also support **subcommand aliases** — short forms for programs that use subcommands (like `jj`, `git`, `cargo`, or `kubectl`).
+
 ```
 🌐 global
 │ helo → echo hello world global
@@ -30,4 +32,5 @@ Each layer can override the previous one. Project aliases override profile alias
 - [Global Aliases](/usage/global) — always-on aliases for every session
 - [Profiles](/usage/profiles) — managing named alias groups
 - [Project Aliases](/usage/project-aliases) — directory-scoped `.aliases` files
+- [Subcommand Aliases](/usage/subcommand-aliases) — short forms for subcommand-based tools
 - [Sharing](/usage/sharing) — export, import, and share with others
