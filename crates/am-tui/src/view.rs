@@ -176,7 +176,7 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
         };
 
         let (icon, label) =
-            header_content(node, model.app_model.config.activation_order(&node.label));
+            header_content(node, model.app_model.session.activation_order(&node.label));
         let (label_color, icon_color) = header_colors(node, is_cursor);
 
         lines.push(Line::from(vec![
@@ -360,7 +360,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     TREE_CONNECTOR
                 };
                 let (icon, label) =
-                    header_content(node, model.app_model.config.activation_order(&node.label));
+                    header_content(node, model.app_model.session.activation_order(&node.label));
                 let (label_color, icon_color) = header_colors(node, is_cursor);
 
                 lines.push(Line::from(vec![

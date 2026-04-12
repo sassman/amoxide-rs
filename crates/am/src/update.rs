@@ -7,7 +7,7 @@ use crate::init::{generate_init, generate_reload};
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
 use crate::trust::ProjectTrust;
-use crate::{profile, AliasSet, AliasTarget, Message, Profile, ProfileConfig};
+use crate::{profile, AliasSet, AliasTarget, Message, Profile, ProfileConfig, Session};
 
 pub struct UpdateResult {
     pub next: Option<Message>,
@@ -53,6 +53,7 @@ impl UpdateResult {
 
 pub struct AppModel {
     pub config: Config,
+    pub session: Session,
     pub cwd: std::path::PathBuf,
     config_dir: PathBuf,
     profile_config: ProfileConfig,
@@ -85,12 +86,14 @@ impl Default for AppModel {
 impl AppModel {
     fn load_from_internal(config_dir: PathBuf) -> Self {
         let config = Config::load_from(&config_dir).unwrap_or_default();
+        let session = Session::load_from(&config_dir).unwrap_or_default();
         let profile_config = ProfileConfig::load_from(&config_dir).unwrap_or_default();
         let mut security_config = SecurityConfig::load_from(&config_dir).unwrap_or_default();
         let cwd = std::env::current_dir().unwrap_or_default();
         let project_trust = resolve_project_trust(&cwd, &mut security_config);
         Self {
             config,
+            session,
             cwd,
             config_dir,
             profile_config,
@@ -111,6 +114,7 @@ impl AppModel {
     pub fn new(config: Config, profile_config: ProfileConfig) -> Self {
         Self {
             config,
+            session: Session::default(),
             cwd: std::env::current_dir().unwrap_or_default(),
             config_dir: PathBuf::new(),
             profile_config,
@@ -126,6 +130,7 @@ impl AppModel {
     ) -> Self {
         Self {
             config,
+            session: Session::default(),
             cwd: std::env::current_dir().unwrap_or_default(),
             config_dir: PathBuf::new(),
             profile_config,
@@ -195,7 +200,7 @@ impl AppModel {
     }
 
     pub fn get_active_profiles(&self) -> Vec<&Profile> {
-        self.config
+        self.session
             .active_profiles
             .iter()
             .filter_map(|name| self.profile_config.get_profile_by_name(name))
@@ -207,6 +212,13 @@ impl AppModel {
             return Ok(());
         }
         self.config.save_to(&self.config_dir)
+    }
+
+    pub fn save_session(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
+        self.session.save_to(&self.config_dir)
     }
 
     pub fn save_profiles(&self) -> crate::Result<()> {
@@ -300,7 +312,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     raw,
                 }))
             }
-            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
@@ -345,7 +357,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
                 Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
             }
-            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
@@ -425,7 +437,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let output = render_listing(
                 &model.config.aliases,
                 model.profile_config(),
-                &model.config.active_profiles,
+                &model.session.active_profiles,
                 model.project_trust(),
             );
             println!("{output}");
@@ -437,14 +449,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             .map_err(|e| UpdateError::Other(e.to_string()))?
         {
             profile::Response::ProfileAdded(_) => {
-                if !model.config.active_profiles.contains(&name) {
-                    model.config.active_profiles.push(name);
+                if !model.session.active_profiles.contains(&name) {
+                    model.session.active_profiles.push(name);
                 }
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
             profile::Response::ProfileActivated(_) => {
-                if !model.config.active_profiles.contains(&name) {
-                    model.config.active_profiles.push(name);
+                if !model.session.active_profiles.contains(&name) {
+                    model.session.active_profiles.push(name);
                 }
                 Ok(UpdateResult::done())
             }
@@ -452,7 +464,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         Message::InitShell(shell) => {
             let resolved = model
                 .profile_config()
-                .resolve_active_aliases(&model.config.active_profiles);
+                .resolve_active_aliases(&model.session.active_profiles);
             let output = generate_init(&shell, &model.config.aliases, &resolved);
             print!("{output}");
             Ok(UpdateResult::done())
@@ -460,7 +472,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         Message::Reload(shell) => {
             let resolved = model
                 .profile_config()
-                .resolve_active_aliases(&model.config.active_profiles);
+                .resolve_active_aliases(&model.session.active_profiles);
             let prev = std::env::var("_AM_ALIASES").ok();
             let output = generate_reload(&shell, &model.config.aliases, &resolved, prev.as_deref());
             if !output.is_empty() {
@@ -496,13 +508,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
             let mut effects = Vec::new();
             for name in names {
-                let was_active = model.config.is_active(&name);
+                let was_active = model.session.is_active(&name);
                 let alias_count = model
                     .profile_config()
                     .get_profile_by_name(&name)
                     .map(|p| p.aliases.iter().count())
                     .unwrap_or(0);
-                model.config.toggle_profile(name.clone());
+                model.session.toggle_profile(name.clone());
                 let (action, verb) = if was_active {
                     ("deactivated", "unloaded")
                 } else {
@@ -512,7 +524,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     "{name} {action}, {alias_count} aliases {verb}"
                 )));
             }
-            effects.push(Effect::SaveConfig);
+            effects.push(Effect::SaveSession);
             Ok(UpdateResult::with_effects(&effects))
         }
         Message::UseProfilesAt(names, priority) => {
@@ -529,13 +541,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     .get_profile_by_name(&name)
                     .map(|p| p.aliases.iter().count())
                     .unwrap_or(0);
-                model.config.use_profile_at(name.clone(), priority + i);
+                model.session.use_profile_at(name.clone(), priority + i);
                 effects.push(Effect::Print(format!(
                     "{name} activated at position {}, {alias_count} aliases loaded",
                     priority + i
                 )));
             }
-            effects.push(Effect::SaveConfig);
+            effects.push(Effect::SaveSession);
             Ok(UpdateResult::with_effects(&effects))
         }
         Message::RemoveProfile(name) => {
@@ -543,8 +555,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .profile_config_mut()
                 .remove_profile(&name)
                 .map_err(|e| UpdateError::Other(e.to_string()))?;
-            model.config.active_profiles.retain(|p| p != &name);
-            Ok(UpdateResult::effect(Effect::SaveProfiles))
+            model.session.active_profiles.retain(|p| p != &name);
+            Ok(UpdateResult::with_effects(&[Effect::SaveProfiles, Effect::SaveSession]))
         }
         Message::Import(payload) => {
             let mut effects = Vec::new();
@@ -621,12 +633,12 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     name: old_name.clone(),
                 })?;
             profile.name = new_name.clone();
-            for p in &mut model.config.active_profiles {
+            for p in &mut model.session.active_profiles {
                 if *p == old_name {
                     *p = new_name.clone();
                 }
             }
-            Ok(UpdateResult::effect(Effect::SaveProfiles))
+            Ok(UpdateResult::with_effects(&[Effect::SaveProfiles, Effect::SaveSession]))
         }
     }
 }
@@ -644,7 +656,7 @@ fn resolve_profile_mut<'a>(
             }),
         AliasTarget::ActiveProfile => {
             let active = model
-                .config
+                .session
                 .active_profiles
                 .last()
                 .cloned()
@@ -962,9 +974,9 @@ mod tests {
         assert!(
             matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated"))
         );
-        assert!(matches!(&result.effects[2], Effect::SaveConfig));
+        assert!(matches!(&result.effects[2], Effect::SaveSession));
         assert_eq!(
-            model.config.active_profiles,
+            model.session.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
         );
     }
@@ -983,7 +995,7 @@ mod tests {
 
         assert!(matches!(result, Err(UpdateError::ProfileNotFound { name }) if name == "nope"));
         // git should NOT have been toggled since validation failed
-        assert!(model.config.active_profiles.is_empty());
+        assert!(model.session.active_profiles.is_empty());
     }
 
     #[test]
@@ -1008,24 +1020,21 @@ mod tests {
         assert!(
             matches!(&result.effects[1], Effect::Print(s) if s.contains("rust") && s.contains("position 2"))
         );
-        assert!(matches!(&result.effects[2], Effect::SaveConfig));
+        assert!(matches!(&result.effects[2], Effect::SaveSession));
         assert_eq!(
-            model.config.active_profiles,
+            model.session.active_profiles,
             vec!["git".to_string(), "rust".to_string()]
         );
     }
 
     #[test]
     fn use_profiles_at_inserts_at_offset() {
-        let config = Config {
-            active_profiles: vec!["node".to_string()],
-            ..Config::default()
-        };
         let profile_config: ProfileConfig = toml::from_str(
             "[[profiles]]\nname = \"git\"\n\n[[profiles]]\nname = \"rust\"\n\n[[profiles]]\nname = \"node\"\n",
         )
         .unwrap();
-        let mut model = AppModel::new(config, profile_config);
+        let mut model = AppModel::new(Config::default(), profile_config);
+        model.session.active_profiles = vec!["node".to_string()];
 
         let result = update(
             &mut model,
@@ -1034,10 +1043,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.effects.len(), 3);
-        assert!(matches!(&result.effects[2], Effect::SaveConfig));
+        assert!(matches!(&result.effects[2], Effect::SaveSession));
         // node at 1, git at 2, rust at 3
         assert_eq!(
-            model.config.active_profiles,
+            model.session.active_profiles,
             vec!["node".to_string(), "git".to_string(), "rust".to_string()]
         );
     }
@@ -1055,7 +1064,7 @@ mod tests {
         );
 
         assert!(result.is_err());
-        assert!(model.config.active_profiles.is_empty());
+        assert!(model.session.active_profiles.is_empty());
     }
 
     #[test]
@@ -1416,15 +1425,12 @@ mod tests {
 
     #[test]
     fn rename_profile_renames_in_config_and_active_list() {
-        let config = Config {
-            active_profiles: vec!["git".to_string()],
-            ..Config::default()
-        };
         let profile_config: ProfileConfig = toml::from_str(
             "[[profiles]]\nname = \"git\"\n[profiles.aliases]\ngs = \"git status\"\n",
         )
         .unwrap();
-        let mut model = AppModel::new(config, profile_config);
+        let mut model = AppModel::new(Config::default(), profile_config);
+        model.session.active_profiles = vec!["git".to_string()];
 
         let result = update(
             &mut model,
@@ -1435,11 +1441,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.effects, vec![Effect::SaveProfiles]);
+        assert_eq!(
+            result.effects,
+            vec![Effect::SaveProfiles, Effect::SaveSession]
+        );
         assert!(model.profile_config().get_profile_by_name("vcs").is_some());
         assert!(model.profile_config().get_profile_by_name("git").is_none());
-        assert!(model.config.active_profiles.contains(&"vcs".to_string()));
-        assert!(!model.config.active_profiles.contains(&"git".to_string()));
+        assert!(model.session.active_profiles.contains(&"vcs".to_string()));
+        assert!(!model.session.active_profiles.contains(&"git".to_string()));
         // Aliases preserved
         let profile = model.profile_config().get_profile_by_name("vcs").unwrap();
         let key = crate::AliasName::from("gs");

@@ -42,7 +42,7 @@ fn export_toml(model: &AppModel, args: &ExportArgs) -> anyhow::Result<String> {
     if !has_scope {
         // No flags: active scope (global + active profiles + local if present and trusted)
         let active_profiles: Vec<_> = model
-            .config
+            .session
             .active_profiles
             .iter()
             .filter_map(|name| model.profile_config().get_profile_by_name(name))
