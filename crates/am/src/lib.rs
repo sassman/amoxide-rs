@@ -14,10 +14,10 @@ pub mod profile;
 pub mod project;
 pub mod prompt;
 pub mod security;
+pub mod session;
 pub mod setup;
 pub mod shell;
 pub mod status;
-pub mod session;
 pub mod trust;
 pub mod update;
 

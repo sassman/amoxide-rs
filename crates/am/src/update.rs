@@ -556,7 +556,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .remove_profile(&name)
                 .map_err(|e| UpdateError::Other(e.to_string()))?;
             model.session.active_profiles.retain(|p| p != &name);
-            Ok(UpdateResult::with_effects(&[Effect::SaveProfiles, Effect::SaveSession]))
+            Ok(UpdateResult::with_effects(&[
+                Effect::SaveProfiles,
+                Effect::SaveSession,
+            ]))
         }
         Message::Import(payload) => {
             let mut effects = Vec::new();
@@ -638,7 +641,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     *p = new_name.clone();
                 }
             }
-            Ok(UpdateResult::with_effects(&[Effect::SaveProfiles, Effect::SaveSession]))
+            Ok(UpdateResult::with_effects(&[
+                Effect::SaveProfiles,
+                Effect::SaveSession,
+            ]))
         }
     }
 }
