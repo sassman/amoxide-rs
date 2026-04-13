@@ -671,6 +671,16 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
 
             let need_local_src = matches!(from, AliasTarget::Local);
             let need_local_dst = matches!(to, AliasTarget::Local);
+            // Pre-collect remove effects for Local source before pairs are moved into the
+            // destination arms. Local→Local is excluded: we'd be removing what we're adding.
+            let remove_local_effects: Vec<Effect> = if need_local_src && !need_local_dst {
+                pairs
+                    .iter()
+                    .map(|(key, _)| Effect::RemoveLocalSubcommand { key: key.clone() })
+                    .collect()
+            } else {
+                vec![]
+            };
             if need_local_src || need_local_dst {
                 if let Some(trust) = model.project_trust() {
                     if !trust.is_trusted() {
@@ -719,14 +729,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     }
                     let needs_profiles =
                         matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile);
+                    let mut effects = remove_local_effects;
                     if needs_profiles {
-                        Ok(UpdateResult::with_effects(&[
-                            Effect::SaveConfig,
-                            Effect::SaveProfiles,
-                        ]))
+                        effects.extend([Effect::SaveConfig, Effect::SaveProfiles]);
                     } else {
-                        Ok(UpdateResult::effect(Effect::SaveConfig))
+                        effects.push(Effect::SaveConfig);
                     }
+                    Ok(UpdateResult::with_effects(&effects))
                 }
                 AliasTarget::Local => {
                     let mut effects: Vec<Effect> = pairs
@@ -749,14 +758,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         profile.add_subcommand(key, longs);
                     }
                     let needs_config = matches!(from, AliasTarget::Global);
+                    let mut effects = remove_local_effects;
                     if needs_config {
-                        Ok(UpdateResult::with_effects(&[
-                            Effect::SaveProfiles,
-                            Effect::SaveConfig,
-                        ]))
+                        effects.extend([Effect::SaveProfiles, Effect::SaveConfig]);
                     } else {
-                        Ok(UpdateResult::effect(Effect::SaveProfiles))
+                        effects.push(Effect::SaveProfiles);
                     }
+                    Ok(UpdateResult::with_effects(&effects))
                 }
             }
         }

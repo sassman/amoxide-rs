@@ -243,6 +243,10 @@ impl Profile {
         self.subcommands.insert(key, long_subcommands);
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.aliases.is_empty() && self.subcommands.is_empty()
+    }
+
     pub fn remove_subcommand(&mut self, key: &str) -> Result<()> {
         self.subcommands
             .remove(key)

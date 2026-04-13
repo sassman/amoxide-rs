@@ -11,17 +11,22 @@ amoxide generiert pro Programm eine Shell-Funktion, die den Subcommand abfängt 
 
 ## Subcommand-Aliase hinzufügen
 
-Verwende einen Doppelpunkt (`:`) im Namen, um einen Subcommand-Alias zu signalisieren:
+Verwende `--sub`, um jedes kurze Token mit seiner langen Expansion zu verknüpfen:
 
 ```sh
-am add -g jj:ab abandon
+am add -g jj --sub ab abandon
 # jj ab → jj abandon
 
-am add -g jj:b:l branch list
+am add -g jj --sub b branch --sub l list
 # jj b l → jj branch list
 ```
 
-Der Doppelpunkt trennt das Programm vom kurzen Subcommand-Token (und weitere Ebenen für verschachtelte Subcommands). Die Expansion ist der vollständige Subcommand, der ausgeführt wird.
+Die Doppelpunkt-(`:`)-Notation ist eine Kurzform dafür — Programm und alle kurzen Token durch Doppelpunkte verbunden, gefolgt von der Expansion:
+
+```sh
+am add -g jj:ab abandon
+am add -g jj:b:l branch list
+```
 
 ::: tip
 Kurzform: `am a -g jj:ab abandon`
@@ -125,7 +130,7 @@ Siehe [Projekt-Aliase — Vertrauensmodell](/de/usage/project-aliases#vertrauens
 🌐 global
 │  ◆ jj
 │  │  ├─ ab → abandon
-│  │  ╰─ b:l → branch list
+│  │  ╰─ b l → branch list
 │
 ╰─📁 project (.aliases)
   ◆ cargo

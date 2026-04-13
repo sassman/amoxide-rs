@@ -11,17 +11,22 @@ amoxide generates a shell function per program that intercepts the subcommand an
 
 ## Adding Subcommand Aliases
 
-Use a colon (`:`) in the name to signal a subcommand alias:
+Use `--sub` to pair each short token with its long expansion:
 
 ```sh
-am add -g jj:ab abandon
+am add -g jj --sub ab abandon
 # jj ab → jj abandon
 
-am add -g jj:b:l branch list
+am add -g jj --sub b branch --sub l list
 # jj b l → jj branch list
 ```
 
-The colon separates the program from the short subcommand token (and further levels for nested subcommands). The expansion is the full subcommand that gets run.
+The colon (`:`) notation is a shorthand for the same thing — the program and all short tokens joined by colons, followed by the expansion:
+
+```sh
+am add -g jj:ab abandon
+am add -g jj:b:l branch list
+```
 
 ::: tip
 Short form: `am a -g jj:ab abandon`
@@ -128,7 +133,7 @@ See [Project Aliases — Trust Model](/usage/project-aliases#trust-model) for de
 🌐 global
 │  ◆ jj
 │  │  ├─ ab → abandon
-│  │  ╰─ b:l → branch list
+│  │  ╰─ b l → branch list
 │
 ╰─📁 project (.aliases)
   ◆ cargo

@@ -199,12 +199,24 @@ fn main() -> anyhow::Result<()> {
                         .profile_config()
                         .get_profile_by_name(name)
                         .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
-                    if !profile.aliases.is_empty() {
-                        let count = profile.aliases.iter().count();
-                        let question = format!(
-                            "Profile '{name}' has {count} alias{}. Remove?",
-                            if count == 1 { "" } else { "es" }
-                        );
+                    if !profile.is_empty() {
+                        let alias_count = profile.aliases.iter().count();
+                        let subcmd_count = profile.subcommands.len();
+                        let question = match (alias_count, subcmd_count) {
+                            (a, 0) => format!(
+                                "Profile '{name}' has {a} alias{}. Remove?",
+                                if a == 1 { "" } else { "es" }
+                            ),
+                            (0, s) => format!(
+                                "Profile '{name}' has {s} subcommand alias{}. Remove?",
+                                if s == 1 { "" } else { "es" }
+                            ),
+                            (a, s) => format!(
+                                "Profile '{name}' has {a} alias{} and {s} subcommand alias{}. Remove?",
+                                if a == 1 { "" } else { "es" },
+                                if s == 1 { "" } else { "es" },
+                            ),
+                        };
                         if ask_user(&question, Answer::No, false, &mut std::io::stdin().lock())?
                             != Answer::Yes
                         {
