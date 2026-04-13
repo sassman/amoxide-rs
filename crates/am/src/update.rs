@@ -7,6 +7,7 @@ use crate::init::{generate_init, generate_reload};
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
 use crate::trust::ProjectTrust;
+use crate::profile::AliasCollection;
 use crate::{profile, AliasSet, AliasTarget, Message, Profile, ProfileConfig, Session};
 
 pub struct UpdateResult {
@@ -577,6 +578,31 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 model.config.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
+            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+                if model.project_path().is_some() {
+                    if let Some(trust) = model.project_trust() {
+                        if !trust.is_trusted() {
+                            return Err(UpdateError::ProjectNotTrusted {
+                                path: trust.path().to_path_buf(),
+                            });
+                        }
+                    }
+                    Ok(UpdateResult::new(
+                        Message::AddSubcommandAlias(
+                            new_key,
+                            long_subcommands,
+                            AliasTarget::Local,
+                        ),
+                        &[Effect::RemoveLocalSubcommand {
+                            key: original_key,
+                        }],
+                    ))
+                } else {
+                    model.config.subcommands.remove(&original_key);
+                    model.config.add_subcommand(new_key, long_subcommands);
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+            }
             AliasTarget::Local => {
                 if let Some(trust) = model.project_trust() {
                     if !trust.is_trusted() {
@@ -867,20 +893,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let mut effects = Vec::new();
             for name in names {
                 let was_active = model.session.is_active(&name);
-                let alias_count = model
+                let (total, list) = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| p.aliases.iter().count())
-                    .unwrap_or(0);
+                    .map(|p| (p.len(), p.short_list()))
+                    .unwrap_or((0, String::new()));
                 model.session.toggle_profile(name.clone());
-                let (action, verb) = if was_active {
-                    ("deactivated", "unloaded")
+                let action = if was_active { "deactivated" } else { "activated" };
+                let msg = if was_active || list.is_empty() {
+                    format!("{name} {action}, {total} aliases")
                 } else {
-                    ("activated", "loaded")
+                    format!("{name} {action} — {total} loaded: {list}")
                 };
-                effects.push(Effect::Print(format!(
-                    "{name} {action}, {alias_count} aliases {verb}"
-                )));
+                effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
             Ok(UpdateResult::with_effects(&effects))
@@ -894,16 +919,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
             let mut effects = Vec::new();
             for (i, name) in names.into_iter().enumerate() {
-                let alias_count = model
+                let (total, list) = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| p.aliases.iter().count())
-                    .unwrap_or(0);
+                    .map(|p| (p.len(), p.short_list()))
+                    .unwrap_or((0, String::new()));
                 model.session.use_profile_at(name.clone(), priority + i);
-                effects.push(Effect::Print(format!(
-                    "{name} activated at position {}, {alias_count} aliases loaded",
-                    priority + i
-                )));
+                let pos = priority + i;
+                let msg = if list.is_empty() {
+                    format!("{name} activated at position {pos}, {total} aliases loaded")
+                } else {
+                    format!("{name} activated at position {pos} — {total} loaded: {list}")
+                };
+                effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
             Ok(UpdateResult::with_effects(&effects))

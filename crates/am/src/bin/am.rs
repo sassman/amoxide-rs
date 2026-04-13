@@ -9,6 +9,7 @@ use amoxide::{
     effects::Effect,
     exchange::{render_suspicious_warning, scan_suspicious, ExportAll},
     import_export::{handle_export, handle_import, handle_share},
+    profile::AliasCollection,
     project::{ProjectAliases, ALIASES_FILE},
     prompt::{ask_user, Answer},
     trust::compute_file_hash,

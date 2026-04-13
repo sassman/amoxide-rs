@@ -4,8 +4,24 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::dirs::config_dir;
-use crate::subcommand::SubcommandSet;
+use crate::subcommand::{group_by_program, SubcommandSet};
 use crate::{AliasDetail, AliasName, AliasSet, Result, TomlAlias};
+
+/// A collection of aliases (regular and/or subcommand) that can report its
+/// size and produce a compact human-readable summary.
+pub trait AliasCollection {
+    /// Returns `true` when both regular aliases and subcommand entries are empty.
+    fn is_empty(&self) -> bool;
+
+    /// Total count: regular aliases + subcommand entries.
+    fn len(&self) -> usize;
+
+    /// Compact summary for use in activation messages, e.g.:
+    /// - `"gs, ct"` – only regular aliases
+    /// - `"◆ jj (ab, b l)"` – only subcommand groups
+    /// - `"gs, ◆ jj (ab)"` – mixed
+    fn short_list(&self) -> String;
+}
 
 const CONFIG_FILE: &str = "profiles.toml";
 
@@ -243,15 +259,42 @@ impl Profile {
         self.subcommands.insert(key, long_subcommands);
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.aliases.is_empty() && self.subcommands.is_empty()
-    }
-
     pub fn remove_subcommand(&mut self, key: &str) -> Result<()> {
         self.subcommands
             .remove(key)
             .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))?;
         Ok(())
+    }
+}
+
+impl AliasCollection for Profile {
+    fn is_empty(&self) -> bool {
+        self.aliases.is_empty() && self.subcommands.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        self.aliases.len() + self.subcommands.len()
+    }
+
+    fn short_list(&self) -> String {
+        let mut parts: Vec<String> = self
+            .aliases
+            .iter()
+            .map(|(k, _)| k.as_ref().to_string())
+            .collect();
+
+        let groups = group_by_program(&self.subcommands);
+        for (program, entries) in &groups {
+            // Each entry's short_subcommands are space-joined; entries within
+            // the same program are comma-separated.
+            let subcommand_tokens: Vec<String> = entries
+                .iter()
+                .map(|e| e.short_subcommands.join(" "))
+                .collect();
+            parts.push(format!("◆ {} ({})", program, subcommand_tokens.join(", ")));
+        }
+
+        parts.join(", ")
     }
 }
 
@@ -419,5 +462,87 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config = ProfileConfig::load_from(dir.path()).unwrap();
         assert!(config.is_empty());
+    }
+
+    // --- AliasCollection trait ---
+
+    #[test]
+    fn alias_collection_is_empty_for_empty_profile() {
+        let profile = Profile::new("empty".into());
+        assert!(profile.is_empty());
+    }
+
+    #[test]
+    fn alias_collection_is_not_empty_with_regular_alias() {
+        let mut profile = Profile::new("git".into());
+        profile.add_alias("gs".into(), "git status".into(), false).unwrap();
+        assert!(!profile.is_empty());
+    }
+
+    #[test]
+    fn alias_collection_is_not_empty_with_subcommand() {
+        let mut profile = Profile::new("jj".into());
+        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        assert!(!profile.is_empty());
+    }
+
+    #[test]
+    fn alias_collection_len_counts_both() {
+        let mut profile = Profile::new("mixed".into());
+        profile.add_alias("gs".into(), "git status".into(), false).unwrap();
+        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        profile.add_subcommand("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+        assert_eq!(profile.len(), 3); // 1 alias + 2 subcommand entries
+    }
+
+    #[test]
+    fn alias_collection_short_list_aliases_only() {
+        let config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "git"
+            [profiles.aliases]
+            gs = "git status"
+            ct = "cargo test"
+        "#})
+        .unwrap();
+        let profile = config.get_profile_by_name("git").unwrap();
+        let list = profile.short_list();
+        // Both names should appear; order is BTreeMap (alphabetical)
+        assert!(list.contains("gs"), "expected 'gs' in '{list}'");
+        assert!(list.contains("ct"), "expected 'ct' in '{list}'");
+    }
+
+    #[test]
+    fn alias_collection_short_list_subcommands_only() {
+        let mut profile = Profile::new("jj".into());
+        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        profile.add_subcommand("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+        let list = profile.short_list();
+        assert!(list.contains("◆ jj"), "expected '◆ jj' in '{list}'");
+        assert!(list.contains("ab"), "expected 'ab' in '{list}'");
+        assert!(list.contains("b l"), "expected 'b l' in '{list}'");
+    }
+
+    #[test]
+    fn alias_collection_short_list_mixed() {
+        let config: ProfileConfig = toml::from_str(indoc! {r#"
+            [[profiles]]
+            name = "mixed"
+            [profiles.aliases]
+            gs = "git status"
+            [profiles.subcommands]
+            "jj:ab" = ["abandon"]
+        "#})
+        .unwrap();
+        let profile = config.get_profile_by_name("mixed").unwrap();
+        let list = profile.short_list();
+        assert!(list.contains("gs"), "expected 'gs' in '{list}'");
+        assert!(list.contains("◆ jj"), "expected '◆ jj' in '{list}'");
+    }
+
+    #[test]
+    fn alias_collection_short_list_empty_profile() {
+        let profile = Profile::new("empty".into());
+        assert_eq!(profile.short_list(), "");
     }
 }
