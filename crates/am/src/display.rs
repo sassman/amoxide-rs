@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::trust::ProjectTrust;
-use crate::{AliasSet, Profile, ProfileConfig};
+use crate::{AliasDisplayFilter, AliasSet, Profile, ProfileConfig};
 
 /// Display a path as `~/…` when it falls under the user's home directory.
 fn display_path(path: &Path) -> String {
@@ -91,6 +91,7 @@ pub fn render_listing(
     config: &ProfileConfig,
     active_profiles: &[String],
     project: Option<&ProjectTrust>,
+    filter: Option<AliasDisplayFilter>,
 ) -> String {
     let mut output = String::new();
 
@@ -211,7 +212,7 @@ pub fn render_listing(
 
     // ── Inactive zone ────────────────────────────────────────────
 
-    if !inactive.is_empty() {
+    if !matches!(filter, Some(AliasDisplayFilter::Used)) && !inactive.is_empty() {
         output.push('\n');
         for profile in &inactive {
             output.push_str(&format!("\n\u{25cb} {}", profile.name));
@@ -396,6 +397,7 @@ mod tests {
             &config,
             &["rust".to_string()],
             None,
+            None,
         );
         // Global with trunk
         assert!(output.contains("🌐 global"));
@@ -430,6 +432,7 @@ mod tests {
             &config,
             &["git".to_string(), "rust".to_string()],
             Some(&trust),
+            None,
         );
         assert!(output.contains("├─● git (active: 1)"));
         assert!(output.contains("├─● rust (active: 2)"));
@@ -451,6 +454,7 @@ mod tests {
             &crate::subcommand::SubcommandSet::new(),
             &config,
             &["rust".to_string()],
+            None,
             None,
         );
         assert!(output.contains("╰─● rust (active: 1)"));
@@ -476,6 +480,7 @@ mod tests {
             &config,
             &["rust".to_string()],
             None,
+            None,
         );
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
@@ -491,6 +496,7 @@ mod tests {
             &crate::subcommand::SubcommandSet::new(),
             &config,
             &[],
+            None,
             None,
         );
         assert!(output.contains("🌐 global"));
@@ -519,6 +525,7 @@ mod tests {
             &config,
             &["default".to_string()],
             Some(&trust),
+            None,
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(output.contains("📁 project"));
@@ -538,9 +545,47 @@ mod tests {
             &config,
             &["default".to_string()],
             None,
+            None,
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(!output.contains("📁"));
+    }
+
+    #[test]
+    fn test_listing_used_filter_hides_inactive_profiles() {
+        let config = make_config(indoc! {r#"
+            [[profiles]]
+            name = "active"
+            [profiles.aliases]
+            t = "cargo test"
+
+            [[profiles]]
+            name = "inactive"
+            [profiles.aliases]
+            b = "cargo build"
+        "#});
+
+        let output = render_listing(
+            &AliasSet::default(),
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &["active".to_string()],
+            None,
+            Some(AliasDisplayFilter::Used),
+        );
+
+        assert!(
+            output.contains("active"),
+            "active profile should be visible"
+        );
+        assert!(
+            !output.contains("inactive"),
+            "inactive profile should be hidden"
+        );
+        assert!(
+            !output.contains("cargo build"),
+            "inactive alias should be hidden"
+        );
     }
 
     #[test]
@@ -552,7 +597,7 @@ mod tests {
         subs.insert("jj:ab".into(), vec!["abandon".into()]);
         subs.insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
 
-        let output = render_listing(&AliasSet::default(), &subs, &config, &[], None);
+        let output = render_listing(&AliasSet::default(), &subs, &config, &[], None, None);
         assert!(output.contains("jj (subcommands)"));
         assert!(output.contains("ab → abandon"));
         assert!(output.contains("b l → branch list"));

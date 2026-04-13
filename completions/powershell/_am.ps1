@@ -72,6 +72,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;ls' {
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
+            [CompletionResult]::new('--used', '--used', [CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -125,6 +127,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;profile;list' {
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
+            [CompletionResult]::new('--used', '--used', [CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')

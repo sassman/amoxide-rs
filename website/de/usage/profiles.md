@@ -43,6 +43,18 @@ am profile list      # explizit
 am l                 # kürzeste Form
 ```
 
+Aktive Profile werden durch einen Baum-Stamm verbunden dargestellt. Inaktive Profile erscheinen darunter.
+
+Um nur das anzuzeigen, was gerade aktiv ist — aktive Profile und geladene Projekt-Aliase — nutze `--used`:
+
+```sh
+am l --used
+am l -u              # Kurzform
+am profile list -u
+```
+
+Inaktive Profile werden ausgeblendet, damit die Ausgabe übersichtlich bleibt, wenn viele Profile definiert sind.
+
 ## Profil entfernen
 
 ```sh

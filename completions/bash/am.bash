@@ -587,7 +587,7 @@ _am() {
             return 0
             ;;
         am__ls)
-            opts="-h -V --help --version"
+            opts="-u -h -V --used --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -713,7 +713,7 @@ _am() {
             return 0
             ;;
         am__profile__list)
-            opts="-h -V --help --version"
+            opts="-u -h -V --used --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

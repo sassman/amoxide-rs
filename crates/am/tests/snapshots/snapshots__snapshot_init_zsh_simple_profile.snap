@@ -1,6 +1,5 @@
 ---
 source: crates/am/tests/snapshots.rs
-assertion_line: 111
 expression: output
 ---
 gs() { git status "$@"; }
@@ -101,6 +100,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (ls)
 _arguments "${_arguments_options[@]}" : \
+'-u[Show only active profiles and loaded project aliases]' \
+'--used[Show only active profiles and loaded project aliases]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -166,6 +167,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (list)
 _arguments "${_arguments_options[@]}" : \
+'-u[Show only active profiles and loaded project aliases]' \
+'--used[Show only active profiles and loaded project aliases]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \

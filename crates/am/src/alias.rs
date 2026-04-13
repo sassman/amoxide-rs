@@ -153,6 +153,11 @@ pub struct AliasConflict {
     pub incoming: TomlAlias,
 }
 
+#[derive(Debug)]
+pub enum AliasDisplayFilter {
+    Used,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

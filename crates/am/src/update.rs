@@ -6,7 +6,7 @@ use crate::init::{generate_init, generate_reload};
 use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
 use crate::trust::ProjectTrust;
-use crate::{profile, AliasTarget, Message, Profile};
+use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
 pub struct UpdateResult {
     pub next: Option<Message>,
@@ -515,13 +515,20 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
             }
         }
-        Message::ListProfiles => {
+        Message::ListProfiles { used } => {
             let output = render_listing(
                 &model.config.aliases,
                 &model.config.subcommands,
                 model.profile_config(),
                 &model.session.active_profiles,
                 model.project_trust(),
+                {
+                    if used {
+                        Some(AliasDisplayFilter::Used)
+                    } else {
+                        None
+                    }
+                },
             );
             println!("{output}");
             Ok(UpdateResult::done())
@@ -1046,7 +1053,7 @@ mod tests {
 
     #[test]
     fn update_result_message_has_message_and_no_effects() {
-        let r = UpdateResult::message(Message::ListProfiles);
+        let r = UpdateResult::message(Message::ListProfiles { used: false });
         assert!(r.next.is_some());
         assert!(r.effects.is_empty());
     }
@@ -1061,7 +1068,7 @@ mod tests {
     #[test]
     fn update_result_new_has_message_and_effects() {
         let r = UpdateResult::new(
-            Message::ListProfiles,
+            Message::ListProfiles { used: false },
             &[Effect::SaveConfig, Effect::SaveProfiles],
         );
         assert!(r.next.is_some());

@@ -1,6 +1,5 @@
 ---
 source: crates/am/tests/snapshots.rs
-assertion_line: 176
 expression: output
 ---
 alias ll "ls -lha"
@@ -109,6 +108,7 @@ complete -c am -n "__fish_am_using_subcommand remove" -l sub -d 'Subcommand path
 complete -c am -n "__fish_am_using_subcommand remove" -s g -l global -d 'Remove a global alias'
 complete -c am -n "__fish_am_using_subcommand remove" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand remove" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand ls" -s u -l used -d 'Show only active profiles and loaded project aliases'
 complete -c am -n "__fish_am_using_subcommand ls" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand ls" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand status" -s h -l help -d 'Print help'
@@ -129,6 +129,7 @@ complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcomman
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from remove" -s f -l force -d 'Skip confirmation prompt'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from remove" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from remove" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from list" -s u -l used -d 'Show only active profiles and loaded project aliases'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from list" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from list" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "add" -d 'Add a new profile'
