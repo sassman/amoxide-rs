@@ -189,6 +189,53 @@ fn snapshot_init_fish_deep_chain() {
     insta::assert_snapshot!(output);
 }
 
+#[test]
+fn snapshot_init_fish_with_simple_subcommands() {
+    let globals = aliases(&[("gs", "git status")]);
+    let mut subcommands = SubcommandSet::new();
+    subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+    subcommands.insert("jj:new".into(), vec!["new --no-edit".into()]);
+    let output = generate_init(
+        &Shells::Fish,
+        &globals,
+        &AliasSet::default(),
+        &subcommands,
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_init_bash_with_kubectl_subcommands() {
+    let mut subcommands = SubcommandSet::new();
+    subcommands.insert(
+        "kubectl:get:po".into(),
+        vec!["get".into(), "pods".into()],
+    );
+    subcommands.insert(
+        "kubectl:get:svc".into(),
+        vec!["get".into(), "services".into()],
+    );
+    subcommands.insert(
+        "kubectl:apply:f".into(),
+        vec!["apply".into(), "-f".into()],
+    );
+    subcommands.insert(
+        "kubectl:rollout:status".into(),
+        vec!["rollout".into(), "status".into()],
+    );
+    subcommands.insert(
+        "kubectl:logs:f".into(),
+        vec!["logs".into(), "-f".into()],
+    );
+    let output = generate_init(
+        &Shells::Bash,
+        &AliasSet::default(),
+        &AliasSet::default(),
+        &subcommands,
+    );
+    insta::assert_snapshot!(output);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Reload snapshots
 // ═══════════════════════════════════════════════════════════════════════

@@ -1,5 +1,6 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 130
 expression: output
 ---
 function global:gs { git status @args }
@@ -131,7 +132,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;remove' {
             [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
             [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
-            [System.Management.Automation.CompletionResult]::new('--sub', '--sub', [System.Management.Automation.CompletionResultType]::ParameterName, 'Remove a subcommand alias (repeatable: --sub short)')
+            [System.Management.Automation.CompletionResult]::new('--sub', '--sub', [System.Management.Automation.CompletionResultType]::ParameterName, 'Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj:b:l)')
             [System.Management.Automation.CompletionResult]::new('-g', '-g', [System.Management.Automation.CompletionResultType]::ParameterName, 'Remove a global alias')
             [System.Management.Automation.CompletionResult]::new('--global', '--global', [System.Management.Automation.CompletionResultType]::ParameterName, 'Remove a global alias')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')

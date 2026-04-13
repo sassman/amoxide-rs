@@ -1,5 +1,6 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 111
 expression: output
 ---
 gs() { git status "$@"; }
@@ -88,7 +89,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '(-g --global)-p+[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
 '(-g --global)--profile=[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
-'*--sub=[Remove a subcommand alias (repeatable\: --sub short)]:SUB:_default' \
+'*--sub=[Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj\:b\:l)]:SUB:_default' \
 '-g[Remove a global alias]' \
 '--global[Remove a global alias]' \
 '-h[Print help]' \
