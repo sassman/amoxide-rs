@@ -547,6 +547,26 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     arrow_span,
                     exp_span,
                 ]));
+
+                // Breathing room between sections: when the last subcommand item in a group
+                // is immediately followed by a section header, emit a blank separator line.
+                let next_is_section_header = model.tree.get(i + 1).is_some_and(|n| {
+                    matches!(
+                        n.kind,
+                        NodeKind::GlobalHeader
+                            | NodeKind::ProjectHeader
+                            | NodeKind::ProfileHeader
+                    )
+                });
+                if next_is_section_header {
+                    lines.push(Line::from(Span::styled(
+                        node.prefix
+                            .chars()
+                            .map(|c| if c == '│' { '│' } else { ' ' })
+                            .collect::<String>(),
+                        Style::default().fg(TREE_CONNECTOR),
+                    )));
+                }
             }
             NodeKind::AliasItem => {
                 let is_last_alias = model.tree.get(i + 1).is_none_or(|next| {
