@@ -12,21 +12,25 @@ All three layers also support **subcommand aliases** — short forms for program
 
 ```
 🌐 global
-│ helo → echo hello world global
+│  ╰─ ll → ls -lha
 │
-├─● git (active: 1)
-│ gm → git commit -S --signoff -m
+├─● rust (active: 1)
+│   ├─ i → cargo install --path .
+│   ├─ l → cargo clippy --locked --all-targets -- -D warnings
+│   ╰─ t → cargo test --all-features
 │
-├─● rust (active: 2)
-│ ct → cargo test
-│ cb → cargo build
+├─● git (active: 2)
+│   ├─ gm → git commit -S --signoff -m
+│   ╰─◆ git (subcommands)
+│     ├─ psh → push
+│     ╰─ st → status --short
 │
-╰─📁 project (/path/to/project/.aliases)
-  t → ./x.py test
-  b → ./x.py build
+╰─📁 project (~/path/to/project/.aliases)
+  ├─ b → ./x.py build
+  ╰─ t → ./x.py test
 
 ○ node
-  nr → npm run
+  ╰─ nr → npm run
 ```
 
 - [Global Aliases](/usage/global) — always-on aliases for every session
