@@ -552,7 +552,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_listing_used_filter_hides_inactive_profiles() {
         let config = make_config(indoc! {r#"
             [[profiles]]
@@ -575,11 +574,21 @@ mod tests {
             Some(AliasDisplayFilter::Used),
         );
 
-        assert!(output.contains("active"), "active profile should be visible");
-        assert!(!output.contains("inactive"), "inactive profile should be hidden");
-        assert!(!output.contains("cargo build"), "inactive alias should be hidden");
+        assert!(
+            output.contains("active"),
+            "active profile should be visible"
+        );
+        assert!(
+            !output.contains("inactive"),
+            "inactive profile should be hidden"
+        );
+        assert!(
+            !output.contains("cargo build"),
+            "inactive alias should be hidden"
+        );
     }
 
+    #[test]
     fn test_listing_global_subcommands() {
         use crate::subcommand::SubcommandSet;
 
