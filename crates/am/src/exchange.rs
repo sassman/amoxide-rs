@@ -29,6 +29,9 @@ impl ExportAll {
             && self.local_subcommands.is_empty()
     }
 
+    /// Flatten all aliases from every scope into one AliasSet.
+    /// Precedence: local > profiles (last profile wins) > global.
+    /// Duplicate keys are silently overwritten by higher-priority scopes.
     pub fn flatten(&self) -> AliasSet {
         let mut result = AliasSet::default();
         for (name, alias) in self.global_aliases.iter() {
@@ -46,6 +49,8 @@ impl ExportAll {
     }
 
     /// Flatten all subcommands from every scope into one SubcommandSet.
+    /// Precedence: local > profiles (last profile wins) > global.
+    /// Duplicate keys are silently overwritten by higher-priority scopes.
     pub fn flatten_subcommands(&self) -> SubcommandSet {
         let mut result = SubcommandSet::new();
         for (k, v) in &self.global_subcommands {

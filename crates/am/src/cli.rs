@@ -35,7 +35,7 @@ pub enum Commands {
         /// The alias name to remove
         name: String,
 
-        /// Remove a subcommand alias (repeatable: --sub short)
+        /// Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj:b:l)
         #[arg(long = "sub")]
         sub: Vec<String>,
     },
