@@ -133,7 +133,7 @@ Siehe [Projekt-Aliase — Vertrauensmodell](/de/usage/project-aliases#vertrauens
 │    ├─ ab → abandon
 │    ╰─ b l → branch list
 │
-╰─📁 project (.aliases)
+╰─📁 project (/path/to/project/.aliases)
   ├─ t → cargo test
   ╰─◆ cargo (subcommands)
     ╰─ test → test --test {{1}} -- {{@}}

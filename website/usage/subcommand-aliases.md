@@ -29,7 +29,7 @@ am add -g jj:b:l branch list
 ```
 
 ::: tip
-Short form: `am a -g jj:ab abandon`
+Even Shorter form: `am a -g jj:ab abandon`
 :::
 
 The scope flags work exactly like regular aliases:
@@ -47,10 +47,14 @@ Add more colon-separated tokens for nested dispatch:
 ```sh
 am add -g jj:b:l branch list
 am add -g jj:b:c branch create
-am add -g kubectl:get:po "get pods"
+
+am add -g k kubectl
+am add -g k:get:po get pods
 ```
 
-When you run `jj b l`, amoxide dispatches through `jj → b → l` and expands to `jj branch list "$@"`.
+When you run `jj b l`, amoxide dispatches through `jj → b → l` and expands to `jj branch list <other-args>`.
+
+When you run `k get po`, amoxide dispatches through `k → get → po` and knows k is a alias for `kubectl`, so it expands to `kubectl get pods <other-args>`.
 
 ## Templates in Expansions
 
@@ -60,11 +64,11 @@ Expansions support the same templates as regular aliases:
 am add -g jj:anon "log -r 'anon()'"
 # jj anon → jj log -r 'anon()'
 
-am add -g jj:edit "edit {{1}}"
-# jj edit abc123 → jj edit abc123
+am add -g jj:e "edit {{1}}"
+# jj e abc123 → jj edit abc123
 
-am add -g cargo:test "test --test {{1}} -- {{@}}"
-# cargo test integration foo bar → cargo test --test integration -- foo bar
+am add -g cargo:t "test --test {{1}} -- {{@}}"
+# cargo t integration foo bar → cargo test --test integration -- foo bar
 ```
 
 See [Parameterized Aliases](/advanced/parameterized-aliases) for the full template reference.
@@ -136,7 +140,7 @@ See [Project Aliases — Trust Model](/usage/project-aliases#trust-model) for de
 │    ├─ ab → abandon
 │    ╰─ b l → branch list
 │
-╰─📁 project (.aliases)
+╰─📁 project (/path/to/project/.aliases)
   ├─ t → cargo test
   ╰─◆ cargo (subcommands)
     ╰─ test → test --test {{1}} -- {{@}}

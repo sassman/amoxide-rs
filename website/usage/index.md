@@ -21,7 +21,7 @@ All three layers also support **subcommand aliases** — short forms for program
 │ ct → cargo test
 │ cb → cargo build
 │
-╰─📁 project aliases (.aliases)
+╰─📁 project (/path/to/project/.aliases)
   t → ./x.py test
   b → ./x.py build
 

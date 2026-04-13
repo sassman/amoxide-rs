@@ -21,7 +21,7 @@ Alle drei Ebenen unterstützen auch **Subcommand-Aliase** — Kurzformen für Pr
 │ ct → cargo test
 │ cb → cargo build
 │
-╰─📁 project aliases (.aliases)
+╰─📁 project (/path/to/project/.aliases)
   t → ./x.py test
   b → ./x.py build
 
