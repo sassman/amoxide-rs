@@ -261,6 +261,7 @@ impl AppModel {
         let hash = crate::trust::compute_file_hash(&path)?;
         self.security_config_mut().trust(&path, &hash);
         self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
         Ok(())
     }
 
@@ -274,6 +275,7 @@ impl AppModel {
         let hash = crate::trust::compute_file_hash(&path)?;
         self.security_config_mut().trust(&path, &hash);
         self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
         Ok(())
     }
 
@@ -290,6 +292,7 @@ impl AppModel {
         let hash = crate::trust::compute_file_hash(&path)?;
         self.security_config_mut().trust(&path, &hash);
         self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
         Ok(())
     }
 
@@ -307,6 +310,7 @@ impl AppModel {
         let hash = crate::trust::compute_file_hash(&path)?;
         self.security_config_mut().trust(&path, &hash);
         self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
         Ok(())
     }
 
@@ -319,6 +323,7 @@ impl AppModel {
         let hash = crate::trust::compute_file_hash(&path)?;
         self.security_config_mut().trust(&path, &hash);
         self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
         Ok(())
     }
 }
