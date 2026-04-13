@@ -128,13 +128,15 @@ Siehe [Projekt-Aliase — Vertrauensmodell](/de/usage/project-aliases#vertrauens
 
 ```
 🌐 global
-│  ◆ jj
-│  │  ├─ ab → abandon
-│  │  ╰─ b l → branch list
+│  ├─ ll → ls -lha
+│  ╰─◆ jj (subcommands)
+│    ├─ ab → abandon
+│    ╰─ b l → branch list
 │
 ╰─📁 project (.aliases)
-  ◆ cargo
-     ╰─ test → test --test ...
+  ├─ t → cargo test
+  ╰─◆ cargo (subcommands)
+    ╰─ test → test --test {{1}} -- {{@}}
 ```
 
 Die TUI (`am tui`) ermöglicht es, Subcommand-Aliase interaktiv zu verwalten.
