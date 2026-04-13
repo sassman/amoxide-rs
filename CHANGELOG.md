@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separate session state into session.toml (#87)
 - Subcommand aliases (#81)
 - *(ci)* Make sure website deploy happends after release announce
+- *(am)* Add --used flag to filter listing to active profiles (#88)
 
 ### 🐛 Bug Fixes
 
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release v0.4.0 (#66)
 - Skip build/coverage for community-only PRs
 - Release v0.5.0 (#67)
+- Update CHANAGELOG for v0.5.0
 
 ### Community
 
