@@ -29,7 +29,9 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
         | TuiMessage::TextInputConfirm
         | TuiMessage::TextInputCancel
         | TuiMessage::TextInputSwitchField
-        | TuiMessage::SubcommandAddPair => text_input::handle(model, msg),
+        | TuiMessage::TextInputSwitchFieldBack
+        | TuiMessage::TextInputCursorLeft
+        | TuiMessage::TextInputCursorRight => text_input::handle(model, msg),
 
         TuiMessage::EnterMoveMode
         | TuiMessage::EnterCopyMode
@@ -845,25 +847,84 @@ mod tests {
 
     #[test]
     fn test_subcmd_add_pair_extends_pairs() {
+        // Tab on the Long field of a complete pair should add a new pair.
         let mut model = test_model("profiles = []");
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into())],
             active_pair: 0,
-            active_field: SubcommandField::Short,
+            active_field: SubcommandField::Long,
+            cursor: "abandon".len(),
             target: AliasTarget::Global,
             original_key: None,
         });
-        update(&mut model, TuiMessage::SubcommandAddPair);
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs,
+                active_pair,
+                active_field,
+                ..
+            }) => {
+                assert_eq!(pairs.len(), 2);
+                assert_eq!(*active_pair, 1);
+                assert_eq!(*active_field, SubcommandField::Short);
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_tab_on_empty_long_does_not_add_pair() {
+        // Tab on an empty Long field should not add a new pair.
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "".into())],
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            cursor: 0,
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
         match &model.mode {
             Mode::TextInput(TextInputState::SubcommandInput {
                 pairs, active_pair, ..
             }) => {
-                assert_eq!(pairs.len(), 2);
-                assert_eq!(*active_pair, 1);
+                assert_eq!(pairs.len(), 1, "no new pair should be added");
+                assert_eq!(*active_pair, 0);
             }
             other => panic!("expected SubcommandInput, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn test_esc_removes_empty_last_pair() {
+        // Esc when the last pair is empty should remove it, not exit.
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into()), ("".into(), "".into())],
+            active_pair: 1,
+            active_field: SubcommandField::Short,
+            cursor: 0,
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::TextInputCancel);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs, active_pair, ..
+            }) => {
+                assert_eq!(pairs.len(), 1, "empty last pair should be removed");
+                assert_eq!(*active_pair, 0);
+            }
+            other => panic!("expected SubcommandInput after first Esc, got {other:?}"),
+        }
+        // Second Esc exits
+        update(&mut model, TuiMessage::TextInputCancel);
+        assert_eq!(model.mode, Mode::Normal);
     }
 
     #[test]
@@ -874,6 +935,7 @@ mod tests {
             pairs: vec![("ab".into(), "abandon".into())],
             active_pair: 0,
             active_field: SubcommandField::Long,
+            cursor: "abandon".len(),
             target: AliasTarget::Global,
             original_key: None,
         });

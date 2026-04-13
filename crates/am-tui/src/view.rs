@@ -261,6 +261,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             pairs,
             active_pair,
             active_field,
+            cursor,
             ..
         } => {
             let mut spans: Vec<Span<'_>> = vec![Span::styled(
@@ -272,28 +273,43 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                     spans.push(Span::styled(" › ", Style::default().fg(TEXT_MUTED)));
                 }
                 let is_active_pair = i == *active_pair;
-                let short_style = if is_active_pair && *active_field == SubcommandField::Short {
+
+                // Render short field
+                let short_active = is_active_pair && *active_field == SubcommandField::Short;
+                let short_style = if short_active {
                     Style::default().fg(TEXT_PRIMARY)
                 } else {
                     Style::default().fg(TEXT_MUTED)
                 };
-                let long_style = if is_active_pair && *active_field == SubcommandField::Long {
-                    Style::default().fg(TEXT_PRIMARY)
-                } else {
-                    Style::default().fg(TEXT_MUTED)
-                };
-                spans.push(Span::styled(short.clone(), short_style));
-                if is_active_pair && *active_field == SubcommandField::Short {
+                if short_active {
+                    let pos = (*cursor).min(short.len());
+                    spans.push(Span::styled(short[..pos].to_string(), short_style));
                     spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                    spans.push(Span::styled(short[pos..].to_string(), short_style));
+                } else {
+                    spans.push(Span::styled(short.clone(), short_style));
                 }
+
                 spans.push(Span::styled(" → ", Style::default().fg(TEXT_MUTED)));
-                spans.push(Span::styled(long.clone(), long_style));
-                if is_active_pair && *active_field == SubcommandField::Long {
+
+                // Render long field
+                let long_active = is_active_pair && *active_field == SubcommandField::Long;
+                let long_style = if long_active {
+                    Style::default().fg(TEXT_PRIMARY)
+                } else {
+                    Style::default().fg(TEXT_MUTED)
+                };
+                if long_active {
+                    let pos = (*cursor).min(long.len());
+                    spans.push(Span::styled(long[..pos].to_string(), long_style));
                     spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                    spans.push(Span::styled(long[pos..].to_string(), long_style));
+                } else {
+                    spans.push(Span::styled(long.clone(), long_style));
                 }
             }
             spans.push(Span::styled(
-                "   (a: add pair, ↵: confirm, esc: cancel)",
+                "   (Tab: next, Shift+Tab: back, ↵: confirm, Esc: cancel)",
                 Style::default().fg(TEXT_MUTED),
             ));
             Line::from(spans)

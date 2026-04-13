@@ -52,9 +52,11 @@ fn map_subcmd_input_key(key: &KeyEvent) -> Option<TuiMessage> {
     match key.code {
         KeyCode::Enter => Some(TuiMessage::TextInputConfirm),
         KeyCode::Esc => Some(TuiMessage::TextInputCancel),
-        KeyCode::Tab | KeyCode::Left | KeyCode::Right => Some(TuiMessage::TextInputSwitchField),
+        KeyCode::Tab => Some(TuiMessage::TextInputSwitchField),
+        KeyCode::BackTab => Some(TuiMessage::TextInputSwitchFieldBack),
+        KeyCode::Left => Some(TuiMessage::TextInputCursorLeft),
+        KeyCode::Right => Some(TuiMessage::TextInputCursorRight),
         KeyCode::Backspace => Some(TuiMessage::TextInputBackspace),
-        KeyCode::Char('a') => Some(TuiMessage::SubcommandAddPair),
         KeyCode::Char(c) => Some(TuiMessage::TextInputChar(c)),
         _ => None,
     }

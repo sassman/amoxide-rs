@@ -97,6 +97,8 @@ pub enum TextInputState {
         pairs: Vec<(String, String)>,
         active_pair: usize,
         active_field: SubcommandField,
+        /// Byte offset of the cursor within the currently active field's string.
+        cursor: usize,
         target: AliasTarget,
         original_key: Option<String>,
     },
@@ -156,12 +158,14 @@ pub enum TuiMessage {
     EditItem,
     TextInputCancel,
     TextInputSwitchField,
+    TextInputSwitchFieldBack,
+    TextInputCursorLeft,
+    TextInputCursorRight,
     ConfirmYes,
     ConfirmNo,
     ToggleTrust,
     Quit,
     Resize(u16, u16),
-    SubcommandAddPair,
 }
 
 pub const MIN_WIDTH: u16 = 60;
@@ -315,6 +319,7 @@ mod new_types_exist {
             pairs: vec![("ab".into(), "abandon".into())],
             active_pair: 0,
             active_field: SubcommandField::Long,
+            cursor: 0,
             target: AliasTarget::Global,
             original_key: None,
         };
@@ -322,6 +327,8 @@ mod new_types_exist {
 
     #[test]
     fn tui_message_variants_exist() {
-        let _ = TuiMessage::SubcommandAddPair;
+        let _ = TuiMessage::TextInputSwitchFieldBack;
+        let _ = TuiMessage::TextInputCursorLeft;
+        let _ = TuiMessage::TextInputCursorRight;
     }
 }

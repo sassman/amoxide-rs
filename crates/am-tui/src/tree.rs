@@ -261,13 +261,25 @@ pub fn build_tree_from_parts(
     }
 
     // --- Global subcommand program headers ---
+    let global_item_count = global_aliases.iter().count() + global_prog_names.len();
     for (prog_idx, program) in global_prog_names.iter().enumerate() {
         let item_position = global_aliases.iter().count() + prog_idx;
-        let is_last = item_position == active_zone_children - 1;
-        let arm = if is_last { TREE_LAST } else { TREE_BRANCH };
-        let cp = if is_last { TREE_SPACE } else { TREE_TRUNK };
-        let header_prefix = arm.to_string();
-        let children_prefix = format!("{cp} ");
+        // arm: ╰─ when last *within the global section* (like the CLI)
+        let is_last_in_section = item_position == global_item_count - 1;
+        // outer trunk: │ persists as long as there are more items *after* the global zone
+        let is_last_in_zone = item_position == active_zone_children - 1;
+        let arm = if is_last_in_section {
+            TREE_LAST
+        } else {
+            TREE_BRANCH
+        };
+        let outer_trunk = if is_last_in_zone {
+            TREE_SPACE
+        } else {
+            TREE_TRUNK
+        };
+        let header_prefix = format!("{outer_trunk}{arm}");
+        let children_prefix = format!("{outer_trunk}    ");
 
         let trie = build_subcmd_trie(global_subcommands, program);
         emit_subcommand_nodes(
