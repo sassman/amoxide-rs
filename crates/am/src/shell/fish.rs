@@ -151,7 +151,7 @@ fn emit_fish_switch(
 ) {
     lines.push(format!("{indent}switch $argv[{argv_depth}]"));
     for (short, node) in nodes {
-        lines.push(format!("{indent}  case {short}"));
+        lines.push(format!("{indent}  case '{short}'"));
         emit_fish_node_body(lines, node, argv_depth, base_cmd, &format!("{indent}    "));
     }
     lines.push(format!("{indent}  case '*'"));
@@ -184,7 +184,7 @@ fn emit_fish_node_body(
     } else {
         lines.push(format!("{indent}switch $argv[{next_depth}]"));
         for (short, child) in &node.children {
-            lines.push(format!("{indent}  case {short}"));
+            lines.push(format!("{indent}  case '{short}'"));
             emit_fish_node_body(lines, child, next_depth, base_cmd, &format!("{indent}    "));
         }
         lines.push(format!("{indent}  case '*'"));
@@ -265,7 +265,7 @@ mod tests {
         }];
         let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("function jj --wraps=jj"));
-        assert!(output.contains("case ab"));
+        assert!(output.contains("case 'ab'"));
         assert!(output.contains("command jj abandon $argv[2..]"));
         assert!(output.contains("case '*'"));
         assert!(output.contains("command jj $argv"));
@@ -347,10 +347,10 @@ mod tests {
             },
         ];
         let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
-        assert!(output.contains("case ab"));
-        assert!(output.contains("case b"));
+        assert!(output.contains("case 'ab'"));
+        assert!(output.contains("case 'b'"));
         assert!(output.contains("switch $argv[2]"));
-        assert!(output.contains("case l"));
+        assert!(output.contains("case 'l'"));
         assert!(output.contains("command jj branch list $argv[3..]"));
     }
 
@@ -364,7 +364,7 @@ mod tests {
         let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("switch $argv[2]"), "depth-2 switch missing");
         assert!(output.contains("switch $argv[3]"), "depth-3 switch missing");
-        assert!(output.contains("case x"), "depth-3 case missing");
+        assert!(output.contains("case 'x'"), "depth-3 case missing");
         assert!(
             output.contains("command jj branch list extra $argv[4..]"),
             "depth-3 expansion wrong"
