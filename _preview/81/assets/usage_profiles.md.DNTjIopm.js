@@ -15,7 +15,7 @@ import{_ as n,a as t}from"./chunks/am-tui-managing-profiles.DEW2_x1y.js";import{
 <span class="line"><span>├─● rust (active: 2)</span></span>
 <span class="line"><span>│ ct → cargo test</span></span>
 <span class="line"><span>│</span></span>
-<span class="line"><span>╰─📁 project aliases (.aliases)</span></span>
+<span class="line"><span>╰─📁 project (/path/to/project/.aliases)</span></span>
 <span class="line"><span></span></span>
 <span class="line"><span>○ node</span></span>
 <span class="line"><span>  nr → npm run</span></span></code></pre></div><h2 id="removing-a-profile" tabindex="-1">Removing a Profile <a class="header-anchor" href="#removing-a-profile" aria-label="Permalink to &quot;Removing a Profile&quot;">​</a></h2><div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0;">am</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;"> profile</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;"> remove</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;"> rust</span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">     # asks for confirmation if it has aliases</span></span>

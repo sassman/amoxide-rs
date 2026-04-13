@@ -8,7 +8,7 @@ import{_ as s,o as e,c as n,ah as l}from"./chunks/framework.DPdd53wz.js";const h
 <span class="line"><span>│ ct → cargo test</span></span>
 <span class="line"><span>│ cb → cargo build</span></span>
 <span class="line"><span>│</span></span>
-<span class="line"><span>╰─📁 project aliases (.aliases)</span></span>
+<span class="line"><span>╰─📁 project (/path/to/project/.aliases)</span></span>
 <span class="line"><span>  t → ./x.py test</span></span>
 <span class="line"><span>  b → ./x.py build</span></span>
 <span class="line"><span></span></span>

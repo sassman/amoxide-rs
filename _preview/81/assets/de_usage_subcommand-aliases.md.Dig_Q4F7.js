@@ -36,7 +36,7 @@ import{_ as n,C as t,o as l,c as h,j as i,a,E as p,ah as k}from"./chunks/framewo
 <span class="line"><span>│    ├─ ab → abandon</span></span>
 <span class="line"><span>│    ╰─ b l → branch list</span></span>
 <span class="line"><span>│</span></span>
-<span class="line"><span>╰─📁 project (.aliases)</span></span>
+<span class="line"><span>╰─📁 project (/path/to/project/.aliases)</span></span>
 <span class="line"><span>  ├─ t → cargo test</span></span>
 <span class="line"><span>  ╰─◆ cargo (subcommands)</span></span>
 <span class="line"><span>    ╰─ test → test --test {{1}} -- {{@}}</span></span></code></pre></div><p>Die TUI (<code>am tui</code>) ermöglicht es, Subcommand-Aliase interaktiv zu verwalten.</p>`,38))])}const E=n(d,[["render",o]]);export{y as __pageData,E as default};
