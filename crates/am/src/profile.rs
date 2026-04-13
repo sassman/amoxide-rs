@@ -475,7 +475,9 @@ mod tests {
     #[test]
     fn alias_collection_is_not_empty_with_regular_alias() {
         let mut profile = Profile::new("git".into());
-        profile.add_alias("gs".into(), "git status".into(), false).unwrap();
+        profile
+            .add_alias("gs".into(), "git status".into(), false)
+            .unwrap();
         assert!(!profile.is_empty());
     }
 
@@ -489,7 +491,9 @@ mod tests {
     #[test]
     fn alias_collection_len_counts_both() {
         let mut profile = Profile::new("mixed".into());
-        profile.add_alias("gs".into(), "git status".into(), false).unwrap();
+        profile
+            .add_alias("gs".into(), "git status".into(), false)
+            .unwrap();
         profile.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
         profile.add_subcommand("jj:b:l".into(), vec!["branch".into(), "list".into()]);
         assert_eq!(profile.len(), 3); // 1 alias + 2 subcommand entries

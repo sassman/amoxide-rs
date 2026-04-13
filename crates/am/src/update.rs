@@ -3,9 +3,9 @@ pub use crate::app_model::AppModel;
 use crate::display::render_listing;
 use crate::effects::Effect;
 use crate::init::{generate_init, generate_reload};
+use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
 use crate::trust::ProjectTrust;
-use crate::profile::AliasCollection;
 use crate::{profile, AliasSet, AliasTarget, Message, Profile, ProfileConfig};
 
 pub struct UpdateResult {
@@ -49,7 +49,6 @@ impl UpdateResult {
         }
     }
 }
-
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]
 pub enum UpdateError {
@@ -316,14 +315,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         }
                     }
                     Ok(UpdateResult::new(
-                        Message::AddSubcommandAlias(
-                            new_key,
-                            long_subcommands,
-                            AliasTarget::Local,
-                        ),
-                        &[Effect::RemoveLocalSubcommand {
-                            key: original_key,
-                        }],
+                        Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
+                        &[Effect::RemoveLocalSubcommand { key: original_key }],
                     ))
                 } else {
                     model.config.subcommands.remove(&original_key);

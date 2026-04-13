@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware, Shell, WrapperNode};
+use super::{
+    build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware, Shell,
+    WrapperNode,
+};
 
 /// Substitute `{{N}}` → `$($args[N-1+offset])` and `{{@}}` → `($args | Select-Object -Skip offset)`.
 /// Used in subcommand wrappers where PowerShell doesn't shift args.
@@ -245,13 +248,19 @@ mod tests {
             long_subcommands: vec!["branch".into(), "list".into()],
         }];
         let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
-        assert!(output.contains("function global:jj {"), "missing function header");
+        assert!(
+            output.contains("function global:jj {"),
+            "missing function header"
+        );
         // outer switch on $args[0]
         assert!(output.contains("switch ($args[0])"), "missing outer switch");
         // 'b' case
         assert!(output.contains("'b'"), "missing 'b' case");
         // nested switch on $args[1]
-        assert!(output.contains("switch ($args[1])"), "missing nested switch");
+        assert!(
+            output.contains("switch ($args[1])"),
+            "missing nested switch"
+        );
         // 'l' case inside nested switch
         assert!(output.contains("'l'"), "missing 'l' case");
         // expansion: branch list with skip 2
@@ -305,7 +314,10 @@ mod tests {
         );
         // Two-level: 'b' → nested switch with 'l'
         assert!(output.contains("'b'"), "missing 'b'");
-        assert!(output.contains("switch ($args[1])"), "missing nested switch");
+        assert!(
+            output.contains("switch ($args[1])"),
+            "missing nested switch"
+        );
         assert!(output.contains("'l'"), "missing 'l'");
         assert!(
             output.contains("branch list ($args | Select-Object -Skip 2)"),

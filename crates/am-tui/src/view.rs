@@ -553,9 +553,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 let next_is_section_header = model.tree.get(i + 1).is_some_and(|n| {
                     matches!(
                         n.kind,
-                        NodeKind::GlobalHeader
-                            | NodeKind::ProjectHeader
-                            | NodeKind::ProfileHeader
+                        NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader
                     )
                 });
                 if next_is_section_header {
