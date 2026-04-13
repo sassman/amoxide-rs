@@ -41,8 +41,12 @@ impl Default for AppModel {
 impl AppModel {
     fn load_from_internal(config_dir: PathBuf) -> Self {
         let config = Config::load_from(&config_dir).unwrap_or_default();
-        let session = Session::load_from(&config_dir).unwrap_or_default();
+        let mut session = Session::load_from(&config_dir).unwrap_or_default();
         let profile_config = ProfileConfig::load_from(&config_dir).unwrap_or_default();
+        // Silently drop any active profile that no longer exists.
+        session
+            .active_profiles
+            .retain(|name| profile_config.get_profile_by_name(name).is_some());
         let mut security_config = SecurityConfig::load_from(&config_dir).unwrap_or_default();
         let cwd = std::env::current_dir().unwrap_or_default();
         let project_trust = resolve_project_trust(&cwd, &mut security_config);
@@ -279,5 +283,34 @@ impl AppModel {
         self.project_trust = Some(ProjectTrust::Trusted(project, path));
         self.save_security()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ProfileConfig, Session};
+
+    #[test]
+    fn load_prunes_stale_active_profiles() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().to_path_buf();
+
+        // Write a session with "misc" and "rust" active, but only "rust" will exist as a profile.
+        let session = Session {
+            active_profiles: vec!["misc".to_string(), "rust".to_string()],
+        };
+        session.save_to(&config_dir).unwrap();
+
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"rust\"\n").unwrap();
+        profile_config.save_to(&config_dir).unwrap();
+
+        let model = AppModel::load_from_internal(config_dir);
+        assert_eq!(
+            model.session.active_profiles,
+            vec!["rust".to_string()],
+            "stale profile 'misc' should be pruned silently on load"
+        );
     }
 }
