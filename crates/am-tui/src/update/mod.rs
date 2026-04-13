@@ -852,6 +852,7 @@ mod tests {
             name: "git:".into(),
             command: String::new(),
             active_field: AliasField::Name,
+            cursor: 4,
             target: AliasTarget::Global,
         });
         update(&mut model, TuiMessage::TextInputSwitchField);
@@ -872,6 +873,7 @@ mod tests {
             name: "git:co".into(),
             command: String::new(),
             active_field: AliasField::Name,
+            cursor: 6,
             target: AliasTarget::Global,
         });
         update(&mut model, TuiMessage::TextInputSwitchField);
@@ -897,6 +899,7 @@ mod tests {
             name: "ll".into(),
             command: String::new(),
             active_field: AliasField::Name,
+            cursor: 2,
             target: AliasTarget::Global,
         });
         update(&mut model, TuiMessage::TextInputSwitchField);

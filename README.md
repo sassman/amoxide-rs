@@ -92,13 +92,14 @@ am setup fish          # or: zsh, bash, brush, powershell
 Then add your first alias:
 
 ```sh
-am add -l t cargo test     # project-local alias
-am add -p rust t cargo test # profile alias
-am add -g ll ls -lha        # global alias
+am add -l t cargo test      # project-local alias
+am add -p rust t cargo test  # profile alias
+am add -g ll ls -lha         # global alias
+am add -g jj:ab abandon      # subcommand alias: jj ab → jj abandon
 ```
 
 ## Documentation
 
-Full documentation — usage guides, profiles, project aliases, parameterized aliases, and more:
+Full documentation — usage guides, profiles, project aliases, parameterized aliases, subcommand aliases, and more:
 
 **[amoxide.rs](https://amoxide.rs)**

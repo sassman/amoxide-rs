@@ -235,6 +235,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             name,
             command,
             active_field,
+            cursor,
             target,
         } => {
             let target_label = match target {
@@ -242,21 +243,22 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 AliasTarget::Project => "project",
                 AliasTarget::Profile(p) => p.as_str(),
             };
-            let name_style = if *active_field == AliasField::Name {
+            let name_active = *active_field == AliasField::Name;
+            let cmd_active = *active_field == AliasField::Command;
+            let name_style = if name_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cmd_style = if *active_field == AliasField::Command {
+            let cmd_style = if cmd_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cursor_after_name = *active_field == AliasField::Name;
-            let cursor_after_cmd = *active_field == AliasField::Command;
+            let pos = (*cursor).min(if name_active { name.len() } else { command.len() });
             // Show a placeholder hint when the name field is still empty so users
             // discover the "prog: → Tab" subcommand shortcut on first use.
-            let hint = if name.is_empty() && cursor_after_name {
+            let hint = if name.is_empty() && name_active {
                 Span::styled(
                     "  · e.g. ll, or git: for subcommand",
                     Style::default().fg(TEXT_MUTED),
@@ -264,23 +266,27 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             } else {
                 Span::raw("")
             };
-            Line::from(vec![
-                Span::styled(format!("  [{target_label}] "), Style::default().fg(GOLD)),
-                Span::styled(name.as_str(), name_style),
-                if cursor_after_name {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-                Span::styled(" = ", Style::default().fg(TEXT_MUTED)),
-                Span::styled(command.as_str(), cmd_style),
-                if cursor_after_cmd {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-                hint,
-            ])
+            let mut spans = vec![Span::styled(
+                format!("  [{target_label}] "),
+                Style::default().fg(GOLD),
+            )];
+            if name_active {
+                spans.push(Span::styled(name[..pos].to_string(), name_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(name[pos..].to_string(), name_style));
+            } else {
+                spans.push(Span::styled(name.as_str(), name_style));
+            }
+            spans.push(Span::styled(" = ", Style::default().fg(TEXT_MUTED)));
+            if cmd_active {
+                spans.push(Span::styled(command[..pos].to_string(), cmd_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(command[pos..].to_string(), cmd_style));
+            } else {
+                spans.push(Span::styled(command.as_str(), cmd_style));
+            }
+            spans.push(hint);
+            Line::from(spans)
         }
         TextInputState::EditProfile { name, error, .. } => {
             let err_span = error
@@ -357,6 +363,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             name,
             command,
             active_field,
+            cursor,
             error,
         } => {
             let scope_label = match alias_id {
@@ -365,39 +372,44 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 AliasId::Project { .. } => "project",
                 AliasId::Subcommand { .. } => "subcmd",
             };
-            let name_style = if *active_field == AliasField::Name {
+            let name_active = *active_field == AliasField::Name;
+            let cmd_active = *active_field == AliasField::Command;
+            let name_style = if name_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cmd_style = if *active_field == AliasField::Command {
+            let cmd_style = if cmd_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cursor_after_name = *active_field == AliasField::Name;
-            let cursor_after_cmd = *active_field == AliasField::Command;
+            let pos = (*cursor).min(if name_active { name.len() } else { command.len() });
             let err_span = error
                 .as_ref()
                 .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
                 .unwrap_or_else(|| Span::raw(""));
-            Line::from(vec![
-                Span::styled(format!("  [{scope_label}] "), Style::default().fg(GOLD)),
-                Span::styled(name.as_str(), name_style),
-                if cursor_after_name {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-                Span::styled(" = ", Style::default().fg(TEXT_MUTED)),
-                Span::styled(command.as_str(), cmd_style),
-                if cursor_after_cmd {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-                err_span,
-            ])
+            let mut spans = vec![Span::styled(
+                format!("  [{scope_label}] "),
+                Style::default().fg(GOLD),
+            )];
+            if name_active {
+                spans.push(Span::styled(name[..pos].to_string(), name_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(name[pos..].to_string(), name_style));
+            } else {
+                spans.push(Span::styled(name.as_str(), name_style));
+            }
+            spans.push(Span::styled(" = ", Style::default().fg(TEXT_MUTED)));
+            if cmd_active {
+                spans.push(Span::styled(command[..pos].to_string(), cmd_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(command[pos..].to_string(), cmd_style));
+            } else {
+                spans.push(Span::styled(command.as_str(), cmd_style));
+            }
+            spans.push(err_span);
+            Line::from(spans)
         }
     };
     frame.render_widget(ratatui::widgets::Clear, input_area);

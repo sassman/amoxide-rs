@@ -78,6 +78,8 @@ pub enum TextInputState {
         name: String,
         command: String,
         active_field: AliasField,
+        /// Byte offset of the cursor within the active field's string.
+        cursor: usize,
         target: AliasTarget,
     },
     EditProfile {
@@ -90,6 +92,8 @@ pub enum TextInputState {
         name: String,
         command: String,
         active_field: AliasField,
+        /// Byte offset of the cursor within the active field's string.
+        cursor: usize,
         error: Option<String>,
     },
     SubcommandInput {

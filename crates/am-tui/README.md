@@ -5,7 +5,7 @@
   <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
 </p>
 
-Interactive TUI for [amoxide](https://crates.io/crates/amoxide) — navigate, add, move, and delete aliases and profiles visually.
+Interactive TUI for [amoxide](https://crates.io/crates/amoxide) — navigate, add, move, and delete aliases, subcommand aliases, and profiles visually.
 
 ## Install
 
