@@ -635,6 +635,7 @@ fn snapshot_display_listing_with_globals_and_project() {
         &config,
         &["rust".to_string()],
         Some(&trust),
+        None,
     );
     insta::assert_snapshot!(output);
 }
@@ -662,6 +663,7 @@ fn snapshot_listing_unknown_project() {
         &config,
         &["rust".to_string()],
         Some(&trust),
+        None,
     );
     insta::assert_snapshot!(output);
 }
@@ -678,6 +680,7 @@ fn snapshot_listing_tampered_project() {
         &ProfileConfig::default(),
         &[],
         Some(&trust),
+        None,
     );
     insta::assert_snapshot!(output);
 }
@@ -694,6 +697,7 @@ fn snapshot_listing_untrusted_project() {
         &ProfileConfig::default(),
         &[],
         Some(&trust),
+        None,
     );
     insta::assert_snapshot!(output);
 }

@@ -144,7 +144,7 @@ fn main() -> anyhow::Result<()> {
                 Message::RemoveAlias(name.clone(), target)
             }
         }
-        Commands::Ls => Message::ListProfiles,
+        Commands::Ls { used } => Message::ListProfiles { used: *used },
         Commands::Status => {
             println!("{}", amoxide::status::run_status());
             return Ok(());
@@ -168,7 +168,10 @@ fn main() -> anyhow::Result<()> {
             model.config.save()?;
             return Ok(());
         }
-        Commands::Profile { action } => match action.as_ref().unwrap_or(&ProfileAction::List) {
+        Commands::Profile { action } => match action
+            .as_ref()
+            .unwrap_or(&ProfileAction::List { used: false })
+        {
             ProfileAction::Add { name } => {
                 let result = update(&mut model, Message::CreateProfile(name.clone()))?;
                 execute_effects(&mut model, &result.effects)?;
@@ -231,7 +234,7 @@ fn main() -> anyhow::Result<()> {
                 model.config.save()?;
                 return Ok(());
             }
-            ProfileAction::List => Message::ListProfiles,
+            ProfileAction::List { used } => Message::ListProfiles { used: *used },
         },
         Commands::Setup { shell } => {
             amoxide::setup::run_setup(shell)?;

@@ -1,6 +1,5 @@
 ---
 source: crates/am/tests/snapshots.rs
-assertion_line: 130
 expression: output
 ---
 function global:gs { git status @args }
@@ -142,6 +141,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;ls' {
+            [System.Management.Automation.CompletionResult]::new('-u', '-u', [System.Management.Automation.CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
+            [System.Management.Automation.CompletionResult]::new('--used', '--used', [System.Management.Automation.CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
@@ -195,6 +196,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;profile;list' {
+            [System.Management.Automation.CompletionResult]::new('-u', '-u', [System.Management.Automation.CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
+            [System.Management.Automation.CompletionResult]::new('--used', '--used', [System.Management.Automation.CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')

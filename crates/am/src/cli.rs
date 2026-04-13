@@ -42,7 +42,11 @@ pub enum Commands {
 
     /// List all profiles and project aliases
     #[command(alias = "l")]
-    Ls,
+    Ls {
+        /// Show only active profiles and loaded project aliases
+        #[arg(short, long, default_value_t = false)]
+        used: bool,
+    },
 
     /// Check if the shell is set up correctly
     Status,
@@ -162,7 +166,11 @@ pub enum ProfileAction {
 
     /// List all profiles
     #[command(alias = "l")]
-    List,
+    List {
+        /// Show only active profiles and loaded project aliases
+        #[arg(short, long, default_value_t = false)]
+        used: bool,
+    },
 }
 
 #[derive(Args)]

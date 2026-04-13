@@ -41,7 +41,9 @@ pub enum Message {
     ToggleProfiles(Vec<String>),
     UseProfilesAt(Vec<String>, usize),
     RemoveProfile(String),
-    ListProfiles,
+    ListProfiles {
+        used: bool,
+    },
     CreateProfile(String),
     /// Rename a profile, preserving its aliases and activation state.
     RenameProfile {
