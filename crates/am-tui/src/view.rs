@@ -255,7 +255,11 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let pos = (*cursor).min(if name_active { name.len() } else { command.len() });
+            let pos = (*cursor).min(if name_active {
+                name.len()
+            } else {
+                command.len()
+            });
             // Show a placeholder hint when the name field is still empty so users
             // discover the "prog: → Tab" subcommand shortcut on first use.
             let hint = if name.is_empty() && name_active {
@@ -384,7 +388,11 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let pos = (*cursor).min(if name_active { name.len() } else { command.len() });
+            let pos = (*cursor).min(if name_active {
+                name.len()
+            } else {
+                command.len()
+            });
             let err_span = error
                 .as_ref()
                 .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))

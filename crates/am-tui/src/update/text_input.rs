@@ -634,133 +634,127 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
             }
             model.mode = Mode::Normal;
         }
-        TuiMessage::TextInputSwitchFieldBack => {
-            match &mut model.mode {
-                Mode::TextInput(TextInputState::NewAlias {
-                    active_field,
-                    cursor,
-                    name,
-                    command,
-                    ..
-                })
-                | Mode::TextInput(TextInputState::EditAlias {
-                    active_field,
-                    cursor,
-                    name,
-                    command,
-                    ..
-                }) => {
-                    *active_field = match active_field {
-                        AliasField::Command => AliasField::Name,
-                        AliasField::Name => AliasField::Command,
-                    };
-                    *cursor = match active_field {
-                        AliasField::Name => name.len(),
-                        AliasField::Command => command.len(),
-                    };
-                }
-                Mode::TextInput(TextInputState::SubcommandInput {
-                    pairs,
-                    active_pair,
-                    active_field,
-                    cursor,
-                    ..
-                }) => match active_field {
-                    SubcommandField::Long => {
-                        *active_field = SubcommandField::Short;
-                        *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Short);
-                    }
-                    SubcommandField::Short => {
-                        if *active_pair > 0 {
-                            *active_pair -= 1;
-                            *active_field = SubcommandField::Long;
-                            *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Long);
-                        }
-                    }
-                },
-                _ => {}
+        TuiMessage::TextInputSwitchFieldBack => match &mut model.mode {
+            Mode::TextInput(TextInputState::NewAlias {
+                active_field,
+                cursor,
+                name,
+                command,
+                ..
+            })
+            | Mode::TextInput(TextInputState::EditAlias {
+                active_field,
+                cursor,
+                name,
+                command,
+                ..
+            }) => {
+                *active_field = match active_field {
+                    AliasField::Command => AliasField::Name,
+                    AliasField::Name => AliasField::Command,
+                };
+                *cursor = match active_field {
+                    AliasField::Name => name.len(),
+                    AliasField::Command => command.len(),
+                };
             }
-        }
-        TuiMessage::TextInputCursorLeft => {
-            match &mut model.mode {
-                Mode::TextInput(TextInputState::NewAlias {
-                    active_field,
-                    cursor,
-                    name,
-                    command,
-                    ..
-                })
-                | Mode::TextInput(TextInputState::EditAlias {
-                    active_field,
-                    cursor,
-                    name,
-                    command,
-                    ..
-                }) => {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs,
+                active_pair,
+                active_field,
+                cursor,
+                ..
+            }) => match active_field {
+                SubcommandField::Long => {
+                    *active_field = SubcommandField::Short;
+                    *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Short);
+                }
+                SubcommandField::Short => {
+                    if *active_pair > 0 {
+                        *active_pair -= 1;
+                        *active_field = SubcommandField::Long;
+                        *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Long);
+                    }
+                }
+            },
+            _ => {}
+        },
+        TuiMessage::TextInputCursorLeft => match &mut model.mode {
+            Mode::TextInput(TextInputState::NewAlias {
+                active_field,
+                cursor,
+                name,
+                command,
+                ..
+            })
+            | Mode::TextInput(TextInputState::EditAlias {
+                active_field,
+                cursor,
+                name,
+                command,
+                ..
+            }) => {
+                let field = match active_field {
+                    AliasField::Name => name.as_str(),
+                    AliasField::Command => command.as_str(),
+                };
+                *cursor = cursor_left(field, *cursor);
+            }
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs,
+                active_pair,
+                active_field,
+                cursor,
+                ..
+            }) => {
+                if let Some((short, long)) = pairs.get(*active_pair) {
                     let field = match active_field {
-                        AliasField::Name => name.as_str(),
-                        AliasField::Command => command.as_str(),
+                        SubcommandField::Short => short.as_str(),
+                        SubcommandField::Long => long.as_str(),
                     };
                     *cursor = cursor_left(field, *cursor);
                 }
-                Mode::TextInput(TextInputState::SubcommandInput {
-                    pairs,
-                    active_pair,
-                    active_field,
-                    cursor,
-                    ..
-                }) => {
-                    if let Some((short, long)) = pairs.get(*active_pair) {
-                        let field = match active_field {
-                            SubcommandField::Short => short.as_str(),
-                            SubcommandField::Long => long.as_str(),
-                        };
-                        *cursor = cursor_left(field, *cursor);
-                    }
-                }
-                _ => {}
             }
-        }
-        TuiMessage::TextInputCursorRight => {
-            match &mut model.mode {
-                Mode::TextInput(TextInputState::NewAlias {
-                    active_field,
-                    cursor,
-                    name,
-                    command,
-                    ..
-                })
-                | Mode::TextInput(TextInputState::EditAlias {
-                    active_field,
-                    cursor,
-                    name,
-                    command,
-                    ..
-                }) => {
+            _ => {}
+        },
+        TuiMessage::TextInputCursorRight => match &mut model.mode {
+            Mode::TextInput(TextInputState::NewAlias {
+                active_field,
+                cursor,
+                name,
+                command,
+                ..
+            })
+            | Mode::TextInput(TextInputState::EditAlias {
+                active_field,
+                cursor,
+                name,
+                command,
+                ..
+            }) => {
+                let field = match active_field {
+                    AliasField::Name => name.as_str(),
+                    AliasField::Command => command.as_str(),
+                };
+                *cursor = cursor_right(field, *cursor);
+            }
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs,
+                active_pair,
+                active_field,
+                cursor,
+                ..
+            }) => {
+                if let Some((short, long)) = pairs.get(*active_pair) {
                     let field = match active_field {
-                        AliasField::Name => name.as_str(),
-                        AliasField::Command => command.as_str(),
+                        SubcommandField::Short => short.as_str(),
+                        SubcommandField::Long => long.as_str(),
                     };
                     *cursor = cursor_right(field, *cursor);
                 }
-                Mode::TextInput(TextInputState::SubcommandInput {
-                    pairs,
-                    active_pair,
-                    active_field,
-                    cursor,
-                    ..
-                }) => {
-                    if let Some((short, long)) = pairs.get(*active_pair) {
-                        let field = match active_field {
-                            SubcommandField::Short => short.as_str(),
-                            SubcommandField::Long => long.as_str(),
-                        };
-                        *cursor = cursor_right(field, *cursor);
-                    }
-                }
-                _ => {}
             }
-        }
+            _ => {}
+        },
         _ => {}
     }
 }
