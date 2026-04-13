@@ -1,6 +1,7 @@
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{has_template_args, substitute_powershell, substitute_quote_aware, Shell};
+use super::{build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware, Shell, WrapperNode};
 
 /// Substitute `{{N}}` → `$($args[N-1+offset])` and `{{@}}` → `($args | Select-Object -Skip offset)`.
 /// Used in subcommand wrappers where PowerShell doesn't shift args.
@@ -65,30 +66,79 @@ impl Shell for PowerShell {
 
         let mut lines = Vec::new();
         lines.push(format!("function global:{program} {{"));
-        lines.push("  switch ($args[0]) {".into());
-
-        // Only handle single-level for now (multi-level nesting in PS is verbose)
-        for entry in entries {
-            if entry.short_subcommands.len() == 1 {
-                let short = &entry.short_subcommands[0];
-                let expansion = &entry.long_subcommands[0];
-                if has_template_args(expansion) {
-                    lines.push(format!(
-                        "    '{short}' {{ {ps_base} {} }}",
-                        substitute_offset(expansion, 1)
-                    ));
-                } else {
-                    lines.push(format!(
-                        "    '{short}' {{ {ps_base} {expansion} ($args | Select-Object -Skip 1) }}"
-                    ));
-                }
-            }
-        }
-
-        lines.push(format!("    default {{ {ps_base} @args }}"));
-        lines.push("  }".into());
+        let roots = build_wrapper_trie(entries);
+        emit_ps_switch(&mut lines, &roots, 0, &ps_base, "  ");
         lines.push("}".into());
         lines.join("\n")
+    }
+}
+
+/// Emit a `switch ($args[depth])` block for the given set of trie nodes.
+fn emit_ps_switch(
+    lines: &mut Vec<String>,
+    nodes: &BTreeMap<String, WrapperNode>,
+    depth: usize,
+    ps_base: &str,
+    indent: &str,
+) {
+    lines.push(format!("{indent}switch ($args[{depth}]) {{"));
+    for (short, node) in nodes {
+        lines.push(format!("{indent}  '{short}' {{"));
+        emit_ps_node_body(lines, node, depth, ps_base, &format!("{indent}    "));
+        lines.push(format!("{indent}  }}"));
+    }
+    lines.push(format!("{indent}  default {{ {ps_base} @args }}"));
+    lines.push(format!("{indent}}}"));
+}
+
+/// Emit the body of a matched case at `depth`.
+/// If the node has children, a nested switch is emitted; otherwise the leaf expansion.
+fn emit_ps_node_body(
+    lines: &mut Vec<String>,
+    node: &WrapperNode,
+    depth: usize,
+    ps_base: &str,
+    indent: &str,
+) {
+    let next_depth = depth + 1;
+    if node.children.is_empty() {
+        // Leaf node: emit the expansion.
+        let expansion = node.leaf_longs.as_deref().unwrap_or_default().join(" ");
+        if has_template_args(&expansion) {
+            lines.push(format!(
+                "{indent}{ps_base} {}",
+                substitute_offset(&expansion, next_depth)
+            ));
+        } else {
+            lines.push(format!(
+                "{indent}{ps_base} {expansion} ($args | Select-Object -Skip {next_depth})"
+            ));
+        }
+    } else {
+        // Intermediate node with children: emit a nested switch.
+        lines.push(format!("{indent}switch ($args[{next_depth}]) {{"));
+        for (short, child) in &node.children {
+            lines.push(format!("{indent}  '{short}' {{"));
+            emit_ps_node_body(lines, child, next_depth, ps_base, &format!("{indent}    "));
+            lines.push(format!("{indent}  }}"));
+        }
+        // Default for the nested switch: fall back to this node's leaf (if any) or @args.
+        if let Some(longs) = &node.leaf_longs {
+            let expansion = longs.join(" ");
+            if has_template_args(&expansion) {
+                lines.push(format!(
+                    "{indent}  default {{ {ps_base} {} }}",
+                    substitute_offset(&expansion, next_depth)
+                ));
+            } else {
+                lines.push(format!(
+                    "{indent}  default {{ {ps_base} {expansion} ($args | Select-Object -Skip {next_depth}) }}"
+                ));
+            }
+        } else {
+            lines.push(format!("{indent}  default {{ {ps_base} @args }}"));
+        }
+        lines.push(format!("{indent}}}"));
     }
 }
 
@@ -184,5 +234,82 @@ mod tests {
         assert!(output.contains("'ab'"));
         assert!(output.contains("abandon"));
         assert!(output.contains("default"));
+    }
+
+    #[test]
+    fn test_powershell_subcommand_wrapper_two_level() {
+        // jj:b:l → branch list
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["b".into(), "l".into()],
+            long_subcommands: vec!["branch".into(), "list".into()],
+        }];
+        let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
+        assert!(output.contains("function global:jj {"), "missing function header");
+        // outer switch on $args[0]
+        assert!(output.contains("switch ($args[0])"), "missing outer switch");
+        // 'b' case
+        assert!(output.contains("'b'"), "missing 'b' case");
+        // nested switch on $args[1]
+        assert!(output.contains("switch ($args[1])"), "missing nested switch");
+        // 'l' case inside nested switch
+        assert!(output.contains("'l'"), "missing 'l' case");
+        // expansion: branch list with skip 2
+        assert!(
+            output.contains("branch list ($args | Select-Object -Skip 2)"),
+            "missing two-level expansion: {output}"
+        );
+    }
+
+    #[test]
+    fn test_powershell_subcommand_wrapper_template_nested() {
+        // jj:b:l → branch list --limit {{1}}  (template at depth 2, offset=2 → $($args[2]))
+        let entries = vec![SubcommandEntry {
+            program: "jj".into(),
+            short_subcommands: vec!["b".into(), "l".into()],
+            long_subcommands: vec!["branch".into(), "list --limit {{1}}".into()],
+        }];
+        let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
+        // offset=2: {{1}} → $($args[2])
+        assert!(
+            output.contains("$($args[2])"),
+            "expected $($args[2]) for nested template: {output}"
+        );
+        assert!(
+            !output.contains("Select-Object -Skip 2"),
+            "should not have trailing spread when template present: {output}"
+        );
+    }
+
+    #[test]
+    fn test_powershell_subcommand_wrapper_mixed_levels() {
+        // Mix of single-level 'ab' and two-level 'b:l' in the same wrapper.
+        let entries = vec![
+            SubcommandEntry {
+                program: "jj".into(),
+                short_subcommands: vec!["ab".into()],
+                long_subcommands: vec!["abandon".into()],
+            },
+            SubcommandEntry {
+                program: "jj".into(),
+                short_subcommands: vec!["b".into(), "l".into()],
+                long_subcommands: vec!["branch".into(), "list".into()],
+            },
+        ];
+        let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
+        // Single-level: 'ab' → abandon with skip 1
+        assert!(output.contains("'ab'"), "missing 'ab'");
+        assert!(
+            output.contains("abandon ($args | Select-Object -Skip 1)"),
+            "missing single-level expansion: {output}"
+        );
+        // Two-level: 'b' → nested switch with 'l'
+        assert!(output.contains("'b'"), "missing 'b'");
+        assert!(output.contains("switch ($args[1])"), "missing nested switch");
+        assert!(output.contains("'l'"), "missing 'l'");
+        assert!(
+            output.contains("branch list ($args | Select-Object -Skip 2)"),
+            "missing two-level expansion: {output}"
+        );
     }
 }

@@ -545,7 +545,7 @@ mod tests {
             &subs,
         );
         assert!(output.contains("function jj --wraps=jj"));
-        assert!(output.contains("case ab"));
+        assert!(output.contains("case 'ab'"));
         assert!(output.contains("command jj abandon"));
     }
 
