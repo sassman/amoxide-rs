@@ -68,6 +68,16 @@ Active profiles are shown connected by a tree trunk. Inactive profiles appear be
   nr → npm run
 ```
 
+To show only what is currently in use — active profiles and any loaded project aliases — pass `--used`:
+
+```sh
+am l --used
+am l -u              # short form
+am profile list -u
+```
+
+Inactive profiles are hidden, keeping the output focused when you have many profiles defined.
+
 ## Removing a Profile
 
 ```sh
