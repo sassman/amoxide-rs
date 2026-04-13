@@ -34,6 +34,10 @@ pub enum Commands {
 
         /// The alias name to remove
         name: String,
+
+        /// Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj:b:l)
+        #[arg(long = "sub")]
+        sub: Vec<String>,
     },
 
     /// List all profiles and project aliases
@@ -184,6 +188,10 @@ pub struct Alias {
 
     /// The command to alias
     pub command: Option<Vec<String>>,
+
+    /// Define a subcommand alias (repeatable: --sub short long)
+    #[arg(long = "sub", num_args = 2, value_names = ["SHORT", "LONG"], action = clap::ArgAction::Append)]
+    pub sub: Vec<String>,
 }
 
 /// Shared scope flags for export/import/share commands.

@@ -1,3 +1,89 @@
+---
+source: crates/am/tests/snapshots.rs
+assertion_line: 236
+expression: output
+---
+kubectl() {
+  case "$1" in
+    apply)
+      case "$2" in
+        f) shift 2; command kubectl apply -f "$@" ;;
+        *) command kubectl "$@" ;;
+      esac
+      ;;
+    get)
+      case "$2" in
+        po) shift 2; command kubectl get pods "$@" ;;
+        svc) shift 2; command kubectl get services "$@" ;;
+        *) command kubectl "$@" ;;
+      esac
+      ;;
+    logs)
+      case "$2" in
+        f) shift 2; command kubectl logs -f "$@" ;;
+        *) command kubectl "$@" ;;
+      esac
+      ;;
+    rollout)
+      case "$2" in
+        status) shift 2; command kubectl rollout status "$@" ;;
+        *) command kubectl "$@" ;;
+      esac
+      ;;
+    *) command kubectl "$@" ;;
+  esac
+}
+export _AM_ALIASES="kubectl"
+unset _AM_PROFILE_ALIASES
+
+am() {
+  command am "$@"
+  local am_status=$?
+  if [[ $am_status -ne 0 ]]; then return $am_status; fi
+  case "$1" in
+    tui|t) eval "$(command am reload bash)"; eval "$(command am hook bash)"; return ;;
+  esac
+  case "$1" in
+    use|u) eval "$(command am reload bash)"; return ;;
+  esac
+  case "$1:$2" in
+    profile:use|p:use|profile:u|p:u|profile:add|p:add|profile:a|p:a|profile:remove|p:remove|profile:r|p:r) eval "$(command am reload bash)" ;;
+  esac
+  case "$1" in
+    add|a|remove|r)
+      case "$*" in
+        *\ -l\ *|*\ --local\ *|*\ -l|*\ --local) eval "$(command am hook bash)" ;;
+        *) eval "$(command am reload bash)" ;;
+      esac ;;
+    trust) eval "$(command am hook bash)" ;;
+    untrust) eval "$(command am hook --quiet bash)" ;;
+  esac
+}
+
+
+# am cd hook: track directory changes and reload project aliases
+__am_hook() {
+  local previous_exit_status=$?
+  if [[ "${__am_prev_dir:-}" != "$PWD" ]]; then
+    __am_prev_dir="$PWD"
+    eval "$(command am hook bash)"
+  fi
+  return $previous_exit_status
+}
+if [[ "$(declare -p PROMPT_COMMAND 2>&1)" == "declare -a"* ]]; then
+  case " ${PROMPT_COMMAND[*]} " in
+    *" __am_hook "*) ;;
+    *) PROMPT_COMMAND=(__am_hook "${PROMPT_COMMAND[@]}") ;;
+  esac
+else
+  case ";${PROMPT_COMMAND:-};" in
+    *";__am_hook;"*) ;;
+    *) PROMPT_COMMAND="__am_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}" ;;
+  esac
+fi
+__am_hook
+
+
 _am() {
     local i cur prev opts cmd
     COMPREPLY=()

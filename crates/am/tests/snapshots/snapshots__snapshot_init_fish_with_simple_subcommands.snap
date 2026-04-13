@@ -1,15 +1,20 @@
 ---
 source: crates/am/tests/snapshots.rs
-assertion_line: 366
+assertion_line: 204
 expression: output
 ---
-alias ll "ls -lha"
-alias cm "git commit -sm"
-function cmf
-    cm feat: $argv
-end
 alias gs "git status"
-set -gx _AM_ALIASES "cm,cmf,gs,ll"
+function jj --wraps=jj
+  switch $argv[1]
+    case 'ab'
+      command jj abandon $argv[2..]
+    case 'new'
+      command jj new --no-edit $argv[2..]
+    case '*'
+      command jj $argv
+  end
+end
+set -gx _AM_ALIASES "gs,jj"
 set -e _AM_PROFILE_ALIASES
 
 # am wrapper: reload aliases after mutations

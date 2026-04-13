@@ -5,11 +5,14 @@ use std::io::Write;
 
 use amoxide::{
     cli::*,
+    dirs::relative_path,
     effects::Effect,
     exchange::{render_suspicious_warning, scan_suspicious, ExportAll},
     import_export::{handle_export, handle_import, handle_share},
-    project::ProjectAliases,
+    profile::AliasCollection,
+    project::{ProjectAliases, ALIASES_FILE},
     prompt::{ask_user, Answer},
+    trust::compute_file_hash,
     update::{update, AppModel},
     AliasTarget, Message,
 };
@@ -47,12 +50,8 @@ fn main() -> anyhow::Result<()> {
             raw,
             name,
             command,
+            sub,
         }) => {
-            let alias_cmd = match command {
-                Some(parts) => parts.join(" "),
-                None => bail!("No command provided. Usage: am add <name> <command...>"),
-            };
-
             let target = if *global {
                 AliasTarget::Global
             } else if *local {
@@ -64,13 +63,58 @@ fn main() -> anyhow::Result<()> {
                     .unwrap_or(AliasTarget::ActiveProfile)
             };
 
-            info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
-            Message::AddAlias(name.clone(), alias_cmd, target, *raw)
+            // Check if this is a subcommand alias
+            let is_colon_notation = name.contains(':');
+            let has_sub_flag = !sub.is_empty();
+
+            if is_colon_notation || has_sub_flag {
+                // Build the subcommand key and long_subcommands
+                let (key, long_subcommands) = if is_colon_notation {
+                    // Colon notation: jj:ab abandon or jj:b:l branch list
+                    let cmd_parts: Vec<String> = match command {
+                        Some(parts) => parts.clone(),
+                        None => bail!("No expansion provided. Usage: am add jj:ab abandon"),
+                    };
+                    (name.clone(), cmd_parts)
+                } else {
+                    // --sub flag: jj --sub ab abandon --sub b branch
+                    // sub is a flat Vec: ["ab", "abandon", "b", "branch", ...]
+                    let pairs: Vec<(&str, &str)> = sub
+                        .chunks(2)
+                        .map(|chunk| (chunk[0].as_str(), chunk[1].as_str()))
+                        .collect();
+                    let key = std::iter::once(name.as_str())
+                        .chain(pairs.iter().map(|(short, _)| *short))
+                        .collect::<Vec<_>>()
+                        .join(":");
+                    let longs: Vec<String> =
+                        pairs.iter().map(|(_, long)| long.to_string()).collect();
+                    (key, longs)
+                };
+
+                // Validate
+                let _entry = amoxide::subcommand::SubcommandEntry::parse_key(
+                    &key,
+                    long_subcommands.clone(),
+                )?;
+
+                info!("Adding subcommand alias `{key}` to {target}");
+                Message::AddSubcommandAlias(key, long_subcommands, target)
+            } else {
+                // Regular alias
+                let alias_cmd = match command {
+                    Some(parts) => parts.join(" "),
+                    None => bail!("No command provided. Usage: am add <name> <command...>"),
+                };
+                info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
+                Message::AddAlias(name.clone(), alias_cmd, target, *raw)
+            }
         }
         Commands::Remove {
             profile,
             global,
             name,
+            sub,
         } => {
             let target = if *global {
                 AliasTarget::Global
@@ -81,8 +125,24 @@ fn main() -> anyhow::Result<()> {
                     .unwrap_or(AliasTarget::ActiveProfile)
             };
 
-            info!("Removing alias `{name}` from {target}");
-            Message::RemoveAlias(name.clone(), target)
+            let is_colon_notation = name.contains(':');
+            let has_sub_flag = !sub.is_empty();
+
+            if is_colon_notation || has_sub_flag {
+                let key = if is_colon_notation {
+                    name.clone()
+                } else {
+                    std::iter::once(name.as_str())
+                        .chain(sub.iter().map(|s| s.as_str()))
+                        .collect::<Vec<_>>()
+                        .join(":")
+                };
+                info!("Removing subcommand alias `{key}` from {target}");
+                Message::RemoveSubcommandAlias(key, target)
+            } else {
+                info!("Removing alias `{name}` from {target}");
+                Message::RemoveAlias(name.clone(), target)
+            }
         }
         Commands::Ls => Message::ListProfiles,
         Commands::Status => {
@@ -140,12 +200,24 @@ fn main() -> anyhow::Result<()> {
                         .profile_config()
                         .get_profile_by_name(name)
                         .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
-                    if !profile.aliases.is_empty() {
-                        let count = profile.aliases.iter().count();
-                        let question = format!(
-                            "Profile '{name}' has {count} alias{}. Remove?",
-                            if count == 1 { "" } else { "es" }
-                        );
+                    if !profile.is_empty() {
+                        let alias_count = profile.aliases.iter().count();
+                        let subcmd_count = profile.subcommands.len();
+                        let question = match (alias_count, subcmd_count) {
+                            (a, 0) => format!(
+                                "Profile '{name}' has {a} alias{}. Remove?",
+                                if a == 1 { "" } else { "es" }
+                            ),
+                            (0, s) => format!(
+                                "Profile '{name}' has {s} subcommand alias{}. Remove?",
+                                if s == 1 { "" } else { "es" }
+                            ),
+                            (a, s) => format!(
+                                "Profile '{name}' has {a} alias{} and {s} subcommand alias{}. Remove?",
+                                if a == 1 { "" } else { "es" },
+                                if s == 1 { "" } else { "es" },
+                            ),
+                        };
                         if ask_user(&question, Answer::No, false, &mut std::io::stdin().lock())?
                             != Answer::Yes
                         {
@@ -216,6 +288,7 @@ fn main() -> anyhow::Result<()> {
             // Check for suspicious characters (reuse from exchange)
             let export = ExportAll {
                 local_aliases: project.aliases.clone(),
+                local_subcommands: project.subcommands.clone(),
                 ..Default::default()
             };
             let findings = scan_suspicious(&export);
@@ -245,15 +318,38 @@ fn main() -> anyhow::Result<()> {
                 let cmd = alias_value.command();
                 println!("  {:width$} \u{2192} {cmd}", name, width = max_name_len);
             }
+            let subcmd_groups = amoxide::subcommand::group_by_program(&project.subcommands);
+            if !subcmd_groups.is_empty() {
+                println!();
+                for (program, entries) in &subcmd_groups {
+                    println!("  {program} (subcommands):");
+                    let max_short_len = entries
+                        .iter()
+                        .map(|e| e.short_subcommands.join(" ").len())
+                        .max()
+                        .unwrap_or(0);
+                    for entry in entries {
+                        let shorts = entry.short_subcommands.join(" ");
+                        let longs = entry.long_subcommands.join(" ");
+                        println!(
+                            "    {:width$} \u{2192} {longs}",
+                            shorts,
+                            width = max_short_len
+                        );
+                    }
+                }
+            }
             println!();
 
+            let has_subcommands = !project.subcommands.is_empty();
+            let prompt = if has_subcommands {
+                "Trust these aliases and subcommand aliases?"
+            } else {
+                "Trust these aliases?"
+            };
+
             // Prompt
-            let answer = ask_user(
-                "Trust these aliases?",
-                Answer::Yes,
-                false,
-                &mut std::io::stdin().lock(),
-            )?;
+            let answer = ask_user(prompt, Answer::Yes, false, &mut std::io::stdin().lock())?;
 
             if answer == Answer::Yes {
                 let result = update(&mut model, Message::Trust)?;
@@ -287,15 +383,152 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<()> {
+    let has_local_mutation = effects.iter().any(|e| {
+        matches!(
+            e,
+            Effect::AddLocalAlias { .. }
+                | Effect::RemoveLocalAlias { .. }
+                | Effect::AddLocalSubcommand { .. }
+                | Effect::RemoveLocalSubcommand { .. }
+        )
+    });
+
     for effect in effects {
         match effect {
-            Effect::Print(text) => {
-                println!("{text}");
-            }
-            other => {
-                amoxide::execute_effect(model, other)?;
+            Effect::SaveConfig => model.config.save()?,
+            Effect::SaveSession => model.session.save()?,
+            Effect::SaveProfiles => model.profile_config().save()?,
+            Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
+            Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
+            Effect::AddLocalSubcommand {
+                key,
+                long_subcommands,
+            } => add_local_subcommand(key, long_subcommands)?,
+            Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(key)?,
+            Effect::Print(text) => println!("{text}"),
+            Effect::SaveSecurity => model.security_config().save()?,
+        }
+    }
+
+    // After local alias mutations, update the security hash
+    if has_local_mutation {
+        if let Some(path) = model.project_path() {
+            let path = path.to_path_buf();
+            let new_hash = compute_file_hash(&path)?;
+            model.security_config_mut().update_hash(&path, &new_hash);
+            model.security_config().save()?;
+        }
+    }
+
+    Ok(())
+}
+
+fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let local_path = cwd.join(ALIASES_FILE);
+
+    if local_path.exists() {
+        let mut project = ProjectAliases::load(&local_path)?;
+        project.add_alias(name.to_string(), command.to_string(), raw);
+        project.save(&local_path)?;
+        println!("Added `{name}` to {ALIASES_FILE}");
+        return Ok(());
+    }
+
+    // No .aliases in CWD — check if one exists up the tree
+    if let Some(parent) = cwd.parent() {
+        if let Some(existing_path) = ProjectAliases::find_path(parent)? {
+            let rel = relative_path(&cwd, &existing_path);
+            let question = format!(
+                "Found existing {ALIASES_FILE} at {}\nAdd to that file instead?",
+                rel.display()
+            );
+            match ask_user(&question, Answer::No, true, &mut std::io::stdin().lock())? {
+                Answer::Yes => {
+                    let mut project = ProjectAliases::load(&existing_path)?;
+                    project.add_alias(name.to_string(), command.to_string(), raw);
+                    project.save(&existing_path)?;
+                    println!("Added `{name}` to {}", rel.display());
+                    return Ok(());
+                }
+                Answer::No => {} // fall through to create new
+                Answer::Cancel => {
+                    println!("Cancelled.");
+                    return Ok(());
+                }
             }
         }
     }
+
+    // Create new .aliases in CWD
+    let mut project = ProjectAliases::default();
+    project.add_alias(name.to_string(), command.to_string(), raw);
+    project.save(&local_path)?;
+    println!("Created {ALIASES_FILE} with alias `{name}`");
+    Ok(())
+}
+
+fn remove_local_alias(name: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let path = ProjectAliases::remove_from_local(name)?;
+    let rel = relative_path(&cwd, &path);
+    println!("Removed `{name}` from {}", rel.display());
+    Ok(())
+}
+
+fn add_local_subcommand(key: &str, long_subcommands: &[String]) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let local_path = cwd.join(ALIASES_FILE);
+
+    if local_path.exists() {
+        let mut project = ProjectAliases::load(&local_path)?;
+        project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+        project.save(&local_path)?;
+        println!("Added subcommand alias `{key}` to {ALIASES_FILE}");
+        return Ok(());
+    }
+
+    // No .aliases in CWD — check if one exists up the tree
+    if let Some(parent) = cwd.parent() {
+        if let Some(existing_path) = ProjectAliases::find_path(parent)? {
+            let rel = relative_path(&cwd, &existing_path);
+            let question = format!(
+                "Found existing {ALIASES_FILE} at {}\nAdd to that file instead?",
+                rel.display()
+            );
+            match ask_user(&question, Answer::No, true, &mut std::io::stdin().lock())? {
+                Answer::Yes => {
+                    let mut project = ProjectAliases::load(&existing_path)?;
+                    project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+                    project.save(&existing_path)?;
+                    println!("Added subcommand alias `{key}` to {}", rel.display());
+                    return Ok(());
+                }
+                Answer::No => {} // fall through to create new
+                Answer::Cancel => {
+                    println!("Cancelled.");
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Create new .aliases in CWD
+    let mut project = ProjectAliases::default();
+    project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+    project.save(&local_path)?;
+    println!("Created {ALIASES_FILE} with subcommand alias `{key}`");
+    Ok(())
+}
+
+fn remove_local_subcommand(key: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let path = ProjectAliases::find_local_path()
+        .ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
+    let mut project = ProjectAliases::load(&path)?;
+    project.remove_subcommand(key)?;
+    project.save(&path)?;
+    let rel = relative_path(&cwd, &path);
+    println!("Removed subcommand alias `{key}` from {}", rel.display());
     Ok(())
 }

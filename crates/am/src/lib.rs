@@ -1,5 +1,6 @@
 pub mod alias;
 pub mod alias_id;
+pub mod app_model;
 pub mod cli;
 pub mod config;
 pub mod dirs;
@@ -18,6 +19,7 @@ pub mod session;
 pub mod setup;
 pub mod shell;
 pub mod status;
+pub mod subcommand;
 pub mod trust;
 pub mod update;
 
@@ -30,6 +32,7 @@ pub use messages::*;
 pub use profile::*;
 pub use project::*;
 pub use session::*;
+pub use subcommand::*;
 pub use update::UpdateError;
 
 pub type Result<T> = anyhow::Result<T>;

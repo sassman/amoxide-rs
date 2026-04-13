@@ -28,7 +28,10 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
         | TuiMessage::TextInputBackspace
         | TuiMessage::TextInputConfirm
         | TuiMessage::TextInputCancel
-        | TuiMessage::TextInputSwitchField => text_input::handle(model, msg),
+        | TuiMessage::TextInputSwitchField
+        | TuiMessage::TextInputSwitchFieldBack
+        | TuiMessage::TextInputCursorLeft
+        | TuiMessage::TextInputCursorRight => text_input::handle(model, msg),
 
         TuiMessage::EnterMoveMode
         | TuiMessage::EnterCopyMode
@@ -51,7 +54,8 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 mod tests {
     use super::*;
     use crate::model::{
-        AliasId, ConfirmAction, Mode, NodeKind, TextInputState, TransferMode, TuiMessage, TuiModel,
+        AliasField, AliasId, AliasTarget, ConfirmAction, Mode, NodeKind, SubcommandField,
+        TextInputState, TransferMode, TuiMessage, TuiModel,
     };
     use crate::tree::{build_dest_tree_from_parts, build_tree_from_parts};
     use amoxide::update::AppModel;
@@ -64,6 +68,7 @@ mod tests {
         let app_model = AppModel::new(config, profiles);
         let tree = build_tree_from_parts(
             &app_model.config.aliases,
+            &app_model.config.subcommands,
             app_model.profile_config(),
             &app_model.session.active_profiles,
             None,
@@ -812,5 +817,275 @@ mod tests {
         assert_eq!(model.tree[model.cursor].kind, NodeKind::GlobalHeader);
         update(&mut model, TuiMessage::EditItem);
         assert_eq!(model.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn test_start_add_alias_on_subcommand_program_header_opens_subcmd_editor() {
+        let mut model = test_model("profiles = []");
+        model
+            .app_model
+            .config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        model.rebuild_tree();
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandProgramHeader)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::StartAddAlias);
+        assert!(
+            matches!(
+                model.mode,
+                Mode::TextInput(TextInputState::SubcommandInput { .. })
+            ),
+            "expected SubcommandInput mode, got {:?}",
+            model.mode
+        );
+    }
+
+    #[test]
+    fn test_new_alias_tab_with_colon_morphs_to_subcommand_editor() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::NewAlias {
+            name: "git:".into(),
+            command: String::new(),
+            active_field: AliasField::Name,
+            cursor: 4,
+            target: AliasTarget::Global,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput { program, pairs, .. }) => {
+                assert_eq!(program, "git");
+                assert_eq!(pairs.len(), 1);
+                assert_eq!(pairs[0].0, ""); // short token is empty (nothing after the colon)
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_new_alias_tab_with_colon_and_short_token() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::NewAlias {
+            name: "git:co".into(),
+            command: String::new(),
+            active_field: AliasField::Name,
+            cursor: 6,
+            target: AliasTarget::Global,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                program,
+                pairs,
+                cursor,
+                ..
+            }) => {
+                assert_eq!(program, "git");
+                assert_eq!(pairs[0].0, "co");
+                assert_eq!(*cursor, "co".len());
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_new_alias_tab_without_colon_switches_to_command_field() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::NewAlias {
+            name: "ll".into(),
+            command: String::new(),
+            active_field: AliasField::Name,
+            cursor: 2,
+            target: AliasTarget::Global,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(*active_field, AliasField::Command);
+            }
+            other => panic!("expected NewAlias on Command field, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_subcmd_add_pair_extends_pairs() {
+        // Tab on the Long field of a complete pair should add a new pair.
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            cursor: "abandon".len(),
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs,
+                active_pair,
+                active_field,
+                ..
+            }) => {
+                assert_eq!(pairs.len(), 2);
+                assert_eq!(*active_pair, 1);
+                assert_eq!(*active_field, SubcommandField::Short);
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_tab_on_empty_long_does_not_add_pair() {
+        // Tab on an empty Long field should not add a new pair.
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "".into())],
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            cursor: 0,
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs, active_pair, ..
+            }) => {
+                assert_eq!(pairs.len(), 1, "no new pair should be added");
+                assert_eq!(*active_pair, 0);
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_esc_removes_empty_last_pair() {
+        // Esc when the last pair is empty should remove it, not exit.
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into()), ("".into(), "".into())],
+            active_pair: 1,
+            active_field: SubcommandField::Short,
+            cursor: 0,
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::TextInputCancel);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                pairs, active_pair, ..
+            }) => {
+                assert_eq!(pairs.len(), 1, "empty last pair should be removed");
+                assert_eq!(*active_pair, 0);
+            }
+            other => panic!("expected SubcommandInput after first Esc, got {other:?}"),
+        }
+        // Second Esc exits
+        update(&mut model, TuiMessage::TextInputCancel);
+        assert_eq!(model.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn test_subcmd_confirm_dispatches_add() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            cursor: "abandon".len(),
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        update(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(model.mode, Mode::Normal);
+        assert!(model.app_model.config.subcommands.contains_key("jj:ab"));
+    }
+
+    fn make_subcmd_model(keys: &[(&str, &[&str])]) -> TuiModel {
+        let mut config = amoxide::Config::default();
+        for (key, longs) in keys {
+            config.subcommands.insert(
+                key.to_string(),
+                longs.iter().map(|s| s.to_string()).collect(),
+            );
+        }
+        let app_model = AppModel::new(config, ProfileConfig::default());
+        let tree = build_tree_from_parts(
+            &app_model.config.aliases,
+            &app_model.config.subcommands,
+            app_model.profile_config(),
+            &app_model.session.active_profiles,
+            None,
+            None,
+        );
+        let dest_tree = build_dest_tree_from_parts(
+            &app_model.config.aliases,
+            app_model.profile_config(),
+            &app_model.session.active_profiles,
+            false,
+        );
+        TuiModel {
+            app_model,
+            tree,
+            cursor: 0,
+            selected: BTreeSet::new(),
+            mode: Mode::Normal,
+            dest_tree,
+            dest_cursor: 0,
+            active_column: crate::model::Column::Left,
+            scroll_offset: 0,
+            status_line: None,
+        }
+    }
+
+    #[test]
+    fn test_delete_subcommand_item() {
+        let mut model = make_subcmd_model(&[("jj:ab", &["abandon"])]);
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandItem)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::DeleteItem);
+        assert!(!model.app_model.config.subcommands.contains_key("jj:ab"));
+    }
+
+    #[test]
+    fn test_delete_subcommand_program_header_removes_all_keys() {
+        let mut model =
+            make_subcmd_model(&[("jj:ab", &["abandon"]), ("jj:b:l", &["branch", "list"])]);
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandProgramHeader)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::DeleteItem);
+        assert!(model.app_model.config.subcommands.is_empty());
+    }
+
+    #[test]
+    fn test_toggle_select_on_subcommand_item_adds_to_selected() {
+        let mut model = make_subcmd_model(&[("jj:ab", &["abandon"])]);
+        let idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::SubcommandItem)
+            .unwrap();
+        model.cursor = idx;
+        update(&mut model, TuiMessage::ToggleSelect);
+        assert_eq!(model.selected.len(), 1);
+        let id = model.selected.iter().next().unwrap();
+        assert!(matches!(id, AliasId::Subcommand { .. }));
     }
 }

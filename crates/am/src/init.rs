@@ -1,4 +1,5 @@
 use crate::shell::Shells;
+use crate::subcommand::{group_by_program, SubcommandSet};
 use crate::AliasSet;
 
 const WRAPPER_BASH: &str = include_str!("shell_wrappers/wrapper.bash");
@@ -18,30 +19,55 @@ const COMPLETIONS_PS1: &str = include_str!(concat!(env!("OUT_DIR"), "/_am.ps1"))
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
 /// `profile_aliases` — merged alias set from all active profiles.
+/// `subcommands` — merged subcommand aliases (global + active profiles).
 pub fn generate_init(
     shell: &Shells,
     global_aliases: &AliasSet,
     profile_aliases: &AliasSet,
+    subcommands: &SubcommandSet,
 ) -> String {
     let shell_impl = shell.clone().as_shell();
     let mut lines: Vec<String> = Vec::new();
     let mut all_names: Vec<String> = Vec::new();
 
-    // Emit global aliases
+    // Determine which program names have subcommand wrappers
+    let subcmd_groups = group_by_program(subcommands);
+    let programs_with_wrappers: std::collections::BTreeSet<&str> =
+        subcmd_groups.keys().map(|s| s.as_str()).collect();
+
+    // Emit global aliases (skip those absorbed by subcommand wrappers)
     for (alias_name, alias_value) in global_aliases.iter() {
         let name = alias_name.as_ref();
-        lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        if !programs_with_wrappers.contains(name) {
+            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        }
         all_names.push(name.to_string());
     }
 
-    // Emit profile aliases (merged from all active profiles)
+    // Emit profile aliases (skip those absorbed by subcommand wrappers)
     for (alias_name, alias_value) in profile_aliases.iter() {
         let name = alias_name.as_ref();
-        lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        if !programs_with_wrappers.contains(name) {
+            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        }
         all_names.push(name.to_string());
     }
 
-    // Track all loaded aliases (global + profile) for reload cleanup
+    // Emit subcommand wrappers
+    for (program, entries) in &subcmd_groups {
+        // Determine base command: alias value if regular alias exists, else "command <program>"
+        let all_aliases = global_aliases.iter().chain(profile_aliases.iter());
+        let base_cmd = all_aliases
+            .filter(|(n, _)| n.as_ref() == program.as_str())
+            .map(|(_, v)| v.command().to_string())
+            .last()
+            .unwrap_or_else(|| format!("command {program}"));
+
+        lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
+        all_names.push(program.to_string());
+    }
+
+    // Track all loaded aliases (global + profile + subcommand wrappers) for reload cleanup
     if !all_names.is_empty() {
         all_names.sort();
         all_names.dedup();
@@ -71,6 +97,7 @@ pub fn generate_reload(
     shell: &Shells,
     global_aliases: &AliasSet,
     profile_aliases: &AliasSet,
+    subcommands: &SubcommandSet,
     previous_aliases: Option<&str>,
 ) -> String {
     let shell_impl = shell.clone().as_shell();
@@ -86,19 +113,42 @@ pub fn generate_reload(
         lines.push(shell_impl.unalias(alias_name));
     }
 
-    // Load global + profile aliases
+    // Determine which program names have subcommand wrappers
+    let subcmd_groups = group_by_program(subcommands);
+    let programs_with_wrappers: std::collections::BTreeSet<&str> =
+        subcmd_groups.keys().map(|s| s.as_str()).collect();
+
+    // Load global + profile aliases (skip those absorbed by subcommand wrappers)
     let mut all_names: Vec<String> = Vec::new();
 
     for (alias_name, alias_value) in global_aliases.iter() {
         let name = alias_name.as_ref();
-        lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        if !programs_with_wrappers.contains(name) {
+            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        }
         all_names.push(name.to_string());
     }
 
     for (alias_name, alias_value) in profile_aliases.iter() {
         let name = alias_name.as_ref();
-        lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        if !programs_with_wrappers.contains(name) {
+            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+        }
         all_names.push(name.to_string());
+    }
+
+    // Emit subcommand wrappers
+    for (program, entries) in &subcmd_groups {
+        // Determine base command: alias value if regular alias exists, else "command <program>"
+        let all_aliases = global_aliases.iter().chain(profile_aliases.iter());
+        let base_cmd = all_aliases
+            .filter(|(n, _)| n.as_ref() == program.as_str())
+            .map(|(_, v)| v.command().to_string())
+            .last()
+            .unwrap_or_else(|| format!("command {program}"));
+
+        lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
+        all_names.push(program.to_string());
     }
 
     // Update tracking
@@ -177,7 +227,14 @@ fn powershell_completions() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::subcommand::SubcommandSet;
     use crate::{AliasName, TomlAlias};
+
+    fn test_subcommands() -> SubcommandSet {
+        let mut subs = SubcommandSet::new();
+        subs.insert("jj:ab".into(), vec!["abandon".into()]);
+        subs
+    }
 
     fn test_aliases() -> AliasSet {
         let mut aliases = AliasSet::default();
@@ -195,7 +252,12 @@ mod tests {
     #[test]
     fn test_fish_init_contains_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("alias gs \"git status\""));
         assert!(output.contains("alias ll \"ls -lha\""));
     }
@@ -203,14 +265,24 @@ mod tests {
     #[test]
     fn test_fish_init_tracks_all_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("_AM_ALIASES"));
     }
 
     #[test]
     fn test_fish_init_contains_wrapper() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("function am --wraps=am"));
         assert!(output.contains("am reload fish"));
         assert!(output.contains("--local"));
@@ -220,7 +292,12 @@ mod tests {
     #[test]
     fn test_fish_init_contains_cd_hook() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("--on-variable PWD"));
         assert!(output.contains("am hook fish"));
     }
@@ -228,7 +305,12 @@ mod tests {
     #[test]
     fn test_zsh_init_contains_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Zsh,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("gs() { git status \"$@\"; }"));
         assert!(output.contains("ll() { ls -lha \"$@\"; }"));
     }
@@ -236,7 +318,12 @@ mod tests {
     #[test]
     fn test_zsh_init_contains_wrapper() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Zsh,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("am()"));
         assert!(output.contains("am reload zsh"));
         assert!(output.contains("--local"));
@@ -246,14 +333,24 @@ mod tests {
     #[test]
     fn test_zsh_init_contains_cd_hook() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Zsh, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Zsh,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("chpwd_functions"));
         assert!(output.contains("am hook zsh"));
     }
 
     #[test]
     fn test_init_empty_no_tracking_var() {
-        let output = generate_init(&Shells::Fish, &AliasSet::default(), &AliasSet::default());
+        let output = generate_init(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &AliasSet::default(),
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("__am_hook"));
         assert!(!output.contains("_AM_ALIASES"));
     }
@@ -265,6 +362,7 @@ mod tests {
             &Shells::Fish,
             &AliasSet::default(),
             &aliases,
+            &SubcommandSet::new(),
             Some("old1,old2"),
         );
         assert!(output.contains("functions -e old1"));
@@ -277,7 +375,13 @@ mod tests {
     #[test]
     fn test_reload_zsh_unloads_with_unset_f() {
         let aliases = test_aliases();
-        let output = generate_reload(&Shells::Zsh, &AliasSet::default(), &aliases, Some("old1"));
+        let output = generate_reload(
+            &Shells::Zsh,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+            Some("old1"),
+        );
         assert!(output.contains("unset -f old1"));
         assert!(output.contains("gs() { git status \"$@\"; }"));
     }
@@ -285,7 +389,13 @@ mod tests {
     #[test]
     fn test_reload_no_previous() {
         let aliases = test_aliases();
-        let output = generate_reload(&Shells::Fish, &AliasSet::default(), &aliases, None);
+        let output = generate_reload(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+            None,
+        );
         assert!(!output.contains("functions -e"));
         assert!(output.contains("alias gs"));
     }
@@ -296,6 +406,7 @@ mod tests {
             &Shells::Fish,
             &AliasSet::default(),
             &AliasSet::default(),
+            &SubcommandSet::new(),
             Some("old1"),
         );
         assert!(output.contains("functions -e old1"));
@@ -309,7 +420,12 @@ mod tests {
             "ll".into(),
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
-        let output = generate_init(&Shells::Fish, &globals, &AliasSet::default());
+        let output = generate_init(
+            &Shells::Fish,
+            &globals,
+            &AliasSet::default(),
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("alias ll \"ls -lha\""));
     }
 
@@ -321,7 +437,7 @@ mod tests {
             crate::TomlAlias::Command("global cmd".to_string()),
         );
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Fish, &globals, &aliases);
+        let output = generate_init(&Shells::Fish, &globals, &aliases, &SubcommandSet::new());
         let gl_pos = output.find("gl").unwrap();
         let gs_pos = output.find("gs").unwrap();
         assert!(
@@ -337,7 +453,13 @@ mod tests {
             "ll".into(),
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
-        let output = generate_reload(&Shells::Fish, &globals, &AliasSet::default(), Some("old"));
+        let output = generate_reload(
+            &Shells::Fish,
+            &globals,
+            &AliasSet::default(),
+            &SubcommandSet::new(),
+            Some("old"),
+        );
         assert!(output.contains("functions -e old"));
         assert!(output.contains("alias ll \"ls -lha\""));
     }
@@ -345,7 +467,12 @@ mod tests {
     #[test]
     fn test_bash_init_contains_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Bash,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("gs() { git status \"$@\"; }"));
         assert!(output.contains("ll() { ls -lha \"$@\"; }"));
     }
@@ -353,7 +480,12 @@ mod tests {
     #[test]
     fn test_bash_init_contains_wrapper() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Bash,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("am()"));
         assert!(output.contains("am reload bash"));
         assert!(output.contains("--local"));
@@ -363,7 +495,12 @@ mod tests {
     #[test]
     fn test_bash_init_contains_cd_hook() {
         let aliases = test_aliases();
-        let output = generate_init(&Shells::Bash, &AliasSet::default(), &aliases);
+        let output = generate_init(
+            &Shells::Bash,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+        );
         assert!(output.contains("PROMPT_COMMAND"));
         assert!(output.contains("__am_hook"));
         assert!(output.contains("__am_prev_dir"));
@@ -373,8 +510,70 @@ mod tests {
     #[test]
     fn test_reload_bash_unloads_with_unset_f() {
         let aliases = test_aliases();
-        let output = generate_reload(&Shells::Bash, &AliasSet::default(), &aliases, Some("old1"));
+        let output = generate_reload(
+            &Shells::Bash,
+            &AliasSet::default(),
+            &aliases,
+            &SubcommandSet::new(),
+            Some("old1"),
+        );
         assert!(output.contains("unset -f old1"));
         assert!(output.contains("gs() { git status \"$@\"; }"));
+    }
+
+    #[test]
+    fn test_bash_init_contains_subcommand_wrapper() {
+        let subs = test_subcommands();
+        let output = generate_init(
+            &Shells::Bash,
+            &AliasSet::default(),
+            &AliasSet::default(),
+            &subs,
+        );
+        assert!(output.contains("jj() {"));
+        assert!(output.contains("ab) shift; command jj abandon"));
+        assert!(output.contains("*) command jj \"$@\""));
+    }
+
+    #[test]
+    fn test_fish_init_contains_subcommand_wrapper() {
+        let subs = test_subcommands();
+        let output = generate_init(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &AliasSet::default(),
+            &subs,
+        );
+        assert!(output.contains("function jj --wraps=jj"));
+        assert!(output.contains("case 'ab'"));
+        assert!(output.contains("command jj abandon"));
+    }
+
+    #[test]
+    fn test_init_subcommand_absorbs_regular_alias() {
+        let mut aliases = AliasSet::default();
+        aliases.insert("jj".into(), TomlAlias::Command("just-a-joke".into()));
+        let subs = test_subcommands();
+        let output = generate_init(&Shells::Bash, &aliases, &AliasSet::default(), &subs);
+        // Wrapper should use the alias value as base_cmd
+        assert!(output.contains("just-a-joke abandon"));
+        assert!(output.contains("just-a-joke \"$@\""));
+        // Should NOT also emit a regular alias function for jj
+        // (the wrapper subsumes it — count occurrences of "jj() {")
+        let wrapper_count = output.matches("jj() {").count();
+        assert_eq!(wrapper_count, 1);
+    }
+
+    #[test]
+    fn test_init_subcommand_tracked_in_am_aliases() {
+        let subs = test_subcommands();
+        let output = generate_init(
+            &Shells::Fish,
+            &AliasSet::default(),
+            &AliasSet::default(),
+            &subs,
+        );
+        assert!(output.contains("_AM_ALIASES"));
+        assert!(output.contains("jj"));
     }
 }

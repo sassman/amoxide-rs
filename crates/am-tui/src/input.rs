@@ -1,4 +1,4 @@
-use crate::model::{Mode, TuiMessage};
+use crate::model::{Mode, TextInputState, TuiMessage};
 use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use std::time::{Duration, Instant};
 
@@ -16,6 +16,7 @@ fn map_key(key: &KeyEvent, mode: &Mode) -> Option<TuiMessage> {
     }
     match mode {
         Mode::Normal | Mode::Transfer(_) => map_normal_key(key, mode),
+        Mode::TextInput(TextInputState::SubcommandInput { .. }) => map_subcmd_input_key(key),
         Mode::TextInput(_) => map_text_input_key(key),
         Mode::Confirm(_) => map_confirm_key(key),
     }
@@ -47,11 +48,28 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
     }
 }
 
+fn map_subcmd_input_key(key: &KeyEvent) -> Option<TuiMessage> {
+    match key.code {
+        KeyCode::Enter => Some(TuiMessage::TextInputConfirm),
+        KeyCode::Esc => Some(TuiMessage::TextInputCancel),
+        KeyCode::Tab => Some(TuiMessage::TextInputSwitchField),
+        KeyCode::BackTab => Some(TuiMessage::TextInputSwitchFieldBack),
+        KeyCode::Left => Some(TuiMessage::TextInputCursorLeft),
+        KeyCode::Right => Some(TuiMessage::TextInputCursorRight),
+        KeyCode::Backspace => Some(TuiMessage::TextInputBackspace),
+        KeyCode::Char(c) => Some(TuiMessage::TextInputChar(c)),
+        _ => None,
+    }
+}
+
 fn map_text_input_key(key: &KeyEvent) -> Option<TuiMessage> {
     match key.code {
         KeyCode::Enter => Some(TuiMessage::TextInputConfirm),
         KeyCode::Esc => Some(TuiMessage::TextInputCancel),
         KeyCode::Tab => Some(TuiMessage::TextInputSwitchField),
+        KeyCode::BackTab => Some(TuiMessage::TextInputSwitchFieldBack),
+        KeyCode::Left => Some(TuiMessage::TextInputCursorLeft),
+        KeyCode::Right => Some(TuiMessage::TextInputCursorRight),
         KeyCode::Backspace => Some(TuiMessage::TextInputBackspace),
         KeyCode::Char(c) => Some(TuiMessage::TextInputChar(c)),
         _ => None,

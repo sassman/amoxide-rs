@@ -25,6 +25,7 @@ Also available via [Homebrew, Shell Script, and PowerShell](https://amoxide.rs/g
 - **[Profiles](https://amoxide.rs/usage/profiles)** — group aliases by context (rust, git, node), activate several at once
 - **[Project aliases](https://amoxide.rs/usage/project-aliases)** — `.aliases` files, auto-loaded on `cd`
 - **[Parameterized aliases](https://amoxide.rs/advanced/parameterized-aliases)** — `{{1}}`, `{{@}}` template syntax
+- **[Subcommand aliases](https://amoxide.rs/advanced/subcommand-aliases)** — map short tokens to subcommand expansions (`jj:ab` → `jj abandon`, multi-level: `jj:b:l` → `jj branch list`)
 - **[Interactive TUI](https://crates.io/crates/amoxide-tui)** — visual alias management (`cargo install amoxide-tui`)
 
 ## Documentation

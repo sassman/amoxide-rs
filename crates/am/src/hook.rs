@@ -15,8 +15,15 @@ pub fn generate_hook(
     previous_aliases: Option<&str>,
 ) -> crate::Result<String> {
     let mut security = SecurityConfig::load().unwrap_or_default();
-    let (output, _changed) =
-        generate_hook_with_security(shell, cwd, previous_aliases, &mut security, false)?;
+    let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+    let (output, _changed) = generate_hook_with_security(
+        shell,
+        cwd,
+        previous_aliases,
+        prev_project_path.as_deref(),
+        &mut security,
+        false,
+    )?;
     Ok(output)
 }
 
@@ -27,10 +34,15 @@ pub fn generate_hook(
 ///
 /// When `quiet` is true, info and warning echo messages are suppressed
 /// (alias loading/unloading still happens).
+///
+/// `prev_project_path` — the value of `_AM_PROJECT_PATH` from the shell
+/// environment, used to suppress duplicate warnings. Pass `None` to treat
+/// the env var as unset (e.g. in tests).
 pub fn generate_hook_with_security(
     shell: &Shells,
     cwd: &Path,
     previous_aliases: Option<&str>,
+    prev_project_path: Option<&str>,
     security_config: &mut SecurityConfig,
     quiet: bool,
 ) -> crate::Result<(String, bool)> {
@@ -43,8 +55,9 @@ pub fn generate_hook_with_security(
         .map(|s| s.split(',').collect())
         .unwrap_or_default();
 
-    // Track which .aliases file was last seen, to avoid repeating warnings.
-    let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+    // `prev_project_path` tracks which .aliases file was last seen, to avoid
+    // repeating warnings. It is passed in explicitly rather than read from the
+    // environment so that callers (e.g. tests) can control it independently.
 
     // Helper: generate unalias commands for previously loaded aliases
     let unload_prev = |lines: &mut Vec<String>| {
@@ -65,24 +78,33 @@ pub fn generate_hook_with_security(
             // - the .aliases file is directly in cwd (not inherited from parent)
             // - we haven't already shown a message for this exact file
             let is_direct = path.parent().is_some_and(|p| p == cwd);
-            let already_seen = prev_project_path
-                .as_deref()
-                .is_some_and(|p| Path::new(p) == path);
+            let already_seen = prev_project_path.is_some_and(|p| Path::new(p) == path);
             let show_messages = !quiet && is_direct && !already_seen;
 
             match status {
                 TrustStatus::Trusted => {
                     let project = ProjectAliases::load(&path)?;
-                    if !project.aliases.is_empty() {
+                    if !project.aliases.is_empty() || !project.subcommands.is_empty() {
                         let names: Vec<String> = project
                             .aliases
                             .iter()
                             .map(|(n, _)| n.as_ref().to_string())
                             .collect();
 
+                        let subcmd_groups =
+                            crate::subcommand::group_by_program(&project.subcommands);
+                        let subcmd_program_names: Vec<String> =
+                            subcmd_groups.keys().cloned().collect();
+
+                        let mut all_names: Vec<String> = names.clone();
+                        all_names.extend(subcmd_program_names.clone());
+                        all_names.sort();
+                        all_names.dedup();
+
                         // If the same aliases are already loaded, skip entirely.
                         // The hash check guarantees commands haven't changed either.
-                        if names.len() == prev.len() && names.iter().zip(&prev).all(|(a, b)| a == b)
+                        if all_names.len() == prev.len()
+                            && all_names.iter().zip(&prev).all(|(a, b)| a == b)
                         {
                             return Ok((String::new(), false));
                         }
@@ -90,16 +112,35 @@ pub fn generate_hook_with_security(
                         unload_prev(&mut lines);
 
                         if show_messages {
-                            for line in render_load_message(&project.aliases).lines() {
+                            for line in
+                                render_load_message(&project.aliases, &project.subcommands).lines()
+                            {
                                 lines.push(shell_impl.echo(line));
                             }
                         }
 
+                        // Emit regular aliases (skip those with subcommand wrappers)
+                        let programs_set: std::collections::BTreeSet<&str> =
+                            subcmd_groups.keys().map(|s| s.as_str()).collect();
                         for (alias_name, alias_value) in project.aliases.iter() {
-                            lines
-                                .push(shell_impl.alias(&alias_value.as_entry(alias_name.as_ref())));
+                            let name = alias_name.as_ref();
+                            if !programs_set.contains(name) {
+                                lines.push(shell_impl.alias(&alias_value.as_entry(name)));
+                            }
                         }
-                        lines.push(shell_impl.set_env("_AM_PROJECT_ALIASES", &names.join(",")));
+
+                        // Emit subcommand wrappers
+                        for (program, entries) in &subcmd_groups {
+                            let base_cmd = project
+                                .aliases
+                                .iter()
+                                .find(|(n, _)| n.as_ref() == program.as_str())
+                                .map(|(_, v)| v.command().to_string())
+                                .unwrap_or_else(|| format!("command {program}"));
+                            lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
+                        }
+
+                        lines.push(shell_impl.set_env("_AM_PROJECT_ALIASES", &all_names.join(",")));
                     }
                 }
                 TrustStatus::Unknown => {
@@ -239,7 +280,7 @@ mod tests {
         }
 
         fn run(&mut self, shell: &Shells, cwd: &Path, prev: Option<&str>) -> (String, bool) {
-            generate_hook_with_security(shell, cwd, prev, &mut self.security, false).unwrap()
+            generate_hook_with_security(shell, cwd, prev, None, &mut self.security, false).unwrap()
         }
 
         /// Update the .aliases content and re-trust.
@@ -492,5 +533,21 @@ mod tests {
             !output.contains("am: loaded"),
             "should not show load message for parent .aliases, got: {output}"
         );
+    }
+
+    #[test]
+    fn test_hook_with_project_subcommands() {
+        let mut t = TestBed::new()
+            .with_aliases(
+                "[aliases]\nb = \"make build\"\n\n[subcommands]\n\"jj:ab\" = [\"abandon\"]\n",
+            )
+            .with_security_trusted()
+            .setup();
+
+        let cwd = t.root();
+        let (output, _) = t.run(&Shells::Bash, &cwd, None);
+        assert!(output.contains("b() { make build \"$@\"; }"));
+        assert!(output.contains("jj() {"));
+        assert!(output.contains("ab) shift; command jj abandon"));
     }
 }

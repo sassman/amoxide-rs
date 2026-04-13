@@ -21,6 +21,11 @@ active_profiles = ["git", "rust"]
 [aliases]
 helo = "echo hello world"
 ll = "ls -lha"
+
+# Globale Subcommand-Aliase — Kurzformen für subcommandbasierte Tools
+[subcommands]
+"jj:ab" = ["abandon"]
+"jj:b:l" = ["branch", "list"]
 ```
 
 Das `active_profiles`-Array bestimmt, welche Profile geladen werden und ihre Priorität. Der letzte Eintrag hat die höchste Priorität — wenn sowohl `git` als auch `rust` einen Alias mit dem gleichen Namen definieren, gewinnt `rust`.
@@ -44,6 +49,9 @@ f = "cargo fmt"
 t = "cargo test --all-features"
 l = "cargo clippy --locked --all-targets -- -D warnings"
 
+[profiles.subcommands]
+"cargo:t" = ["test", "--all-features"]
+
 [[profiles]]
 name = "node"
 
@@ -52,7 +60,7 @@ t = "npm run test"
 b = "npm run build"
 ```
 
-Jeder `[[profiles]]`-Block definiert ein benanntes Profil mit seinen Aliasen. Beachte, dass verschiedene Profile den gleichen Alias-Namen verwenden können (z.B. `t` in `rust` und `node`) — welches Profil höhere Priorität in `active_profiles` hat, gewinnt.
+Jeder `[[profiles]]`-Block definiert ein benanntes Profil mit seinen Aliasen und optionalen Subcommand-Aliasen. Beachte, dass verschiedene Profile den gleichen Alias-Namen verwenden können (z.B. `t` in `rust` und `node`) — welches Profil höhere Priorität in `active_profiles` hat, gewinnt.
 
 ## `security.toml` — Vertrauensentscheidungen <VersionBadge v="0.5.0" />
 
@@ -80,6 +88,10 @@ Diese Datei liegt im Projektstamm und wird automatisch geladen, wenn du in das V
 i = "cargo install --path crates/am && cargo install --path crates/am-tui"
 l = "cargo clippy --locked --all-targets -- -D warnings"
 t = "cargo test --all-features"
+
+[subcommands]
+"jj:ab" = ["abandon"]
+"jj:b:l" = ["branch", "list"]
 ```
 
 Projekt-Aliase überschreiben Profil-Aliase mit dem gleichen Namen. So kannst du Abkürzungen pro Projekt anpassen, ohne dein globales Setup zu ändern.
@@ -95,3 +107,7 @@ Aktive Profile (letztes gewinnt)
   ↑ überschreibt
 Globale Aliase (config.toml)  ← niedrigste Priorität
 ```
+
+Die gleiche Prioritätsreihenfolge gilt für Subcommand-Aliase. Ein `[subcommands]`-Eintrag in `.aliases` überschreibt denselben Schlüssel aus einem aktiven Profil, der wiederum denselben Schlüssel in `config.toml` überschreibt.
+
+Siehe [Subcommand-Aliase](/de/usage/subcommand-aliases) für Nutzungsbeispiele und wie die Shell-Wrapper generiert werden.

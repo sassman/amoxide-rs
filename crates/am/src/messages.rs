@@ -51,6 +51,25 @@ pub enum Message {
 
     Import(ImportPayload),
 
+    AddSubcommandAlias(String, Vec<String>, AliasTarget),
+    RemoveSubcommandAlias(String, AliasTarget),
+    UpdateSubcommandAlias {
+        original_key: String,
+        new_key: String,
+        long_subcommands: Vec<String>,
+        target: AliasTarget,
+    },
+    CopySubcommandAliases {
+        keys: Vec<String>,
+        from: AliasTarget,
+        to: AliasTarget,
+    },
+    MoveSubcommandAliases {
+        keys: Vec<String>,
+        from: AliasTarget,
+        to: AliasTarget,
+    },
+
     Trust,
     Untrust {
         forget: bool,

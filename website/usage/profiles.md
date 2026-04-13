@@ -62,7 +62,7 @@ Active profiles are shown connected by a tree trunk. Inactive profiles appear be
 ├─● rust (active: 2)
 │ ct → cargo test
 │
-╰─📁 project aliases (.aliases)
+╰─📁 project (/path/to/project/.aliases)
 
 ○ node
   nr → npm run

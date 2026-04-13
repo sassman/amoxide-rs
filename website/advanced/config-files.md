@@ -21,6 +21,11 @@ active_profiles = ["git", "rust"]
 [aliases]
 helo = "echo hello world"
 ll = "ls -lha"
+
+# Global subcommand aliases — short forms for subcommand-based tools
+[subcommands]
+"jj:ab" = ["abandon"]
+"jj:b:l" = ["branch", "list"]
 ```
 
 The `active_profiles` array determines which profiles are loaded and their precedence. The last entry has the highest priority — if both `git` and `rust` define an alias with the same name, `rust` wins.
@@ -44,6 +49,9 @@ f = "cargo fmt"
 t = "cargo test --all-features"
 l = "cargo clippy --locked --all-targets -- -D warnings"
 
+[profiles.subcommands]
+"cargo:t" = ["test", "--all-features"]
+
 [[profiles]]
 name = "node"
 
@@ -52,7 +60,7 @@ t = "npm run test"
 b = "npm run build"
 ```
 
-Each `[[profiles]]` block defines a named profile with its aliases. Note that different profiles can use the same alias name (e.g., `t` in both `rust` and `node`) — whichever profile has higher priority in `active_profiles` wins.
+Each `[[profiles]]` block defines a named profile with its aliases and optional subcommand aliases. Note that different profiles can use the same alias name (e.g., `t` in both `rust` and `node`) — whichever profile has higher priority in `active_profiles` wins.
 
 ## `security.toml` — Trust Decisions <VersionBadge v="0.5.0" />
 
@@ -80,6 +88,10 @@ This file lives in your project root and is loaded automatically when you `cd` i
 i = "cargo install --path crates/am && cargo install --path crates/am-tui"
 l = "cargo clippy --locked --all-targets -- -D warnings"
 t = "cargo test --all-features"
+
+[subcommands]
+"jj:ab" = ["abandon"]
+"jj:b:l" = ["branch", "list"]
 ```
 
 Project aliases override profile aliases with the same name. This lets you customize shortcuts per project without changing your global setup.
@@ -95,3 +107,7 @@ Active profiles (last wins)
   ↑ overrides
 Global aliases (config.toml)  ← lowest priority
 ```
+
+The same priority order applies to subcommand aliases. A `[subcommands]` entry in `.aliases` overrides the same key from an active profile, which overrides the same key in `config.toml`.
+
+See [Subcommand Aliases](/usage/subcommand-aliases) for usage examples and how the shell wrappers are generated.

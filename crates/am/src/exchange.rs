@@ -3,23 +3,35 @@ use std::fmt;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
+use crate::subcommand::SubcommandSet;
 use crate::{AliasSet, Profile, ProjectAliases};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ExportAll {
     #[serde(default, skip_serializing_if = "AliasSet::is_empty")]
     pub global_aliases: AliasSet,
+    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
+    pub global_subcommands: SubcommandSet,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub profiles: Vec<Profile>,
     #[serde(default, skip_serializing_if = "AliasSet::is_empty")]
     pub local_aliases: AliasSet,
+    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
+    pub local_subcommands: SubcommandSet,
 }
 
 impl ExportAll {
     pub fn is_empty(&self) -> bool {
-        self.global_aliases.is_empty() && self.profiles.is_empty() && self.local_aliases.is_empty()
+        self.global_aliases.is_empty()
+            && self.global_subcommands.is_empty()
+            && self.profiles.is_empty()
+            && self.local_aliases.is_empty()
+            && self.local_subcommands.is_empty()
     }
 
+    /// Flatten all aliases from every scope into one AliasSet.
+    /// Precedence: local > profiles (last profile wins) > global.
+    /// Duplicate keys are silently overwritten by higher-priority scopes.
     pub fn flatten(&self) -> AliasSet {
         let mut result = AliasSet::default();
         for (name, alias) in self.global_aliases.iter() {
@@ -35,13 +47,81 @@ impl ExportAll {
         }
         result
     }
+
+    /// Flatten all subcommands from every scope into one SubcommandSet.
+    /// Precedence: local > profiles (last profile wins) > global.
+    /// Duplicate keys are silently overwritten by higher-priority scopes.
+    pub fn flatten_subcommands(&self) -> SubcommandSet {
+        let mut result = SubcommandSet::new();
+        for (k, v) in &self.global_subcommands {
+            result.insert(k.clone(), v.clone());
+        }
+        for profile in &self.profiles {
+            for (k, v) in &profile.subcommands {
+                result.insert(k.clone(), v.clone());
+            }
+        }
+        for (k, v) in &self.local_subcommands {
+            result.insert(k.clone(), v.clone());
+        }
+        result
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct ImportPayload {
     pub global_aliases: Option<AliasSet>,
+    pub global_subcommands: Option<SubcommandSet>,
     pub profiles: Vec<Profile>,
     pub local_aliases: Option<AliasSet>,
+    pub local_subcommands: Option<SubcommandSet>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Subcommand merge
+// ═══════════════════════════════════════════════════════════════════════
+
+#[derive(Debug)]
+pub struct SubcommandMergeResult {
+    pub new_subcommands: SubcommandSet,
+    pub conflicts: Vec<SubcommandConflict>,
+}
+
+#[derive(Debug)]
+pub struct SubcommandConflict {
+    pub key: String,
+    pub current: Vec<String>,
+    pub incoming: Vec<String>,
+}
+
+/// Compare `current` subcommands against `incoming`, separating new keys from conflicts.
+/// Identical entries (same key, same expansion) are silently skipped.
+pub fn subcommand_merge_check(
+    current: &SubcommandSet,
+    incoming: &SubcommandSet,
+) -> SubcommandMergeResult {
+    let mut new_subcommands = SubcommandSet::new();
+    let mut conflicts = Vec::new();
+    for (key, incoming_longs) in incoming {
+        match current.get(key) {
+            None => {
+                new_subcommands.insert(key.clone(), incoming_longs.clone());
+            }
+            Some(existing_longs) => {
+                if existing_longs != incoming_longs {
+                    conflicts.push(SubcommandConflict {
+                        key: key.clone(),
+                        current: existing_longs.clone(),
+                        incoming: incoming_longs.clone(),
+                    });
+                }
+            }
+        }
+    }
+    SubcommandMergeResult {
+        new_subcommands,
+        conflicts,
+    }
 }
 
 /// Parse TOML input into ExportAll, with fallback for raw `.aliases` files.
@@ -98,6 +178,37 @@ pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
     output
 }
 
+/// Render the import summary for subcommand aliases in a single scope.
+pub fn render_import_summary_subcommands(
+    scope_name: &str,
+    result: &SubcommandMergeResult,
+) -> String {
+    let total = result.new_subcommands.len() + result.conflicts.len();
+    let mut output = format!("Importing subcommands into \"{scope_name}\" ({total} entries)\n");
+
+    if !result.new_subcommands.is_empty() {
+        output.push_str("\n  new:\n");
+        for (key, longs) in &result.new_subcommands {
+            output.push_str(&format!("    {} \u{2192} {}\n", key, longs.join(" ")));
+        }
+    }
+
+    if !result.conflicts.is_empty() {
+        output.push_str(&format!(
+            "\n  {} conflict{}:\n",
+            result.conflicts.len(),
+            if result.conflicts.len() == 1 { "" } else { "s" }
+        ));
+        for conflict in &result.conflicts {
+            output.push_str(&format!("\n    {}:\n", conflict.key));
+            output.push_str(&format!("      - {}\n", conflict.current.join(" ")));
+            output.push_str(&format!("      + {}\n", conflict.incoming.join(" ")));
+        }
+    }
+
+    output
+}
+
 pub fn base64_encode(input: &str) -> String {
     STANDARD.encode(input.as_bytes())
 }
@@ -141,7 +252,7 @@ pub fn has_suspicious_chars(s: &str) -> bool {
 }
 
 /// A string that has been sanitized for safe terminal display.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SanitizedName(String);
 
 impl SanitizedName {
@@ -182,7 +293,7 @@ impl fmt::Display for RawValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Scope {
     Global,
     Local,
@@ -204,6 +315,8 @@ pub enum SuspiciousField {
     AliasName,
     AliasCommand,
     ProfileName,
+    SubcommandKey,
+    SubcommandExpansion,
 }
 
 impl fmt::Display for SuspiciousField {
@@ -212,6 +325,8 @@ impl fmt::Display for SuspiciousField {
             SuspiciousField::AliasName => write!(f, "name"),
             SuspiciousField::AliasCommand => write!(f, "command"),
             SuspiciousField::ProfileName => write!(f, "profile_name"),
+            SuspiciousField::SubcommandKey => write!(f, "subcommand_key"),
+            SuspiciousField::SubcommandExpansion => write!(f, "subcommand_expansion"),
         }
     }
 }
@@ -288,9 +403,28 @@ impl SuspiciousAlias {
             raw_value: RawValue::new(command),
         }
     }
+
+    pub fn subcommand_key(scope: Scope, key: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(key),
+            field: SuspiciousField::SubcommandKey,
+            raw_value: RawValue::new(key),
+        }
+    }
+
+    pub fn subcommand_expansion(scope: Scope, key: &str, expansion: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(key),
+            field: SuspiciousField::SubcommandExpansion,
+            raw_value: RawValue::new(expansion),
+        }
+    }
 }
 
-/// Scan a parsed export for suspicious characters in alias names, commands, and profile names.
+/// Scan a parsed export for suspicious characters in alias names, commands, profile names,
+/// and subcommand keys/expansions.
 pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
     let mut findings = Vec::new();
 
@@ -305,6 +439,8 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
             ));
         }
     }
+
+    scan_subcommands(&mut findings, Scope::Global, &parsed.global_subcommands);
 
     for profile in &parsed.profiles {
         if has_suspicious_chars(&profile.name) {
@@ -325,6 +461,11 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
                 ));
             }
         }
+        scan_subcommands(
+            &mut findings,
+            Scope::Profile(SanitizedName::new(&profile.name)),
+            &profile.subcommands,
+        );
     }
 
     for (name, alias) in parsed.local_aliases.iter() {
@@ -339,7 +480,30 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
         }
     }
 
+    scan_subcommands(&mut findings, Scope::Local, &parsed.local_subcommands);
+
     findings
+}
+
+fn scan_subcommands(
+    findings: &mut Vec<SuspiciousAlias>,
+    scope: Scope,
+    subcommands: &SubcommandSet,
+) {
+    for (key, longs) in subcommands {
+        if has_suspicious_chars(key) {
+            findings.push(SuspiciousAlias::subcommand_key(scope.clone(), key));
+        }
+        for expansion in longs {
+            if has_suspicious_chars(expansion) {
+                findings.push(SuspiciousAlias::subcommand_expansion(
+                    scope.clone(),
+                    key,
+                    expansion,
+                ));
+            }
+        }
+    }
 }
 
 /// Render control characters as `\u{XXXX}` for safe display.
@@ -407,6 +571,7 @@ mod tests {
                 a.insert("gs".into(), TomlAlias::Command("git status".into()));
                 a
             },
+            subcommands: Default::default(),
         });
         export
             .local_aliases
@@ -430,6 +595,7 @@ mod tests {
                 a.insert("gs".into(), TomlAlias::Command("git status".into()));
                 a
             },
+            subcommands: Default::default(),
         });
         let toml_str = toml::to_string(&export).unwrap();
         assert!(!toml_str.contains("global_aliases"));
@@ -506,6 +672,7 @@ mod tests {
                 a.insert("gs".into(), TomlAlias::Command("git status".into()));
                 a
             },
+            subcommands: Default::default(),
         });
         export
             .local_aliases
@@ -600,6 +767,7 @@ mod tests {
             profiles: vec![Profile {
                 name: "evil\x1Bprofile".into(),
                 aliases: AliasSet::default(),
+                subcommands: Default::default(),
             }],
             ..Default::default()
         };
@@ -621,6 +789,7 @@ mod tests {
                     );
                     a
                 },
+                subcommands: Default::default(),
             }],
             ..Default::default()
         };
@@ -694,5 +863,235 @@ mod tests {
         assert!(output.contains("global"));
         assert!(output.contains("profile:evil"));
         assert!(output.contains("profile_name"));
+    }
+
+    // ─── flatten_subcommands ─────────────────────────────────────────────
+
+    #[test]
+    fn test_flatten_subcommands_merges_all_scopes() {
+        let mut export = ExportAll::default();
+        export
+            .global_subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        export.profiles.push(Profile {
+            name: "vcs".into(),
+            aliases: AliasSet::default(),
+            subcommands: {
+                let mut s = SubcommandSet::new();
+                s.insert("jj:d".into(), vec!["diff".into()]);
+                s
+            },
+        });
+        export
+            .local_subcommands
+            .insert("git:psh".into(), vec!["push".into()]);
+
+        let flat = export.flatten_subcommands();
+        assert_eq!(flat.len(), 3);
+        assert!(flat.contains_key("jj:ab"));
+        assert!(flat.contains_key("jj:d"));
+        assert!(flat.contains_key("git:psh"));
+    }
+
+    #[test]
+    fn test_flatten_subcommands_local_wins_over_global() {
+        let mut export = ExportAll::default();
+        export
+            .global_subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        export.local_subcommands.insert(
+            "jj:ab".into(),
+            vec!["abandon", "!"].into_iter().map(String::from).collect(),
+        );
+
+        let flat = export.flatten_subcommands();
+        assert_eq!(flat["jj:ab"], vec!["abandon", "!"]);
+    }
+
+    // ─── subcommand_merge_check ──────────────────────────────────────────
+
+    #[test]
+    fn test_merge_check_new_entries() {
+        let current = SubcommandSet::new();
+        let mut incoming = SubcommandSet::new();
+        incoming.insert("jj:ab".into(), vec!["abandon".into()]);
+
+        let result = subcommand_merge_check(&current, &incoming);
+        assert_eq!(result.new_subcommands.len(), 1);
+        assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn test_merge_check_conflict() {
+        let mut current = SubcommandSet::new();
+        current.insert("jj:ab".into(), vec!["abandon".into()]);
+        let mut incoming = SubcommandSet::new();
+        incoming.insert(
+            "jj:ab".into(),
+            vec!["abandon", "--detach"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
+        );
+
+        let result = subcommand_merge_check(&current, &incoming);
+        assert!(result.new_subcommands.is_empty());
+        assert_eq!(result.conflicts.len(), 1);
+        assert_eq!(result.conflicts[0].key, "jj:ab");
+    }
+
+    #[test]
+    fn test_merge_check_identical_entry_skipped() {
+        let mut current = SubcommandSet::new();
+        current.insert("jj:ab".into(), vec!["abandon".into()]);
+        let mut incoming = SubcommandSet::new();
+        incoming.insert("jj:ab".into(), vec!["abandon".into()]);
+
+        let result = subcommand_merge_check(&current, &incoming);
+        assert!(result.new_subcommands.is_empty());
+        assert!(result.conflicts.is_empty());
+    }
+
+    // ─── render_import_summary ───────────────────────────────────────────
+
+    #[test]
+    fn test_render_import_summary_new_only() {
+        use crate::alias::MergeResult;
+        let mut new_aliases = AliasSet::default();
+        new_aliases.insert("ll".into(), TomlAlias::Command("ls -lha".into()));
+        let result = MergeResult {
+            new_aliases,
+            conflicts: vec![],
+        };
+        let output = render_import_summary("global", &result);
+        assert!(output.contains("global"));
+        assert!(output.contains("1 aliases"));
+        assert!(output.contains("ll"));
+        assert!(output.contains("ls -lha"));
+    }
+
+    #[test]
+    fn test_render_import_summary_with_conflicts() {
+        use crate::alias::{AliasConflict, MergeResult};
+        use crate::AliasName;
+        let result = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts: vec![AliasConflict {
+                name: AliasName::from("gs"),
+                current: TomlAlias::Command("git status".into()),
+                incoming: TomlAlias::Command("git status --short".into()),
+            }],
+        };
+        let output = render_import_summary("global", &result);
+        assert!(output.contains("1 conflict"));
+        assert!(output.contains("gs"));
+        assert!(output.contains("git status --short"));
+    }
+
+    // ─── render_import_summary_subcommands ───────────────────────────────
+
+    #[test]
+    fn test_render_import_summary_subcommands_new_only() {
+        let mut new_subcommands = SubcommandSet::new();
+        new_subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        let result = SubcommandMergeResult {
+            new_subcommands,
+            conflicts: vec![],
+        };
+        let output = render_import_summary_subcommands("global", &result);
+        assert!(output.contains("global"));
+        assert!(output.contains("1 entries"));
+        assert!(output.contains("jj:ab"));
+        assert!(output.contains("abandon"));
+    }
+
+    #[test]
+    fn test_render_import_summary_subcommands_with_conflicts() {
+        let result = SubcommandMergeResult {
+            new_subcommands: SubcommandSet::new(),
+            conflicts: vec![SubcommandConflict {
+                key: "jj:ab".into(),
+                current: vec!["abandon".into()],
+                incoming: vec!["abandon".into(), "--detach".into()],
+            }],
+        };
+        let output = render_import_summary_subcommands("global", &result);
+        assert!(output.contains("1 conflict"));
+        assert!(output.contains("jj:ab"));
+        assert!(output.contains("--detach"));
+    }
+
+    // ─── scan_suspicious: subcommand paths ───────────────────────────────
+
+    #[test]
+    fn test_scan_suspicious_subcommand_key() {
+        let mut export = ExportAll::default();
+        export
+            .global_subcommands
+            .insert("jj:\x1Bab".into(), vec!["abandon".into()]);
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].field.to_string(), "subcommand_key");
+        assert_eq!(findings[0].scope.to_string(), "global");
+    }
+
+    #[test]
+    fn test_scan_suspicious_subcommand_expansion() {
+        let mut export = ExportAll::default();
+        export
+            .local_subcommands
+            .insert("jj:ab".into(), vec!["aban\x07don".into()]);
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].field.to_string(), "subcommand_expansion");
+        assert_eq!(findings[0].scope.to_string(), "local");
+    }
+
+    #[test]
+    fn test_scan_suspicious_profile_subcommand() {
+        let export = ExportAll {
+            profiles: vec![Profile {
+                name: "vcs".into(),
+                aliases: AliasSet::default(),
+                subcommands: {
+                    let mut s = SubcommandSet::new();
+                    s.insert("jj:ab".into(), vec!["aban\x1Bdon".into()]);
+                    s
+                },
+            }],
+            ..Default::default()
+        };
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "profile:vcs");
+        assert_eq!(findings[0].field.to_string(), "subcommand_expansion");
+    }
+
+    // ─── ExportAll::is_empty ─────────────────────────────────────────────
+
+    #[test]
+    fn test_export_all_is_empty_false_with_global_subcommands() {
+        let mut export = ExportAll::default();
+        export
+            .global_subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        assert!(!export.is_empty());
+    }
+
+    #[test]
+    fn test_export_all_is_empty_false_with_local_subcommands() {
+        let mut export = ExportAll::default();
+        export
+            .local_subcommands
+            .insert("git:psh".into(), vec!["push".into()]);
+        assert!(!export.is_empty());
+    }
+
+    // ─── base64_decode error path ────────────────────────────────────────
+
+    #[test]
+    fn test_base64_decode_invalid_input() {
+        let result = base64_decode("not-valid-base64!!!");
+        assert!(result.is_err());
     }
 }

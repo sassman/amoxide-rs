@@ -16,21 +16,44 @@ const SELECTED_TEXT: Color = Color::Rgb(232, 232, 234); // #e8e8ea — bright wh
 const ERROR_RED: Color = Color::Rgb(220, 80, 80); // #dc5050 — error / validation feedback
 const TRUST_WARN: Color = Color::Rgb(200, 160, 60); // amber — unknown/untrusted project
 const TRUST_TAMPERED: Color = Color::Rgb(220, 80, 80); // red — tampered project
+const SUBCOMMAND_COLOR: Color = Color::Rgb(80, 180, 160); // teal for subcommand nodes
 
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
 
     let help = Paragraph::new(help_bar(&model.mode, model));
 
+    let has_status = model.status_line.is_some();
+    let in_editor = matches!(model.mode, Mode::TextInput(_));
+
+    // Build vertical layout dynamically:
+    //   - status line only appears when there is a message
+    //   - in editor mode, status (if any) sits above the editor line, both full-width
+    let mut constraints = vec![
+        Constraint::Length(1), // help bar
+        Constraint::Length(1), // separator
+        Constraint::Min(0),    // tree content
+    ];
+    if in_editor && has_status {
+        constraints.push(Constraint::Length(1)); // status above editor
+        constraints.push(Constraint::Length(1)); // editor
+    } else if in_editor || has_status {
+        constraints.push(Constraint::Length(1)); // editor or status (one row)
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1), // help bar
-            Constraint::Length(1), // separator
-            Constraint::Min(0),    // tree content
-            Constraint::Length(1), // status line
-        ])
+        .constraints(constraints)
         .split(area);
+
+    // chunk indices
+    let content_chunk = 2;
+    let (status_chunk, editor_chunk) = match (in_editor, has_status) {
+        (true, true) => (Some(3), Some(4)),
+        (true, false) => (None, Some(3)),
+        (false, true) => (Some(3), None),
+        (false, false) => (None, None),
+    };
 
     frame.render_widget(help, chunks[0]);
 
@@ -42,7 +65,7 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
             Constraint::Min(0),
             Constraint::Length(1),
         ])
-        .split(chunks[2]);
+        .split(chunks[content_chunk]);
     let content_area = padded[1];
 
     match &model.mode {
@@ -54,26 +77,31 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
             render_left_column(frame, model, columns[0]);
             render_right_column(frame, model, columns[1]);
-            render_status(frame, model, chunks[3]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
         }
         Mode::TextInput(state) => {
             render_left_column(frame, model, content_area);
-            // Bottom row: editor on the left half, status on the right half
-            let bottom = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .split(chunks[3]);
-            render_text_input(frame, state, bottom[0]);
-            render_status(frame, model, bottom[1]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
+            if let Some(i) = editor_chunk {
+                render_text_input(frame, state, chunks[i]);
+            }
         }
         Mode::Confirm(action) => {
             render_left_column(frame, model, content_area);
             render_confirm(frame, action, content_area);
-            render_status(frame, model, chunks[3]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
         }
         Mode::Normal => {
             render_left_column(frame, model, content_area);
-            render_status(frame, model, chunks[3]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
         }
     }
 }
@@ -120,7 +148,10 @@ fn header_content(node: &TreeNode, activation_order: Option<usize>) -> (String, 
             };
             (format!("{icon} "), format!("{}{tag}", node.label))
         }
-        NodeKind::AliasItem => unreachable!(),
+        NodeKind::AliasItem
+        | NodeKind::SubcommandProgramHeader
+        | NodeKind::SubcommandGroupNode
+        | NodeKind::SubcommandItem => unreachable!(),
     }
 }
 
@@ -204,6 +235,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             name,
             command,
             active_field,
+            cursor,
             target,
         } => {
             let target_label = match target {
@@ -211,34 +243,54 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 AliasTarget::Project => "project",
                 AliasTarget::Profile(p) => p.as_str(),
             };
-            let name_style = if *active_field == AliasField::Name {
+            let name_active = *active_field == AliasField::Name;
+            let cmd_active = *active_field == AliasField::Command;
+            let name_style = if name_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cmd_style = if *active_field == AliasField::Command {
+            let cmd_style = if cmd_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cursor_after_name = *active_field == AliasField::Name;
-            let cursor_after_cmd = *active_field == AliasField::Command;
-            Line::from(vec![
-                Span::styled(format!("  [{target_label}] "), Style::default().fg(GOLD)),
-                Span::styled(name.as_str(), name_style),
-                if cursor_after_name {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-                Span::styled(" = ", Style::default().fg(TEXT_MUTED)),
-                Span::styled(command.as_str(), cmd_style),
-                if cursor_after_cmd {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-            ])
+            let pos = (*cursor).min(if name_active {
+                name.len()
+            } else {
+                command.len()
+            });
+            // Show a placeholder hint when the name field is still empty so users
+            // discover the "prog: → Tab" subcommand shortcut on first use.
+            let hint = if name.is_empty() && name_active {
+                Span::styled(
+                    "  · e.g. ll, or git: for subcommand",
+                    Style::default().fg(TEXT_MUTED),
+                )
+            } else {
+                Span::raw("")
+            };
+            let mut spans = vec![Span::styled(
+                format!("  [{target_label}] "),
+                Style::default().fg(GOLD),
+            )];
+            if name_active {
+                spans.push(Span::styled(name[..pos].to_string(), name_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(name[pos..].to_string(), name_style));
+            } else {
+                spans.push(Span::styled(name.as_str(), name_style));
+            }
+            spans.push(Span::styled(" = ", Style::default().fg(TEXT_MUTED)));
+            if cmd_active {
+                spans.push(Span::styled(command[..pos].to_string(), cmd_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(command[pos..].to_string(), cmd_style));
+            } else {
+                spans.push(Span::styled(command.as_str(), cmd_style));
+            }
+            spans.push(hint);
+            Line::from(spans)
         }
         TextInputState::EditProfile { name, error, .. } => {
             let err_span = error
@@ -252,51 +304,120 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 err_span,
             ])
         }
+        TextInputState::SubcommandInput {
+            program,
+            pairs,
+            active_pair,
+            active_field,
+            cursor,
+            ..
+        } => {
+            let mut spans: Vec<Span<'_>> = vec![Span::styled(
+                format!("  {program}: "),
+                Style::default().fg(GOLD),
+            )];
+            for (i, (short, long)) in pairs.iter().enumerate() {
+                if i > 0 {
+                    spans.push(Span::styled(" › ", Style::default().fg(TEXT_MUTED)));
+                }
+                let is_active_pair = i == *active_pair;
+
+                // Render short field
+                let short_active = is_active_pair && *active_field == SubcommandField::Short;
+                let short_style = if short_active {
+                    Style::default().fg(TEXT_PRIMARY)
+                } else {
+                    Style::default().fg(TEXT_MUTED)
+                };
+                if short_active {
+                    let pos = (*cursor).min(short.len());
+                    spans.push(Span::styled(short[..pos].to_string(), short_style));
+                    spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                    spans.push(Span::styled(short[pos..].to_string(), short_style));
+                } else {
+                    spans.push(Span::styled(short.clone(), short_style));
+                }
+
+                spans.push(Span::styled(" → ", Style::default().fg(TEXT_MUTED)));
+
+                // Render long field
+                let long_active = is_active_pair && *active_field == SubcommandField::Long;
+                let long_style = if long_active {
+                    Style::default().fg(TEXT_PRIMARY)
+                } else {
+                    Style::default().fg(TEXT_MUTED)
+                };
+                if long_active {
+                    let pos = (*cursor).min(long.len());
+                    spans.push(Span::styled(long[..pos].to_string(), long_style));
+                    spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                    spans.push(Span::styled(long[pos..].to_string(), long_style));
+                } else {
+                    spans.push(Span::styled(long.clone(), long_style));
+                }
+            }
+            spans.push(Span::styled(
+                "   (Tab: next, Shift+Tab: back, ↵: confirm, Esc: cancel)",
+                Style::default().fg(TEXT_MUTED),
+            ));
+            Line::from(spans)
+        }
         TextInputState::EditAlias {
             alias_id,
             name,
             command,
             active_field,
+            cursor,
             error,
         } => {
             let scope_label = match alias_id {
                 AliasId::Global { .. } => "global",
                 AliasId::Profile { profile_name, .. } => profile_name.as_str(),
                 AliasId::Project { .. } => "project",
+                AliasId::Subcommand { .. } => "subcmd",
             };
-            let name_style = if *active_field == AliasField::Name {
+            let name_active = *active_field == AliasField::Name;
+            let cmd_active = *active_field == AliasField::Command;
+            let name_style = if name_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cmd_style = if *active_field == AliasField::Command {
+            let cmd_style = if cmd_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let cursor_after_name = *active_field == AliasField::Name;
-            let cursor_after_cmd = *active_field == AliasField::Command;
+            let pos = (*cursor).min(if name_active {
+                name.len()
+            } else {
+                command.len()
+            });
             let err_span = error
                 .as_ref()
                 .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
                 .unwrap_or_else(|| Span::raw(""));
-            Line::from(vec![
-                Span::styled(format!("  [{scope_label}] "), Style::default().fg(GOLD)),
-                Span::styled(name.as_str(), name_style),
-                if cursor_after_name {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-                Span::styled(" = ", Style::default().fg(TEXT_MUTED)),
-                Span::styled(command.as_str(), cmd_style),
-                if cursor_after_cmd {
-                    Span::styled("_", Style::default().fg(TEXT_PRIMARY))
-                } else {
-                    Span::raw("")
-                },
-                err_span,
-            ])
+            let mut spans = vec![Span::styled(
+                format!("  [{scope_label}] "),
+                Style::default().fg(GOLD),
+            )];
+            if name_active {
+                spans.push(Span::styled(name[..pos].to_string(), name_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(name[pos..].to_string(), name_style));
+            } else {
+                spans.push(Span::styled(name.as_str(), name_style));
+            }
+            spans.push(Span::styled(" = ", Style::default().fg(TEXT_MUTED)));
+            if cmd_active {
+                spans.push(Span::styled(command[..pos].to_string(), cmd_style));
+                spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                spans.push(Span::styled(command[pos..].to_string(), cmd_style));
+            } else {
+                spans.push(Span::styled(command.as_str(), cmd_style));
+            }
+            spans.push(err_span);
+            Line::from(spans)
         }
     };
     frame.render_widget(ratatui::widgets::Clear, input_area);
@@ -390,11 +511,142 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     }
                 }
             }
+            NodeKind::SubcommandProgramHeader => {
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else {
+                    MARKER_NONE
+                };
+                let conn = if is_cursor {
+                    TREE_CONNECTOR_ACTIVE
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                let label_color = if is_cursor { GOLD } else { SUBCOMMAND_COLOR };
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{}{marker}", node.prefix),
+                        Style::default().fg(conn),
+                    ),
+                    Span::styled(
+                        format!("{ICON_SUBCOMMAND} "),
+                        Style::default().fg(label_color),
+                    ),
+                    Span::styled(node.label.clone(), Style::default().fg(label_color).bold()),
+                ]));
+            }
+            NodeKind::SubcommandGroupNode => {
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else if is_selected {
+                    MARKER_SELECTED
+                } else {
+                    MARKER_NONE
+                };
+                let conn = if is_cursor {
+                    TREE_CONNECTOR_ACTIVE
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                let marker_style = if is_selected {
+                    Style::default().fg(SELECTED_ACCENT)
+                } else {
+                    Style::default().fg(conn)
+                };
+                let label_color = if is_cursor {
+                    GOLD
+                } else if is_selected {
+                    SELECTED_TEXT
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                lines.push(Line::from(vec![
+                    Span::styled(node.prefix.clone(), Style::default().fg(conn)),
+                    Span::styled(marker.to_string(), marker_style),
+                    Span::styled(node.label.clone(), Style::default().fg(label_color)),
+                ]));
+            }
+            NodeKind::SubcommandItem => {
+                let marker = if is_cursor {
+                    MARKER_CURSOR
+                } else if is_selected {
+                    MARKER_SELECTED
+                } else {
+                    MARKER_NONE
+                };
+                let conn = if is_cursor {
+                    TREE_CONNECTOR_ACTIVE
+                } else if is_selected {
+                    SELECTED_ACCENT_MUTED
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                let marker_style = if is_selected {
+                    Style::default().fg(SELECTED_ACCENT)
+                } else {
+                    Style::default().fg(conn)
+                };
+                let key_color = if is_cursor {
+                    GOLD
+                } else if is_selected {
+                    SELECTED_TEXT
+                } else {
+                    SUBCOMMAND_COLOR
+                };
+                let exp_color = if is_cursor {
+                    HEADER_DEFAULT
+                } else if is_selected {
+                    SELECTED_ACCENT_MUTED
+                } else {
+                    TEXT_MUTED
+                };
+                let (key_span, arrow_span, exp_span) =
+                    if let Some((key, exp)) = node.label.split_once(" \u{2192} ") {
+                        (
+                            Span::styled(key.to_string(), Style::default().fg(key_color)),
+                            Span::styled(" \u{2192} ", Style::default().fg(TEXT_MUTED)),
+                            Span::styled(exp.to_string(), Style::default().fg(exp_color)),
+                        )
+                    } else {
+                        (
+                            Span::styled(node.label.clone(), Style::default().fg(key_color)),
+                            Span::raw(""),
+                            Span::raw(""),
+                        )
+                    };
+                lines.push(Line::from(vec![
+                    Span::styled(node.prefix.clone(), Style::default().fg(conn)),
+                    Span::styled(marker.to_string(), marker_style),
+                    key_span,
+                    arrow_span,
+                    exp_span,
+                ]));
+
+                // Breathing room between sections: when the last subcommand item in a group
+                // is immediately followed by a section header, emit a blank separator line.
+                let next_is_section_header = model.tree.get(i + 1).is_some_and(|n| {
+                    matches!(
+                        n.kind,
+                        NodeKind::GlobalHeader | NodeKind::ProjectHeader | NodeKind::ProfileHeader
+                    )
+                });
+                if next_is_section_header {
+                    lines.push(Line::from(Span::styled(
+                        node.prefix
+                            .chars()
+                            .map(|c| if c == '│' { '│' } else { ' ' })
+                            .collect::<String>(),
+                        Style::default().fg(TREE_CONNECTOR),
+                    )));
+                }
+            }
             NodeKind::AliasItem => {
-                let is_last_alias = model
-                    .tree
-                    .get(i + 1)
-                    .is_none_or(|next| next.kind != NodeKind::AliasItem);
+                let is_last_alias = model.tree.get(i + 1).is_none_or(|next| {
+                    !matches!(
+                        next.kind,
+                        NodeKind::AliasItem | NodeKind::SubcommandProgramHeader
+                    )
+                });
 
                 let arm = if is_last_alias {
                     TREE_LAST
@@ -459,6 +711,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                             NodeKind::GlobalHeader
                                 | NodeKind::ProjectHeader
                                 | NodeKind::ProfileHeader
+                                | NodeKind::SubcommandProgramHeader
                         )
                     });
                     if next_is_header {
@@ -550,15 +803,22 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::styled("Enter", Style::default().fg(GOLD)),
             Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
         ]),
-        Mode::TextInput(TextInputState::NewAlias { .. }) => Line::from(vec![
-            Span::raw("  "),
-            Span::styled("Tab", Style::default().fg(GOLD)),
-            Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("Esc", Style::default().fg(GOLD)),
-            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("Enter", Style::default().fg(GOLD)),
-            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
-        ]),
+        Mode::TextInput(TextInputState::NewAlias { name, .. }) => {
+            let tab_hint = if name.contains(':') {
+                " → subcommand mode  "
+            } else {
+                " switch field  "
+            };
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("Tab", Style::default().fg(GOLD)),
+                Span::styled(tab_hint, Style::default().fg(TEXT_MUTED)),
+                Span::styled("Esc", Style::default().fg(GOLD)),
+                Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("Enter", Style::default().fg(GOLD)),
+                Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+            ])
+        }
         Mode::TextInput(TextInputState::EditProfile { .. }) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),
@@ -575,6 +835,17 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::styled("Enter", Style::default().fg(GOLD)),
             Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
         ]),
+        Mode::TextInput(TextInputState::SubcommandInput { .. }) => Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Tab/←→", Style::default().fg(GOLD)),
+            Span::styled(" switch field/pair  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("a", Style::default().fg(GOLD)),
+            Span::styled(" add pair  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Esc", Style::default().fg(GOLD)),
+            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+            Span::styled("Enter", Style::default().fg(GOLD)),
+            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+        ]),
         Mode::Confirm(_) => Line::from(vec![
             Span::raw("  "),
             Span::styled("y", Style::default().fg(GOLD)),
@@ -582,5 +853,48 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::styled("n", Style::default().fg(GOLD)),
             Span::styled(" cancel", Style::default().fg(TEXT_MUTED)),
         ]),
+    }
+}
+
+#[cfg(test)]
+mod subcommand_render {
+    use super::*;
+    use crate::model::TuiModel;
+    use amoxide::{Config, ProfileConfig};
+
+    fn make_model_with_subcommand() -> TuiModel {
+        let mut config = Config::default();
+        config
+            .subcommands
+            .insert("jj:ab".into(), vec!["abandon".into()]);
+        let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
+        let mut model = TuiModel::new().unwrap();
+        model.app_model = app;
+        model.rebuild_tree();
+        model
+    }
+
+    #[test]
+    fn subcommand_program_header_renders_with_diamond() {
+        let model = make_model_with_subcommand();
+        let lines = render_tree_lines(&model);
+        let rendered: String = lines
+            .iter()
+            .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
+            .collect();
+        assert!(rendered.contains("◆"), "expected ◆ diamond marker");
+        assert!(rendered.contains("jj (subcommands)"));
+    }
+
+    #[test]
+    fn subcommand_item_renders_arrow() {
+        let model = make_model_with_subcommand();
+        let lines = render_tree_lines(&model);
+        let rendered: String = lines
+            .iter()
+            .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
+            .collect();
+        assert!(rendered.contains("ab"));
+        assert!(rendered.contains("abandon"));
     }
 }

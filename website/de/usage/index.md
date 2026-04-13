@@ -8,6 +8,8 @@ amoxide organisiert Aliase in drei Ebenen, von breitester zu spezifischster:
 
 Jede Ebene kann die vorherige überschreiben. Projekt-Aliase überschreiben Profil-Aliase, die wiederum globale Aliase überschreiben.
 
+Alle drei Ebenen unterstützen auch **Subcommand-Aliase** — Kurzformen für Programme, die Subcommands verwenden (wie `jj`, `git`, `cargo` oder `kubectl`).
+
 ```
 🌐 global
 │ helo → echo hello world global
@@ -19,7 +21,7 @@ Jede Ebene kann die vorherige überschreiben. Projekt-Aliase überschreiben Prof
 │ ct → cargo test
 │ cb → cargo build
 │
-╰─📁 project aliases (.aliases)
+╰─📁 project (/path/to/project/.aliases)
   t → ./x.py test
   b → ./x.py build
 
@@ -30,3 +32,5 @@ Jede Ebene kann die vorherige überschreiben. Projekt-Aliase überschreiben Prof
 - [Globale Aliase](/de/usage/global) — immer verfügbare Aliase für jede Sitzung
 - [Profile](/de/usage/profiles) — benannte Alias-Gruppen verwalten
 - [Projekt-Aliase](/de/usage/project-aliases) — verzeichnisbezogene `.aliases`-Dateien
+- [Subcommand-Aliase](/de/usage/subcommand-aliases) — Kurzformen für subcommandbasierte Tools
+- [Teilen](/de/usage/sharing) — Aliase exportieren, importieren und teilen
