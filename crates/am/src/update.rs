@@ -234,7 +234,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     long_subcommands,
                 }))
             }
-            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
@@ -273,7 +273,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
                 Ok(UpdateResult::effect(Effect::RemoveLocalSubcommand { key }))
             }
-            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
@@ -305,7 +305,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 model.config.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
-            AliasTarget::ActiveProfile if model.config.active_profiles.is_empty() => {
+            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
                 if model.project_path().is_some() {
                     if let Some(trust) = model.project_trust() {
                         if !trust.is_trusted() {
@@ -455,7 +455,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     }
                 }
                 AliasTarget::ActiveProfile => {
-                    let active: Vec<String> = model.config.active_profiles.clone();
+                    let active: Vec<String> = model.session.active_profiles.clone();
                     for name in &active {
                         if let Some(profile) =
                             model.profile_config_mut().get_profile_by_name_mut(name)
@@ -621,7 +621,11 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     .map(|p| (p.len(), p.short_list()))
                     .unwrap_or((0, String::new()));
                 model.session.toggle_profile(name.clone());
-                let action = if was_active { "deactivated" } else { "activated" };
+                let action = if was_active {
+                    "deactivated"
+                } else {
+                    "activated"
+                };
                 let msg = if was_active || list.is_empty() {
                     format!("{name} {action}, {total} aliases")
                 } else {
@@ -776,7 +780,7 @@ fn resolve_profile<'a>(
             }),
         AliasTarget::ActiveProfile => {
             let active = model
-                .config
+                .session
                 .active_profiles
                 .last()
                 .cloned()

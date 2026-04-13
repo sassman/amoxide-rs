@@ -876,7 +876,12 @@ mod tests {
         });
         update(&mut model, TuiMessage::TextInputSwitchField);
         match &model.mode {
-            Mode::TextInput(TextInputState::SubcommandInput { program, pairs, cursor, .. }) => {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                program,
+                pairs,
+                cursor,
+                ..
+            }) => {
                 assert_eq!(program, "git");
                 assert_eq!(pairs[0].0, "co");
                 assert_eq!(*cursor, "co".len());
@@ -1015,14 +1020,14 @@ mod tests {
             &app_model.config.aliases,
             &app_model.config.subcommands,
             app_model.profile_config(),
-            &app_model.config.active_profiles,
+            &app_model.session.active_profiles,
             None,
             None,
         );
         let dest_tree = build_dest_tree_from_parts(
             &app_model.config.aliases,
             app_model.profile_config(),
-            &app_model.config.active_profiles,
+            &app_model.session.active_profiles,
             false,
         );
         TuiModel {

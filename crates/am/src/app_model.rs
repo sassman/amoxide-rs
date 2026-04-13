@@ -4,10 +4,11 @@ use crate::config::Config;
 use crate::project::{ProjectAliases, ALIASES_FILE};
 use crate::security::{SecurityConfig, TrustStatus};
 use crate::trust::{compute_file_hash, ProjectTrust};
-use crate::{AliasName, AliasSet, Profile, ProfileConfig};
+use crate::{AliasName, AliasSet, Profile, ProfileConfig, Session};
 
 pub struct AppModel {
     pub config: Config,
+    pub session: Session,
     pub(crate) cwd: std::path::PathBuf,
     config_dir: PathBuf,
     profile_config: ProfileConfig,
@@ -40,12 +41,14 @@ impl Default for AppModel {
 impl AppModel {
     fn load_from_internal(config_dir: PathBuf) -> Self {
         let config = Config::load_from(&config_dir).unwrap_or_default();
+        let session = Session::load_from(&config_dir).unwrap_or_default();
         let profile_config = ProfileConfig::load_from(&config_dir).unwrap_or_default();
         let mut security_config = SecurityConfig::load_from(&config_dir).unwrap_or_default();
         let cwd = std::env::current_dir().unwrap_or_default();
         let project_trust = resolve_project_trust(&cwd, &mut security_config);
         Self {
             config,
+            session,
             cwd,
             config_dir,
             profile_config,
@@ -66,6 +69,7 @@ impl AppModel {
     pub fn new(config: Config, profile_config: ProfileConfig) -> Self {
         Self {
             config,
+            session: Session::default(),
             cwd: std::env::current_dir().unwrap_or_default(),
             config_dir: PathBuf::new(),
             profile_config,
@@ -81,6 +85,7 @@ impl AppModel {
     ) -> Self {
         Self {
             config,
+            session: Session::default(),
             cwd: std::env::current_dir().unwrap_or_default(),
             config_dir: PathBuf::new(),
             profile_config,
@@ -160,7 +165,7 @@ impl AppModel {
     }
 
     pub fn get_active_profiles(&self) -> Vec<&Profile> {
-        self.config
+        self.session
             .active_profiles
             .iter()
             .filter_map(|name| self.profile_config.get_profile_by_name(name))
@@ -172,6 +177,13 @@ impl AppModel {
             return Ok(());
         }
         self.config.save_to(&self.config_dir)
+    }
+
+    pub fn save_session(&self) -> crate::Result<()> {
+        if self.config_dir.as_os_str().is_empty() {
+            return Ok(());
+        }
+        self.session.save_to(&self.config_dir)
     }
 
     pub fn save_profiles(&self) -> crate::Result<()> {

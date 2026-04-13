@@ -396,6 +396,7 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
     for effect in effects {
         match effect {
             Effect::SaveConfig => model.config.save()?,
+            Effect::SaveSession => model.session.save()?,
             Effect::SaveProfiles => model.profile_config().save()?,
             Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,

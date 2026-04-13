@@ -323,48 +323,49 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 }
             }
             match &mut model.mode {
-            Mode::TextInput(
-                TextInputState::NewAlias { active_field, .. }
-                | TextInputState::EditAlias { active_field, .. },
-            ) => {
-                *active_field = match active_field {
-                    AliasField::Name => AliasField::Command,
-                    AliasField::Command => AliasField::Name,
-                };
-            }
-            Mode::TextInput(TextInputState::SubcommandInput {
-                pairs,
-                active_pair,
-                active_field,
-                cursor,
-                ..
-            }) => match active_field {
-                SubcommandField::Short => {
-                    *active_field = SubcommandField::Long;
-                    *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Long);
+                Mode::TextInput(
+                    TextInputState::NewAlias { active_field, .. }
+                    | TextInputState::EditAlias { active_field, .. },
+                ) => {
+                    *active_field = match active_field {
+                        AliasField::Name => AliasField::Command,
+                        AliasField::Command => AliasField::Name,
+                    };
                 }
-                SubcommandField::Long => {
-                    if *active_pair + 1 < pairs.len() {
-                        // More pairs exist: advance to next
-                        *active_pair += 1;
-                        *active_field = SubcommandField::Short;
-                        *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Short);
-                    } else {
-                        // Last pair: add a new one only if current pair is complete
-                        let pair_complete = pairs
-                            .get(*active_pair)
-                            .is_some_and(|(s, l)| !s.is_empty() && !l.is_empty());
-                        if pair_complete {
-                            pairs.push(("".into(), "".into()));
-                            *active_pair = pairs.len() - 1;
-                            *active_field = SubcommandField::Short;
-                            *cursor = 0;
-                        }
-                        // If pair is incomplete, do nothing (keep focus on Long)
+                Mode::TextInput(TextInputState::SubcommandInput {
+                    pairs,
+                    active_pair,
+                    active_field,
+                    cursor,
+                    ..
+                }) => match active_field {
+                    SubcommandField::Short => {
+                        *active_field = SubcommandField::Long;
+                        *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Long);
                     }
-                }
-            },
-            _ => {}
+                    SubcommandField::Long => {
+                        if *active_pair + 1 < pairs.len() {
+                            // More pairs exist: advance to next
+                            *active_pair += 1;
+                            *active_field = SubcommandField::Short;
+                            *cursor =
+                                active_field_len(pairs, *active_pair, &SubcommandField::Short);
+                        } else {
+                            // Last pair: add a new one only if current pair is complete
+                            let pair_complete = pairs
+                                .get(*active_pair)
+                                .is_some_and(|(s, l)| !s.is_empty() && !l.is_empty());
+                            if pair_complete {
+                                pairs.push(("".into(), "".into()));
+                                *active_pair = pairs.len() - 1;
+                                *active_field = SubcommandField::Short;
+                                *cursor = 0;
+                            }
+                            // If pair is incomplete, do nothing (keep focus on Long)
+                        }
+                    }
+                },
+                _ => {}
             }
         }
         TuiMessage::TextInputConfirm => {
