@@ -387,3 +387,11 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
+
+  deploy-website:
+    needs:
+      - announce
+    if: ${{ needs.announce.result == 'success' }}
+    uses: ./.github/workflows/deploy-website.yml
+    permissions:
+      contents: write

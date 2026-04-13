@@ -13,11 +13,18 @@
 > If you only have a handful of shell aliases in your dotfiles, you're missing out. amoxide (`am`) lets you define aliases per project, per toolchain, or globally — and loads the right ones automatically when you `cd` into a directory. Think [direnv](https://direnv.net), but for aliases.
 
 ```sh
-cd ~/my-rust-project
-# cargo test is now: t
-# cargo clippy <with-a-lot-of-options> is now: l
+$ cd ~/my-rust-project
+am: loaded .aliases
+  i → cargo install --path crates/am && cargo install --path crates/am-tui
+  l → cargo clippy --locked --all-targets -- -D warnings
+  t → cargo test --all-features
 
-cd ~/my-node-project
+$ cd ~/my-node-project
+am: loaded .aliases
+  i → npm install
+  l → npm run lint
+  t → npm test
+  
 # same aliases, different commands, loaded automatically
 # the rust ones are gone — no pollution
 ```
