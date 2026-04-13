@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
     SaveConfig,
+    SaveSession,
     SaveProfiles,
     AddLocalAlias {
         name: String,
@@ -21,6 +22,7 @@ use crate::update::AppModel;
 pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<()> {
     match effect {
         Effect::SaveConfig => model.save_config()?,
+        Effect::SaveSession => model.save_session()?,
         Effect::SaveProfiles => model.save_profiles()?,
         Effect::SaveSecurity => model.save_security()?,
         Effect::AddLocalAlias { name, cmd, raw } => {

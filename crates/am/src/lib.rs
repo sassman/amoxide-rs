@@ -14,6 +14,7 @@ pub mod profile;
 pub mod project;
 pub mod prompt;
 pub mod security;
+pub mod session;
 pub mod setup;
 pub mod shell;
 pub mod status;
@@ -28,6 +29,7 @@ pub use exchange::*;
 pub use messages::*;
 pub use profile::*;
 pub use project::*;
+pub use session::*;
 pub use update::UpdateError;
 
 pub type Result<T> = anyhow::Result<T>;

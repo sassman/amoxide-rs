@@ -24,7 +24,7 @@ pub fn build_tree(app_model: &AppModel) -> Vec<TreeNode> {
     build_tree_from_parts(
         &app_model.config.aliases,
         app_model.profile_config(),
-        &app_model.config.active_profiles,
+        &app_model.session.active_profiles,
         app_model.project_aliases(),
         project_trust_state,
     )
@@ -35,7 +35,7 @@ pub fn build_dest_tree(app_model: &AppModel) -> Vec<TreeNode> {
     build_dest_tree_from_parts(
         &app_model.config.aliases,
         app_model.profile_config(),
-        &app_model.config.active_profiles,
+        &app_model.session.active_profiles,
         project_is_trusted,
     )
 }

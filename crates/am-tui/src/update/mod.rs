@@ -65,14 +65,14 @@ mod tests {
         let tree = build_tree_from_parts(
             &app_model.config.aliases,
             app_model.profile_config(),
-            &app_model.config.active_profiles,
+            &app_model.session.active_profiles,
             None,
             None,
         );
         let dest_tree = build_dest_tree_from_parts(
             &app_model.config.aliases,
             app_model.profile_config(),
-            &app_model.config.active_profiles,
+            &app_model.session.active_profiles,
             false,
         );
         TuiModel {
@@ -489,7 +489,7 @@ mod tests {
             .unwrap();
         model.cursor = rust_idx;
         update(&mut model, TuiMessage::UseProfile);
-        assert!(model.app_model.config.is_active("rust"));
+        assert!(model.app_model.session.is_active("rust"));
         let rust_idx = model
             .tree
             .iter()
@@ -497,7 +497,7 @@ mod tests {
             .unwrap();
         model.cursor = rust_idx;
         update(&mut model, TuiMessage::UseProfile);
-        assert!(!model.app_model.config.is_active("rust"));
+        assert!(!model.app_model.session.is_active("rust"));
     }
 
     #[test]
@@ -518,7 +518,7 @@ mod tests {
             .unwrap();
         model.cursor = git_idx;
         update(&mut model, TuiMessage::UseProfile);
-        assert!(model.app_model.config.is_active("git"));
+        assert!(model.app_model.session.is_active("git"));
 
         let rust_idx = model
             .tree
@@ -528,7 +528,7 @@ mod tests {
         model.cursor = rust_idx;
         update(&mut model, TuiMessage::UseProfileWithPriority(1));
         assert_eq!(
-            model.app_model.config.active_profiles,
+            model.app_model.session.active_profiles,
             vec!["rust".to_string(), "git".to_string()]
         );
     }
