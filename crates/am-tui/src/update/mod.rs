@@ -54,8 +54,8 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 mod tests {
     use super::*;
     use crate::model::{
-        AliasId, AliasTarget, ConfirmAction, Mode, NodeKind, SubcommandField, TextInputState,
-        TransferMode, TuiMessage, TuiModel,
+        AliasField, AliasId, AliasTarget, ConfirmAction, Mode, NodeKind, SubcommandField,
+        TextInputState, TransferMode, TuiMessage, TuiModel,
     };
     use crate::tree::{build_dest_tree_from_parts, build_tree_from_parts};
     use amoxide::update::AppModel;
@@ -843,6 +843,64 @@ mod tests {
             "expected SubcommandInput mode, got {:?}",
             model.mode
         );
+    }
+
+    #[test]
+    fn test_new_alias_tab_with_colon_morphs_to_subcommand_editor() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::NewAlias {
+            name: "git:".into(),
+            command: String::new(),
+            active_field: AliasField::Name,
+            target: AliasTarget::Global,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput { program, pairs, .. }) => {
+                assert_eq!(program, "git");
+                assert_eq!(pairs.len(), 1);
+                assert_eq!(pairs[0].0, ""); // short token is empty (nothing after the colon)
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_new_alias_tab_with_colon_and_short_token() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::NewAlias {
+            name: "git:co".into(),
+            command: String::new(),
+            active_field: AliasField::Name,
+            target: AliasTarget::Global,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput { program, pairs, cursor, .. }) => {
+                assert_eq!(program, "git");
+                assert_eq!(pairs[0].0, "co");
+                assert_eq!(*cursor, "co".len());
+            }
+            other => panic!("expected SubcommandInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_new_alias_tab_without_colon_switches_to_command_field() {
+        let mut model = test_model("profiles = []");
+        model.mode = Mode::TextInput(TextInputState::NewAlias {
+            name: "ll".into(),
+            command: String::new(),
+            active_field: AliasField::Name,
+            target: AliasTarget::Global,
+        });
+        update(&mut model, TuiMessage::TextInputSwitchField);
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(*active_field, AliasField::Command);
+            }
+            other => panic!("expected NewAlias on Command field, got {other:?}"),
+        }
     }
 
     #[test]

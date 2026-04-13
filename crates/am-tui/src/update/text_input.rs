@@ -293,7 +293,36 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 }
             }
         }
-        TuiMessage::TextInputSwitchField => match &mut model.mode {
+        TuiMessage::TextInputSwitchField => {
+            // Special case: Tab from the name field of NewAlias when the name contains ':'
+            // morphs into the subcommand editor. The text before the first ':' becomes the
+            // program, any text after it becomes the first short token.
+            if let Mode::TextInput(TextInputState::NewAlias {
+                name,
+                active_field: AliasField::Name,
+                target,
+                ..
+            }) = &model.mode
+            {
+                if name.contains(':') {
+                    let (program, rest) = name.split_once(':').unwrap();
+                    let program = program.trim().to_string();
+                    let short = rest.to_string();
+                    let cursor = short.len();
+                    let target = target.clone();
+                    model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+                        program,
+                        pairs: vec![(short, "".into())],
+                        active_pair: 0,
+                        active_field: SubcommandField::Short,
+                        cursor,
+                        target,
+                        original_key: None,
+                    });
+                    return;
+                }
+            }
+            match &mut model.mode {
             Mode::TextInput(
                 TextInputState::NewAlias { active_field, .. }
                 | TextInputState::EditAlias { active_field, .. },
@@ -336,7 +365,8 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 }
             },
             _ => {}
-        },
+            }
+        }
         TuiMessage::TextInputConfirm => {
             let state = match &model.mode {
                 Mode::TextInput(s) => s.clone(),

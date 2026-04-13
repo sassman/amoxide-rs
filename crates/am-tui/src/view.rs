@@ -23,15 +23,37 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
     let help = Paragraph::new(help_bar(&model.mode, model));
 
+    let has_status = model.status_line.is_some();
+    let in_editor = matches!(model.mode, Mode::TextInput(_));
+
+    // Build vertical layout dynamically:
+    //   - status line only appears when there is a message
+    //   - in editor mode, status (if any) sits above the editor line, both full-width
+    let mut constraints = vec![
+        Constraint::Length(1), // help bar
+        Constraint::Length(1), // separator
+        Constraint::Min(0),    // tree content
+    ];
+    if in_editor && has_status {
+        constraints.push(Constraint::Length(1)); // status above editor
+        constraints.push(Constraint::Length(1)); // editor
+    } else if in_editor || has_status {
+        constraints.push(Constraint::Length(1)); // editor or status (one row)
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1), // help bar
-            Constraint::Length(1), // separator
-            Constraint::Min(0),    // tree content
-            Constraint::Length(1), // status line
-        ])
+        .constraints(constraints)
         .split(area);
+
+    // chunk indices
+    let content_chunk = 2;
+    let (status_chunk, editor_chunk) = match (in_editor, has_status) {
+        (true, true) => (Some(3), Some(4)),
+        (true, false) => (None, Some(3)),
+        (false, true) => (Some(3), None),
+        (false, false) => (None, None),
+    };
 
     frame.render_widget(help, chunks[0]);
 
@@ -43,7 +65,7 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
             Constraint::Min(0),
             Constraint::Length(1),
         ])
-        .split(chunks[2]);
+        .split(chunks[content_chunk]);
     let content_area = padded[1];
 
     match &model.mode {
@@ -55,26 +77,31 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
             render_left_column(frame, model, columns[0]);
             render_right_column(frame, model, columns[1]);
-            render_status(frame, model, chunks[3]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
         }
         Mode::TextInput(state) => {
             render_left_column(frame, model, content_area);
-            // Bottom row: editor on the left half, status on the right half
-            let bottom = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .split(chunks[3]);
-            render_text_input(frame, state, bottom[0]);
-            render_status(frame, model, bottom[1]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
+            if let Some(i) = editor_chunk {
+                render_text_input(frame, state, chunks[i]);
+            }
         }
         Mode::Confirm(action) => {
             render_left_column(frame, model, content_area);
             render_confirm(frame, action, content_area);
-            render_status(frame, model, chunks[3]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
         }
         Mode::Normal => {
             render_left_column(frame, model, content_area);
-            render_status(frame, model, chunks[3]);
+            if let Some(i) = status_chunk {
+                render_status(frame, model, chunks[i]);
+            }
         }
     }
 }
@@ -227,6 +254,16 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             };
             let cursor_after_name = *active_field == AliasField::Name;
             let cursor_after_cmd = *active_field == AliasField::Command;
+            // Show a placeholder hint when the name field is still empty so users
+            // discover the "prog: → Tab" subcommand shortcut on first use.
+            let hint = if name.is_empty() && cursor_after_name {
+                Span::styled(
+                    "  · e.g. ll, or git: for subcommand",
+                    Style::default().fg(TEXT_MUTED),
+                )
+            } else {
+                Span::raw("")
+            };
             Line::from(vec![
                 Span::styled(format!("  [{target_label}] "), Style::default().fg(GOLD)),
                 Span::styled(name.as_str(), name_style),
@@ -242,6 +279,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 } else {
                     Span::raw("")
                 },
+                hint,
             ])
         }
         TextInputState::EditProfile { name, error, .. } => {
@@ -745,15 +783,22 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::styled("Enter", Style::default().fg(GOLD)),
             Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
         ]),
-        Mode::TextInput(TextInputState::NewAlias { .. }) => Line::from(vec![
-            Span::raw("  "),
-            Span::styled("Tab", Style::default().fg(GOLD)),
-            Span::styled(" switch field  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("Esc", Style::default().fg(GOLD)),
-            Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
-            Span::styled("Enter", Style::default().fg(GOLD)),
-            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
-        ]),
+        Mode::TextInput(TextInputState::NewAlias { name, .. }) => {
+            let tab_hint = if name.contains(':') {
+                " → subcommand mode  "
+            } else {
+                " switch field  "
+            };
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("Tab", Style::default().fg(GOLD)),
+                Span::styled(tab_hint, Style::default().fg(TEXT_MUTED)),
+                Span::styled("Esc", Style::default().fg(GOLD)),
+                Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("Enter", Style::default().fg(GOLD)),
+                Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+            ])
+        }
         Mode::TextInput(TextInputState::EditProfile { .. }) => Line::from(vec![
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(GOLD)),
