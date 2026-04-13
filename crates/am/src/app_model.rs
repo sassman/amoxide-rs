@@ -8,10 +8,10 @@ use crate::{AliasName, AliasSet, Profile, ProfileConfig};
 
 pub struct AppModel {
     pub config: Config,
-    pub cwd: std::path::PathBuf,
+    pub(crate) cwd: std::path::PathBuf,
     config_dir: PathBuf,
     profile_config: ProfileConfig,
-    pub(crate) security_config: SecurityConfig,
+    security_config: SecurityConfig,
     pub(crate) project_trust: Option<ProjectTrust>,
 }
 
