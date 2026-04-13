@@ -956,7 +956,7 @@ mod tests {
 
     #[test]
     fn test_render_import_summary_new_only() {
-        use crate::alias::{AliasConflict, MergeResult};
+        use crate::alias::MergeResult;
         let mut new_aliases = AliasSet::default();
         new_aliases.insert("ll".into(), TomlAlias::Command("ls -lha".into()));
         let result = MergeResult {

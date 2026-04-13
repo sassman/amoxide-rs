@@ -6,7 +6,7 @@ use crate::init::{generate_init, generate_reload};
 use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
 use crate::trust::ProjectTrust;
-use crate::{profile, AliasSet, AliasTarget, Message, Profile, ProfileConfig};
+use crate::{profile, AliasTarget, Message, Profile};
 
 pub struct UpdateResult {
     pub next: Option<Message>,
