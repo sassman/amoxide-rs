@@ -112,12 +112,15 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Remove {
             profile,
+            local,
             global,
             name,
             sub,
         } => {
             let target = if *global {
                 AliasTarget::Global
+            } else if *local {
+                AliasTarget::Local
             } else {
                 profile
                     .as_deref()

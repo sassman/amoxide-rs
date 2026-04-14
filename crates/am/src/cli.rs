@@ -25,8 +25,12 @@ pub enum Commands {
     #[command(alias = "r")]
     Remove {
         /// Profile to remove the alias from (defaults to active profile)
-        #[arg(short, long, conflicts_with = "global")]
+        #[arg(short, long, conflicts_with_all = ["local", "global"])]
         profile: Option<String>,
+
+        /// Remove from the project's .aliases file instead of a profile
+        #[arg(short, long, conflicts_with = "global")]
+        local: bool,
 
         /// Remove a global alias
         #[arg(short, long)]
