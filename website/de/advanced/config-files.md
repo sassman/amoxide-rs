@@ -47,7 +47,7 @@ use_abbr = true
 
 Wenn `use_abbr = true` gesetzt ist, wird jeder einfache Alias aus allen Ebenen (global, Profil und Projekt) als Abkürzung ausgegeben. Abkürzungen werden beim Tippen direkt expandiert, was den Befehlsverlauf sauber hält.
 
-Parametrisierte Aliase — solche, die `{{1}}`- oder `{{@}}`-Platzhalter verwenden — werden immer als `function`-Definitionen ausgegeben, unabhängig von dieser Einstellung, da Fish-Abkürzungen keine Argumente unterstützen.
+<span v-pre>Parametrisierte Aliase — solche, die `{{1}}`- oder `{{@}}`-Platzhalter verwenden — werden immer als `function`-Definitionen ausgegeben, unabhängig von dieser Einstellung, da Fish-Abkürzungen keine Argumente unterstützen.</span>
 
 Beispielausgabe mit `use_abbr = true`:
 

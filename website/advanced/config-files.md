@@ -47,7 +47,7 @@ use_abbr = true
 
 When `use_abbr = true`, every simple alias from every layer (global, profile, and project) is emitted as an abbreviation. Abbreviations expand in-line as you type, which keeps your command history clean.
 
-Parameterized aliases — those that use `{{1}}` or `{{@}}` placeholders — are always emitted as `function` definitions regardless of this setting, because fish abbreviations do not support arguments.
+<span v-pre>Parameterized aliases — those that use `{{1}}` or `{{@}}` placeholders — are always emitted as `function` definitions regardless of this setting, because fish abbreviations do not support arguments.</span>
 
 Example output with `use_abbr = true`:
 
