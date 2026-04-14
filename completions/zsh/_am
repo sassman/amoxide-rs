@@ -48,9 +48,11 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (remove)
 _arguments "${_arguments_options[@]}" : \
-'(-g --global)-p+[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
-'(-g --global)--profile=[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)-p+[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
 '*--sub=[Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj\:b\:l)]:SUB:_default' \
+'(-g --global)-l[Remove from the project'\''s .aliases file instead of a profile]' \
+'(-g --global)--local[Remove from the project'\''s .aliases file instead of a profile]' \
 '-g[Remove a global alias]' \
 '--global[Remove a global alias]' \
 '-h[Print help]' \

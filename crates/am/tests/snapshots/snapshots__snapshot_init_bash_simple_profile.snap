@@ -834,7 +834,7 @@ _am() {
             return 0
             ;;
         am__remove)
-            opts="-p -g -h -V --profile --global --sub --help --version <NAME>"
+            opts="-p -l -g -h -V --profile --local --global --sub --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -106,6 +106,7 @@ complete -c am -n "__fish_am_using_subcommand add" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand add" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand remove" -s p -l profile -d 'Profile to remove the alias from (defaults to active profile)' -r
 complete -c am -n "__fish_am_using_subcommand remove" -l sub -d 'Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj:b:l)' -r
+complete -c am -n "__fish_am_using_subcommand remove" -s l -l local -d 'Remove from the project\'s .aliases file instead of a profile'
 complete -c am -n "__fish_am_using_subcommand remove" -s g -l global -d 'Remove a global alias'
 complete -c am -n "__fish_am_using_subcommand remove" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand remove" -s V -l version -d 'Print version'

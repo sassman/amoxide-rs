@@ -63,6 +63,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
             [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Profile to remove the alias from (defaults to active profile)')
             [CompletionResult]::new('--sub', '--sub', [CompletionResultType]::ParameterName, 'Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj:b:l)')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Remove from the project''s .aliases file instead of a profile')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Remove from the project''s .aliases file instead of a profile')
             [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Remove a global alias')
             [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Remove a global alias')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
