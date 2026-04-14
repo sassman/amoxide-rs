@@ -59,10 +59,13 @@ pub fn generate_hook_with_security(
     // repeating warnings. It is passed in explicitly rather than read from the
     // environment so that callers (e.g. tests) can control it independently.
 
-    // Helper: generate unalias commands for previously loaded aliases
+    // Helper: unalias only shell-level names (no `:` — subcommand keys like `c:l`
+    // are tracked for change detection but are not themselves shell functions).
     let unload_prev = |lines: &mut Vec<String>| {
         for name in &prev {
-            lines.push(shell_impl.unalias(name));
+            if !name.contains(':') {
+                lines.push(shell_impl.unalias(name));
+            }
         }
     };
 
@@ -93,16 +96,25 @@ pub fn generate_hook_with_security(
 
                         let subcmd_groups =
                             crate::subcommand::group_by_program(&project.subcommands);
+
+                        // all_names tracks both the shell-level wrapper names (e.g. `c`) and
+                        // the individual subcommand keys (e.g. `c:l`, `c:t`). Wrapper names
+                        // are used to unload old functions; subcommand keys make change
+                        // detection precise — adding c:t when c:l already exists would
+                        // otherwise appear identical (both produce program name `c`).
                         let subcmd_program_names: Vec<String> =
                             subcmd_groups.keys().cloned().collect();
+                        let subcmd_keys: Vec<String> =
+                            project.subcommands.keys().cloned().collect();
 
                         let mut all_names: Vec<String> = names.clone();
                         all_names.extend(subcmd_program_names.clone());
+                        all_names.extend(subcmd_keys);
                         all_names.sort();
                         all_names.dedup();
 
-                        // If the same aliases are already loaded, skip entirely.
-                        // The hash check guarantees commands haven't changed either.
+                        // If the exact same set of aliases and subcommand keys is already
+                        // loaded, skip entirely — nothing changed.
                         if all_names.len() == prev.len()
                             && all_names.iter().zip(&prev).all(|(a, b)| a == b)
                         {
@@ -533,6 +545,37 @@ mod tests {
             !output.contains("am: loaded"),
             "should not show load message for parent .aliases, got: {output}"
         );
+    }
+
+    #[test]
+    fn test_hook_picks_up_new_subcommand_added_to_existing_program() {
+        // Regression: when a second subcommand is added under the same program (e.g. c:t after
+        // c:l), the hook was incorrectly skipping the reload because the set of *program names*
+        // hadn't changed ("c" was already in _AM_PROJECT_ALIASES). The wrapper function must
+        // be regenerated whenever the file content changes.
+        let mut t = TestBed::new()
+            .with_aliases("[subcommands]\n\"c:l\" = [\"clippy\"]\n")
+            .with_security_trusted()
+            .setup();
+
+        let cwd = t.root();
+
+        // First run: load c:l, c wrapper is emitted
+        let (output, _) = t.run(&Shells::Fish, &cwd, None);
+        assert!(output.contains("function c"), "first run should emit c wrapper");
+        assert!(output.contains("clippy"));
+
+        // Add c:t — the .aliases file changes, but program name `c` stays the same
+        t.update_aliases("[subcommands]\n\"c:l\" = [\"clippy\"]\n\"c:t\" = [\"test\"]\n");
+
+        // Second run: prev="c" (already loaded), but file has new content
+        let (output, _) = t.run(&Shells::Fish, &cwd, Some("c"));
+        assert!(
+            output.contains("function c"),
+            "hook must re-emit c wrapper after new subcommand added, got: {output}"
+        );
+        assert!(output.contains("test"), "updated wrapper must include c:t");
+        assert!(output.contains("clippy"), "updated wrapper must still include c:l");
     }
 
     #[test]
