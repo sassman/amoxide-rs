@@ -2,17 +2,14 @@ use std::path::Path;
 
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
-use crate::shell::{ShellContext, Shells};
+use crate::shell::ShellContext;
 use crate::trust::{compute_file_hash, render_load_message, render_unload_message};
 
 /// Generate shell code for the cd hook.
 ///
 /// `ctx.cwd` — the current working directory to search for `.aliases`.
 /// `previous_aliases` — comma-separated alias names from `_AM_PROJECT_ALIASES` env var.
-pub fn generate_hook(
-    ctx: &ShellContext,
-    previous_aliases: Option<&str>,
-) -> crate::Result<String> {
+pub fn generate_hook(ctx: &ShellContext, previous_aliases: Option<&str>) -> crate::Result<String> {
     let mut security = SecurityConfig::load().unwrap_or_default();
     let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
     let (output, _changed) = generate_hook_with_security(
@@ -292,7 +289,11 @@ mod tests {
         fn run(&mut self, shell: &Shells, cwd: &Path, prev: Option<&str>) -> (String, bool) {
             use crate::config::ShellsTomlConfig;
             let cfg = ShellsTomlConfig::default();
-            let ctx = ShellContext { shell, cfg: &cfg, cwd };
+            let ctx = ShellContext {
+                shell,
+                cfg: &cfg,
+                cwd,
+            };
             generate_hook_with_security(&ctx, prev, None, &mut self.security, false).unwrap()
         }
 
