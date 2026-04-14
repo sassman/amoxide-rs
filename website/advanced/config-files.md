@@ -94,7 +94,7 @@ b = "npm run build"
 
 Each `[[profiles]]` block defines a named profile with its aliases and optional subcommand aliases. Note that different profiles can use the same alias name (e.g., `t` in both `rust` and `node`) — whichever profile has higher priority in `active_profiles` wins.
 
-## `session.toml` — Active Profiles
+## `session.toml` — Active Profiles <VersionBadge v="0.5.0" />
 
 Tracks which profiles are currently active and in what order. Managed automatically by `am profile use` and `am use` — you rarely need to edit this directly.
 
