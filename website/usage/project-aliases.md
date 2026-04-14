@@ -14,6 +14,17 @@ am add -l b "./x.py build"
 
 If no `.aliases` file exists, one is created in the current directory. If a `.aliases` already exists further up the directory tree, you'll be asked whether you meant to add to that one instead.
 
+## Removing Project Aliases <VersionBadge v="0.6.0" />
+
+Use the same `-l` flag with `am remove`:
+
+```sh
+am remove -l t
+am remove -l b
+```
+
+This updates the `.aliases` file and refreshes the cryptographic hash automatically, so no trust warning is triggered.
+
 ## The `.aliases` File
 
 You can also create or edit the file directly:

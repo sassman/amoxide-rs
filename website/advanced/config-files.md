@@ -34,7 +34,7 @@ The `active_profiles` array determines which profiles are loaded and their prece
 
 Shell-specific rendering options can be set under the `[shell.<name>]` section.
 
-### Fish: `[shell.fish]`
+### Fish: `[shell.fish]` <VersionBadge v="0.6.0" />
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
