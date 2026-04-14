@@ -7,8 +7,8 @@ amoxide stores its configuration in `~/.config/amoxide/` using TOML files. You r
 | File | Purpose |
 |------|---------|
 | `config.toml` | Global aliases and shell options |
-| `session.toml` | Active profile list (which profiles are currently on) |
 | `profiles.toml` | All profile definitions and their aliases |
+| `session.toml` | Active profile list (which profiles are currently on) |
 | `security.toml` | Trust decisions for project `.aliases` files <VersionBadge v="0.5.0" /> |
 | `.aliases` | Project-local aliases (lives in project root) |
 
@@ -25,16 +25,6 @@ ll = "ls -lha"
 "jj:ab" = ["abandon"]
 "jj:b:l" = ["branch", "list"]
 ```
-
-## `session.toml` — Active Profiles
-
-Tracks which profiles are currently active and in what order. Managed automatically by `am profile use` and `am use` — you rarely need to edit this directly.
-
-```toml
-active_profiles = ["git", "rust"]
-```
-
-The order determines precedence: the **last** entry has the highest priority. If both `git` and `rust` define an alias with the same name, `rust` wins.
 
 ## `config.toml` — Shell Options
 
@@ -103,6 +93,16 @@ b = "npm run build"
 ```
 
 Each `[[profiles]]` block defines a named profile with its aliases and optional subcommand aliases. Note that different profiles can use the same alias name (e.g., `t` in both `rust` and `node`) — whichever profile has higher priority in `active_profiles` wins.
+
+## `session.toml` — Active Profiles
+
+Tracks which profiles are currently active and in what order. Managed automatically by `am profile use` and `am use` — you rarely need to edit this directly.
+
+```toml
+active_profiles = ["git", "rust"]
+```
+
+The order determines precedence: the **last** entry has the highest priority. If both `git` and `rust` define an alias with the same name, `rust` wins.
 
 ## `security.toml` — Trust Decisions <VersionBadge v="0.5.0" />
 
