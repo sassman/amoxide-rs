@@ -7,6 +7,14 @@ publish = false
 git_tag_name = "v{{ version }}"
 git_release_name = "v{{ version }}"
 
+[[package]]
+name = "amoxide-tui"
+# Include amoxide library commits in the TUI changelog.
+# Needed because the unified git tag (v{{ version }}) prevents release-plz
+# from attributing per-crate commits, so amoxide-tui would otherwise get an
+# empty changelog entry on every release.
+changelog_include = ["amoxide"]
+
 [changelog]
 header = """
 # Changelog
