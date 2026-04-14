@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.6.0](https://github.com/sassman/amoxide-rs/compare/v0.5.0...v0.6.0) - 2026-04-14
+
+### Bug Fixes
+
+- Add --local/-l flag to am remove ([#90](https://github.com/sassman/amoxide-rs/pull/90))
+- Regenerate subcommand wrapper when new entry added to existing program ([#89](https://github.com/sassman/amoxide-rs/pull/89))
+
+### Features
+
+- Add use_abbr config option for fish abbreviations ([#92](https://github.com/sassman/amoxide-rs/pull/92))
+
 ## [0.5.0](https://github.com/sassman/amoxide-rs/compare/v0.4.0...v0.5.0) - 2026-04-09
 
 ### Miscellaneous Tasks
