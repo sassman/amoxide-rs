@@ -6,7 +6,8 @@ amoxide speichert seine Konfiguration in `~/.config/amoxide/` als TOML-Dateien. 
 
 | Datei | Zweck |
 |-------|-------|
-| `config.toml` | Globale Aliase und aktive Profilliste |
+| `config.toml` | Globale Aliase und Shell-Optionen |
+| `session.toml` | Aktive Profilliste (welche Profile gerade aktiv sind) |
 | `profiles.toml` | Alle Profildefinitionen und deren Aliase |
 | `security.toml` | Vertrauensentscheidungen für Projekt-`.aliases`-Dateien <VersionBadge v="0.5.0" /> |
 | `.aliases` | Projektlokale Aliase (liegt im Projektstamm) |
@@ -14,9 +15,6 @@ amoxide speichert seine Konfiguration in `~/.config/amoxide/` als TOML-Dateien. 
 ## `config.toml` — Globale Konfiguration
 
 ```toml
-# Welche Profile aktuell aktiv sind, in Prioritätsreihenfolge
-active_profiles = ["git", "rust"]
-
 # Globale Aliase — immer verfügbar
 [aliases]
 helo = "echo hello world"
@@ -28,7 +26,15 @@ ll = "ls -lha"
 "jj:b:l" = ["branch", "list"]
 ```
 
-Das `active_profiles`-Array bestimmt, welche Profile geladen werden und ihre Priorität. Der letzte Eintrag hat die höchste Priorität — wenn sowohl `git` als auch `rust` einen Alias mit dem gleichen Namen definieren, gewinnt `rust`.
+## `session.toml` — Aktive Profile
+
+Verfolgt, welche Profile aktuell aktiv sind und in welcher Reihenfolge. Wird automatisch von `am profile use` und `am use` verwaltet — du musst diese Datei selten direkt bearbeiten.
+
+```toml
+active_profiles = ["git", "rust"]
+```
+
+Die Reihenfolge bestimmt die Priorität: Der **letzte** Eintrag hat die höchste Priorität. Wenn sowohl `git` als auch `rust` einen Alias mit dem gleichen Namen definieren, gewinnt `rust`.
 
 ## Shell-spezifische Konfiguration
 

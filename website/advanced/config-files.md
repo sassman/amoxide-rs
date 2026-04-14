@@ -6,7 +6,8 @@ amoxide stores its configuration in `~/.config/amoxide/` using TOML files. You r
 
 | File | Purpose |
 |------|---------|
-| `config.toml` | Global aliases and active profile list |
+| `config.toml` | Global aliases and shell options |
+| `session.toml` | Active profile list (which profiles are currently on) |
 | `profiles.toml` | All profile definitions and their aliases |
 | `security.toml` | Trust decisions for project `.aliases` files <VersionBadge v="0.5.0" /> |
 | `.aliases` | Project-local aliases (lives in project root) |
@@ -14,9 +15,6 @@ amoxide stores its configuration in `~/.config/amoxide/` using TOML files. You r
 ## `config.toml` — Global Config
 
 ```toml
-# Which profiles are currently active, in priority order
-active_profiles = ["git", "rust"]
-
 # Global aliases — always available
 [aliases]
 helo = "echo hello world"
@@ -28,7 +26,15 @@ ll = "ls -lha"
 "jj:b:l" = ["branch", "list"]
 ```
 
-The `active_profiles` array determines which profiles are loaded and their precedence. The last entry has the highest priority — if both `git` and `rust` define an alias with the same name, `rust` wins.
+## `session.toml` — Active Profiles
+
+Tracks which profiles are currently active and in what order. Managed automatically by `am profile use` and `am use` — you rarely need to edit this directly.
+
+```toml
+active_profiles = ["git", "rust"]
+```
+
+The order determines precedence: the **last** entry has the highest priority. If both `git` and `rust` define an alias with the same name, `rust` wins.
 
 ## `config.toml` — Shell Options
 
