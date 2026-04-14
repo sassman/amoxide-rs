@@ -5,6 +5,7 @@ use crate::effects::Effect;
 use crate::init::{generate_init, generate_reload};
 use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
+use crate::shell::ShellContext;
 use crate::trust::ProjectTrust;
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
@@ -562,7 +563,12 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             for (k, v) in resolved_subs {
                 all_subs.insert(k, v);
             }
-            let output = generate_init(&shell, &model.config.aliases, &resolved, &all_subs);
+            let ctx = ShellContext {
+                shell: &shell,
+                cfg: &model.config.shell,
+                cwd: &model.cwd,
+            };
+            let output = generate_init(&ctx, &model.config.aliases, &resolved, &all_subs);
             print!("{output}");
             Ok(UpdateResult::done())
         }
@@ -578,8 +584,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 all_subs.insert(k, v);
             }
             let prev = std::env::var("_AM_ALIASES").ok();
+            let ctx = ShellContext {
+                shell: &shell,
+                cfg: &model.config.shell,
+                cwd: &model.cwd,
+            };
             let output = generate_reload(
-                &shell,
+                &ctx,
                 &model.config.aliases,
                 &resolved,
                 &all_subs,
@@ -593,10 +604,15 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         Message::Hook(shell, quiet) => {
             let prev = std::env::var("_AM_PROJECT_ALIASES").ok();
             let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+            let shell_cfg = model.config.shell.clone();
             let cwd = model.cwd.clone();
+            let ctx = ShellContext {
+                shell: &shell,
+                cfg: &shell_cfg,
+                cwd: &cwd,
+            };
             let (output, security_changed) = crate::hook::generate_hook_with_security(
-                &shell,
-                &cwd,
+                &ctx,
                 prev.as_deref(),
                 prev_project_path.as_deref(),
                 model.security_config_mut(),

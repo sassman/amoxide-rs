@@ -5,6 +5,8 @@ use std::sync::LazyLock;
 use clap::ValueEnum;
 use regex::Regex;
 
+use crate::config::ShellsTomlConfig;
+
 pub trait Shell: Send + Sync + Debug {
     fn unalias(&self, alias_name: &str) -> String;
     fn alias(&self, entry: &crate::alias::AliasEntry) -> String;
@@ -38,9 +40,21 @@ pub enum Shells {
     // Cmd,
 }
 
+pub struct ShellContext<'a> {
+    pub shell: &'a Shells,
+    pub cfg: &'a ShellsTomlConfig,
+    pub cwd: &'a std::path::Path,
+}
+
 impl Shells {
-    pub fn as_shell(self) -> Box<dyn Shell> {
-        self.into()
+    pub fn as_shell(self, shell_cfg: &ShellsTomlConfig) -> Box<dyn Shell> {
+        match self {
+            Shells::Fish => Box::new(super::fish::Fish::from_config(shell_cfg.fish.as_ref())),
+            Shells::Zsh => Box::from(super::zsh::Zsh),
+            Shells::Bash => Box::from(super::bash::Bash),
+            Shells::Brush => Box::from(super::brush::Brush),
+            Shells::Powershell => Box::from(super::powershell::PowerShell),
+        }
     }
 }
 
@@ -64,20 +78,6 @@ impl Display for Shells {
 impl From<Shells> for String {
     fn from(val: Shells) -> Self {
         format!("{}", val)
-    }
-}
-
-impl From<Shells> for Box<dyn Shell> {
-    fn from(shell: Shells) -> Box<dyn Shell> {
-        match shell {
-            Shells::Zsh => Box::from(super::zsh::Zsh),
-            Shells::Bash => Box::from(super::bash::Bash),
-            Shells::Brush => Box::from(super::brush::Brush),
-            Shells::Fish => Box::from(super::fish::Fish),
-            Shells::Powershell => Box::from(super::powershell::PowerShell),
-            // #[cfg(windows)]
-            // Shells::Cmd => Box::from(super::windows_cmd::WindowsCmd),
-        }
     }
 }
 
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_bash_shell_generates_nix_syntax() {
-        let shell: Box<dyn Shell> = Shells::Bash.as_shell();
+        let shell: Box<dyn Shell> = Shells::Bash.as_shell(&ShellsTomlConfig::default());
         let entry = simple("gs", "git status");
         assert_eq!(shell.alias(&entry), "gs() { git status \"$@\"; }");
         assert_eq!(shell.unalias("gs"), "unset -f gs");

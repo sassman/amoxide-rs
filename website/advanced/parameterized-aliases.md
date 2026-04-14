@@ -59,4 +59,8 @@ If your command literally contains `{{N}}` (e.g., in awk patterns), use `--raw` 
 am add --raw my-awk "awk '{print {{1}}}'"
 ```
 
+## Fish Shell Note
+
+Parameterized aliases are always emitted as `function` definitions in fish, even when [`use_abbr = true`](/advanced/config-files#fish-shellfishfish) is set in your config. Fish abbreviations do not support arguments, so the function form is the only way to place them correctly.
+
 </div>

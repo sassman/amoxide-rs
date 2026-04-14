@@ -7,12 +7,25 @@ use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 const CONFIG_FILE: &str = "config.toml";
 
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub struct ShellsTomlConfig {
+    pub fish: Option<FishConfig>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct FishConfig {
+    #[serde(default)]
+    pub use_abbr: bool,
+}
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default)]
     pub aliases: AliasSet,
     #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
     pub subcommands: SubcommandSet,
+    #[serde(default)]
+    pub shell: ShellsTomlConfig,
 }
 
 impl Config {
@@ -174,5 +187,26 @@ mod tests {
         let mut config = Config::default();
         let err = config.remove_subcommand("jj:nope").unwrap_err();
         assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_fish_use_abbr_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config {
+            shell: ShellsTomlConfig {
+                fish: Some(FishConfig { use_abbr: true }),
+            },
+            ..Default::default()
+        };
+        config.save_to(dir.path()).unwrap();
+        let loaded = Config::load_from(dir.path()).unwrap();
+        assert!(loaded.shell.fish.unwrap().use_abbr);
+    }
+
+    #[test]
+    fn test_default_config_has_no_shell_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config::load_from(dir.path()).unwrap();
+        assert!(config.shell.fish.is_none());
     }
 }

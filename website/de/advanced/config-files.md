@@ -6,17 +6,15 @@ amoxide speichert seine Konfiguration in `~/.config/amoxide/` als TOML-Dateien. 
 
 | Datei | Zweck |
 |-------|-------|
-| `config.toml` | Globale Aliase und aktive Profilliste |
+| `config.toml` | Globale Aliase und Shell-Optionen |
 | `profiles.toml` | Alle Profildefinitionen und deren Aliase |
+| `session.toml` | Aktive Profilliste (welche Profile gerade aktiv sind) |
 | `security.toml` | Vertrauensentscheidungen für Projekt-`.aliases`-Dateien <VersionBadge v="0.5.0" /> |
 | `.aliases` | Projektlokale Aliase (liegt im Projektstamm) |
 
 ## `config.toml` — Globale Konfiguration
 
 ```toml
-# Welche Profile aktuell aktiv sind, in Prioritätsreihenfolge
-active_profiles = ["git", "rust"]
-
 # Globale Aliase — immer verfügbar
 [aliases]
 helo = "echo hello world"
@@ -28,7 +26,41 @@ ll = "ls -lha"
 "jj:b:l" = ["branch", "list"]
 ```
 
-Das `active_profiles`-Array bestimmt, welche Profile geladen werden und ihre Priorität. Der letzte Eintrag hat die höchste Priorität — wenn sowohl `git` als auch `rust` einen Alias mit dem gleichen Namen definieren, gewinnt `rust`.
+## Shell-spezifische Konfiguration
+
+Shell-spezifische Renderoptionen können im Abschnitt `[shell.<name>]` gesetzt werden.
+
+### Fish: `[shell.fish]` <VersionBadge v="0.6.0" />
+
+| Schlüssel | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `use_abbr` | bool | `false` | Einfache Aliase als [Fish-Abkürzungen](https://fishshell.com/docs/current/cmds/abbr.html) (`abbr --add`) statt `alias` ausgeben |
+
+```toml
+[shell.fish]
+use_abbr = true
+```
+
+Wenn `use_abbr = true` gesetzt ist, wird jeder einfache Alias aus allen Ebenen (global, Profil und Projekt) als Abkürzung ausgegeben. Abkürzungen werden beim Tippen direkt expandiert, was den Befehlsverlauf sauber hält.
+
+<span v-pre>Parametrisierte Aliase — solche, die `{{1}}`- oder `{{@}}`-Platzhalter verwenden — werden immer als `function`-Definitionen ausgegeben, unabhängig von dieser Einstellung, da Fish-Abkürzungen keine Argumente unterstützen.</span>
+
+Beispielausgabe mit `use_abbr = true`:
+
+```fish
+abbr --add gs "git status"
+abbr --add ll "ls -lha"
+```
+
+Beispielausgabe für einen parametrisierten Alias (immer eine Funktion, unabhängig von `use_abbr`):
+
+```fish
+function cmf
+    cm feat: $argv
+end
+```
+
+Um diese Einstellung zu aktivieren, bearbeite `~/.config/amoxide/config.toml` manuell und füge den oben gezeigten `[shell.fish]`-Block hinzu. Dann führe `am reload fish` aus (oder starte eine neue Shell-Session), um die Änderung anzuwenden.
 
 ## `profiles.toml` — Profildefinitionen
 
@@ -61,6 +93,16 @@ b = "npm run build"
 ```
 
 Jeder `[[profiles]]`-Block definiert ein benanntes Profil mit seinen Aliasen und optionalen Subcommand-Aliasen. Beachte, dass verschiedene Profile den gleichen Alias-Namen verwenden können (z.B. `t` in `rust` und `node`) — welches Profil höhere Priorität in `active_profiles` hat, gewinnt.
+
+## `session.toml` — Aktive Profile <VersionBadge v="0.5.0" />
+
+Verfolgt, welche Profile aktuell aktiv sind und in welcher Reihenfolge. Wird automatisch von `am profile use` und `am use` verwaltet — du musst diese Datei selten direkt bearbeiten.
+
+```toml
+active_profiles = ["git", "rust"]
+```
+
+Die Reihenfolge bestimmt die Priorität: Der **letzte** Eintrag hat die höchste Priorität. Wenn sowohl `git` als auch `rust` einen Alias mit dem gleichen Namen definieren, gewinnt `rust`.
 
 ## `security.toml` — Vertrauensentscheidungen <VersionBadge v="0.5.0" />
 
