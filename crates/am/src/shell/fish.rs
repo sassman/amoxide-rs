@@ -6,6 +6,7 @@ use super::{
     TEMPLATE_RE,
 };
 use crate::alias::AliasEntry;
+use crate::config::FishConfig;
 use crate::subcommand::SubcommandEntry;
 
 /// Substitute `{{N}}` → `$argv[N+offset]` and `{{@}}` → `$argv[offset+1..]`.
@@ -98,17 +99,33 @@ fn substitute_offset(cmd: &str, offset: usize) -> String {
 }
 
 #[derive(Debug, Default)]
-pub struct Fish;
+pub struct Fish {
+    pub use_abbr: bool,
+}
+
+impl Fish {
+    pub fn from_config(config: Option<&FishConfig>) -> Self {
+        Fish {
+            use_abbr: config.map(|c| c.use_abbr).unwrap_or(false),
+        }
+    }
+}
 
 impl Shell for Fish {
     fn unalias(&self, alias_name: &str) -> String {
-        format!("functions -e {alias_name}")
+        if self.use_abbr {
+            format!("abbr --erase {alias_name}")
+        } else {
+            format!("functions -e {alias_name}")
+        }
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
         if !entry.raw && has_template_args(entry.command) {
             let body = substitute_fish(entry.command);
             format!("function {}\n    {}\nend", entry.name, body)
+        } else if self.use_abbr {
+            format!("abbr --add {} {}", entry.name, quote_cmd(entry.command))
         } else {
             format!("alias {} {}", entry.name, quote_cmd(entry.command))
         }
@@ -216,11 +233,11 @@ mod tests {
     #[test]
     fn test_fish_simple_alias() {
         assert_eq!(
-            Fish.alias(&simple("h", "'echo hello'")),
+            Fish::default().alias(&simple("h", "'echo hello'")),
             "alias h 'echo hello'"
         );
         assert_eq!(
-            Fish.alias(&simple("h", "echo hello")),
+            Fish::default().alias(&simple("h", "echo hello")),
             "alias h \"echo hello\""
         );
     }
@@ -228,11 +245,11 @@ mod tests {
     #[test]
     fn test_fish_parameterized() {
         assert_eq!(
-            Fish.alias(&simple("cmf", "cm feat: {{@}}")),
+            Fish::default().alias(&simple("cmf", "cm feat: {{@}}")),
             "function cmf\n    cm feat: $argv\nend"
         );
         assert_eq!(
-            Fish.alias(&simple("x", "echo {{1}} and {{2}}")),
+            Fish::default().alias(&simple("x", "echo {{1}} and {{2}}")),
             "function x\n    echo $argv[1] and $argv[2]\nend"
         );
     }
@@ -240,20 +257,20 @@ mod tests {
     #[test]
     fn test_fish_raw_skips_templates() {
         assert_eq!(
-            Fish.alias(&raw("my-awk", "awk '{print {{1}}}'")),
+            Fish::default().alias(&raw("my-awk", "awk '{print {{1}}}'")),
             "alias my-awk \"awk '{print {{1}}}'\""
         );
     }
 
     #[test]
     fn test_fish_unalias() {
-        assert_eq!(Fish.unalias("h"), "functions -e h");
+        assert_eq!(Fish::default().unalias("h"), "functions -e h");
     }
 
     #[test]
     fn test_fish_env() {
-        assert_eq!(Fish.set_env("FOO", "bar"), "set -gx FOO \"bar\"");
-        assert_eq!(Fish.unset_env("FOO"), "set -e FOO");
+        assert_eq!(Fish::default().set_env("FOO", "bar"), "set -gx FOO \"bar\"");
+        assert_eq!(Fish::default().unset_env("FOO"), "set -e FOO");
     }
 
     #[test]
@@ -263,7 +280,7 @@ mod tests {
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon".into()],
         }];
-        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("function jj --wraps=jj"));
         assert!(output.contains("case 'ab'"));
         assert!(output.contains("command jj abandon $argv[2..]"));
@@ -278,7 +295,7 @@ mod tests {
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon --rev {{1}}".into()],
         }];
-        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // offset=1: {{1}} → $argv[2]
         assert!(output.contains("command jj abandon --rev $argv[2]"));
         assert!(!output.contains("$argv[2..]")); // no trailing spread when templates used
@@ -294,7 +311,7 @@ mod tests {
             short_subcommands: vec!["echo".into()],
             long_subcommands: vec!["rebase -s 'mega()' -d 'toggle({{1}})'".into()],
         }];
-        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // The expansion should break the single-quoted token at the template boundary
         // so Fish can expand $argv[2] between the two single-quoted fragments.
         assert!(
@@ -315,7 +332,7 @@ mod tests {
             short_subcommands: vec!["l".into()],
             long_subcommands: vec!["log --template {{@}}".into()],
         }];
-        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // offset=1: {{@}} → $argv[2..]
         assert!(output.contains("command jj log --template $argv[2..]"));
     }
@@ -327,7 +344,7 @@ mod tests {
             short_subcommands: vec!["b".into(), "l".into()],
             long_subcommands: vec!["branch".into(), "list --limit {{1}}".into()],
         }];
-        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // offset=2: {{1}} → $argv[3]
         assert!(output.contains("command jj branch list --limit $argv[3]"));
     }
@@ -346,7 +363,7 @@ mod tests {
                 long_subcommands: vec!["branch".into(), "list".into()],
             },
         ];
-        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("case 'ab'"));
         assert!(output.contains("case 'b'"));
         assert!(output.contains("switch $argv[2]"));
@@ -361,7 +378,7 @@ mod tests {
             short_subcommands: vec!["b".into(), "l".into(), "x".into()],
             long_subcommands: vec!["branch".into(), "list".into(), "extra".into()],
         }];
-        let output = Fish.subcommand_wrapper("jj", "command jj", &entries);
+        let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("switch $argv[2]"), "depth-2 switch missing");
         assert!(output.contains("switch $argv[3]"), "depth-3 switch missing");
         assert!(output.contains("case 'x'"), "depth-3 case missing");
@@ -369,5 +386,39 @@ mod tests {
             output.contains("command jj branch list extra $argv[4..]"),
             "depth-3 expansion wrong"
         );
+    }
+
+    #[test]
+    fn test_fish_abbr_simple_alias() {
+        let fish = Fish { use_abbr: true };
+        assert_eq!(
+            fish.alias(&simple("gs", "git status")),
+            "abbr --add gs \"git status\""
+        );
+        assert_eq!(
+            fish.alias(&simple("h", "'echo hello'")),
+            "abbr --add h 'echo hello'"
+        );
+    }
+
+    #[test]
+    fn test_fish_abbr_parameterized_still_uses_function() {
+        let fish = Fish { use_abbr: true };
+        assert_eq!(
+            fish.alias(&simple("cmf", "cm feat: {{@}}")),
+            "function cmf\n    cm feat: $argv\nend"
+        );
+    }
+
+    #[test]
+    fn test_fish_abbr_unalias() {
+        let fish = Fish { use_abbr: true };
+        assert_eq!(fish.unalias("gs"), "abbr --erase gs");
+    }
+
+    #[test]
+    fn test_fish_no_abbr_unalias() {
+        let fish = Fish { use_abbr: false };
+        assert_eq!(fish.unalias("gs"), "functions -e gs");
     }
 }

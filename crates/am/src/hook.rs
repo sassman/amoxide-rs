@@ -2,23 +2,21 @@ use std::path::Path;
 
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
-use crate::shell::Shells;
+use crate::shell::{ShellContext, Shells};
 use crate::trust::{compute_file_hash, render_load_message, render_unload_message};
 
 /// Generate shell code for the cd hook.
 ///
-/// `cwd` — the current working directory to search for `.aliases`.
+/// `ctx.cwd` — the current working directory to search for `.aliases`.
 /// `previous_aliases` — comma-separated alias names from `_AM_PROJECT_ALIASES` env var.
 pub fn generate_hook(
-    shell: &Shells,
-    cwd: &Path,
+    ctx: &ShellContext,
     previous_aliases: Option<&str>,
 ) -> crate::Result<String> {
     let mut security = SecurityConfig::load().unwrap_or_default();
     let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
     let (output, _changed) = generate_hook_with_security(
-        shell,
-        cwd,
+        ctx,
         previous_aliases,
         prev_project_path.as_deref(),
         &mut security,
@@ -39,14 +37,14 @@ pub fn generate_hook(
 /// environment, used to suppress duplicate warnings. Pass `None` to treat
 /// the env var as unset (e.g. in tests).
 pub fn generate_hook_with_security(
-    shell: &Shells,
-    cwd: &Path,
+    ctx: &ShellContext,
     previous_aliases: Option<&str>,
     prev_project_path: Option<&str>,
     security_config: &mut SecurityConfig,
     quiet: bool,
 ) -> crate::Result<(String, bool)> {
-    let shell_impl = shell.clone().as_shell();
+    let shell_impl = ctx.shell.clone().as_shell(ctx.cfg);
+    let cwd = ctx.cwd;
     let mut lines: Vec<String> = Vec::new();
     let mut security_changed = false;
 
@@ -292,7 +290,10 @@ mod tests {
         }
 
         fn run(&mut self, shell: &Shells, cwd: &Path, prev: Option<&str>) -> (String, bool) {
-            generate_hook_with_security(shell, cwd, prev, None, &mut self.security, false).unwrap()
+            use crate::config::ShellsTomlConfig;
+            let cfg = ShellsTomlConfig::default();
+            let ctx = ShellContext { shell, cfg: &cfg, cwd };
+            generate_hook_with_security(&ctx, prev, None, &mut self.security, false).unwrap()
         }
 
         /// Update the .aliases content and re-trust.

@@ -7,10 +7,22 @@ use amoxide::hook::generate_hook_with_security;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::project::ProjectAliases;
 use amoxide::security::SecurityConfig;
-use amoxide::shell::Shells;
+use amoxide::config::ShellsTomlConfig;
+use amoxide::shell::{ShellContext, Shells};
 use amoxide::subcommand::SubcommandSet;
 use amoxide::trust::compute_file_hash;
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
+
+static DEFAULT_CFG: std::sync::LazyLock<ShellsTomlConfig> =
+    std::sync::LazyLock::new(ShellsTomlConfig::default);
+
+fn default_ctx(shell: &Shells) -> ShellContext<'_> {
+    ShellContext {
+        shell,
+        cfg: &DEFAULT_CFG,
+        cwd: std::path::Path::new("/tmp"),
+    }
+}
 use indoc::indoc;
 use std::fs;
 
@@ -84,7 +96,7 @@ fn snapshot_init_fish_simple_profile() {
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
     let output = generate_init(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -103,7 +115,7 @@ fn snapshot_init_zsh_simple_profile() {
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
     let output = generate_init(
-        &Shells::Zsh,
+        &default_ctx(&Shells::Zsh),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -122,7 +134,7 @@ fn snapshot_init_powershell_simple_profile() {
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
     let output = generate_init(
-        &Shells::Powershell,
+        &default_ctx(&Shells::Powershell),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -141,7 +153,7 @@ fn snapshot_init_bash_simple_profile() {
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
     let output = generate_init(
-        &Shells::Bash,
+        &default_ctx(&Shells::Bash),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -154,7 +166,7 @@ fn snapshot_init_fish_multi_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_init(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -172,7 +184,7 @@ fn snapshot_init_fish_with_globals() {
     "#});
     let globals = aliases(&[("ll", "ls -lha")]);
     let resolved = config.resolve_active_aliases(&["rust"]);
-    let output = generate_init(&Shells::Fish, &globals, &resolved, &SubcommandSet::new());
+    let output = generate_init(&default_ctx(&Shells::Fish), &globals, &resolved, &SubcommandSet::new());
     insta::assert_snapshot!(output);
 }
 
@@ -181,7 +193,7 @@ fn snapshot_init_fish_deep_chain() {
     let config = deep_chain_config();
     let resolved = config.resolve_active_aliases(&["base", "git", "rust"]);
     let output = generate_init(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -195,7 +207,7 @@ fn snapshot_init_fish_with_simple_subcommands() {
     let mut subcommands = SubcommandSet::new();
     subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
     subcommands.insert("jj:new".into(), vec!["new --no-edit".into()]);
-    let output = generate_init(&Shells::Fish, &globals, &AliasSet::default(), &subcommands);
+    let output = generate_init(&default_ctx(&Shells::Fish), &globals, &AliasSet::default(), &subcommands);
     insta::assert_snapshot!(output);
 }
 
@@ -214,7 +226,7 @@ fn snapshot_init_bash_with_kubectl_subcommands() {
     );
     subcommands.insert("kubectl:logs:f".into(), vec!["logs".into(), "-f".into()]);
     let output = generate_init(
-        &Shells::Bash,
+        &default_ctx(&Shells::Bash),
         &AliasSet::default(),
         &AliasSet::default(),
         &subcommands,
@@ -231,7 +243,7 @@ fn snapshot_reload_fish_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -245,7 +257,7 @@ fn snapshot_reload_zsh_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
-        &Shells::Zsh,
+        &default_ctx(&Shells::Zsh),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -259,7 +271,7 @@ fn snapshot_reload_powershell_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git-conventional"]);
     let output = generate_reload(
-        &Shells::Powershell,
+        &default_ctx(&Shells::Powershell),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -273,7 +285,7 @@ fn snapshot_reload_bash_switch_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
-        &Shells::Bash,
+        &default_ctx(&Shells::Bash),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -289,7 +301,7 @@ fn snapshot_reload_fish_after_global_add() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &globals,
         &resolved,
         &SubcommandSet::new(),
@@ -303,7 +315,7 @@ fn snapshot_reload_fish_globals_only_no_profile() {
     // No active profile, only globals
     let globals = aliases(&[("ll", "ls -lha"), ("gs", "git status")]);
     let output = generate_reload(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &globals,
         &AliasSet::default(),
         &SubcommandSet::new(),
@@ -318,7 +330,7 @@ fn snapshot_reload_zsh_after_global_add() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
-        &Shells::Zsh,
+        &default_ctx(&Shells::Zsh),
         &globals,
         &resolved,
         &SubcommandSet::new(),
@@ -333,7 +345,7 @@ fn snapshot_reload_bash_after_global_add() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
     let output = generate_reload(
-        &Shells::Bash,
+        &default_ctx(&Shells::Bash),
         &globals,
         &resolved,
         &SubcommandSet::new(),
@@ -348,7 +360,7 @@ fn snapshot_init_fish_globals_and_multi_profile() {
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_init(&Shells::Fish, &globals, &resolved, &SubcommandSet::new());
+    let output = generate_init(&default_ctx(&Shells::Fish), &globals, &resolved, &SubcommandSet::new());
     insta::assert_snapshot!(output);
 }
 
@@ -372,7 +384,7 @@ fn snapshot_reload_after_profile_removed() {
     let resolved = config.resolve_active_aliases(&["git"]);
     // Previously tracked: cm,ct,gs (git's + rust's aliases were all loaded)
     let output = generate_reload(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -394,7 +406,7 @@ fn snapshot_reload_after_parent_profile_removed() {
     let resolved = config.resolve_active_aliases(&["git-conventional"]);
     // Previously tracked: cm,cmf,gs (git's + git-conventional's were loaded)
     let output = generate_reload(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -426,7 +438,7 @@ fn snapshot_reload_after_active_set_changed() {
     // Previously tracked: ct,gs (from rust + git)
     // Now should have: ct,ll (from rust + base)
     let output = generate_reload(
-        &Shells::Fish,
+        &default_ctx(&Shells::Fish),
         &AliasSet::default(),
         &resolved,
         &SubcommandSet::new(),
@@ -457,9 +469,9 @@ fn snapshot_hook_fish_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
+    let ctx = ShellContext { shell: &Shells::Fish, cfg: &DEFAULT_CFG, cwd: dir.path() };
     let (output, _) =
-        generate_hook_with_security(&Shells::Fish, dir.path(), None, None, &mut security, false)
-            .unwrap();
+        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -481,9 +493,9 @@ fn snapshot_hook_zsh_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
+    let ctx = ShellContext { shell: &Shells::Zsh, cfg: &DEFAULT_CFG, cwd: dir.path() };
     let (output, _) =
-        generate_hook_with_security(&Shells::Zsh, dir.path(), None, None, &mut security, false)
-            .unwrap();
+        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -505,15 +517,9 @@ fn snapshot_hook_powershell_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
-    let (output, _) = generate_hook_with_security(
-        &Shells::Powershell,
-        dir.path(),
-        None,
-        None,
-        &mut security,
-        false,
-    )
-    .unwrap();
+    let ctx = ShellContext { shell: &Shells::Powershell, cfg: &DEFAULT_CFG, cwd: dir.path() };
+    let (output, _) =
+        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -535,9 +541,9 @@ fn snapshot_hook_bash_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
+    let ctx = ShellContext { shell: &Shells::Bash, cfg: &DEFAULT_CFG, cwd: dir.path() };
     let (output, _) =
-        generate_hook_with_security(&Shells::Bash, dir.path(), None, None, &mut security, false)
-            .unwrap();
+        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -558,9 +564,9 @@ fn snapshot_hook_fish_transition() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
+    let ctx = ShellContext { shell: &Shells::Fish, cfg: &DEFAULT_CFG, cwd: dir.path() };
     let (output, _) = generate_hook_with_security(
-        &Shells::Fish,
-        dir.path(),
+        &ctx,
         Some("old_a,old_b"),
         None,
         &mut security,
@@ -575,9 +581,9 @@ fn snapshot_hook_fish_leaving_project() {
     let dir = tempfile::tempdir().unwrap();
     // No .aliases file
     let mut security = SecurityConfig::default();
+    let ctx = ShellContext { shell: &Shells::Fish, cfg: &DEFAULT_CFG, cwd: dir.path() };
     let (output, _) = generate_hook_with_security(
-        &Shells::Fish,
-        dir.path(),
+        &ctx,
         Some("old_a,old_b"),
         None,
         &mut security,
