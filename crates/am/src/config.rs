@@ -200,7 +200,7 @@ mod tests {
         };
         config.save_to(dir.path()).unwrap();
         let loaded = Config::load_from(dir.path()).unwrap();
-        assert_eq!(loaded.shell.fish.unwrap().use_abbr, true);
+        assert!(loaded.shell.fish.unwrap().use_abbr);
     }
 
     #[test]

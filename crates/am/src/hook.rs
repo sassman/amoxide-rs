@@ -203,6 +203,7 @@ pub fn generate_hook_with_security(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shell::Shells;
     use std::path::{Path, PathBuf};
 
     /// Builder for hook test fixtures.
