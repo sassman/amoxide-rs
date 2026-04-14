@@ -1,4 +1,5 @@
 use amoxide::alias::{AliasConflict, MergeResult};
+use amoxide::config::ShellsTomlConfig;
 use amoxide::display::{render_listing, render_profiles};
 use amoxide::exchange::{
     render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
@@ -7,7 +8,6 @@ use amoxide::hook::generate_hook_with_security;
 use amoxide::init::{generate_init, generate_reload};
 use amoxide::project::ProjectAliases;
 use amoxide::security::SecurityConfig;
-use amoxide::config::ShellsTomlConfig;
 use amoxide::shell::{ShellContext, Shells};
 use amoxide::subcommand::SubcommandSet;
 use amoxide::trust::compute_file_hash;
@@ -184,7 +184,12 @@ fn snapshot_init_fish_with_globals() {
     "#});
     let globals = aliases(&[("ll", "ls -lha")]);
     let resolved = config.resolve_active_aliases(&["rust"]);
-    let output = generate_init(&default_ctx(&Shells::Fish), &globals, &resolved, &SubcommandSet::new());
+    let output = generate_init(
+        &default_ctx(&Shells::Fish),
+        &globals,
+        &resolved,
+        &SubcommandSet::new(),
+    );
     insta::assert_snapshot!(output);
 }
 
@@ -207,7 +212,12 @@ fn snapshot_init_fish_with_simple_subcommands() {
     let mut subcommands = SubcommandSet::new();
     subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
     subcommands.insert("jj:new".into(), vec!["new --no-edit".into()]);
-    let output = generate_init(&default_ctx(&Shells::Fish), &globals, &AliasSet::default(), &subcommands);
+    let output = generate_init(
+        &default_ctx(&Shells::Fish),
+        &globals,
+        &AliasSet::default(),
+        &subcommands,
+    );
     insta::assert_snapshot!(output);
 }
 
@@ -360,7 +370,12 @@ fn snapshot_init_fish_globals_and_multi_profile() {
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_init(&default_ctx(&Shells::Fish), &globals, &resolved, &SubcommandSet::new());
+    let output = generate_init(
+        &default_ctx(&Shells::Fish),
+        &globals,
+        &resolved,
+        &SubcommandSet::new(),
+    );
     insta::assert_snapshot!(output);
 }
 
@@ -469,9 +484,12 @@ fn snapshot_hook_fish_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
-    let ctx = ShellContext { shell: &Shells::Fish, cfg: &DEFAULT_CFG, cwd: dir.path() };
-    let (output, _) =
-        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let ctx = ShellContext {
+        shell: &Shells::Fish,
+        cfg: &DEFAULT_CFG,
+        cwd: dir.path(),
+    };
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -493,9 +511,12 @@ fn snapshot_hook_zsh_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
-    let ctx = ShellContext { shell: &Shells::Zsh, cfg: &DEFAULT_CFG, cwd: dir.path() };
-    let (output, _) =
-        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let ctx = ShellContext {
+        shell: &Shells::Zsh,
+        cfg: &DEFAULT_CFG,
+        cwd: dir.path(),
+    };
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -517,9 +538,12 @@ fn snapshot_hook_powershell_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
-    let ctx = ShellContext { shell: &Shells::Powershell, cfg: &DEFAULT_CFG, cwd: dir.path() };
-    let (output, _) =
-        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let ctx = ShellContext {
+        shell: &Shells::Powershell,
+        cfg: &DEFAULT_CFG,
+        cwd: dir.path(),
+    };
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -541,9 +565,12 @@ fn snapshot_hook_bash_with_aliases() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
-    let ctx = ShellContext { shell: &Shells::Bash, cfg: &DEFAULT_CFG, cwd: dir.path() };
-    let (output, _) =
-        generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let ctx = ShellContext {
+        shell: &Shells::Bash,
+        cfg: &DEFAULT_CFG,
+        cwd: dir.path(),
+    };
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -564,15 +591,13 @@ fn snapshot_hook_fish_transition() {
     let hash = compute_file_hash(&aliases_path).unwrap();
     security.trust(&aliases_path, &hash);
 
-    let ctx = ShellContext { shell: &Shells::Fish, cfg: &DEFAULT_CFG, cwd: dir.path() };
-    let (output, _) = generate_hook_with_security(
-        &ctx,
-        Some("old_a,old_b"),
-        None,
-        &mut security,
-        false,
-    )
-    .unwrap();
+    let ctx = ShellContext {
+        shell: &Shells::Fish,
+        cfg: &DEFAULT_CFG,
+        cwd: dir.path(),
+    };
+    let (output, _) =
+        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -581,15 +606,13 @@ fn snapshot_hook_fish_leaving_project() {
     let dir = tempfile::tempdir().unwrap();
     // No .aliases file
     let mut security = SecurityConfig::default();
-    let ctx = ShellContext { shell: &Shells::Fish, cfg: &DEFAULT_CFG, cwd: dir.path() };
-    let (output, _) = generate_hook_with_security(
-        &ctx,
-        Some("old_a,old_b"),
-        None,
-        &mut security,
-        false,
-    )
-    .unwrap();
+    let ctx = ShellContext {
+        shell: &Shells::Fish,
+        cfg: &DEFAULT_CFG,
+        cwd: dir.path(),
+    };
+    let (output, _) =
+        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 

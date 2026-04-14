@@ -81,7 +81,6 @@ impl From<Shells> for String {
     }
 }
 
-
 /// A trie node used to build recursive subcommand wrapper functions.
 /// Each node may represent an intermediate group or a leaf alias (or both).
 #[derive(Default)]

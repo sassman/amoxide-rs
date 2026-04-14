@@ -450,7 +450,12 @@ mod tests {
             crate::TomlAlias::Command("global cmd".to_string()),
         );
         let aliases = test_aliases();
-        let output = generate_init(&default_ctx(&Shells::Fish), &globals, &aliases, &SubcommandSet::new());
+        let output = generate_init(
+            &default_ctx(&Shells::Fish),
+            &globals,
+            &aliases,
+            &SubcommandSet::new(),
+        );
         let gl_pos = output.find("gl").unwrap();
         let gs_pos = output.find("gs").unwrap();
         assert!(
@@ -567,7 +572,12 @@ mod tests {
         let mut aliases = AliasSet::default();
         aliases.insert("jj".into(), TomlAlias::Command("just-a-joke".into()));
         let subs = test_subcommands();
-        let output = generate_init(&default_ctx(&Shells::Bash), &aliases, &AliasSet::default(), &subs);
+        let output = generate_init(
+            &default_ctx(&Shells::Bash),
+            &aliases,
+            &AliasSet::default(),
+            &subs,
+        );
         // Wrapper should use the alias value as base_cmd
         assert!(output.contains("just-a-joke abandon"));
         assert!(output.contains("just-a-joke \"$@\""));
@@ -592,11 +602,20 @@ mod tests {
     #[test]
     fn test_fish_init_with_abbr_mode() {
         use crate::config::{FishConfig, ShellsTomlConfig};
-        let cfg = ShellsTomlConfig { fish: Some(FishConfig { use_abbr: true }) };
+        let cfg = ShellsTomlConfig {
+            fish: Some(FishConfig { use_abbr: true }),
+        };
         let cwd = std::path::Path::new("/tmp");
-        let ctx = ShellContext { shell: &Shells::Fish, cfg: &cfg, cwd };
+        let ctx = ShellContext {
+            shell: &Shells::Fish,
+            cfg: &cfg,
+            cwd,
+        };
         let mut aliases = AliasSet::default();
-        aliases.insert(AliasName::from("gs"), crate::TomlAlias::Command("git status".to_string()));
+        aliases.insert(
+            AliasName::from("gs"),
+            crate::TomlAlias::Command("git status".to_string()),
+        );
         let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
         assert!(output.contains("abbr --add gs \"git status\""));
     }
@@ -604,9 +623,15 @@ mod tests {
     #[test]
     fn test_fish_reload_with_abbr_unloads_via_abbr_erase() {
         use crate::config::{FishConfig, ShellsTomlConfig};
-        let cfg = ShellsTomlConfig { fish: Some(FishConfig { use_abbr: true }) };
+        let cfg = ShellsTomlConfig {
+            fish: Some(FishConfig { use_abbr: true }),
+        };
         let cwd = std::path::Path::new("/tmp");
-        let ctx = ShellContext { shell: &Shells::Fish, cfg: &cfg, cwd };
+        let ctx = ShellContext {
+            shell: &Shells::Fish,
+            cfg: &cfg,
+            cwd,
+        };
         let output = generate_reload(
             &ctx,
             &AliasSet::default(),
