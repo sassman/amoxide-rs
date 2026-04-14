@@ -562,7 +562,10 @@ mod tests {
 
         // First run: load c:l, c wrapper is emitted
         let (output, _) = t.run(&Shells::Fish, &cwd, None);
-        assert!(output.contains("function c"), "first run should emit c wrapper");
+        assert!(
+            output.contains("function c"),
+            "first run should emit c wrapper"
+        );
         assert!(output.contains("clippy"));
 
         // Add c:t — the .aliases file changes, but program name `c` stays the same
@@ -575,7 +578,10 @@ mod tests {
             "hook must re-emit c wrapper after new subcommand added, got: {output}"
         );
         assert!(output.contains("test"), "updated wrapper must include c:t");
-        assert!(output.contains("clippy"), "updated wrapper must still include c:l");
+        assert!(
+            output.contains("clippy"),
+            "updated wrapper must still include c:l"
+        );
     }
 
     #[test]
