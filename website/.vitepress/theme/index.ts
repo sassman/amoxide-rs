@@ -5,6 +5,8 @@ import VersionBadge from './VersionBadge.vue'
 import NavTitleVersion from './NavTitleVersion.vue'
 import WhySection from './WhySection.vue'
 import UseCases from './UseCases.vue'
+import WhySectionDe from './WhySectionDe.vue'
+import UseCasesDe from './UseCasesDe.vue'
 import './custom.css'
 
 export default {
@@ -19,5 +21,7 @@ export default {
     app.component('VersionBadge', VersionBadge)
     app.component('WhySection', WhySection)
     app.component('UseCases', UseCases)
+    app.component('WhySectionDe', WhySectionDe)
+    app.component('UseCasesDe', UseCasesDe)
   },
 }
