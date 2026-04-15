@@ -252,7 +252,7 @@ export default defineConfig({
     },
     footer: {
       message: 'Released under the GPLv3 License. <a href="/privacy">Privacy Policy</a>',
-      copyright: 'Copyright © 2024-present Sven Kanoldt',
+      copyright: 'Copyright © 2024-present <a href="https://d34dl0ck.me/" target="_blank" rel="noopener noreferrer">Sven Kanoldt</a>',
     },
   },
 })
