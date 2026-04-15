@@ -30,12 +30,40 @@
         </p>
       </div>
       <div class="why-image">
-        <img src="/am-subcommand-alias-show-case.png" alt="amoxide subcommand alias showcase" />
+        <img
+          src="/am-subcommand-alias-show-case.png"
+          alt="amoxide subcommand alias showcase"
+          title="Click to enlarge"
+          @click="open = true"
+        />
       </div>
     </div>
     <a href="/guide/" class="why-cta">Get Started →</a>
+
+    <!-- Lightbox -->
+    <Teleport to="body">
+      <div v-if="open" class="lightbox" @click="open = false">
+        <div class="lightbox-inner" @click.stop>
+          <img src="/am-subcommand-alias-show-case.png" alt="amoxide subcommand alias showcase" />
+          <button class="lightbox-close" @click="open = false" aria-label="Close">✕</button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const open = ref(false)
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') open.value = false
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+</script>
 
 <style scoped>
 .why-section {
@@ -63,6 +91,13 @@
   border-radius: 10px;
   border: 1px solid var(--vp-c-divider);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  cursor: zoom-in;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.why-image img:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  transform: scale(1.01);
 }
 
 .why-prose p {
@@ -86,6 +121,64 @@
 
 .why-cta:hover {
   text-decoration: underline;
+}
+
+/* Lightbox */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  animation: lb-in 0.15s ease;
+}
+
+@keyframes lb-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.lightbox-inner {
+  position: relative;
+  max-width: min(90vw, 1100px);
+  max-height: 90vh;
+  cursor: default;
+}
+
+.lightbox-inner img {
+  display: block;
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-1);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.lightbox-close:hover {
+  background: var(--vp-c-bg-soft);
 }
 
 @media (max-width: 768px) {
