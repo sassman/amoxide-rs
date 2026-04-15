@@ -1,1 +1,0 @@
-import{_ as a,o as t,c as s,ah as i}from"./chunks/framework.COsEJIVd.js";const m=JSON.parse('{"title":"FAQ","description":"","frontmatter":{},"headers":[],"relativePath":"faq.md","filePath":"faq.md"}'),l={name:"faq.md"};function o(r,e,d,n,h,c){return t(),s("div",null,[...e[0]||(e[0]=[i("",17)])])}const u=a(l,[["render",o]]);export{m as __pageData,u as default};
