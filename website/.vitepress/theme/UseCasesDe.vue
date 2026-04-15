@@ -426,6 +426,10 @@ work activated — 3 loaded: jira, standup, vpn</span>
   align-items: start;
 }
 
+.uc-prose {
+  min-width: 0;
+}
+
 .uc-prose p {
   color: var(--vp-c-text-2);
   font-size: 15px;
@@ -477,6 +481,11 @@ work activated — 3 loaded: jira, standup, vpn</span>
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+}
+
+.code-panel {
+  min-width: 0;
 }
 
 .ctab {
