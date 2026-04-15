@@ -73,15 +73,50 @@ function buildShowcaseSidebar() {
   ]
 }
 
+const jsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  'name': 'amoxide',
+  'applicationCategory': 'DeveloperApplication',
+  'operatingSystem': 'Linux, macOS, Windows',
+  'description': 'Shell alias manager for developers. Define context-aware aliases per project, toolchain, or globally. Like direnv, but for shell aliases.',
+  'url': 'https://amoxide.rs',
+  'downloadUrl': 'https://github.com/sassman/amoxide-rs/releases',
+  'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'USD' },
+  'author': { '@type': 'Person', 'name': 'Sven Kanoldt' },
+  'license': 'https://www.gnu.org/licenses/gpl-3.0.html',
+  'codeRepository': 'https://github.com/sassman/amoxide-rs',
+  'programmingLanguage': 'Rust',
+})
+
 export default defineConfig({
   base,
-  title: 'amoxide',
+  title: 'amoxide — Shell Alias Manager',
   vite: {
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),
     },
   },
-  description: 'Shell aliases that follow your context — like direnv, but for aliases.',
+  description: 'amoxide is a shell alias manager for developers. Define context-aware aliases per project, toolchain, or globally — and load the right ones automatically. Like direnv, but for aliases.',
+  sitemap: {
+    hostname: 'https://amoxide.rs',
+  },
+  transformHead({ pageData }) {
+    const canonicalUrl = `https://amoxide.rs/${pageData.relativePath}`
+      .replace(/index\.md$/, '')
+      .replace(/\.md$/, '')
+    const tags: [string, Record<string, string>][] = [
+      ['link', { rel: 'canonical', href: canonicalUrl }],
+    ]
+    // hreflang for pages that have a German translation (de/ prefix)
+    if (!pageData.relativePath.startsWith('de/')) {
+      const dePath = `de/${pageData.relativePath}`
+      tags.push(['link', { rel: 'alternate', hreflang: 'en', href: canonicalUrl }])
+      tags.push(['link', { rel: 'alternate', hreflang: 'de', href: `https://amoxide.rs/${dePath}`.replace(/index\.md$/, '').replace(/\.md$/, '') }])
+      tags.push(['link', { rel: 'alternate', hreflang: 'x-default', href: canonicalUrl }])
+    }
+    return tags
+  },
   head: [
     ['link', { rel: 'icon', href: `${base}logo.svg` }],
     ['meta', { property: 'og:type', content: 'website' }],
@@ -93,6 +128,7 @@ export default defineConfig({
     ['meta', { name: 'twitter:title', content: 'amoxide — The right aliases, at the right time' }],
     ['meta', { name: 'twitter:description', content: 'Like direnv, but for aliases. Define aliases per project, per toolchain, or globally.' }],
     ['meta', { name: 'twitter:image', content: 'https://amoxide.rs/og-image.png' }],
+    ['script', { type: 'application/ld+json' }, jsonLd],
     ['script', { async: '', src: 'https://plausible.io/js/pa-a6anBYLf5imqR2fPCnzHy.js' }],
     ['script', {}, 'window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()'],
   ],
@@ -202,6 +238,7 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/logo.svg',
+    logoAlt: 'amoxide logo',
     socialLinks: [
       { icon: 'github', link: 'https://github.com/sassman/amoxide-rs' },
     ],
