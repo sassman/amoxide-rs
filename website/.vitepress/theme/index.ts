@@ -3,6 +3,8 @@ import DefaultTheme from 'vitepress/theme'
 import CommunityGallery from './CommunityGallery.vue'
 import VersionBadge from './VersionBadge.vue'
 import NavTitleVersion from './NavTitleVersion.vue'
+import WhySection from './WhySection.vue'
+import UseCases from './UseCases.vue'
 import './custom.css'
 
 export default {
@@ -15,5 +17,7 @@ export default {
   enhanceApp({ app }) {
     app.component('CommunityGallery', CommunityGallery)
     app.component('VersionBadge', VersionBadge)
+    app.component('WhySection', WhySection)
+    app.component('UseCases', UseCases)
   },
 }

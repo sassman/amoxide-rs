@@ -140,6 +140,7 @@ export default defineConfig({
       label: 'English',
       lang: 'en',
       themeConfig: {
+        siteTitle: 'amoxide',
         nav: [
           { text: 'Guide', link: '/guide/' },
           { text: 'Usage', link: '/usage/' },
@@ -191,6 +192,7 @@ export default defineConfig({
       lang: 'de',
       link: '/de/',
       themeConfig: {
+        siteTitle: 'amoxide',
         nav: [
           { text: 'Anleitung', link: '/de/guide/' },
           { text: 'Nutzung', link: '/de/usage/' },
@@ -239,6 +241,7 @@ export default defineConfig({
   },
 
   themeConfig: {
+    siteTitle: 'amoxide',
     logo: '/logo.svg',
     logoAlt: 'amoxide logo',
     socialLinks: [

@@ -67,32 +67,9 @@ cargo install amoxide amoxide-tui
 
 :::
 
-<div class="before-after">
+<WhySection />
 
-## Why amoxide?
-
-<div class="comparison">
-<div class="before">
-
-**Before:**
-```sh
-cargo clippy --locked --all-targets -- -D warnings
-```
-
-</div>
-<div class="after">
-
-**After:**
-```sh
-l
-```
-
-</div>
-</div>
-
-Start with project aliases. Refactor into profiles. [Get Started →](/guide/)
-
-</div>
+<UseCases />
 
 ## See It in Action
 
