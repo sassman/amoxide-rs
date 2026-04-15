@@ -14,11 +14,11 @@ name = "am-tui"
 path = "src/main.rs"
 
 [dependencies]
-amoxide = { path = "../am", version = "0.6.0" }
+amoxide = { path = "../am", version = "0.6.1" }
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 anyhow = "1.0"
 
 [dev-dependencies]
-amoxide = { path = "../am", version = "0.6.0", features = ["test-util"] }
+amoxide = { path = "../am", version = "0.6.1", features = ["test-util"] }
 toml = { workspace = true }
 tempfile = { workspace = true }
