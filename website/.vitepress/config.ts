@@ -98,6 +98,7 @@ export default defineConfig({
     },
   },
   description: 'amoxide is a shell alias manager for developers. Define context-aware aliases per project, toolchain, or globally — and load the right ones automatically. Like direnv, but for aliases.',
+  cleanUrls: true,
   sitemap: {
     hostname: 'https://amoxide.rs',
   },
