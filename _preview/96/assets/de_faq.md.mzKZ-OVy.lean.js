@@ -1,0 +1,1 @@
+import{_ as t,o as i,c as a,a3 as n}from"./chunks/framework.CtQPnTN-.js";const u=JSON.parse('{"title":"FAQ","description":"","frontmatter":{},"headers":[],"relativePath":"de/faq.md","filePath":"de/faq.md"}'),s={name:"de/faq.md"};function l(r,e,d,o,h,c){return i(),a("div",null,[...e[0]||(e[0]=[n("",17)])])}const m=t(s,[["render",l]]);export{u as __pageData,m as default};
