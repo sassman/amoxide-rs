@@ -62,6 +62,7 @@ pub fn scan_external_aliases() -> std::collections::HashSet<String> {
     let output = std::process::Command::new("zsh")
         .args(["-i", "-c", "alias"])
         .env("AM_DETECTING_ALIASES", "1")
+        .stderr(std::process::Stdio::null())
         .output();
     match output {
         Ok(out) => parse_zsh_alias_keys(&String::from_utf8_lossy(&out.stdout)),
