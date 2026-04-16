@@ -240,6 +240,7 @@ mod tests {
             shell,
             cfg: &DEFAULT_CFG,
             cwd: std::path::Path::new("/tmp"),
+            external_aliases: Default::default(),
         }
     }
 
@@ -610,6 +611,7 @@ mod tests {
             shell: &Shells::Fish,
             cfg: &cfg,
             cwd,
+            external_aliases: Default::default(),
         };
         let mut aliases = AliasSet::default();
         aliases.insert(
@@ -631,6 +633,7 @@ mod tests {
             shell: &Shells::Fish,
             cfg: &cfg,
             cwd,
+            external_aliases: Default::default(),
         };
         let output = generate_reload(
             &ctx,

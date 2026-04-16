@@ -294,6 +294,7 @@ mod tests {
                 shell,
                 cfg: &cfg,
                 cwd,
+                external_aliases: Default::default(),
             };
             generate_hook_with_security(&ctx, prev, None, &mut self.security, false).unwrap()
         }

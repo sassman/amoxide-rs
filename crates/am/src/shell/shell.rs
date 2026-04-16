@@ -44,6 +44,10 @@ pub struct ShellContext<'a> {
     pub shell: &'a Shells,
     pub cfg: &'a ShellsTomlConfig,
     pub cwd: &'a std::path::Path,
+    /// External aliases detected from the user's shell startup files.
+    /// Used by `generate_init` to emit a cleanup preamble for colliding names.
+    /// Empty for all shells except zsh on `am init`.
+    pub external_aliases: std::collections::HashSet<String>,
 }
 
 impl Shells {

@@ -567,6 +567,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 shell: &shell,
                 cfg: &model.config.shell,
                 cwd: &model.cwd,
+                external_aliases: Default::default(),
             };
             let output = generate_init(&ctx, &model.config.aliases, &resolved, &all_subs);
             print!("{output}");
@@ -588,6 +589,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 shell: &shell,
                 cfg: &model.config.shell,
                 cwd: &model.cwd,
+                external_aliases: Default::default(),
             };
             let output = generate_reload(
                 &ctx,
@@ -610,6 +612,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 shell: &shell,
                 cfg: &shell_cfg,
                 cwd: &cwd,
+                external_aliases: Default::default(),
             };
             let (output, security_changed) = crate::hook::generate_hook_with_security(
                 &ctx,
