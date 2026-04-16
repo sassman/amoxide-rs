@@ -47,7 +47,7 @@ pub(crate) fn parse_zsh_alias_keys(output: &str) -> std::collections::HashSet<St
             if line.is_empty() {
                 return None;
             }
-            line.splitn(2, '=').next().map(|k| k.to_string())
+            line.split('=').next().map(|k| k.to_string())
         })
         .collect()
 }
@@ -59,6 +59,12 @@ pub(crate) fn parse_zsh_alias_keys(output: &str) -> std::collections::HashSet<St
 /// Sets `AM_DETECTING_ALIASES=1` to prevent recursive `am` invocation if
 /// `.zshrc` contains `eval "$(am init zsh)"`.
 pub fn scan_external_aliases() -> std::collections::HashSet<String> {
+    // Guard against recursive invocation: if we are already inside a
+    // `zsh -i -c alias` subprocess triggered by an outer scan, return empty
+    // immediately rather than spawning another child.
+    if std::env::var("AM_DETECTING_ALIASES").is_ok() {
+        return Default::default();
+    }
     let output = std::process::Command::new("zsh")
         .args(["-i", "-c", "alias"])
         .env("AM_DETECTING_ALIASES", "1")
