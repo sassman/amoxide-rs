@@ -5,7 +5,7 @@ mod nix;
 mod powershell;
 #[allow(clippy::module_inception)]
 mod shell;
-mod zsh;
+pub mod zsh;
 
 pub use bash::*;
 pub use brush::*;
