@@ -2,8 +2,8 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-gs() { git status "$@"; }
-ll() { ls -lha "$@"; }
+alias gs="git status"
+alias ll="ls -lha"
 export _AM_ALIASES="gs,ll"
 unset _AM_PROFILE_ALIASES
 

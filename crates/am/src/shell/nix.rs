@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{build_wrapper_trie, has_template_args, substitute_nix, Shell, WrapperNode};
+use super::{build_wrapper_trie, has_template_args, quote_cmd, substitute_nix, Shell, WrapperNode};
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
@@ -10,7 +10,7 @@ pub struct NixShell;
 
 impl Shell for NixShell {
     fn unalias(&self, alias_name: &str) -> String {
-        format!("unset -f {alias_name}")
+        format!("unalias {alias_name} 2>/dev/null; unset -f {alias_name} 2>/dev/null")
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
@@ -18,7 +18,7 @@ impl Shell for NixShell {
             let body = substitute_nix(entry.command);
             format!("{}() {{ {}; }}", entry.name, body)
         } else {
-            format!("{}() {{ {} \"$@\"; }}", entry.name, entry.command)
+            format!("alias {}={}", entry.name, quote_cmd(entry.command))
         }
     }
 
@@ -127,7 +127,11 @@ mod tests {
     fn test_nix_simple() {
         assert_eq!(
             NixShell.alias(&simple("h", "echo hello")),
-            "h() { echo hello \"$@\"; }"
+            "alias h=\"echo hello\""
+        );
+        assert_eq!(
+            NixShell.alias(&simple("h", "'echo hello'")),
+            "alias h='echo hello'"
         );
     }
 
@@ -147,13 +151,16 @@ mod tests {
     fn test_nix_raw_skips_templates() {
         assert_eq!(
             NixShell.alias(&raw("my-awk", "awk '{print {{1}}}'")),
-            "my-awk() { awk '{print {{1}}}' \"$@\"; }"
+            "alias my-awk=\"awk '{print {{1}}}'\""
         );
     }
 
     #[test]
     fn test_nix_unalias() {
-        assert_eq!(NixShell.unalias("h"), "unset -f h");
+        assert_eq!(
+            NixShell.unalias("h"),
+            "unalias h 2>/dev/null; unset -f h 2>/dev/null"
+        );
     }
 
     #[test]

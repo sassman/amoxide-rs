@@ -303,8 +303,11 @@ mod tests {
     fn test_bash_shell_generates_nix_syntax() {
         let shell: Box<dyn Shell> = Shells::Bash.as_shell(&ShellsTomlConfig::default());
         let entry = simple("gs", "git status");
-        assert_eq!(shell.alias(&entry), "gs() { git status \"$@\"; }");
-        assert_eq!(shell.unalias("gs"), "unset -f gs");
+        assert_eq!(shell.alias(&entry), "alias gs=\"git status\"");
+        assert_eq!(
+            shell.unalias("gs"),
+            "unalias gs 2>/dev/null; unset -f gs 2>/dev/null"
+        );
         assert_eq!(shell.set_env("FOO", "bar"), "export FOO=\"bar\"");
         assert_eq!(shell.unset_env("FOO"), "unset FOO");
     }

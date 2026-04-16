@@ -324,8 +324,8 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("gs() { git status \"$@\"; }"));
-        assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
+        assert!(output.contains("alias ll=\"ls -lha\""));
     }
 
     #[test]
@@ -396,7 +396,7 @@ mod tests {
             Some("old1"),
         );
         assert!(output.contains("unset -f old1"));
-        assert!(output.contains("gs() { git status \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
     }
 
     #[test]
@@ -491,8 +491,8 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("gs() { git status \"$@\"; }"));
-        assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
+        assert!(output.contains("alias ll=\"ls -lha\""));
     }
 
     #[test]
@@ -536,7 +536,7 @@ mod tests {
             Some("old1"),
         );
         assert!(output.contains("unset -f old1"));
-        assert!(output.contains("gs() { git status \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
     }
 
     #[test]

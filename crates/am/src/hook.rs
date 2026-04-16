@@ -368,7 +368,7 @@ mod tests {
         let cwd = t.root();
         let (output, _) = t.run(&Shells::Zsh, &cwd, Some("old"));
         assert!(output.contains("unset -f old"));
-        assert!(output.contains("b() { make build \"$@\"; }"));
+        assert!(output.contains("alias b=\"make build\""));
         assert!(output.contains("export _AM_PROJECT_ALIASES="));
     }
 
@@ -425,7 +425,7 @@ mod tests {
         let cwd = t.root();
         let (output, _) = t.run(&Shells::Bash, &cwd, Some("old"));
         assert!(output.contains("unset -f old"));
-        assert!(output.contains("b() { make build \"$@\"; }"));
+        assert!(output.contains("alias b=\"make build\""));
         assert!(output.contains("export _AM_PROJECT_ALIASES="));
     }
 
@@ -598,7 +598,7 @@ mod tests {
 
         let cwd = t.root();
         let (output, _) = t.run(&Shells::Bash, &cwd, None);
-        assert!(output.contains("b() { make build \"$@\"; }"));
+        assert!(output.contains("alias b=\"make build\""));
         assert!(output.contains("jj() {"));
         assert!(output.contains("ab) shift; command jj abandon"));
     }
