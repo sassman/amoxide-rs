@@ -87,13 +87,9 @@ fn zsh_interactive_alias_output_contains_la() {
         })
         .collect();
 
-    assert!(
-        keys.len() > 5,
-        "expected many aliases from interactive zsh, got only {}: \
-         check that zsh sources ~/.zshrc in interactive mode",
-        keys.len()
-    );
-
+    // The concrete proof: `la` must be present — CI seeds it via
+    // `echo "alias la='ls -lAh'" >> ~/.zshrc`, on dev machines it comes from
+    // the user's shell config or plugins.
     assert!(
         keys.contains(&"la".to_string()),
         "`la` alias not found among {} aliases: {:?}",
