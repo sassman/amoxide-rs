@@ -92,6 +92,10 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: prime zsh env for alias scan tests
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "alias la='ls -lAh'" >> ~/.zshrc
       - name: cargo test
         shell: bash
         run: cargo test --verbose --all --locked
