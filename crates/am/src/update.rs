@@ -2,9 +2,11 @@ pub use crate::app_model::AppModel;
 
 use crate::display::render_listing;
 use crate::effects::Effect;
+use crate::env_vars;
 use crate::init::{generate_init, generate_reload};
 use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
+use crate::shell::bash;
 use crate::shell::zsh;
 use crate::shell::ShellContext;
 use crate::shell::Shells;
@@ -565,15 +567,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             for (k, v) in resolved_subs {
                 all_subs.insert(k, v);
             }
-            let external_aliases = if shell == Shells::Zsh {
-                zsh::scan_external_aliases()
-            } else {
-                Default::default()
+            let (external_functions, external_aliases) = match shell {
+                Shells::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
+                Shells::Bash => (
+                    bash::scan_external_functions(),
+                    bash::scan_external_aliases(),
+                ),
+                _ => Default::default(),
             };
             let ctx = ShellContext {
                 shell: &shell,
                 cfg: &model.config.shell,
                 cwd: &model.cwd,
+                external_functions,
                 external_aliases,
             };
             let output = generate_init(&ctx, &model.config.aliases, &resolved, &all_subs);
@@ -591,11 +597,12 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             for (k, v) in resolved_subs {
                 all_subs.insert(k, v);
             }
-            let prev = std::env::var("_AM_ALIASES").ok();
+            let prev = std::env::var(env_vars::AM_ALIASES).ok();
             let ctx = ShellContext {
                 shell: &shell,
                 cfg: &model.config.shell,
                 cwd: &model.cwd,
+                external_functions: Default::default(),
                 external_aliases: Default::default(),
             };
             let output = generate_reload(
@@ -611,14 +618,15 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             Ok(UpdateResult::done())
         }
         Message::Hook(shell, quiet) => {
-            let prev = std::env::var("_AM_PROJECT_ALIASES").ok();
-            let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+            let prev = std::env::var(env_vars::AM_PROJECT_ALIASES).ok();
+            let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
             let shell_cfg = model.config.shell.clone();
             let cwd = model.cwd.clone();
             let ctx = ShellContext {
                 shell: &shell,
                 cfg: &shell_cfg,
                 cwd: &cwd,
+                external_functions: Default::default(),
                 external_aliases: Default::default(),
             };
             let (output, security_changed) = crate::hook::generate_hook_with_security(

@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::env_vars;
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
 use crate::shell::ShellContext;
@@ -11,7 +12,7 @@ use crate::trust::{compute_file_hash, render_load_message, render_unload_message
 /// `previous_aliases` — comma-separated alias names from `_AM_PROJECT_ALIASES` env var.
 pub fn generate_hook(ctx: &ShellContext, previous_aliases: Option<&str>) -> crate::Result<String> {
     let mut security = SecurityConfig::load().unwrap_or_default();
-    let prev_project_path = std::env::var("_AM_PROJECT_PATH").ok();
+    let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
     let (output, _changed) = generate_hook_with_security(
         ctx,
         previous_aliases,
@@ -40,7 +41,11 @@ pub fn generate_hook_with_security(
     security_config: &mut SecurityConfig,
     quiet: bool,
 ) -> crate::Result<(String, bool)> {
-    let shell_impl = ctx.shell.clone().as_shell(ctx.cfg);
+    let shell_impl = ctx.shell.clone().as_shell(
+        ctx.cfg,
+        ctx.external_functions.clone(),
+        ctx.external_aliases.clone(),
+    );
     let cwd = ctx.cwd;
     let mut lines: Vec<String> = Vec::new();
     let mut security_changed = false;
@@ -147,7 +152,9 @@ pub fn generate_hook_with_security(
                             lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
                         }
 
-                        lines.push(shell_impl.set_env("_AM_PROJECT_ALIASES", &all_names.join(",")));
+                        lines.push(
+                            shell_impl.set_env(env_vars::AM_PROJECT_ALIASES, &all_names.join(",")),
+                        );
                     }
                 }
                 TrustStatus::Unknown => {
@@ -175,12 +182,14 @@ pub fn generate_hook_with_security(
             // For non-trusted states: track the path to avoid repeating warnings,
             // and clear the alias tracking env var.
             if !matches!(status, TrustStatus::Trusted) {
-                lines.push(shell_impl.set_env("_AM_PROJECT_PATH", &path.display().to_string()));
+                lines.push(
+                    shell_impl.set_env(env_vars::AM_PROJECT_PATH, &path.display().to_string()),
+                );
                 if !prev.is_empty() {
-                    lines.push(shell_impl.unset_env("_AM_PROJECT_ALIASES"));
+                    lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
                 }
             } else if prev_project_path.is_some() {
-                lines.push(shell_impl.unset_env("_AM_PROJECT_PATH"));
+                lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
             }
         }
         None => {
@@ -189,10 +198,10 @@ pub fn generate_hook_with_security(
                 if !quiet {
                     lines.push(shell_impl.echo(&render_unload_message(&prev)));
                 }
-                lines.push(shell_impl.unset_env("_AM_PROJECT_ALIASES"));
+                lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
             }
             if prev_project_path.is_some() {
-                lines.push(shell_impl.unset_env("_AM_PROJECT_PATH"));
+                lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
             }
         }
     }
@@ -294,6 +303,7 @@ mod tests {
                 shell,
                 cfg: &cfg,
                 cwd,
+                external_functions: Default::default(),
                 external_aliases: Default::default(),
             };
             generate_hook_with_security(&ctx, prev, None, &mut self.security, false).unwrap()
@@ -321,7 +331,7 @@ mod tests {
         let (output, _) = t.run(&Shells::Fish, &cwd, None);
         assert!(output.contains("alias b \"make build\""));
         assert!(output.contains("alias t \"make test\""));
-        assert!(output.contains("_AM_PROJECT_ALIASES"));
+        assert!(output.contains(env_vars::AM_PROJECT_ALIASES));
     }
 
     #[test]
@@ -445,7 +455,7 @@ mod tests {
             "should load aliases from parent .aliases, got: {output}"
         );
         assert!(output.contains("alias t \"make test\""));
-        assert!(output.contains("_AM_PROJECT_ALIASES"));
+        assert!(output.contains(env_vars::AM_PROJECT_ALIASES));
     }
 
     // ─── Trust-gated hook tests ─────────────────────────────────────

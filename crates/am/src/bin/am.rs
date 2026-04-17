@@ -7,6 +7,7 @@ use amoxide::{
     cli::*,
     dirs::relative_path,
     effects::Effect,
+    env_vars,
     exchange::{render_suspicious_warning, scan_suspicious, ExportAll},
     import_export::{handle_export, handle_import, handle_share},
     profile::AliasCollection,
@@ -31,6 +32,16 @@ fn setup_logging() {
 }
 
 fn main() -> anyhow::Result<()> {
+    // Guard against recursive invocation during alias scanning.
+    // When `zsh -i -c alias` is spawned to enumerate existing shell aliases it
+    // sources the user's startup files, which call `am hook` (or `am init`).
+    // If those calls were allowed to run normally they could trigger another
+    // scan, causing infinite recursion.  Exiting here makes `eval "$(...)"` a
+    // no-op, which is safe.
+    if std::env::var(env_vars::AM_DETECTING_ALIASES).is_ok() {
+        return Ok(());
+    }
+
     let cli = Cli::parse();
     let mut model = AppModel::default();
 

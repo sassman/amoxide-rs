@@ -1,3 +1,4 @@
+use crate::env_vars;
 use crate::shell::{ShellContext, Shells};
 use crate::subcommand::{group_by_program, SubcommandSet};
 use crate::AliasSet;
@@ -26,7 +27,11 @@ pub fn generate_init(
     profile_aliases: &AliasSet,
     subcommands: &SubcommandSet,
 ) -> String {
-    let shell_impl = ctx.shell.clone().as_shell(ctx.cfg);
+    let shell_impl = ctx.shell.clone().as_shell(
+        ctx.cfg,
+        ctx.external_functions.clone(),
+        ctx.external_aliases.clone(),
+    );
     let mut lines: Vec<String> = Vec::new();
     let mut all_names: Vec<String> = Vec::new();
 
@@ -34,25 +39,6 @@ pub fn generate_init(
     let subcmd_groups = group_by_program(subcommands);
     let programs_with_wrappers: std::collections::BTreeSet<&str> =
         subcmd_groups.keys().map(|s| s.as_str()).collect();
-
-    // Preamble: for each am-managed name that already exists in the user's shell
-    // startup environment, emit an explicit cleanup before we define ours.
-    // This prevents pre-existing aliases or functions from shadowing am's native aliases.
-    if !ctx.external_aliases.is_empty() {
-        // Collect all managed names in sorted order for deterministic output.
-        let mut managed: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
-        for (alias_name, _) in global_aliases.iter().chain(profile_aliases.iter()) {
-            managed.insert(alias_name.as_ref());
-        }
-        for program in &programs_with_wrappers {
-            managed.insert(program);
-        }
-        for name in &managed {
-            if ctx.external_aliases.contains(*name) {
-                lines.push(shell_impl.unalias(name));
-            }
-        }
-    }
 
     // Emit global aliases (skip those absorbed by subcommand wrappers)
     for (alias_name, alias_value) in global_aliases.iter() {
@@ -90,10 +76,10 @@ pub fn generate_init(
     if !all_names.is_empty() {
         all_names.sort();
         all_names.dedup();
-        lines.push(shell_impl.set_env("_AM_ALIASES", &all_names.join(",")));
+        lines.push(shell_impl.set_env(env_vars::AM_ALIASES, &all_names.join(",")));
     }
     // Clean up legacy tracking var from older versions
-    lines.push(shell_impl.unset_env("_AM_PROFILE_ALIASES"));
+    lines.push(shell_impl.unset_env(env_vars::AM_PROFILE_ALIASES_LEGACY));
 
     // Wrapper function
     lines.push(String::new());
@@ -119,7 +105,11 @@ pub fn generate_reload(
     subcommands: &SubcommandSet,
     previous_aliases: Option<&str>,
 ) -> String {
-    let shell_impl = ctx.shell.clone().as_shell(ctx.cfg);
+    let shell_impl = ctx.shell.clone().as_shell(
+        ctx.cfg,
+        ctx.external_functions.clone(),
+        ctx.external_aliases.clone(),
+    );
     let mut lines: Vec<String> = Vec::new();
 
     // Unload all previously tracked aliases
@@ -173,12 +163,12 @@ pub fn generate_reload(
     // Update tracking
     if all_names.is_empty() {
         if !prev.is_empty() {
-            lines.push(shell_impl.unset_env("_AM_ALIASES"));
+            lines.push(shell_impl.unset_env(env_vars::AM_ALIASES));
         }
     } else {
         all_names.sort();
         all_names.dedup();
-        lines.push(shell_impl.set_env("_AM_ALIASES", &all_names.join(",")));
+        lines.push(shell_impl.set_env(env_vars::AM_ALIASES, &all_names.join(",")));
     }
 
     lines.join("\n")
@@ -259,6 +249,7 @@ mod tests {
             shell,
             cfg: &DEFAULT_CFG,
             cwd: std::path::Path::new("/tmp"),
+            external_functions: Default::default(),
             external_aliases: Default::default(),
         }
     }
@@ -304,7 +295,7 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("_AM_ALIASES"));
+        assert!(output.contains(env_vars::AM_ALIASES));
     }
 
     #[test]
@@ -385,7 +376,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("__am_hook"));
-        assert!(!output.contains("_AM_ALIASES"));
+        assert!(!output.contains(env_vars::AM_ALIASES));
     }
 
     #[test]
@@ -402,7 +393,7 @@ mod tests {
         assert!(output.contains("functions -e old2"));
         assert!(output.contains("alias gs \"git status\""));
         assert!(output.contains("alias ll \"ls -lha\""));
-        assert!(output.contains("_AM_ALIASES"));
+        assert!(output.contains(env_vars::AM_ALIASES));
     }
 
     #[test]
@@ -616,7 +607,7 @@ mod tests {
             &AliasSet::default(),
             &subs,
         );
-        assert!(output.contains("_AM_ALIASES"));
+        assert!(output.contains(env_vars::AM_ALIASES));
         assert!(output.contains("jj"));
     }
     #[test]
@@ -630,6 +621,7 @@ mod tests {
             shell: &Shells::Fish,
             cfg: &cfg,
             cwd,
+            external_functions: Default::default(),
             external_aliases: Default::default(),
         };
         let mut aliases = AliasSet::default();
@@ -639,63 +631,6 @@ mod tests {
         );
         let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
         assert!(output.contains("abbr --add gs \"git status\""));
-    }
-
-    #[test]
-    fn test_zsh_init_emits_preamble_for_colliding_external_alias() {
-        use std::collections::HashSet;
-        let aliases = test_aliases(); // contains "gs" and "ll"
-        let mut external = HashSet::new();
-        external.insert("gs".to_string()); // only "gs" collides
-
-        let ctx = ShellContext {
-            shell: &Shells::Zsh,
-            cfg: &DEFAULT_CFG,
-            cwd: std::path::Path::new("/tmp"),
-            external_aliases: external,
-        };
-        let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
-
-        assert!(
-            output.contains("unalias gs 2>/dev/null; unset -f gs 2>/dev/null"),
-            "expected unalias preamble for gs, got:\n{output}"
-        );
-        let preamble_pos = output.find("unalias gs").unwrap();
-        let alias_pos = output.find("alias gs=").unwrap();
-        assert!(preamble_pos < alias_pos, "preamble must appear before alias definition");
-        assert!(!output.contains("unalias ll"), "should not emit preamble for ll");
-    }
-
-    #[test]
-    fn test_zsh_init_no_preamble_when_no_external_aliases() {
-        let aliases = test_aliases();
-        let output = generate_init(
-            &default_ctx(&Shells::Zsh),
-            &AliasSet::default(),
-            &aliases,
-            &SubcommandSet::new(),
-        );
-        assert!(!output.contains("unalias"), "no preamble expected when external_aliases is empty");
-    }
-
-    #[test]
-    fn test_zsh_init_preamble_only_for_managed_names() {
-        use std::collections::HashSet;
-        let mut external = HashSet::new();
-        external.insert("la".to_string());   // am does NOT manage "la"
-        external.insert("gs".to_string());   // am manages "gs"
-
-        let aliases = test_aliases(); // contains "gs" and "ll"
-        let ctx = ShellContext {
-            shell: &Shells::Zsh,
-            cfg: &DEFAULT_CFG,
-            cwd: std::path::Path::new("/tmp"),
-            external_aliases: external,
-        };
-        let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
-
-        assert!(output.contains("unalias gs 2>/dev/null; unset -f gs 2>/dev/null"));
-        assert!(!output.contains("unalias la"), "must not touch unmanaged external alias");
     }
 
     #[test]
@@ -709,6 +644,7 @@ mod tests {
             shell: &Shells::Fish,
             cfg: &cfg,
             cwd,
+            external_functions: Default::default(),
             external_aliases: Default::default(),
         };
         let output = generate_reload(
