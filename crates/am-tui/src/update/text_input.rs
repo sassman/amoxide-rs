@@ -42,10 +42,8 @@ use amoxide::AliasName;
 
 pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
     match msg {
-        TuiMessage::StartCreateProfile => {
-            if model.mode == Mode::Normal {
-                model.mode = Mode::TextInput(TextInputState::NewProfile(String::new()));
-            }
+        TuiMessage::StartCreateProfile if model.mode == Mode::Normal => {
+            model.mode = Mode::TextInput(TextInputState::NewProfile(String::new()));
         }
         TuiMessage::StartAddAlias => {
             if model.mode != Mode::Normal {
