@@ -9,6 +9,14 @@ use crate::config::ShellsTomlConfig;
 
 pub trait Shell: Send + Sync + Debug {
     fn unalias(&self, alias_name: &str) -> String;
+
+    /// Unloads an alias using all possible forms — safe to call regardless of
+    /// which form was used when the alias was originally loaded.
+    /// Default delegates to `unalias`; shells with multiple alias forms override this.
+    fn force_unalias(&self, alias_name: &str) -> String {
+        self.unalias(alias_name)
+    }
+
     fn alias(&self, entry: &crate::alias::AliasEntry) -> String;
     fn set_env(&self, var_name: &str, value: &str) -> String;
     fn unset_env(&self, var_name: &str) -> String;
