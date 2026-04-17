@@ -21,6 +21,8 @@ fn default_ctx(shell: &Shells) -> ShellContext<'_> {
         shell,
         cfg: &DEFAULT_CFG,
         cwd: std::path::Path::new("/tmp"),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
     }
 }
 use indoc::indoc;
@@ -488,6 +490,8 @@ fn snapshot_hook_fish_with_aliases() {
         shell: &Shells::Fish,
         cfg: &DEFAULT_CFG,
         cwd: dir.path(),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
     };
     let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
@@ -515,6 +519,8 @@ fn snapshot_hook_zsh_with_aliases() {
         shell: &Shells::Zsh,
         cfg: &DEFAULT_CFG,
         cwd: dir.path(),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
     };
     let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
@@ -542,6 +548,8 @@ fn snapshot_hook_powershell_with_aliases() {
         shell: &Shells::Powershell,
         cfg: &DEFAULT_CFG,
         cwd: dir.path(),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
     };
     let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
@@ -569,6 +577,8 @@ fn snapshot_hook_bash_with_aliases() {
         shell: &Shells::Bash,
         cfg: &DEFAULT_CFG,
         cwd: dir.path(),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
     };
     let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
@@ -595,6 +605,8 @@ fn snapshot_hook_fish_transition() {
         shell: &Shells::Fish,
         cfg: &DEFAULT_CFG,
         cwd: dir.path(),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
     };
     let (output, _) =
         generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();
@@ -610,6 +622,8 @@ fn snapshot_hook_fish_leaving_project() {
         shell: &Shells::Fish,
         cfg: &DEFAULT_CFG,
         cwd: dir.path(),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
     };
     let (output, _) =
         generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();

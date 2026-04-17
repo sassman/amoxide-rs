@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{build_wrapper_trie, has_template_args, substitute_nix, Shell, WrapperNode};
+use super::{build_wrapper_trie, has_template_args, quote_cmd, substitute_nix, Shell, WrapperNode};
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
@@ -10,7 +10,7 @@ pub struct NixShell;
 
 impl Shell for NixShell {
     fn unalias(&self, alias_name: &str) -> String {
-        format!("unset -f {alias_name}")
+        format!("unalias {alias_name} 2>/dev/null; unset -f {alias_name} 2>/dev/null")
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
@@ -18,7 +18,13 @@ impl Shell for NixShell {
             let body = substitute_nix(entry.command);
             format!("{}() {{ {}; }}", entry.name, body)
         } else {
-            format!("{}() {{ {} \"$@\"; }}", entry.name, entry.command)
+            // Emitting a native alias — clear any existing function that would shadow it.
+            format!(
+                "unset -f {} 2>/dev/null\nalias {}={}",
+                entry.name,
+                entry.name,
+                quote_cmd(entry.command)
+            )
         }
     }
 
@@ -41,6 +47,11 @@ impl Shell for NixShell {
         entries: &[SubcommandEntry],
     ) -> String {
         let mut lines = Vec::new();
+        // If the program also has a plain alias entry (base_cmd is the alias expansion, not
+        // "command <program>"), clear it so the wrapper function is not shadowed.
+        if base_cmd != format!("command {program}") {
+            lines.push(format!("unalias {program} 2>/dev/null"));
+        }
         lines.push(format!("{program}() {{"));
         let roots = build_wrapper_trie(entries);
         emit_nix_switch(&mut lines, &roots, 1, base_cmd, "  ", None);
@@ -127,7 +138,11 @@ mod tests {
     fn test_nix_simple() {
         assert_eq!(
             NixShell.alias(&simple("h", "echo hello")),
-            "h() { echo hello \"$@\"; }"
+            "unset -f h 2>/dev/null\nalias h=\"echo hello\""
+        );
+        assert_eq!(
+            NixShell.alias(&simple("h", "'echo hello'")),
+            "unset -f h 2>/dev/null\nalias h='echo hello'"
         );
     }
 
@@ -147,13 +162,16 @@ mod tests {
     fn test_nix_raw_skips_templates() {
         assert_eq!(
             NixShell.alias(&raw("my-awk", "awk '{print {{1}}}'")),
-            "my-awk() { awk '{print {{1}}}' \"$@\"; }"
+            "unset -f my-awk 2>/dev/null\nalias my-awk=\"awk '{print {{1}}}'\""
         );
     }
 
     #[test]
     fn test_nix_unalias() {
-        assert_eq!(NixShell.unalias("h"), "unset -f h");
+        assert_eq!(
+            NixShell.unalias("h"),
+            "unalias h 2>/dev/null; unset -f h 2>/dev/null"
+        );
     }
 
     #[test]
@@ -170,6 +188,8 @@ mod tests {
             long_subcommands: vec!["abandon".into()],
         }];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
+        // No alias entry for jj → no unalias guard needed
+        assert!(!output.contains("unalias jj"));
         assert!(output.contains("jj() {"));
         assert!(output.contains("ab) shift; command jj abandon \"$@\" ;;"));
         assert!(output.contains("*) command jj \"$@\" ;;"));
@@ -183,6 +203,9 @@ mod tests {
             long_subcommands: vec!["abandon".into()],
         }];
         let output = NixShell.subcommand_wrapper("jj", "just-a-joke", &entries);
+        // jj has an alias entry (just-a-joke) → clear any existing alias before the function
+        assert!(output.contains("unalias jj 2>/dev/null"));
+        assert!(output.find("unalias jj").unwrap() < output.find("jj() {").unwrap());
         assert!(output.contains("ab) shift; just-a-joke abandon \"$@\" ;;"));
         assert!(output.contains("*) just-a-joke \"$@\" ;;"));
     }

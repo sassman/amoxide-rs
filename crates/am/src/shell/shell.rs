@@ -44,14 +44,23 @@ pub struct ShellContext<'a> {
     pub shell: &'a Shells,
     pub cfg: &'a ShellsTomlConfig,
     pub cwd: &'a std::path::Path,
+    /// Functions already defined in the user's shell — zsh only emits `unset -f` for names here.
+    pub external_functions: std::collections::HashSet<String>,
+    /// Aliases already defined in the user's shell — zsh only emits `unalias` for names here.
+    pub external_aliases: std::collections::HashSet<String>,
 }
 
 impl Shells {
-    pub fn as_shell(self, shell_cfg: &ShellsTomlConfig) -> Box<dyn Shell> {
+    pub fn as_shell(
+        self,
+        shell_cfg: &ShellsTomlConfig,
+        external_functions: std::collections::HashSet<String>,
+        external_aliases: std::collections::HashSet<String>,
+    ) -> Box<dyn Shell> {
         match self {
             Shells::Fish => Box::new(super::fish::Fish::from_config(shell_cfg.fish.as_ref())),
-            Shells::Zsh => Box::from(super::zsh::Zsh),
-            Shells::Bash => Box::from(super::bash::Bash),
+            Shells::Zsh => Box::new(super::zsh::Zsh::new(external_functions, external_aliases)),
+            Shells::Bash => Box::new(super::bash::Bash::new(external_functions, external_aliases)),
             Shells::Brush => Box::from(super::brush::Brush),
             Shells::Powershell => Box::from(super::powershell::PowerShell),
         }
@@ -301,10 +310,17 @@ mod tests {
 
     #[test]
     fn test_bash_shell_generates_nix_syntax() {
-        let shell: Box<dyn Shell> = Shells::Bash.as_shell(&ShellsTomlConfig::default());
+        let shell: Box<dyn Shell> = Shells::Bash.as_shell(
+            &ShellsTomlConfig::default(),
+            Default::default(),
+            Default::default(),
+        );
         let entry = simple("gs", "git status");
-        assert_eq!(shell.alias(&entry), "gs() { git status \"$@\"; }");
-        assert_eq!(shell.unalias("gs"), "unset -f gs");
+        assert_eq!(shell.alias(&entry), "alias gs=\"git status\"");
+        assert_eq!(
+            shell.unalias("gs"),
+            "unalias gs 2>/dev/null; unset -f gs 2>/dev/null"
+        );
         assert_eq!(shell.set_env("FOO", "bar"), "export FOO=\"bar\"");
         assert_eq!(shell.unset_env("FOO"), "unset FOO");
     }

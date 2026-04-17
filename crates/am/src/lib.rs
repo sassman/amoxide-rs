@@ -6,6 +6,7 @@ pub mod config;
 pub mod dirs;
 pub mod display;
 pub mod effects;
+pub mod env_vars;
 pub mod exchange;
 pub mod hook;
 pub mod import_export;

@@ -2,9 +2,9 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-unset -f gs
-unset -f cm
-cm() { git commit -sm "$@"; }
+unalias gs 2>/dev/null; unset -f gs 2>/dev/null
+unalias cm 2>/dev/null; unset -f cm 2>/dev/null
+alias cm="git commit -sm"
 cmf() { cm feat: "$@"; }
-gs() { git status "$@"; }
+alias gs="git status"
 export _AM_ALIASES="cm,cmf,gs"

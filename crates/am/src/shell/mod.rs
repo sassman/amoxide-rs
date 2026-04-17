@@ -1,19 +1,17 @@
-mod bash;
+pub(crate) mod bash;
 mod brush;
 mod fish;
 mod nix;
 mod powershell;
 #[allow(clippy::module_inception)]
 mod shell;
-mod zsh;
+pub(crate) mod zsh;
 
-pub use bash::*;
 pub use brush::*;
 pub use fish::*;
 pub use nix::*;
 pub use powershell::*;
 pub use shell::*;
-pub use zsh::*;
 
 #[cfg(test)]
 pub(crate) mod test_helpers {

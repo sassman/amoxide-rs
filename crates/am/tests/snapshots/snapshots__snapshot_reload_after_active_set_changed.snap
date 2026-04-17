@@ -1,6 +1,5 @@
 ---
 source: crates/am/tests/snapshots.rs
-assertion_line: 295
 expression: output
 ---
 functions -e ct

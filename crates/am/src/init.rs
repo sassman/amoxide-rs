@@ -1,3 +1,4 @@
+use crate::env_vars;
 use crate::shell::{ShellContext, Shells};
 use crate::subcommand::{group_by_program, SubcommandSet};
 use crate::AliasSet;
@@ -26,7 +27,11 @@ pub fn generate_init(
     profile_aliases: &AliasSet,
     subcommands: &SubcommandSet,
 ) -> String {
-    let shell_impl = ctx.shell.clone().as_shell(ctx.cfg);
+    let shell_impl = ctx.shell.clone().as_shell(
+        ctx.cfg,
+        ctx.external_functions.clone(),
+        ctx.external_aliases.clone(),
+    );
     let mut lines: Vec<String> = Vec::new();
     let mut all_names: Vec<String> = Vec::new();
 
@@ -71,10 +76,10 @@ pub fn generate_init(
     if !all_names.is_empty() {
         all_names.sort();
         all_names.dedup();
-        lines.push(shell_impl.set_env("_AM_ALIASES", &all_names.join(",")));
+        lines.push(shell_impl.set_env(env_vars::AM_ALIASES, &all_names.join(",")));
     }
     // Clean up legacy tracking var from older versions
-    lines.push(shell_impl.unset_env("_AM_PROFILE_ALIASES"));
+    lines.push(shell_impl.unset_env(env_vars::AM_PROFILE_ALIASES_LEGACY));
 
     // Wrapper function
     lines.push(String::new());
@@ -100,7 +105,11 @@ pub fn generate_reload(
     subcommands: &SubcommandSet,
     previous_aliases: Option<&str>,
 ) -> String {
-    let shell_impl = ctx.shell.clone().as_shell(ctx.cfg);
+    let shell_impl = ctx.shell.clone().as_shell(
+        ctx.cfg,
+        ctx.external_functions.clone(),
+        ctx.external_aliases.clone(),
+    );
     let mut lines: Vec<String> = Vec::new();
 
     // Unload all previously tracked aliases
@@ -154,12 +163,12 @@ pub fn generate_reload(
     // Update tracking
     if all_names.is_empty() {
         if !prev.is_empty() {
-            lines.push(shell_impl.unset_env("_AM_ALIASES"));
+            lines.push(shell_impl.unset_env(env_vars::AM_ALIASES));
         }
     } else {
         all_names.sort();
         all_names.dedup();
-        lines.push(shell_impl.set_env("_AM_ALIASES", &all_names.join(",")));
+        lines.push(shell_impl.set_env(env_vars::AM_ALIASES, &all_names.join(",")));
     }
 
     lines.join("\n")
@@ -240,6 +249,8 @@ mod tests {
             shell,
             cfg: &DEFAULT_CFG,
             cwd: std::path::Path::new("/tmp"),
+            external_functions: Default::default(),
+            external_aliases: Default::default(),
         }
     }
 
@@ -284,7 +295,7 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("_AM_ALIASES"));
+        assert!(output.contains(env_vars::AM_ALIASES));
     }
 
     #[test]
@@ -324,8 +335,8 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("gs() { git status \"$@\"; }"));
-        assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
+        assert!(output.contains("alias ll=\"ls -lha\""));
     }
 
     #[test]
@@ -365,7 +376,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("__am_hook"));
-        assert!(!output.contains("_AM_ALIASES"));
+        assert!(!output.contains(env_vars::AM_ALIASES));
     }
 
     #[test]
@@ -382,7 +393,7 @@ mod tests {
         assert!(output.contains("functions -e old2"));
         assert!(output.contains("alias gs \"git status\""));
         assert!(output.contains("alias ll \"ls -lha\""));
-        assert!(output.contains("_AM_ALIASES"));
+        assert!(output.contains(env_vars::AM_ALIASES));
     }
 
     #[test]
@@ -396,7 +407,7 @@ mod tests {
             Some("old1"),
         );
         assert!(output.contains("unset -f old1"));
-        assert!(output.contains("gs() { git status \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
     }
 
     #[test]
@@ -491,8 +502,8 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("gs() { git status \"$@\"; }"));
-        assert!(output.contains("ll() { ls -lha \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
+        assert!(output.contains("alias ll=\"ls -lha\""));
     }
 
     #[test]
@@ -536,7 +547,7 @@ mod tests {
             Some("old1"),
         );
         assert!(output.contains("unset -f old1"));
-        assert!(output.contains("gs() { git status \"$@\"; }"));
+        assert!(output.contains("alias gs=\"git status\""));
     }
 
     #[test]
@@ -596,7 +607,7 @@ mod tests {
             &AliasSet::default(),
             &subs,
         );
-        assert!(output.contains("_AM_ALIASES"));
+        assert!(output.contains(env_vars::AM_ALIASES));
         assert!(output.contains("jj"));
     }
     #[test]
@@ -610,6 +621,8 @@ mod tests {
             shell: &Shells::Fish,
             cfg: &cfg,
             cwd,
+            external_functions: Default::default(),
+            external_aliases: Default::default(),
         };
         let mut aliases = AliasSet::default();
         aliases.insert(
@@ -631,6 +644,8 @@ mod tests {
             shell: &Shells::Fish,
             cfg: &cfg,
             cwd,
+            external_functions: Default::default(),
+            external_aliases: Default::default(),
         };
         let output = generate_reload(
             &ctx,

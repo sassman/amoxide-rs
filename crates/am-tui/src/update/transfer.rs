@@ -48,10 +48,10 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
             model.mode = Mode::Normal;
             model.active_column = Column::Left;
         }
-        TuiMessage::ExecuteTransfer => {
-            if matches!(model.mode, Mode::Transfer(_)) && model.active_column == Column::Right {
-                execute_transfer(model);
-            }
+        TuiMessage::ExecuteTransfer
+            if matches!(model.mode, Mode::Transfer(_)) && model.active_column == Column::Right =>
+        {
+            execute_transfer(model);
         }
         _ => {}
     }

@@ -92,9 +92,23 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: install zsh (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -y && sudo apt-get install -y zsh
+      - name: prime zsh env for e2e tests
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "alias la='ls -lAh'" >> ~/.zshrc
       - name: cargo test
         shell: bash
         run: cargo test --verbose --all --locked
+        env:
+          RUST_LOG: debug
+          RUST_BACKTRACE: full
+      - name: e2e tests
+        if: runner.os != 'Windows'
+        shell: bash
+        run: cargo test --verbose --locked --test e2e -- --ignored
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: full
