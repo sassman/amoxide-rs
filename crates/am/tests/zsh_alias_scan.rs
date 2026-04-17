@@ -1,8 +1,6 @@
-/// Unit tests for the zsh alias-output parser helper.
-///
-/// Environment-specific / binary-level tests live in `tests/e2e.rs` and are
-/// excluded from the default test run (`#[ignore]`).
-use std::process::Command;
+//! Unit tests for the zsh alias-output parser helper.
+//! Environment-specific / binary-level tests live in `tests/e2e.rs` and are
+//! excluded from the default test run (`#[ignore]`).
 
 /// Parse the raw stdout of `alias` into a list of alias names.
 fn parse_zsh_alias_keys(output: &str) -> Vec<String> {
