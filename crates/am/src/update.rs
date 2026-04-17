@@ -556,7 +556,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::done())
             }
         },
-        Message::InitShell(shell) => {
+        Message::InitShell(shell, _force) => {
             let resolved = model
                 .profile_config()
                 .resolve_active_aliases(&model.session.active_profiles);

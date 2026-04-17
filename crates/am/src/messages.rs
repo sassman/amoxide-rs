@@ -34,7 +34,7 @@ pub enum Message {
         new_command: String,
         raw: bool,
     },
-    InitShell(Shells),
+    InitShell(Shells, bool),
     Hook(Shells, bool),
     Reload(Shells),
 

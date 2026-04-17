@@ -384,7 +384,7 @@ fn main() -> anyhow::Result<()> {
             execute_effects(&mut model, &result.effects)?;
             return Ok(());
         }
-        Commands::Init { shell } => Message::InitShell(shell.clone()),
+        Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
         Commands::Hook { shell, quiet } => Message::Hook(shell.clone(), *quiet),
         Commands::Reload { shell } => Message::Reload(shell.clone()),
     };

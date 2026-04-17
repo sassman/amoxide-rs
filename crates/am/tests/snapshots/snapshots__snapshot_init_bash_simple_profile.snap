@@ -630,7 +630,7 @@ _am() {
             return 0
             ;;
         am__subcmd__init)
-            opts="-h -V --help --version bash fish powershell zsh"
+            opts="-f -h -V --force --help --version bash fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

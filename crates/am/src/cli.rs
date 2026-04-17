@@ -77,7 +77,14 @@ pub enum Commands {
     ///
     /// Note: Nushell is not yet supported.
     #[command(verbatim_doc_comment)]
-    Init { shell: Shells },
+    Init {
+        /// Force re-initialisation: unload all previously tracked aliases (both
+        /// alias and function forms) before re-loading. Use after config changes
+        /// such as toggling `use_abbr`.
+        #[arg(short = 'f', long)]
+        force: bool,
+        shell: Shells,
+    },
 
     /// Guided setup — adds amoxide to your shell profile
     Setup { shell: Shells },
