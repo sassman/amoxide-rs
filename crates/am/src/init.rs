@@ -116,6 +116,11 @@ pub fn generate_force_init(
         output.push_str(&shell_impl.force_unalias(name));
         output.push('\n');
     }
+    // Clear project-alias tracking so __am_hook reloads them fresh.
+    output.push_str(&shell_impl.unset_env(crate::env_vars::AM_PROJECT_ALIASES));
+    output.push('\n');
+    output.push_str(&shell_impl.unset_env(crate::env_vars::AM_PROJECT_PATH));
+    output.push('\n');
     output.push_str(&generate_init(ctx, global_aliases, profile_aliases, subcommands));
     output
 }

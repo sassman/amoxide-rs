@@ -603,6 +603,12 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     output.push_str(&shell_impl.force_unalias(name));
                     output.push('\n');
                 }
+                // Clear project-alias tracking so __am_hook reloads them fresh
+                // instead of assuming they're still loaded.
+                output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
+                output.push('\n');
+                output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
+                output.push('\n');
             }
 
             output.push_str(&generate_init(&ctx, &model.config.aliases, &resolved, &all_subs));

@@ -3,6 +3,8 @@ source: crates/am/tests/snapshots.rs
 expression: output
 ---
 unalias gs 2>/dev/null; unset -f gs 2>/dev/null
+unset _AM_PROJECT_ALIASES
+unset _AM_PROJECT_PATH
 alias gs="git status"
 export _AM_ALIASES="gs"
 unset _AM_PROFILE_ALIASES
