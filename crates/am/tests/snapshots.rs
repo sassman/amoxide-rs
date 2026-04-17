@@ -1,11 +1,11 @@
 use amoxide::alias::{AliasConflict, MergeResult};
-use amoxide::config::ShellsTomlConfig;
+use amoxide::config::{FishConfig, ShellsTomlConfig};
 use amoxide::display::{render_listing, render_profiles};
 use amoxide::exchange::{
     render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
 };
 use amoxide::hook::generate_hook_with_security;
-use amoxide::init::{generate_init, generate_reload};
+use amoxide::init::{generate_force_init, generate_init, generate_reload};
 use amoxide::project::ProjectAliases;
 use amoxide::security::SecurityConfig;
 use amoxide::shell::{ShellContext, Shells};
@@ -1040,5 +1040,76 @@ fn snapshot_share_help() {
         paste_rs: false,
     };
     let output = handle_share(&args);
+    insta::assert_snapshot!(output);
+}
+
+fn abbr_ctx(shell: &Shells) -> ShellContext<'_> {
+    static ABBR_CFG: std::sync::LazyLock<ShellsTomlConfig> =
+        std::sync::LazyLock::new(|| ShellsTomlConfig {
+            fish: Some(FishConfig { use_abbr: true }),
+            ..Default::default()
+        });
+    ShellContext {
+        shell,
+        cfg: &ABBR_CFG,
+        cwd: std::path::Path::new("/tmp"),
+        external_functions: Default::default(),
+        external_aliases: Default::default(),
+    }
+}
+
+#[test]
+fn snapshot_init_fish_force_with_tracked_aliases() {
+    // Simulates: _AM_ALIASES=gs,ll is set, user runs am init --force fish.
+    // force_unalias must emit both cleanup forms for each tracked name,
+    // followed by the normal init output.
+    let prev_names = vec!["gs".to_string(), "ll".to_string()];
+    let output = generate_force_init(
+        &default_ctx(&Shells::Fish),
+        &aliases(&[("gs", "git status"), ("ll", "ls -lha")]),
+        &AliasSet::default(),
+        &SubcommandSet::new(),
+        &prev_names,
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_init_fish_abbr_force_with_tracked_aliases() {
+    // Same but with use_abbr = true — cleanup must still emit both forms.
+    let prev_names = vec!["gs".to_string()];
+    let output = generate_force_init(
+        &abbr_ctx(&Shells::Fish),
+        &aliases(&[("gs", "git status")]),
+        &AliasSet::default(),
+        &SubcommandSet::new(),
+        &prev_names,
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_init_fish_force_no_previous() {
+    // --force with no tracked aliases: no cleanup lines, just normal init.
+    let output = generate_force_init(
+        &default_ctx(&Shells::Fish),
+        &aliases(&[("gs", "git status")]),
+        &AliasSet::default(),
+        &SubcommandSet::new(),
+        &[],
+    );
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_init_bash_force_with_tracked_aliases() {
+    let prev_names = vec!["gs".to_string()];
+    let output = generate_force_init(
+        &default_ctx(&Shells::Bash),
+        &aliases(&[("gs", "git status")]),
+        &AliasSet::default(),
+        &SubcommandSet::new(),
+        &prev_names,
+    );
     insta::assert_snapshot!(output);
 }

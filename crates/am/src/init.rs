@@ -96,6 +96,30 @@ pub fn generate_init(
     lines.join("\n")
 }
 
+/// Like [`generate_init`] but prepends force-cleanup lines for `prev_names`.
+/// Each name is unloaded using all possible shell forms before the normal init runs.
+/// Intended for testing; production code reads prev_names from env vars in `update.rs`.
+pub fn generate_force_init(
+    ctx: &ShellContext,
+    global_aliases: &AliasSet,
+    profile_aliases: &AliasSet,
+    subcommands: &SubcommandSet,
+    prev_names: &[String],
+) -> String {
+    let shell_impl = ctx.shell.clone().as_shell(
+        ctx.cfg,
+        Default::default(),
+        Default::default(),
+    );
+    let mut output = String::new();
+    for name in prev_names {
+        output.push_str(&shell_impl.force_unalias(name));
+        output.push('\n');
+    }
+    output.push_str(&generate_init(ctx, global_aliases, profile_aliases, subcommands));
+    output
+}
+
 /// Generate shell code to reload all aliases (global + profile) after a mutation.
 /// Unloads old aliases, loads new ones, updates the tracking env var.
 pub fn generate_reload(
