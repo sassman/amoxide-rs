@@ -1047,7 +1047,6 @@ fn abbr_ctx(shell: &Shells) -> ShellContext<'_> {
     static ABBR_CFG: std::sync::LazyLock<ShellsTomlConfig> =
         std::sync::LazyLock::new(|| ShellsTomlConfig {
             fish: Some(FishConfig { use_abbr: true }),
-            ..Default::default()
         });
     ShellContext {
         shell,
