@@ -1,14 +1,16 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{build_wrapper_trie, has_template_args, quote_cmd, substitute_nix, Shell, WrapperNode};
+use super::{
+    build_wrapper_trie, has_template_args, quote_cmd, substitute_nix, ShellAdapter, WrapperNode,
+};
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
 #[derive(Debug, Default)]
 pub struct NixShell;
 
-impl Shell for NixShell {
+impl ShellAdapter for NixShell {
     fn unalias(&self, alias_name: &str) -> String {
         format!("unalias {alias_name} 2>/dev/null; unset -f {alias_name} 2>/dev/null")
     }

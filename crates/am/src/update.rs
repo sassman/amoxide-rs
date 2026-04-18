@@ -8,8 +8,8 @@ use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
 use crate::shell::bash;
 use crate::shell::zsh;
+use crate::shell::Shell;
 use crate::shell::ShellContext;
-use crate::shell::Shells;
 use crate::trust::ProjectTrust;
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
@@ -556,7 +556,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::done())
             }
         },
-        Message::InitShell(shell) => {
+        Message::InitShell(shell, force) => {
             let resolved = model
                 .profile_config()
                 .resolve_active_aliases(&model.session.active_profiles);
@@ -568,8 +568,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 all_subs.insert(k, v);
             }
             let (external_functions, external_aliases) = match shell {
-                Shells::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
-                Shells::Bash => (
+                Shell::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
+                Shell::Bash => (
                     bash::scan_external_functions(),
                     bash::scan_external_aliases(),
                 ),
@@ -582,7 +582,40 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 external_functions,
                 external_aliases,
             };
-            let output = generate_init(&ctx, &model.config.aliases, &resolved, &all_subs);
+
+            let mut output = String::new();
+
+            if force {
+                let shell_impl = shell.clone().as_shell(
+                    &model.config.shell,
+                    Default::default(),
+                    Default::default(),
+                );
+                let prev_global = std::env::var(env_vars::AM_ALIASES).unwrap_or_default();
+                let prev_project = std::env::var(env_vars::AM_PROJECT_ALIASES).unwrap_or_default();
+                let all_prev: Vec<&str> = prev_global
+                    .split(',')
+                    .chain(prev_project.split(','))
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                for name in all_prev {
+                    output.push_str(&shell_impl.force_unalias(name));
+                    output.push('\n');
+                }
+                // Clear project-alias tracking so __am_hook reloads them fresh
+                // instead of assuming they're still loaded.
+                output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
+                output.push('\n');
+                output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
+                output.push('\n');
+            }
+
+            output.push_str(&generate_init(
+                &ctx,
+                &model.config.aliases,
+                &resolved,
+                &all_subs,
+            ));
             print!("{output}");
             Ok(UpdateResult::done())
         }

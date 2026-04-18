@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use super::{
-    build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware, Shell,
-    WrapperNode,
+    build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware,
+    ShellAdapter, WrapperNode,
 };
 
 /// Substitute `{{N}}` → `$($args[N-1+offset])` and `{{@}}` → `($args | Select-Object -Skip offset)`.
@@ -23,7 +23,7 @@ use crate::subcommand::SubcommandEntry;
 #[derive(Debug, Default)]
 pub struct PowerShell;
 
-impl Shell for PowerShell {
+impl ShellAdapter for PowerShell {
     fn unalias(&self, alias_name: &str) -> String {
         format!("if (Test-Path Function:\\{alias_name}) {{ Remove-Item Function:\\{alias_name} }}")
     }

@@ -2,10 +2,10 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-alias ct "cargo test"
+set -e _AM_PROJECT_ALIASES
+set -e _AM_PROJECT_PATH
 alias gs "git status"
-alias ll "ls -lha"
-set -gx _AM_ALIASES "ct,gs,ll"
+set -gx _AM_ALIASES "gs"
 set -e _AM_PROFILE_ALIASES
 
 # am wrapper: reload aliases after mutations

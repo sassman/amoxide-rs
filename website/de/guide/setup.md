@@ -70,6 +70,32 @@ Der `am init`-Befehl macht zwei Dinge:
 1. **Lädt Aliase** aus deinen aktiven Profilen in die aktuelle Shell
 2. **Installiert einen cd-Hook**, der automatisch Projekt-Aliase (aus `.aliases`-Dateien) lädt und entlädt, wenn du das Verzeichnis wechselst
 
+## Neu initialisieren ohne Neustart
+
+Im seltenen Fall, dass du die Config-Dateien direkt bearbeitet hast (statt `am` oder das TUI zu verwenden) und die Änderungen in der aktuellen Shell-Session anwenden möchtest, ohne ein neues Terminal zu öffnen, verwende das `-f` / `--force`-Flag:
+
+::: code-group
+
+```fish [Fish]
+am init -f fish | source
+```
+
+```zsh [Zsh]
+eval "$(am init -f zsh)"
+```
+
+```powershell [PowerShell]
+(am init -f powershell) -join "`n" | Invoke-Expression
+```
+
+```bash [Bash]
+eval "$(am init -f bash)"
+```
+
+:::
+
+Dabei werden alle zuvor definierten Aliase zuerst entladen und dann alles neu geladen — das gleiche Ergebnis wie das Öffnen einer neuen Shell, aber ohne die aktuelle Session zu verlassen.
+
 ## Setup überprüfen
 
 Prüfe, ob alles korrekt konfiguriert ist:

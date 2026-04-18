@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::{has_template_args, quote_cmd, substitute_nix, NixShell, Shell};
+use super::{has_template_args, quote_cmd, substitute_nix, NixShell, ShellAdapter};
 use crate::alias::AliasEntry;
 
 #[derive(Debug, Default)]
@@ -20,7 +20,7 @@ impl Bash {
     }
 }
 
-impl Shell for Bash {
+impl ShellAdapter for Bash {
     fn unalias(&self, alias_name: &str) -> String {
         NixShell.unalias(alias_name)
     }

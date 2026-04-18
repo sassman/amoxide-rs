@@ -138,6 +138,7 @@ complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcomman
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "remove" -d 'Remove a profile'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "list" -d 'List all profiles'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_am_using_subcommand init" -s f -l force -d 'Force re-initialisation: unload all previously tracked aliases (both alias and function forms) before re-loading. Use after config changes such as toggling `use_abbr`'
 complete -c am -n "__fish_am_using_subcommand init" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c am -n "__fish_am_using_subcommand init" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand setup" -s h -l help -d 'Print help'

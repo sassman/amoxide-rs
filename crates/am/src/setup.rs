@@ -2,7 +2,7 @@ use std::io::{BufRead, Write};
 use std::path::PathBuf;
 
 use crate::prompt::{ask_user, Answer};
-use crate::shell::Shells;
+use crate::shell::Shell;
 
 /// Ask PowerShell for its $PROFILE path by shelling out.
 /// Works for both PS 5.1 (WindowsPowerShell) and PS 7+ (PowerShell).
@@ -25,26 +25,26 @@ pub fn detect_powershell_profile() -> Option<PathBuf> {
 }
 
 /// Returns the profile file path and the init line for the given shell.
-fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
+fn shell_config(shell: &Shell) -> (PathBuf, &'static str) {
     match shell {
-        Shells::Bash => {
+        Shell::Bash => {
             let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
             (home.join(".bashrc"), r#"eval "$(am init bash)""#)
         }
-        Shells::Brush => {
+        Shell::Brush => {
             let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
             (home.join(".brushrc"), r#"eval "$(am init brush)""#)
         }
-        Shells::Fish => {
+        Shell::Fish => {
             let mut path = dirs_lite::config_dir().unwrap_or_else(|| PathBuf::from(".config"));
             path.push("fish/config.fish");
             (path, "am init fish | source")
         }
-        Shells::Zsh => {
+        Shell::Zsh => {
             let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
             (home.join(".zshrc"), r#"eval "$(am init zsh)""#)
         }
-        Shells::Powershell => {
+        Shell::Powershell => {
             let path = detect_powershell_profile().unwrap_or_else(|| {
                 let home = crate::dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
                 home.join("Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
@@ -58,13 +58,13 @@ fn shell_config(shell: &Shells) -> (PathBuf, &'static str) {
 }
 
 /// Returns how to reload the shell after setup.
-fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
+fn reload_hint(shell: &Shell, profile_path: &std::path::Path) -> String {
     let path = profile_path.display();
     match shell {
-        Shells::Bash | Shells::Brush => format!("Run: source {path}"),
-        Shells::Fish => format!("Run: source {path}"),
-        Shells::Zsh => format!("Run: source {path}"),
-        Shells::Powershell => format!(
+        Shell::Bash | Shell::Brush => format!("Run: source {path}"),
+        Shell::Fish => format!("Run: source {path}"),
+        Shell::Zsh => format!("Run: source {path}"),
+        Shell::Powershell => format!(
             "Reload your profile:\n\n  . \"{path}\"\n\n\
             If you get a \"running scripts is disabled\" error, run this first:\n\n  \
             Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
@@ -73,7 +73,7 @@ fn reload_hint(shell: &Shells, profile_path: &std::path::Path) -> String {
 }
 
 /// Run the interactive setup for the given shell.
-pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
+pub fn run_setup(shell: &Shell) -> anyhow::Result<()> {
     let (profile_path, init_line) = shell_config(shell);
     run_setup_inner(
         shell,
@@ -85,7 +85,7 @@ pub fn run_setup(shell: &Shells) -> anyhow::Result<()> {
 
 /// Core setup logic, testable with custom path and reader.
 fn run_setup_inner(
-    shell: &Shells,
+    shell: &Shell,
     profile_path: &std::path::Path,
     init_line: &str,
     reader: &mut dyn BufRead,
@@ -165,7 +165,7 @@ mod tests {
         std::fs::write(&profile, "# existing config\n").unwrap();
 
         let mut reader = Cursor::new(input.to_vec());
-        run_setup_inner(&Shells::Zsh, &profile, INIT_LINE, &mut reader).unwrap();
+        run_setup_inner(&Shell::Zsh, &profile, INIT_LINE, &mut reader).unwrap();
 
         std::fs::read_to_string(&profile).unwrap()
     }
@@ -208,7 +208,7 @@ mod tests {
 
         let init_line = r#"eval "$(am init bash)""#;
         let mut reader = Cursor::new(b"y\n".to_vec());
-        run_setup_inner(&Shells::Bash, &profile, init_line, &mut reader).unwrap();
+        run_setup_inner(&Shell::Bash, &profile, init_line, &mut reader).unwrap();
 
         let content = std::fs::read_to_string(&profile).unwrap();
         assert!(content.contains("am init bash"), "got: {content}");
@@ -221,7 +221,7 @@ mod tests {
         let profile = dir.path().join("subdir/.zshrc");
 
         let mut reader = Cursor::new(b"y\n");
-        run_setup_inner(&Shells::Zsh, &profile, INIT_LINE, &mut reader).unwrap();
+        run_setup_inner(&Shell::Zsh, &profile, INIT_LINE, &mut reader).unwrap();
 
         if profile.exists() {
             let content = std::fs::read_to_string(&profile).unwrap();

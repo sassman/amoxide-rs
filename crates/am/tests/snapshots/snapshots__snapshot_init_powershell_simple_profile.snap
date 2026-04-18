@@ -230,6 +230,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;init' {
+            [System.Management.Automation.CompletionResult]::new('-f', '-f', [System.Management.Automation.CompletionResultType]::ParameterName, 'Force re-initialisation: unload all previously tracked aliases (both alias and function forms) before re-loading. Use after config changes such as toggling `use_abbr`')
+            [System.Management.Automation.CompletionResult]::new('--force', '--force', [System.Management.Automation.CompletionResultType]::ParameterName, 'Force re-initialisation: unload all previously tracked aliases (both alias and function forms) before re-loading. Use after config changes such as toggling `use_abbr`')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
             [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')

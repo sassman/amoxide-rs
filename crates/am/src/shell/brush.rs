@@ -1,10 +1,10 @@
-use super::{NixShell, Shell};
+use super::{NixShell, ShellAdapter};
 use crate::alias::AliasEntry;
 
 #[derive(Debug, Default)]
 pub struct Brush;
 
-impl Shell for Brush {
+impl ShellAdapter for Brush {
     fn unalias(&self, alias_name: &str) -> String {
         NixShell.unalias(alias_name)
     }

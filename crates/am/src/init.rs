@@ -1,5 +1,5 @@
 use crate::env_vars;
-use crate::shell::{ShellContext, Shells};
+use crate::shell::{Shell, ShellContext};
 use crate::subcommand::{group_by_program, SubcommandSet};
 use crate::AliasSet;
 
@@ -96,6 +96,39 @@ pub fn generate_init(
     lines.join("\n")
 }
 
+/// Like [`generate_init`] but prepends force-cleanup lines for `prev_names`.
+/// Each name is unloaded using all possible shell forms before the normal init runs.
+/// Intended for testing; production code reads prev_names from env vars in `update.rs`.
+pub fn generate_force_init(
+    ctx: &ShellContext,
+    global_aliases: &AliasSet,
+    profile_aliases: &AliasSet,
+    subcommands: &SubcommandSet,
+    prev_names: &[String],
+) -> String {
+    let shell_impl = ctx
+        .shell
+        .clone()
+        .as_shell(ctx.cfg, Default::default(), Default::default());
+    let mut output = String::new();
+    for name in prev_names {
+        output.push_str(&shell_impl.force_unalias(name));
+        output.push('\n');
+    }
+    // Clear project-alias tracking so __am_hook reloads them fresh.
+    output.push_str(&shell_impl.unset_env(crate::env_vars::AM_PROJECT_ALIASES));
+    output.push('\n');
+    output.push_str(&shell_impl.unset_env(crate::env_vars::AM_PROJECT_PATH));
+    output.push('\n');
+    output.push_str(&generate_init(
+        ctx,
+        global_aliases,
+        profile_aliases,
+        subcommands,
+    ));
+    output
+}
+
 /// Generate shell code to reload all aliases (global + profile) after a mutation.
 /// Unloads old aliases, loads new ones, updates the tracking env var.
 pub fn generate_reload(
@@ -174,36 +207,36 @@ pub fn generate_reload(
     lines.join("\n")
 }
 
-fn shell_script(template: &str, shell: &Shells) -> String {
+fn shell_script(template: &str, shell: &Shell) -> String {
     template.replace("__SHELL__", &shell.to_string())
 }
 
-fn am_wrapper(shell: &Shells) -> String {
+fn am_wrapper(shell: &Shell) -> String {
     match shell {
-        Shells::Bash | Shells::Brush => shell_script(WRAPPER_BASH, shell),
-        Shells::Fish => shell_script(WRAPPER_FISH, shell),
-        Shells::Powershell => shell_script(WRAPPER_PS1, shell),
-        Shells::Zsh => shell_script(WRAPPER_ZSH, shell),
+        Shell::Bash | Shell::Brush => shell_script(WRAPPER_BASH, shell),
+        Shell::Fish => shell_script(WRAPPER_FISH, shell),
+        Shell::Powershell => shell_script(WRAPPER_PS1, shell),
+        Shell::Zsh => shell_script(WRAPPER_ZSH, shell),
     }
 }
 
-fn cd_hook_setup(shell: &Shells) -> String {
+fn cd_hook_setup(shell: &Shell) -> String {
     match shell {
-        Shells::Bash | Shells::Brush => shell_script(HOOK_BASH, shell),
-        Shells::Fish => shell_script(HOOK_FISH, shell),
-        Shells::Powershell => shell_script(HOOK_PS1, shell),
-        Shells::Zsh => shell_script(HOOK_ZSH, shell),
+        Shell::Bash | Shell::Brush => shell_script(HOOK_BASH, shell),
+        Shell::Fish => shell_script(HOOK_FISH, shell),
+        Shell::Powershell => shell_script(HOOK_PS1, shell),
+        Shell::Zsh => shell_script(HOOK_ZSH, shell),
     }
 }
 
-fn completions(shell: &Shells) -> String {
+fn completions(shell: &Shell) -> String {
     match shell {
-        Shells::Bash | Shells::Brush => {
+        Shell::Bash | Shell::Brush => {
             include_str!(concat!(env!("OUT_DIR"), "/am.bash")).to_string()
         }
-        Shells::Fish => COMPLETIONS_FISH.to_string(),
-        Shells::Powershell => powershell_completions(),
-        Shells::Zsh => COMPLETIONS_ZSH.to_string(),
+        Shell::Fish => COMPLETIONS_FISH.to_string(),
+        Shell::Powershell => powershell_completions(),
+        Shell::Zsh => COMPLETIONS_ZSH.to_string(),
     }
 }
 
@@ -244,7 +277,7 @@ mod tests {
     static DEFAULT_CFG: std::sync::LazyLock<ShellsTomlConfig> =
         std::sync::LazyLock::new(ShellsTomlConfig::default);
 
-    fn default_ctx(shell: &Shells) -> ShellContext<'_> {
+    fn default_ctx(shell: &Shell) -> ShellContext<'_> {
         ShellContext {
             shell,
             cfg: &DEFAULT_CFG,
@@ -277,7 +310,7 @@ mod tests {
     fn test_fish_init_contains_aliases() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -290,7 +323,7 @@ mod tests {
     fn test_fish_init_tracks_all_aliases() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -302,7 +335,7 @@ mod tests {
     fn test_fish_init_contains_wrapper() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -317,7 +350,7 @@ mod tests {
     fn test_fish_init_contains_cd_hook() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -330,7 +363,7 @@ mod tests {
     fn test_zsh_init_contains_aliases() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Zsh),
+            &default_ctx(&Shell::Zsh),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -343,7 +376,7 @@ mod tests {
     fn test_zsh_init_contains_wrapper() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Zsh),
+            &default_ctx(&Shell::Zsh),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -358,7 +391,7 @@ mod tests {
     fn test_zsh_init_contains_cd_hook() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Zsh),
+            &default_ctx(&Shell::Zsh),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -370,7 +403,7 @@ mod tests {
     #[test]
     fn test_init_empty_no_tracking_var() {
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &AliasSet::default(),
             &SubcommandSet::new(),
@@ -383,7 +416,7 @@ mod tests {
     fn test_reload_unloads_old_and_loads_new() {
         let aliases = test_aliases();
         let output = generate_reload(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -400,7 +433,7 @@ mod tests {
     fn test_reload_zsh_unloads_with_unset_f() {
         let aliases = test_aliases();
         let output = generate_reload(
-            &default_ctx(&Shells::Zsh),
+            &default_ctx(&Shell::Zsh),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -414,7 +447,7 @@ mod tests {
     fn test_reload_no_previous() {
         let aliases = test_aliases();
         let output = generate_reload(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -427,7 +460,7 @@ mod tests {
     #[test]
     fn test_reload_to_empty_clears_tracking() {
         let output = generate_reload(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &AliasSet::default(),
             &SubcommandSet::new(),
@@ -445,7 +478,7 @@ mod tests {
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &globals,
             &AliasSet::default(),
             &SubcommandSet::new(),
@@ -462,7 +495,7 @@ mod tests {
         );
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &globals,
             &aliases,
             &SubcommandSet::new(),
@@ -483,7 +516,7 @@ mod tests {
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
         let output = generate_reload(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &globals,
             &AliasSet::default(),
             &SubcommandSet::new(),
@@ -497,7 +530,7 @@ mod tests {
     fn test_bash_init_contains_aliases() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Bash),
+            &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -510,7 +543,7 @@ mod tests {
     fn test_bash_init_contains_wrapper() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Bash),
+            &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -525,7 +558,7 @@ mod tests {
     fn test_bash_init_contains_cd_hook() {
         let aliases = test_aliases();
         let output = generate_init(
-            &default_ctx(&Shells::Bash),
+            &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -540,7 +573,7 @@ mod tests {
     fn test_reload_bash_unloads_with_unset_f() {
         let aliases = test_aliases();
         let output = generate_reload(
-            &default_ctx(&Shells::Bash),
+            &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &aliases,
             &SubcommandSet::new(),
@@ -554,7 +587,7 @@ mod tests {
     fn test_bash_init_contains_subcommand_wrapper() {
         let subs = test_subcommands();
         let output = generate_init(
-            &default_ctx(&Shells::Bash),
+            &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &AliasSet::default(),
             &subs,
@@ -568,7 +601,7 @@ mod tests {
     fn test_fish_init_contains_subcommand_wrapper() {
         let subs = test_subcommands();
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &AliasSet::default(),
             &subs,
@@ -584,7 +617,7 @@ mod tests {
         aliases.insert("jj".into(), TomlAlias::Command("just-a-joke".into()));
         let subs = test_subcommands();
         let output = generate_init(
-            &default_ctx(&Shells::Bash),
+            &default_ctx(&Shell::Bash),
             &aliases,
             &AliasSet::default(),
             &subs,
@@ -602,7 +635,7 @@ mod tests {
     fn test_init_subcommand_tracked_in_am_aliases() {
         let subs = test_subcommands();
         let output = generate_init(
-            &default_ctx(&Shells::Fish),
+            &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &AliasSet::default(),
             &subs,
@@ -618,7 +651,7 @@ mod tests {
         };
         let cwd = std::path::Path::new("/tmp");
         let ctx = ShellContext {
-            shell: &Shells::Fish,
+            shell: &Shell::Fish,
             cfg: &cfg,
             cwd,
             external_functions: Default::default(),
@@ -641,7 +674,7 @@ mod tests {
         };
         let cwd = std::path::Path::new("/tmp");
         let ctx = ShellContext {
-            shell: &Shells::Fish,
+            shell: &Shell::Fish,
             cfg: &cfg,
             cwd,
             external_functions: Default::default(),

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use super::{
-    build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, Shell, WrapperNode,
+    build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, ShellAdapter, WrapperNode,
     TEMPLATE_RE,
 };
 use crate::alias::AliasEntry;
@@ -111,13 +111,19 @@ impl Fish {
     }
 }
 
-impl Shell for Fish {
+impl ShellAdapter for Fish {
     fn unalias(&self, alias_name: &str) -> String {
         if self.use_abbr {
             format!("abbr --erase {alias_name}")
         } else {
             format!("functions -e {alias_name}")
         }
+    }
+
+    fn force_unalias(&self, alias_name: &str) -> String {
+        format!(
+            "functions -e {alias_name}\nabbr --query {alias_name}; and abbr --erase {alias_name}"
+        )
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
@@ -420,5 +426,33 @@ mod tests {
     fn test_fish_no_abbr_unalias() {
         let fish = Fish { use_abbr: false };
         assert_eq!(fish.unalias("gs"), "functions -e gs");
+    }
+
+    #[test]
+    fn test_fish_force_unalias_no_abbr() {
+        let fish = Fish { use_abbr: false };
+        let out = fish.force_unalias("foo");
+        assert!(
+            out.contains("functions -e foo"),
+            "missing functions -e: {out}"
+        );
+        assert!(
+            out.contains("abbr --query foo; and abbr --erase foo"),
+            "missing abbr guard: {out}"
+        );
+    }
+
+    #[test]
+    fn test_fish_force_unalias_with_abbr() {
+        let fish = Fish { use_abbr: true };
+        let out = fish.force_unalias("foo");
+        assert!(
+            out.contains("functions -e foo"),
+            "missing functions -e: {out}"
+        );
+        assert!(
+            out.contains("abbr --query foo; and abbr --erase foo"),
+            "missing abbr guard: {out}"
+        );
     }
 }

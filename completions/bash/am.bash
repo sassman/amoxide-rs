@@ -537,7 +537,7 @@ _am() {
             return 0
             ;;
         am__subcmd__hook)
-            opts="-q -h -V --quiet --help --version bash fish powershell zsh"
+            opts="-q -h -V --quiet --help --version bash brush fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -573,7 +573,7 @@ _am() {
             return 0
             ;;
         am__subcmd__init)
-            opts="-h -V --help --version bash fish powershell zsh"
+            opts="-f -h -V --force --help --version bash brush fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -763,7 +763,7 @@ _am() {
             return 0
             ;;
         am__subcmd__reload)
-            opts="-h -V --help --version bash fish powershell zsh"
+            opts="-h -V --help --version bash brush fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -803,7 +803,7 @@ _am() {
             return 0
             ;;
         am__subcmd__setup)
-            opts="-h -V --help --version bash fish powershell zsh"
+            opts="-h -V --help --version bash brush fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -74,6 +74,32 @@ The `am init` command does two things:
 1. **Loads aliases** from your active profiles into the current shell
 2. **Installs a cd hook** that automatically loads/unloads project aliases (from `.aliases` files) when you change directories
 
+## Reinitialising Without Restarting
+
+In the rare case that you have edited the config files directly (rather than using `am` or the TUI) and want the changes applied to your current shell session without opening a new terminal, use the `-f` / `--force` flag:
+
+::: code-group
+
+```fish [Fish]
+am init -f fish | source
+```
+
+```zsh [Zsh]
+eval "$(am init -f zsh)"
+```
+
+```powershell [PowerShell]
+(am init -f powershell) -join "`n" | Invoke-Expression
+```
+
+```bash [Bash]
+eval "$(am init -f bash)"
+```
+
+:::
+
+This unloads all previously defined aliases first, then reloads everything fresh — the same result as opening a new shell, but without leaving your current session.
+
 ## Verify Setup
 
 Check that everything is configured correctly:

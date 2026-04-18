@@ -2,37 +2,11 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-kubectl() {
-  case "$1" in
-    apply)
-      case "$2" in
-        f) shift 2; command kubectl apply -f "$@" ;;
-        *) command kubectl "$@" ;;
-      esac
-      ;;
-    get)
-      case "$2" in
-        po) shift 2; command kubectl get pods "$@" ;;
-        svc) shift 2; command kubectl get services "$@" ;;
-        *) command kubectl "$@" ;;
-      esac
-      ;;
-    logs)
-      case "$2" in
-        f) shift 2; command kubectl logs -f "$@" ;;
-        *) command kubectl "$@" ;;
-      esac
-      ;;
-    rollout)
-      case "$2" in
-        status) shift 2; command kubectl rollout status "$@" ;;
-        *) command kubectl "$@" ;;
-      esac
-      ;;
-    *) command kubectl "$@" ;;
-  esac
-}
-export _AM_ALIASES="kubectl"
+unalias gs 2>/dev/null; unset -f gs 2>/dev/null
+unset _AM_PROJECT_ALIASES
+unset _AM_PROJECT_PATH
+alias gs="git status"
+export _AM_ALIASES="gs"
 unset _AM_PROFILE_ALIASES
 
 am() {
