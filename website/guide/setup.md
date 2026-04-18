@@ -76,7 +76,7 @@ The `am init` command does two things:
 
 ## Reinitialising Without Restarting
 
-If you've added or changed aliases and want them applied to your current shell session without opening a new terminal, use the `-f` / `--force` flag:
+In the rare case that you have edited the config files directly (rather than using `am` or the TUI) and want the changes applied to your current shell session without opening a new terminal, use the `-f` / `--force` flag:
 
 ::: code-group
 

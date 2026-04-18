@@ -72,7 +72,7 @@ Der `am init`-Befehl macht zwei Dinge:
 
 ## Neu initialisieren ohne Neustart
 
-Wenn du Aliase hinzugefügt oder geändert hast und diese in der aktuellen Shell-Session anwenden möchtest, ohne ein neues Terminal zu öffnen, verwende das `-f` / `--force`-Flag:
+Im seltenen Fall, dass du die Config-Dateien direkt bearbeitet hast (statt `am` oder das TUI zu verwenden) und die Änderungen in der aktuellen Shell-Session anwenden möchtest, ohne ein neues Terminal zu öffnen, verwende das `-f` / `--force`-Flag:
 
 ::: code-group
 
