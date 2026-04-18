@@ -181,6 +181,8 @@ esac
 ;;
 (init)
 _arguments "${_arguments_options[@]}" : \
+'-f[Force re-initialisation\: unload all previously tracked aliases (both alias and function forms) before re-loading. Use after config changes such as toggling \`use_abbr\`]' \
+'--force[Force re-initialisation\: unload all previously tracked aliases (both alias and function forms) before re-loading. Use after config changes such as toggling \`use_abbr\`]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \
