@@ -1,6 +1,6 @@
 pub use clap::{Args, Parser, Subcommand};
 
-use crate::shell::Shells;
+use crate::shell::Shell;
 
 /// amoxide — the alias manager
 ///
@@ -83,11 +83,11 @@ pub enum Commands {
         /// such as toggling `use_abbr`.
         #[arg(short = 'f', long)]
         force: bool,
-        shell: Shells,
+        shell: Shell,
     },
 
     /// Guided setup — adds amoxide to your shell profile
-    Setup { shell: Shells },
+    Setup { shell: Shell },
 
     /// Shortcut for `am profile use` — toggle one or more profiles
     #[command(alias = "u")]
@@ -134,12 +134,12 @@ pub enum Commands {
         /// Suppress info and warning messages (still unloads/loads aliases)
         #[arg(short, long)]
         quiet: bool,
-        shell: Shells,
+        shell: Shell,
     },
 
     /// Internal: called by the am wrapper to reload profile aliases after switching
     #[command(hide = true)]
-    Reload { shell: Shells },
+    Reload { shell: Shell },
 }
 
 #[derive(Subcommand)]

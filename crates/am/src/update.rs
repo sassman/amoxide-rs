@@ -9,7 +9,7 @@ use crate::project::ProjectAliases;
 use crate::shell::bash;
 use crate::shell::zsh;
 use crate::shell::ShellContext;
-use crate::shell::Shells;
+use crate::shell::Shell;
 use crate::trust::ProjectTrust;
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
@@ -568,8 +568,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 all_subs.insert(k, v);
             }
             let (external_functions, external_aliases) = match shell {
-                Shells::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
-                Shells::Bash => (
+                Shell::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
+                Shell::Bash => (
                     bash::scan_external_functions(),
                     bash::scan_external_aliases(),
                 ),

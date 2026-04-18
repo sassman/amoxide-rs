@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::exchange::ImportPayload;
-use crate::shell::Shells;
+use crate::shell::Shell;
 
 #[derive(Debug, PartialEq)]
 pub enum AliasTarget {
@@ -34,9 +34,9 @@ pub enum Message {
         new_command: String,
         raw: bool,
     },
-    InitShell(Shells, bool),
-    Hook(Shells, bool),
-    Reload(Shells),
+    InitShell(Shell, bool),
+    Hook(Shell, bool),
+    Reload(Shell),
 
     ToggleProfiles(Vec<String>),
     UseProfilesAt(Vec<String>, usize),

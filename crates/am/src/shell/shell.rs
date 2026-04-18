@@ -7,7 +7,7 @@ use regex::Regex;
 
 use crate::config::ShellsTomlConfig;
 
-pub trait Shell: Send + Sync + Debug {
+pub trait ShellAdapter: Send + Sync + Debug {
     fn unalias(&self, alias_name: &str) -> String;
 
     /// Unloads an alias using all possible forms — safe to call regardless of
@@ -33,7 +33,7 @@ pub trait Shell: Send + Sync + Debug {
 }
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
-pub enum Shells {
+pub enum Shell {
     Bash,
     Brush,
     // Elvish,
@@ -49,7 +49,7 @@ pub enum Shells {
 }
 
 pub struct ShellContext<'a> {
-    pub shell: &'a Shells,
+    pub shell: &'a Shell,
     pub cfg: &'a ShellsTomlConfig,
     pub cwd: &'a std::path::Path,
     /// Functions already defined in the user's shell — zsh only emits `unset -f` for names here.
@@ -58,42 +58,42 @@ pub struct ShellContext<'a> {
     pub external_aliases: std::collections::HashSet<String>,
 }
 
-impl Shells {
+impl Shell {
     pub fn as_shell(
         self,
         shell_cfg: &ShellsTomlConfig,
         external_functions: std::collections::HashSet<String>,
         external_aliases: std::collections::HashSet<String>,
-    ) -> Box<dyn Shell> {
+    ) -> Box<dyn ShellAdapter> {
         match self {
-            Shells::Fish => Box::new(super::fish::Fish::from_config(shell_cfg.fish.as_ref())),
-            Shells::Zsh => Box::new(super::zsh::Zsh::new(external_functions, external_aliases)),
-            Shells::Bash => Box::new(super::bash::Bash::new(external_functions, external_aliases)),
-            Shells::Brush => Box::from(super::brush::Brush),
-            Shells::Powershell => Box::from(super::powershell::PowerShell),
+            Shell::Fish => Box::new(super::fish::Fish::from_config(shell_cfg.fish.as_ref())),
+            Shell::Zsh => Box::new(super::zsh::Zsh::new(external_functions, external_aliases)),
+            Shell::Bash => Box::new(super::bash::Bash::new(external_functions, external_aliases)),
+            Shell::Brush => Box::from(super::brush::Brush),
+            Shell::Powershell => Box::from(super::powershell::PowerShell),
         }
     }
 }
 
-impl Display for Shells {
+impl Display for Shell {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Shells::Bash => write!(f, "bash"),
-            Shells::Brush => write!(f, "brush"),
-            // Shells::Elvish => write!(f, "elvish"),
-            Shells::Fish => write!(f, "fish"),
-            // Shells::Ksh => write!(f, "ksh"),
-            // Shells::Nushell => write!(f, "nushell"),
-            // Shells::Posix => write!(f, "posix"),
-            Shells::Powershell => write!(f, "powershell"),
-            // Shells::Xonsh => write!(f, "xonsh"),
-            Shells::Zsh => write!(f, "zsh"),
+            Shell::Bash => write!(f, "bash"),
+            Shell::Brush => write!(f, "brush"),
+            // Shell::Elvish => write!(f, "elvish"),
+            Shell::Fish => write!(f, "fish"),
+            // Shell::Ksh => write!(f, "ksh"),
+            // Shell::Nushell => write!(f, "nushell"),
+            // Shell::Posix => write!(f, "posix"),
+            Shell::Powershell => write!(f, "powershell"),
+            // Shell::Xonsh => write!(f, "xonsh"),
+            Shell::Zsh => write!(f, "zsh"),
         }
     }
 }
 
-impl From<Shells> for String {
-    fn from(val: Shells) -> Self {
+impl From<Shell> for String {
+    fn from(val: Shell) -> Self {
         format!("{}", val)
     }
 }
@@ -318,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_bash_shell_generates_nix_syntax() {
-        let shell: Box<dyn Shell> = Shells::Bash.as_shell(
+        let shell: Box<dyn ShellAdapter> = Shell::Bash.as_shell(
             &ShellsTomlConfig::default(),
             Default::default(),
             Default::default(),

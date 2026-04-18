@@ -4,11 +4,11 @@ use clap_complete::{
     generate_to,
 };
 
-/// Minimal stub of the Shells enum for build-script shell-completion generation.
+/// Minimal stub of the Shell enum for build-script shell-completion generation.
 /// The real implementation lives in src/shell/shell.rs.
 pub mod shell {
     #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
-    pub enum Shells {
+    pub enum Shell {
         Bash,
         Fish,
         Powershell,

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use super::{
-    build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, Shell, WrapperNode,
+    build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, ShellAdapter, WrapperNode,
     TEMPLATE_RE,
 };
 use crate::alias::AliasEntry;
@@ -111,7 +111,7 @@ impl Fish {
     }
 }
 
-impl Shell for Fish {
+impl ShellAdapter for Fish {
     fn unalias(&self, alias_name: &str) -> String {
         if self.use_abbr {
             format!("abbr --erase {alias_name}")

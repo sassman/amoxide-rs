@@ -212,7 +212,7 @@ pub fn generate_hook_with_security(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shell::Shells;
+    use crate::shell::Shell;
     use std::path::{Path, PathBuf};
 
     /// Builder for hook test fixtures.
@@ -296,7 +296,7 @@ mod tests {
             self.dir.path().join(rel_path)
         }
 
-        fn run(&mut self, shell: &Shells, cwd: &Path, prev: Option<&str>) -> (String, bool) {
+        fn run(&mut self, shell: &Shell, cwd: &Path, prev: Option<&str>) -> (String, bool) {
             use crate::config::ShellsTomlConfig;
             let cfg = ShellsTomlConfig::default();
             let ctx = ShellContext {
@@ -328,7 +328,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Fish, &cwd, None);
+        let (output, _) = t.run(&Shell::Fish, &cwd, None);
         assert!(output.contains("alias b \"make build\""));
         assert!(output.contains("alias t \"make test\""));
         assert!(output.contains(env_vars::AM_PROJECT_ALIASES));
@@ -339,7 +339,7 @@ mod tests {
         let mut t = TestBed::new().setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Fish, &cwd, Some("old1,old2"));
+        let (output, _) = t.run(&Shell::Fish, &cwd, Some("old1,old2"));
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("functions -e old2"));
         assert!(output.contains("set -e _AM_PROJECT_ALIASES"));
@@ -350,7 +350,7 @@ mod tests {
         let mut t = TestBed::new().setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Fish, &cwd, None);
+        let (output, _) = t.run(&Shell::Fish, &cwd, None);
         assert!(output.is_empty());
     }
 
@@ -362,7 +362,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Fish, &cwd, Some("old1,old2"));
+        let (output, _) = t.run(&Shell::Fish, &cwd, Some("old1,old2"));
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("functions -e old2"));
         assert!(output.contains("alias new1 \"echo new\""));
@@ -377,7 +377,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Zsh, &cwd, Some("old"));
+        let (output, _) = t.run(&Shell::Zsh, &cwd, Some("old"));
         assert!(output.contains("unset -f old"));
         assert!(output.contains("alias b=\"make build\""));
         assert!(output.contains("export _AM_PROJECT_ALIASES="));
@@ -391,13 +391,13 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Fish, &cwd, None);
+        let (output, _) = t.run(&Shell::Fish, &cwd, None);
         assert!(output.contains("alias b \"make build\""));
         assert!(!output.contains("alias t"));
 
         t.update_aliases("[aliases]\nb = \"make build\"\nt = \"make test\"\n");
 
-        let (output, _) = t.run(&Shells::Fish, &cwd, Some("b"));
+        let (output, _) = t.run(&Shell::Fish, &cwd, Some("b"));
         assert!(output.contains("functions -e b"));
         assert!(output.contains("alias b \"make build\""));
         assert!(output.contains("alias t \"make test\""));
@@ -412,13 +412,13 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Fish, &cwd, None);
+        let (output, _) = t.run(&Shell::Fish, &cwd, None);
         assert!(output.contains("alias b"));
         assert!(output.contains("alias t"));
 
         t.update_aliases("[aliases]\nb = \"make build\"\n");
 
-        let (output, _) = t.run(&Shells::Fish, &cwd, Some("b,t"));
+        let (output, _) = t.run(&Shell::Fish, &cwd, Some("b,t"));
         assert!(output.contains("functions -e b"));
         assert!(output.contains("functions -e t"));
         assert!(output.contains("alias b \"make build\""));
@@ -434,7 +434,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Bash, &cwd, Some("old"));
+        let (output, _) = t.run(&Shell::Bash, &cwd, Some("old"));
         assert!(output.contains("unset -f old"));
         assert!(output.contains("alias b=\"make build\""));
         assert!(output.contains("export _AM_PROJECT_ALIASES="));
@@ -449,7 +449,7 @@ mod tests {
             .setup();
 
         let sub = t.subdir("src/deep");
-        let (output, _) = t.run(&Shells::Fish, &sub, None);
+        let (output, _) = t.run(&Shell::Fish, &sub, None);
         assert!(
             output.contains("alias b \"make build\""),
             "should load aliases from parent .aliases, got: {output}"
@@ -468,7 +468,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, changed) = t.run(&Shells::Fish, &cwd, None);
+        let (output, changed) = t.run(&Shell::Fish, &cwd, None);
         assert!(!changed);
         assert!(output.contains("alias b \"make build\""));
         assert!(output.contains("am: loaded .aliases"));
@@ -481,7 +481,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, changed) = t.run(&Shells::Fish, &cwd, None);
+        let (output, changed) = t.run(&Shell::Fish, &cwd, None);
         assert!(!changed);
         assert!(!output.contains("alias b"));
         assert!(output.contains("am: .aliases found but not trusted"));
@@ -496,7 +496,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, changed) = t.run(&Shells::Fish, &cwd, None);
+        let (output, changed) = t.run(&Shell::Fish, &cwd, None);
         assert!(!changed);
         assert!(!output.contains("alias b"));
         assert!(!output.contains("am:"));
@@ -510,7 +510,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, changed) = t.run(&Shells::Fish, &cwd, None);
+        let (output, changed) = t.run(&Shell::Fish, &cwd, None);
         assert!(changed);
         assert!(!output.contains("alias b"));
         assert!(output.contains("modified since last trusted"));
@@ -521,7 +521,7 @@ mod tests {
         let mut t = TestBed::new().setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Fish, &cwd, Some("old1,old2"));
+        let (output, _) = t.run(&Shell::Fish, &cwd, Some("old1,old2"));
         assert!(output.contains("functions -e old1"));
         assert!(output.contains("functions -e old2"));
         assert!(output.contains("am: unloaded .aliases"));
@@ -537,7 +537,7 @@ mod tests {
             .setup();
 
         let sub = t.subdir("src");
-        let (output, _) = t.run(&Shells::Fish, &sub, None);
+        let (output, _) = t.run(&Shell::Fish, &sub, None);
         assert!(
             !output.contains("am:"),
             "should not show warning for parent .aliases, got: {output}"
@@ -553,7 +553,7 @@ mod tests {
             .setup();
 
         let sub = t.subdir("src");
-        let (output, _) = t.run(&Shells::Fish, &sub, None);
+        let (output, _) = t.run(&Shell::Fish, &sub, None);
         assert!(output.contains("alias b \"make build\""));
         assert!(
             !output.contains("am: loaded"),
@@ -575,7 +575,7 @@ mod tests {
         let cwd = t.root();
 
         // First run: load c:l, c wrapper is emitted
-        let (output, _) = t.run(&Shells::Fish, &cwd, None);
+        let (output, _) = t.run(&Shell::Fish, &cwd, None);
         assert!(
             output.contains("function c"),
             "first run should emit c wrapper"
@@ -586,7 +586,7 @@ mod tests {
         t.update_aliases("[subcommands]\n\"c:l\" = [\"clippy\"]\n\"c:t\" = [\"test\"]\n");
 
         // Second run: prev="c" (already loaded), but file has new content
-        let (output, _) = t.run(&Shells::Fish, &cwd, Some("c"));
+        let (output, _) = t.run(&Shell::Fish, &cwd, Some("c"));
         assert!(
             output.contains("function c"),
             "hook must re-emit c wrapper after new subcommand added, got: {output}"
@@ -608,7 +608,7 @@ mod tests {
             .setup();
 
         let cwd = t.root();
-        let (output, _) = t.run(&Shells::Bash, &cwd, None);
+        let (output, _) = t.run(&Shell::Bash, &cwd, None);
         assert!(output.contains("alias b=\"make build\""));
         assert!(output.contains("jj() {"));
         assert!(output.contains("ab) shift; command jj abandon"));
