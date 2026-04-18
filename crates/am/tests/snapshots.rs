@@ -8,7 +8,7 @@ use amoxide::hook::generate_hook_with_security;
 use amoxide::init::{generate_force_init, generate_init, generate_reload};
 use amoxide::project::ProjectAliases;
 use amoxide::security::SecurityConfig;
-use amoxide::shell::{ShellContext, Shell};
+use amoxide::shell::{Shell, ShellContext};
 use amoxide::subcommand::SubcommandSet;
 use amoxide::trust::compute_file_hash;
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};

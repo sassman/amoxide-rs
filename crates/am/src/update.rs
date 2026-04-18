@@ -8,8 +8,8 @@ use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
 use crate::shell::bash;
 use crate::shell::zsh;
-use crate::shell::ShellContext;
 use crate::shell::Shell;
+use crate::shell::ShellContext;
 use crate::trust::ProjectTrust;
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
@@ -592,8 +592,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     Default::default(),
                 );
                 let prev_global = std::env::var(env_vars::AM_ALIASES).unwrap_or_default();
-                let prev_project =
-                    std::env::var(env_vars::AM_PROJECT_ALIASES).unwrap_or_default();
+                let prev_project = std::env::var(env_vars::AM_PROJECT_ALIASES).unwrap_or_default();
                 let all_prev: Vec<&str> = prev_global
                     .split(',')
                     .chain(prev_project.split(','))
@@ -611,7 +610,12 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 output.push('\n');
             }
 
-            output.push_str(&generate_init(&ctx, &model.config.aliases, &resolved, &all_subs));
+            output.push_str(&generate_init(
+                &ctx,
+                &model.config.aliases,
+                &resolved,
+                &all_subs,
+            ));
             print!("{output}");
             Ok(UpdateResult::done())
         }

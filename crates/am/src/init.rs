@@ -1,5 +1,5 @@
 use crate::env_vars;
-use crate::shell::{ShellContext, Shell};
+use crate::shell::{Shell, ShellContext};
 use crate::subcommand::{group_by_program, SubcommandSet};
 use crate::AliasSet;
 
@@ -106,11 +106,10 @@ pub fn generate_force_init(
     subcommands: &SubcommandSet,
     prev_names: &[String],
 ) -> String {
-    let shell_impl = ctx.shell.clone().as_shell(
-        ctx.cfg,
-        Default::default(),
-        Default::default(),
-    );
+    let shell_impl = ctx
+        .shell
+        .clone()
+        .as_shell(ctx.cfg, Default::default(), Default::default());
     let mut output = String::new();
     for name in prev_names {
         output.push_str(&shell_impl.force_unalias(name));
@@ -121,7 +120,12 @@ pub fn generate_force_init(
     output.push('\n');
     output.push_str(&shell_impl.unset_env(crate::env_vars::AM_PROJECT_PATH));
     output.push('\n');
-    output.push_str(&generate_init(ctx, global_aliases, profile_aliases, subcommands));
+    output.push_str(&generate_init(
+        ctx,
+        global_aliases,
+        profile_aliases,
+        subcommands,
+    ));
     output
 }
 

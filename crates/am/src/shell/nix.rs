@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use super::{build_wrapper_trie, has_template_args, quote_cmd, substitute_nix, ShellAdapter, WrapperNode};
+use super::{
+    build_wrapper_trie, has_template_args, quote_cmd, substitute_nix, ShellAdapter, WrapperNode,
+};
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 

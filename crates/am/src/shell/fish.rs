@@ -432,15 +432,27 @@ mod tests {
     fn test_fish_force_unalias_no_abbr() {
         let fish = Fish { use_abbr: false };
         let out = fish.force_unalias("foo");
-        assert!(out.contains("functions -e foo"), "missing functions -e: {out}");
-        assert!(out.contains("abbr --query foo; and abbr --erase foo"), "missing abbr guard: {out}");
+        assert!(
+            out.contains("functions -e foo"),
+            "missing functions -e: {out}"
+        );
+        assert!(
+            out.contains("abbr --query foo; and abbr --erase foo"),
+            "missing abbr guard: {out}"
+        );
     }
 
     #[test]
     fn test_fish_force_unalias_with_abbr() {
         let fish = Fish { use_abbr: true };
         let out = fish.force_unalias("foo");
-        assert!(out.contains("functions -e foo"), "missing functions -e: {out}");
-        assert!(out.contains("abbr --query foo; and abbr --erase foo"), "missing abbr guard: {out}");
+        assert!(
+            out.contains("functions -e foo"),
+            "missing functions -e: {out}"
+        );
+        assert!(
+            out.contains("abbr --query foo; and abbr --erase foo"),
+            "missing abbr guard: {out}"
+        );
     }
 }

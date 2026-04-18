@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use super::{
-    build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware, ShellAdapter,
-    WrapperNode,
+    build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware,
+    ShellAdapter, WrapperNode,
 };
 
 /// Substitute `{{N}}` → `$($args[N-1+offset])` and `{{@}}` → `($args | Select-Object -Skip offset)`.
