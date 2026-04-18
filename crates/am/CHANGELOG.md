@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/sassman/amoxide-rs/compare/v0.6.1...v0.7.0) - 2026-04-18
+
+### Bug Fixes
+
+- Resolve function/alias shadowing for zsh and bash ([#98](https://github.com/sassman/amoxide-rs/pull/98))
+
+### Features
+
+- Add --force flag to reinitialise shell aliases ([#101](https://github.com/sassman/amoxide-rs/pull/101))
+
 ## [0.6.1](https://github.com/sassman/amoxide-rs/compare/v0.6.0...v0.6.1) - 2026-04-15
 
 ### Miscellaneous Tasks
