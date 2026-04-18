@@ -60,7 +60,11 @@ function cmf
 end
 ```
 
-Um diese Einstellung zu aktivieren, bearbeite `~/.config/amoxide/config.toml` manuell und füge den oben gezeigten `[shell.fish]`-Block hinzu. Dann führe `am reload fish` aus (oder starte eine neue Shell-Session), um die Änderung anzuwenden.
+Um diese Einstellung zu aktivieren, bearbeite `~/.config/amoxide/config.toml` manuell und füge den oben gezeigten `[shell.fish]`-Block hinzu. Dann [neu initialisieren ohne Neustart](/de/guide/setup#neu-initialisieren-ohne-neustart), um die Änderung anzuwenden:
+
+```fish
+am init -f fish | source
+```
 
 ## `profiles.toml` — Profildefinitionen
 

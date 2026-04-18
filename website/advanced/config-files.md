@@ -60,7 +60,11 @@ function cmf
 end
 ```
 
-To enable this setting, edit `~/.config/amoxide/config.toml` manually and add the `[shell.fish]` block shown above. Then run `am reload fish` (or start a new shell session) to apply the change.
+To enable this setting, edit `~/.config/amoxide/config.toml` manually and add the `[shell.fish]` block shown above. Then [reinitialise in place](/guide/setup#reinitialising-without-restarting) to apply the change without restarting your shell:
+
+```fish
+am init -f fish | source
+```
 
 ## `profiles.toml` — Profile Definitions
 

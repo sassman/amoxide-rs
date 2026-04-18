@@ -45,4 +45,26 @@ brew install sassman/tap/amoxide-tui
 
 Siehe [alle Installationsoptionen](/de/guide/installation#am-tui-installieren) für Shell-Skript, PowerShell und Cargo.
 
+## Ich habe meine Config-Datei manuell geändert — wie wende ich die Änderungen ohne Neustart der Shell an?
+
+Führe `am init -f <shell>` aus, um die Shell neu zu initialisieren. Das entlädt alle aktuellen Aliase und lädt alles aus der Config neu, einschließlich Einstellungsänderungen wie [`use_abbr = true`](/de/advanced/config-files#fish-shell-fish) in Fish. Weitere Details unter [Neu initialisieren ohne Neustart](/de/guide/setup#neu-initialisieren-ohne-neustart).
+
+::: code-group
+
+```fish [Fish]
+am init -f fish | source
+```
+
+```zsh [Zsh]
+eval "$(am init -f zsh)"
+```
+
+```powershell [PowerShell]
+(am init -f powershell) -join "`n" | Invoke-Expression
+```
+
+```bash [Bash]
+eval "$(am init -f bash)"
+```
+
 :::
