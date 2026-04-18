@@ -2,10 +2,11 @@ use std::collections::BTreeMap;
 use std::fmt::{Debug, Display};
 use std::sync::LazyLock;
 
-use clap::ValueEnum;
 use regex::Regex;
 
 use crate::config::ShellsTomlConfig;
+
+use super::Shell;
 
 pub trait ShellAdapter: Send + Sync + Debug {
     fn unalias(&self, alias_name: &str) -> String;
@@ -30,22 +31,6 @@ pub trait ShellAdapter: Send + Sync + Debug {
         base_cmd: &str,
         entries: &[crate::subcommand::SubcommandEntry],
     ) -> String;
-}
-
-#[derive(ValueEnum, Clone, Debug, PartialEq)]
-pub enum Shell {
-    Bash,
-    Brush,
-    // Elvish,
-    Fish,
-    // Ksh,
-    // Nushell,
-    // Posix,
-    Powershell,
-    // Xonsh,
-    Zsh,
-    // #[cfg(windows)]
-    // Cmd,
 }
 
 pub struct ShellContext<'a> {
