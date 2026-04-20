@@ -18,7 +18,25 @@ try {
 }
 
 // Build showcase sidebar from community folder
-function buildShowcaseSidebar() {
+interface ShowcaseSidebarLabels {
+  showcase: string
+  allProfiles: string
+  contribute: string
+  byTag: string
+  byAuthor: string
+  byName: string
+  basePath: string
+}
+
+function buildShowcaseSidebar(labels: ShowcaseSidebarLabels = {
+  showcase: 'Showcase',
+  allProfiles: 'All Profiles',
+  contribute: 'Contribute',
+  byTag: 'By Tag',
+  byAuthor: 'By Author',
+  byName: 'By Name',
+  basePath: '/showcase',
+}) {
   const communityDir = path.resolve(__dirname, '../../community')
   const tags = new Set<string>()
   const authors = new Set<string>()
@@ -37,37 +55,38 @@ function buildShowcaseSidebar() {
   }
 
   const COLLAPSE_THRESHOLD = 10
+  const base = labels.basePath
 
   return [
     {
-      text: 'Showcase',
+      text: labels.showcase,
       items: [
-        { text: `All Profiles (${names.length})`, link: '/showcase/' },
-        { text: 'Contribute', link: '/showcase/contribute' },
+        { text: `${labels.allProfiles} (${names.length})`, link: `${base}/` },
+        { text: labels.contribute, link: `${base}/contribute` },
       ],
     },
     {
-      text: 'By Tag',
+      text: labels.byTag,
       collapsed: false,
       items: Array.from(tags).sort().map(tag => ({
         text: tag,
-        link: `/showcase/#tag=${tag}`,
+        link: `${base}/#tag=${tag}`,
       })),
     },
     {
-      text: 'By Author',
+      text: labels.byAuthor,
       collapsed: authors.size > COLLAPSE_THRESHOLD,
       items: Array.from(authors).sort().map(author => ({
         text: author,
-        link: `/showcase/#author=${author}`,
+        link: `${base}/#author=${author}`,
       })),
     },
     {
-      text: 'By Name',
+      text: labels.byName,
       collapsed: names.length > COLLAPSE_THRESHOLD,
       items: names.sort((a, b) => a.label.localeCompare(b.label)).map(n => ({
         text: n.label,
-        link: `/showcase/#name=${n.slug}`,
+        link: `${base}/#name=${n.slug}`,
       })),
     },
   ]
@@ -101,6 +120,16 @@ export default defineConfig({
   cleanUrls: true,
   sitemap: {
     hostname: 'https://amoxide.rs',
+    transformItems(items) {
+      return items.map(item => ({
+        ...item,
+        url: item.url.replace(/\.html$/, ''),
+        links: item.links?.map(link => ({
+          ...link,
+          url: link.url.replace(/\.html$/, ''),
+        })),
+      }))
+    },
   },
   transformHead({ pageData }) {
     const canonicalUrl = `https://amoxide.rs/${pageData.relativePath}`
@@ -242,6 +271,15 @@ export default defineConfig({
               ],
             },
           ],
+          '/de/showcase/': buildShowcaseSidebar({
+            showcase: 'Showcase',
+            allProfiles: 'Alle Profile',
+            contribute: 'Beitragen',
+            byTag: 'Nach Tag',
+            byAuthor: 'Nach Autor',
+            byName: 'Nach Name',
+            basePath: '/de/showcase',
+          }),
         },
       },
     },
