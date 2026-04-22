@@ -168,16 +168,90 @@ impl Precedence {
         &self.shell_subcmd_state
     }
 
+    /// Permissive grouping of subcommand entries by program. Unlike
+    /// [`crate::subcommand::group_by_program`], this does NOT enforce equal
+    /// short/long counts — it treats `long_subcommands` as the verbatim
+    /// expansion for a given short key (e.g. `ab` → `abandon --force`).
+    fn group_subcommands_by_program(
+        subs: &SubcommandSet,
+    ) -> BTreeMap<String, Vec<SubcommandEntry>> {
+        let mut groups: BTreeMap<String, Vec<SubcommandEntry>> = BTreeMap::new();
+        for (key, longs) in subs {
+            let Some((program, rest)) = key.split_once(':') else {
+                continue;
+            };
+            if program.is_empty() || rest.is_empty() {
+                continue;
+            }
+            let short_subcommands: Vec<String> =
+                rest.split(':').map(|s| s.to_string()).collect();
+            if short_subcommands.iter().any(|s| s.is_empty()) {
+                continue;
+            }
+            groups.entry(program.to_string()).or_default().push(SubcommandEntry {
+                program: program.to_string(),
+                short_subcommands,
+                long_subcommands: longs.clone(),
+            });
+        }
+        groups
+    }
+
     pub fn resolve(self) -> PrecedenceDiff {
+        let merged_aliases = self.merged_aliases();
+        let merged_subcommands = self.merged_subcommands();
+        let subcmd_groups = Self::group_subcommands_by_program(&merged_subcommands);
+        let program_names: BTreeSet<String> = subcmd_groups.keys().cloned().collect();
+
         let mut effective: BTreeMap<String, EffectiveEntry> = BTreeMap::new();
 
-        for (name, alias) in self.merged_aliases() {
-            let hash = Self::alias_hash(&alias);
+        // Regular aliases — skip names absorbed by a subcommand wrapper.
+        for (name, alias) in merged_aliases.iter() {
+            if program_names.contains(name) {
+                continue;
+            }
+            let hash = Self::alias_hash(alias);
             effective.insert(
                 name.clone(),
                 EffectiveEntry {
-                    name,
-                    kind: EntryKind::Alias(alias),
+                    name: name.clone(),
+                    kind: EntryKind::Alias(alias.clone()),
+                    hash,
+                },
+            );
+        }
+
+        // Subcommand wrappers (one entry per program).
+        for (program, entries) in &subcmd_groups {
+            let base_cmd = merged_aliases
+                .get(program)
+                .map(|a| a.command().to_string());
+            let hash = Self::subcmd_program_hash(program, &merged_subcommands);
+            effective.insert(
+                program.clone(),
+                EffectiveEntry {
+                    name: program.clone(),
+                    kind: EntryKind::SubcommandWrapper {
+                        program: program.clone(),
+                        entries: entries.clone(),
+                        base_cmd,
+                    },
+                    hash,
+                },
+            );
+        }
+
+        // Per-key subcommand tracking for `_AM_SUBCOMMANDS`.
+        let mut effective_subkeys: BTreeMap<String, EffectiveEntry> = BTreeMap::new();
+        for (key, longs) in merged_subcommands.iter() {
+            let hash = Self::subcmd_key_hash(longs);
+            effective_subkeys.insert(
+                key.clone(),
+                EffectiveEntry {
+                    name: key.clone(),
+                    kind: EntryKind::SubcommandKey {
+                        longs: longs.clone(),
+                    },
                     hash,
                 },
             );
@@ -185,22 +259,43 @@ impl Precedence {
 
         let mut diff = PrecedenceDiff::default();
 
-        for (name, _prev_hash) in &self.shell_alias_state {
+        // --- Regular + wrapper diff against shell_alias_state ---
+        for (name, _) in &self.shell_alias_state {
             if !effective.contains_key(name) {
                 diff.removed.push(name.clone());
             }
         }
-
         for (name, entry) in effective {
             match self.shell_alias_state.get(&name) {
                 None => diff.added.push(entry),
-                Some(prev) => {
-                    if prev.as_deref() == Some(entry.hash.as_str()) {
-                        diff.unchanged.push(entry);
-                    } else {
-                        diff.changed.push(entry);
-                    }
+                Some(prev) if prev.as_deref() == Some(entry.hash.as_str()) => {
+                    diff.unchanged.push(entry)
                 }
+                Some(_) => diff.changed.push(entry),
+            }
+        }
+
+        // --- Per-key subcommand diff against shell_subcmd_state ---
+        //
+        // The program-level wrapper already lives in `effective`/`diff` above.
+        // Here we additionally track individual keys so they appear in
+        // `_AM_SUBCOMMANDS` with fine-grained hashes.
+        for (name, _) in &self.shell_subcmd_state {
+            // A program-level entry (no ':') is tracked in shell_alias_state, not here.
+            if !name.contains(':') {
+                continue;
+            }
+            if !effective_subkeys.contains_key(name) {
+                diff.removed.push(name.clone());
+            }
+        }
+        for (name, entry) in effective_subkeys {
+            match self.shell_subcmd_state.get(&name) {
+                None => diff.added.push(entry),
+                Some(prev) if prev.as_deref() == Some(entry.hash.as_str()) => {
+                    diff.unchanged.push(entry)
+                }
+                Some(_) => diff.changed.push(entry),
             }
         }
 
@@ -430,5 +525,129 @@ mod tests {
         assert_eq!(diff.changed.len(), 1, "shadow restoration must emit a reload");
         assert_eq!(cmd_of(&diff.changed[0]), "profile-t");
         assert!(diff.removed.is_empty());
+    }
+
+    fn subset(pairs: &[(&str, &[&str])]) -> SubcommandSet {
+        let mut s = SubcommandSet::new();
+        for (k, longs) in pairs {
+            s.insert((*k).into(), longs.iter().map(|x| (*x).into()).collect());
+        }
+        s
+    }
+
+    #[test]
+    fn resolve_subcommand_fresh_load_emits_wrapper() {
+        let project_subs = subset(&[("jj:ab", &["abandon"])]);
+        let diff = Precedence::new()
+            .with_project(&AliasSet::default(), &project_subs)
+            .resolve();
+        let wrapper = find(&diff.added, "jj").expect("expected jj wrapper in added");
+        match &wrapper.kind {
+            EntryKind::SubcommandWrapper { program, entries, base_cmd } => {
+                assert_eq!(program, "jj");
+                assert_eq!(entries.len(), 1);
+                assert_eq!(entries[0].short_subcommands, vec!["ab"]);
+                assert_eq!(entries[0].long_subcommands, vec!["abandon"]);
+                assert!(base_cmd.is_none());
+            }
+            other => panic!("expected SubcommandWrapper, got {other:?}"),
+        }
+        // per-key entry also added (for env-var tracking)
+        let key = find(&diff.added, "jj:ab").expect("expected per-key entry");
+        assert!(matches!(key.kind, EntryKind::SubcommandKey { .. }));
+    }
+
+    #[test]
+    fn resolve_subcommand_base_cmd_from_regular_alias_same_name() {
+        let aliases = aset(&[("jj", "just-a-joke")]);
+        let subs = subset(&[("jj:ab", &["abandon"])]);
+        let diff = Precedence::new()
+            .with_project(&aliases, &subs)
+            .resolve();
+        let wrapper = find(&diff.added, "jj").unwrap();
+        match &wrapper.kind {
+            EntryKind::SubcommandWrapper { base_cmd, .. } => {
+                assert_eq!(base_cmd.as_deref(), Some("just-a-joke"));
+            }
+            _ => panic!(),
+        }
+        // Only one entry named "jj" — the wrapper, which absorbs the alias.
+        let jj_hits = diff.added.iter().filter(|e| e.name == "jj").count();
+        assert_eq!(jj_hits, 1, "only the wrapper entry should represent 'jj'");
+    }
+
+    #[test]
+    fn resolve_subcommand_different_keys_coexist_across_layers() {
+        let profile_subs = subset(&[("jj:ab", &["abandon"])]);
+        let project_subs = subset(&[("jj:bl", &["branch", "list"])]);
+        let diff = Precedence::new()
+            .with_profiles(&AliasSet::default(), &profile_subs)
+            .with_project(&AliasSet::default(), &project_subs)
+            .resolve();
+        let wrapper = find(&diff.added, "jj").unwrap();
+        match &wrapper.kind {
+            EntryKind::SubcommandWrapper { entries, .. } => {
+                let keys: BTreeSet<_> = entries.iter().map(|e| e.to_key()).collect();
+                assert_eq!(keys, BTreeSet::from(["jj:ab".into(), "jj:bl".into()]));
+            }
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn resolve_subcommand_project_key_overrides_profile_same_key() {
+        let profile_subs = subset(&[("jj:ab", &["abandon"])]);
+        let project_subs = subset(&[("jj:ab", &["abandon", "--force"])]);
+        let diff = Precedence::new()
+            .with_profiles(&AliasSet::default(), &profile_subs)
+            .with_project(&AliasSet::default(), &project_subs)
+            .resolve();
+        let wrapper = find(&diff.added, "jj").unwrap();
+        match &wrapper.kind {
+            EntryKind::SubcommandWrapper { entries, .. } => {
+                assert_eq!(entries.len(), 1);
+                assert_eq!(entries[0].long_subcommands, vec!["abandon", "--force"]);
+            }
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn resolve_subcommand_unchanged_when_program_hash_matches() {
+        let subs = subset(&[("jj:ab", &["abandon"])]);
+        let merged = subs.clone();
+        let program_hash = Precedence::subcmd_program_hash_for_test("jj", &merged);
+        let key_hash = Precedence::subcmd_key_hash_for_test(&["abandon".into()]);
+        let prev_aliases = format!("jj|{program_hash}");
+        let prev_subs = format!("jj:ab|{key_hash}");
+        let diff = Precedence::new()
+            .with_project(&AliasSet::default(), &subs)
+            .with_shell_state_from_env(Some(&prev_aliases), Some(&prev_subs))
+            .resolve();
+        assert!(diff.added.is_empty(), "got added: {:?}", diff.added);
+        assert!(diff.changed.is_empty(), "got changed: {:?}", diff.changed);
+        assert!(diff.removed.is_empty(), "got removed: {:?}", diff.removed);
+        assert_eq!(diff.unchanged.len(), 2, "jj wrapper + jj:ab key both unchanged");
+    }
+
+    #[test]
+    fn resolve_subcommand_regenerates_wrapper_when_entry_added() {
+        // Previous: only jj:ab was tracked. Now jj:bl is added too.
+        // The program hash changes -> wrapper must be in `changed`.
+        let subs_before = subset(&[("jj:ab", &["abandon"])]);
+        let program_hash_before = Precedence::subcmd_program_hash_for_test("jj", &subs_before);
+        let key_hash_ab = Precedence::subcmd_key_hash_for_test(&["abandon".into()]);
+        let prev_aliases = format!("jj|{program_hash_before}");
+        let prev_subs = format!("jj:ab|{key_hash_ab}");
+
+        let subs_after = subset(&[("jj:ab", &["abandon"]), ("jj:bl", &["branch", "list"])]);
+        let diff = Precedence::new()
+            .with_project(&AliasSet::default(), &subs_after)
+            .with_shell_state_from_env(Some(&prev_aliases), Some(&prev_subs))
+            .resolve();
+        assert!(find(&diff.changed, "jj").is_some(), "wrapper must be regenerated");
+        assert!(find(&diff.added, "jj:bl").is_some(), "new key must be added");
+        // jj:ab itself unchanged
+        assert!(find(&diff.unchanged, "jj:ab").is_some(), "jj:ab entry itself is unchanged");
     }
 }
