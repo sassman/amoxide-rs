@@ -1,46 +1,26 @@
-# am wrapper: reload aliases after mutations
+# am wrapper: sync after mutations
 function am {
     $amBin = (Get-Command -CommandType Application am | Select-Object -First 1).Source
     & $amBin @args
     if ($LASTEXITCODE -ne 0) { return }
-    # tui — always reload
-    if ($args.Count -ge 1 -and $args[0] -in 'tui', 't') {
-        $out = (& $amBin reload __SHELL__) -join "`r`n"
-        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        $out = (& $amBin hook __SHELL__) -join "`r`n"
-        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        return
-    }
-    # top-level use — reload
-    if ($args.Count -ge 1 -and $args[0] -in 'use', 'u') {
-        $out = (& $amBin reload __SHELL__) -join "`r`n"
-        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        return
-    }
-    # profile mutation — reload
-    if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
-        if ($args.Count -ge 2 -and $args[1] -in 'use', 'u', 'add', 'a', 'remove', 'r') {
-            $out = (& $amBin reload __SHELL__) -join "`r`n"
-            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        }
-    }
-    # alias mutation — reload
-    elseif ($args.Count -ge 1 -and $args[0] -in 'add', 'a', 'remove', 'r') {
-        if ($args -contains '-l' -or $args -contains '--local') {
-            $out = (& $amBin hook __SHELL__) -join "`r`n"
-            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        } else {
-            $out = (& $amBin reload __SHELL__) -join "`r`n"
-            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        }
-    }
-    # trust/untrust — reload project aliases
-    elseif ($args.Count -ge 1 -and $args[0] -eq 'trust') {
-        $out = (& $amBin hook __SHELL__) -join "`r`n"
+    if ($args.Count -lt 1) { return }
+    $first = $args[0]
+    $second = if ($args.Count -ge 2) { $args[1] } else { $null }
+
+    $runSync = {
+        $out = (& $amBin sync __SHELL__) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
-    elseif ($args.Count -ge 1 -and $args[0] -eq 'untrust') {
-        $out = (& $amBin hook --quiet __SHELL__) -join "`r`n"
+    $runSyncQuiet = {
+        $out = (& $amBin sync --quiet __SHELL__) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+    }
+
+    if ($first -in 'add', 'a', 'remove', 'r', 'use', 'u', 'trust', 'tui', 't') {
+        & $runSync
+    } elseif ($first -eq 'untrust') {
+        & $runSyncQuiet
+    } elseif ($first -in 'profile', 'p') {
+        if ($second -in 'use', 'u', 'add', 'a', 'remove', 'r') { & $runSync }
     }
 }

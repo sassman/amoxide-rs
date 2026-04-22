@@ -310,9 +310,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("function am --wraps=am"));
-        assert!(output.contains("am reload fish"));
-        assert!(output.contains("--local"));
-        assert!(output.contains("am hook fish"));
+        assert!(output.contains("am sync fish"));
     }
 
     #[test]
@@ -325,7 +323,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("--on-variable PWD"));
-        assert!(output.contains("am hook fish"));
+        assert!(output.contains("am sync fish"));
     }
 
     #[test]
@@ -351,9 +349,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("am()"));
-        assert!(output.contains("am reload zsh"));
-        assert!(output.contains("--local"));
-        assert!(output.contains("am hook zsh"));
+        assert!(output.contains("am sync zsh"));
     }
 
     #[test]
@@ -366,7 +362,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("chpwd_functions"));
-        assert!(output.contains("am hook zsh"));
+        assert!(output.contains("am sync zsh"));
     }
 
     #[test]
@@ -518,9 +514,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("am()"));
-        assert!(output.contains("am reload bash"));
-        assert!(output.contains("--local"));
-        assert!(output.contains("am hook bash"));
+        assert!(output.contains("am sync bash"));
     }
 
     #[test]
@@ -535,7 +529,7 @@ mod tests {
         assert!(output.contains("PROMPT_COMMAND"));
         assert!(output.contains("__am_hook"));
         assert!(output.contains("__am_prev_dir"));
-        assert!(output.contains("am hook bash"));
+        assert!(output.contains("am sync bash"));
     }
 
     #[test]

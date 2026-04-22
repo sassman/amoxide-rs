@@ -1,9 +1,9 @@
-# am cd hook: track directory changes and reload project aliases
+# am cd hook: sync project aliases on directory change
 __am_hook() {
   local previous_exit_status=$?
   if [[ "${__am_prev_dir:-}" != "$PWD" ]]; then
     __am_prev_dir="$PWD"
-    eval "$(command am hook __SHELL__)"
+    eval "$(command am sync __SHELL__)"
   fi
   return $previous_exit_status
 }
