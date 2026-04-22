@@ -597,6 +597,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     .split(',')
                     .chain(prev_project.split(','))
                     .filter(|s| !s.is_empty())
+                    // Strip |hash suffix from project aliases (name|hash format)
+                    .map(|s| s.split_once('|').map_or(s, |(name, _)| name))
                     .collect();
                 for name in all_prev {
                     output.push_str(&shell_impl.force_unalias(name));
