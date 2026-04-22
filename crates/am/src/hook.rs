@@ -5,7 +5,9 @@ use crate::env_vars;
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
 use crate::shell::ShellContext;
-use crate::trust::{compute_file_hash, compute_short_hash, render_load_message, render_unload_message};
+use crate::trust::{
+    compute_file_hash, compute_short_hash, render_load_message, render_unload_message,
+};
 
 /// Parse `_AM_PROJECT_ALIASES` value: `"name|hash,name|hash,..."` into a map.
 /// Falls back to name-only format (no `|`) for backward compat during upgrade.
@@ -84,11 +86,8 @@ pub fn generate_hook_with_security(
 
     // Helper: unalias only shell-level names (no `:` — subcommand keys like `c:l`
     // are tracked for change detection but are not themselves shell functions).
-    let unload_prev_names: Vec<String> = prev
-        .keys()
-        .filter(|n| !n.contains(':'))
-        .cloned()
-        .collect();
+    let unload_prev_names: Vec<String> =
+        prev.keys().filter(|n| !n.contains(':')).cloned().collect();
     let unload_prev = |lines: &mut Vec<String>| {
         for name in &unload_prev_names {
             lines.push(shell_impl.unalias(name));
@@ -193,11 +192,9 @@ pub fn generate_hook_with_security(
                         if show_messages {
                             if is_fresh_load {
                                 // Full load message (same as cd-into-project)
-                                for line in render_load_message(
-                                    &project.aliases,
-                                    &project.subcommands,
-                                )
-                                .lines()
+                                for line in
+                                    render_load_message(&project.aliases, &project.subcommands)
+                                        .lines()
                                 {
                                     lines.push(shell_impl.echo(line));
                                 }
@@ -213,10 +210,12 @@ pub fn generate_hook_with_security(
                                 if !removed.is_empty() {
                                     parts.push(format!("{} removed", removed.len()));
                                 }
-                                lines.push(shell_impl.echo(&format!(
-                                    "am: .aliases changed ({})",
-                                    parts.join(", ")
-                                )));
+                                lines.push(
+                                    shell_impl.echo(&format!(
+                                        "am: .aliases changed ({})",
+                                        parts.join(", ")
+                                    )),
+                                );
                             }
                         }
 
@@ -262,9 +261,7 @@ pub fn generate_hook_with_security(
                                 .iter()
                                 .chain(changed.iter())
                                 .chain(removed.iter())
-                                .any(|n| {
-                                    n.contains(':') || subcmd_program_names.contains(n)
-                                });
+                                .any(|n| n.contains(':') || subcmd_program_names.contains(n));
                             if subcmd_changed {
                                 for (program, entries) in &subcmd_groups {
                                     let base_cmd = project
@@ -274,8 +271,7 @@ pub fn generate_hook_with_security(
                                         .map(|(_, v)| v.command().to_string())
                                         .unwrap_or_else(|| format!("command {program}"));
                                     lines.push(
-                                        shell_impl
-                                            .subcommand_wrapper(program, &base_cmd, entries),
+                                        shell_impl.subcommand_wrapper(program, &base_cmd, entries),
                                     );
                                 }
                             }
@@ -287,8 +283,7 @@ pub fn generate_hook_with_security(
                             .map(|(name, hash)| format!("{name}|{hash}"))
                             .collect();
                         lines.push(
-                            shell_impl
-                                .set_env(env_vars::AM_PROJECT_ALIASES, &tracking.join(",")),
+                            shell_impl.set_env(env_vars::AM_PROJECT_ALIASES, &tracking.join(",")),
                         );
                     }
                 }
@@ -331,7 +326,8 @@ pub fn generate_hook_with_security(
             if !prev.is_empty() {
                 unload_prev(&mut lines);
                 if !quiet {
-                    let prev_names: Vec<&str> = unload_prev_names.iter().map(|s| s.as_str()).collect();
+                    let prev_names: Vec<&str> =
+                        unload_prev_names.iter().map(|s| s.as_str()).collect();
                     lines.push(shell_impl.echo(&render_unload_message(&prev_names)));
                 }
                 lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
@@ -358,7 +354,8 @@ mod tests {
             Shell::Fish => "set -gx _AM_PROJECT_ALIASES \"",
             _ => "export _AM_PROJECT_ALIASES=\"",
         };
-        output.lines()
+        output
+            .lines()
             .find(|l| l.contains("_AM_PROJECT_ALIASES"))
             .and_then(|l| {
                 let start = l.find(prefix).map(|i| i + prefix.len())?;
