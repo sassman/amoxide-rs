@@ -5,7 +5,6 @@ use crate::effects::Effect;
 use crate::env_vars;
 use crate::init::generate_init;
 use crate::precedence::{self, Precedence};
-use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
 use crate::shell::bash;
 use crate::shell::zsh;
@@ -799,25 +798,28 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     .get_profile_by_name(name)
                     .ok_or_else(|| UpdateError::ProfileNotFound { name: name.clone() })?;
             }
+            let project_names = project_alias_names(model);
             let mut effects = Vec::new();
             for name in names {
                 let was_active = model.session.is_active(&name);
-                let (total, list) = model
+                let profile_alias_names: Vec<String> = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| (p.len(), p.short_list()))
-                    .unwrap_or((0, String::new()));
+                    .map(|p| {
+                        p.aliases
+                            .iter()
+                            .map(|(n, _)| n.as_ref().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 model.session.toggle_profile(name.clone());
-                let action = if was_active {
-                    "deactivated"
-                } else {
-                    "activated"
-                };
-                let msg = if was_active || list.is_empty() {
-                    format!("am: {name} {action}, {total} aliases")
-                } else {
-                    format!("am: {name} {action} — {total} loaded: {list}")
-                };
+                let msg = profile_toggle_message(
+                    &name,
+                    !was_active,
+                    None,
+                    &profile_alias_names,
+                    &project_names,
+                );
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
@@ -830,20 +832,28 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     .get_profile_by_name(name)
                     .ok_or_else(|| UpdateError::ProfileNotFound { name: name.clone() })?;
             }
+            let project_names = project_alias_names(model);
             let mut effects = Vec::new();
             for (i, name) in names.into_iter().enumerate() {
-                let (total, list) = model
+                let profile_alias_names: Vec<String> = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| (p.len(), p.short_list()))
-                    .unwrap_or((0, String::new()));
-                model.session.use_profile_at(name.clone(), priority + i);
+                    .map(|p| {
+                        p.aliases
+                            .iter()
+                            .map(|(n, _)| n.as_ref().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 let pos = priority + i;
-                let msg = if list.is_empty() {
-                    format!("am: {name} activated at position {pos}, {total} aliases loaded")
-                } else {
-                    format!("am: {name} activated at position {pos} — {total} loaded: {list}")
-                };
+                model.session.use_profile_at(name.clone(), pos);
+                let msg = profile_toggle_message(
+                    &name,
+                    true,
+                    Some(pos),
+                    &profile_alias_names,
+                    &project_names,
+                );
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
@@ -951,6 +961,82 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Effect::SaveSession,
             ]))
         }
+    }
+}
+
+/// Names of trusted project-layer aliases, or empty if no project is loaded.
+fn project_alias_names(model: &AppModel) -> std::collections::BTreeSet<String> {
+    model
+        .project_aliases()
+        .map(|p| {
+            p.aliases
+                .iter()
+                .map(|(n, _)| n.as_ref().to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Build the user-facing message for a profile activation/deactivation,
+/// highlighting which of the profile's aliases are shadowed by the project's
+/// `.aliases`. `activated = false` means the profile is being deactivated.
+fn profile_toggle_message(
+    name: &str,
+    activated: bool,
+    position: Option<usize>,
+    profile_aliases: &[String],
+    project_names: &std::collections::BTreeSet<String>,
+) -> String {
+    if profile_aliases.is_empty() {
+        let action = if activated {
+            "activated"
+        } else {
+            "deactivated"
+        };
+        return match position {
+            Some(pos) => format!("am: profile {name} {action} at position {pos}, 0 aliases"),
+            None => format!("am: profile {name} {action}, 0 aliases"),
+        };
+    }
+
+    let (unshadowed, shadowed): (Vec<&String>, Vec<&String>) = profile_aliases
+        .iter()
+        .partition(|n| !project_names.contains(n.as_str()));
+
+    let fmt_list =
+        |v: &[&String]| -> String { v.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ") };
+
+    let head = match (activated, position) {
+        (true, Some(pos)) => format!("am: profile {name} activated at position {pos}"),
+        (true, None) => format!("am: profile {name} activated"),
+        (false, _) => format!("am: profile {name} deactivated"),
+    };
+
+    let (primary_verb, secondary_verb) = if activated {
+        ("added", "shadowed by .aliases")
+    } else {
+        ("removed", "kept by .aliases")
+    };
+
+    match (unshadowed.is_empty(), shadowed.is_empty()) {
+        (false, true) => format!(
+            "{head} — {} {primary_verb}: {}",
+            unshadowed.len(),
+            fmt_list(&unshadowed)
+        ),
+        (true, false) => format!(
+            "{head} — all {} {secondary_verb}: {}",
+            shadowed.len(),
+            fmt_list(&shadowed)
+        ),
+        (false, false) => format!(
+            "{head} — {} {primary_verb}: {} | {} {secondary_verb}: {}",
+            unshadowed.len(),
+            fmt_list(&unshadowed),
+            shadowed.len(),
+            fmt_list(&shadowed)
+        ),
+        (true, true) => unreachable!("profile_aliases non-empty but both partitions empty"),
     }
 }
 

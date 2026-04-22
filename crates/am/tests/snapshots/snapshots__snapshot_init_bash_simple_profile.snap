@@ -10,13 +10,14 @@ am() {
   local am_status=$?
   if [[ $am_status -ne 0 ]]; then return $am_status; fi
   case "$1" in
-    add|a|remove|r|use|u|trust|tui|t)
+    add|a|remove|r|trust|tui|t)
       eval "$(command am sync bash)" ;;
-    untrust)
+    use|u|untrust)
       eval "$(command am sync --quiet bash)" ;;
     profile|p)
       case "$2" in
-        use|u|add|a|remove|r) eval "$(command am sync bash)" ;;
+        use|u) eval "$(command am sync --quiet bash)" ;;
+        add|a|remove|r) eval "$(command am sync bash)" ;;
       esac ;;
   esac
 }

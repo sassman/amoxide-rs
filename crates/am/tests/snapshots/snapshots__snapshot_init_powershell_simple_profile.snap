@@ -23,12 +23,16 @@ function am {
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
 
-    if ($first -in 'add', 'a', 'remove', 'r', 'use', 'u', 'trust', 'tui', 't') {
+    if ($first -in 'add', 'a', 'remove', 'r', 'trust', 'tui', 't') {
         & $runSync
-    } elseif ($first -eq 'untrust') {
+    } elseif ($first -in 'use', 'u', 'untrust') {
         & $runSyncQuiet
     } elseif ($first -in 'profile', 'p') {
-        if ($second -in 'use', 'u', 'add', 'a', 'remove', 'r') { & $runSync }
+        if ($second -in 'use', 'u') {
+            & $runSyncQuiet
+        } elseif ($second -in 'add', 'a', 'remove', 'r') {
+            & $runSync
+        }
     }
 }
 
