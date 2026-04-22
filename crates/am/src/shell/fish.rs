@@ -127,13 +127,29 @@ impl ShellAdapter for Fish {
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
+        // Fish's `alias` builtin stores `--wraps` as a completion entry via
+        // `complete --wraps`, which persists independently of `functions -e`.
+        // Redefining an alias without clearing that completion stacks the
+        // `--wraps=` list. Erase both the function and its completion wraps
+        // before redefining to guarantee a clean single `--wraps`.
+        let prelude = format!(
+            "functions -e {name}\ncomplete -e -c {name}",
+            name = entry.name
+        );
         if !entry.raw && has_template_args(entry.command) {
             let body = substitute_fish(entry.command);
-            format!("function {}\n    {}\nend", entry.name, body)
+            format!(
+                "{prelude}\nfunction {name}\n    {body}\nend",
+                name = entry.name
+            )
         } else if self.use_abbr {
             format!("abbr --add {} {}", entry.name, quote_cmd(entry.command))
         } else {
-            format!("alias {} {}", entry.name, quote_cmd(entry.command))
+            format!(
+                "{prelude}\nalias {name} {cmd}",
+                name = entry.name,
+                cmd = quote_cmd(entry.command)
+            )
         }
     }
 
@@ -240,11 +256,11 @@ mod tests {
     fn test_fish_simple_alias() {
         assert_eq!(
             Fish::default().alias(&simple("h", "'echo hello'")),
-            "alias h 'echo hello'"
+            "functions -e h\ncomplete -e -c h\nalias h 'echo hello'"
         );
         assert_eq!(
             Fish::default().alias(&simple("h", "echo hello")),
-            "alias h \"echo hello\""
+            "functions -e h\ncomplete -e -c h\nalias h \"echo hello\""
         );
     }
 
@@ -252,11 +268,11 @@ mod tests {
     fn test_fish_parameterized() {
         assert_eq!(
             Fish::default().alias(&simple("cmf", "cm feat: {{@}}")),
-            "function cmf\n    cm feat: $argv\nend"
+            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    cm feat: $argv\nend"
         );
         assert_eq!(
             Fish::default().alias(&simple("x", "echo {{1}} and {{2}}")),
-            "function x\n    echo $argv[1] and $argv[2]\nend"
+            "functions -e x\ncomplete -e -c x\nfunction x\n    echo $argv[1] and $argv[2]\nend"
         );
     }
 
@@ -264,7 +280,7 @@ mod tests {
     fn test_fish_raw_skips_templates() {
         assert_eq!(
             Fish::default().alias(&raw("my-awk", "awk '{print {{1}}}'")),
-            "alias my-awk \"awk '{print {{1}}}'\""
+            "functions -e my-awk\ncomplete -e -c my-awk\nalias my-awk \"awk '{print {{1}}}'\""
         );
     }
 
@@ -412,7 +428,7 @@ mod tests {
         let fish = Fish { use_abbr: true };
         assert_eq!(
             fish.alias(&simple("cmf", "cm feat: {{@}}")),
-            "function cmf\n    cm feat: $argv\nend"
+            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    cm feat: $argv\nend"
         );
     }
 

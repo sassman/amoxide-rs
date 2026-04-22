@@ -2,10 +2,16 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
+functions -e cm
+complete -e -c cm
 alias cm "git commit -sm"
+functions -e cmf
+complete -e -c cmf
 function cmf
     cm feat: $argv
 end
+functions -e gs
+complete -e -c gs
 alias gs "git status"
 set -gx _AM_ALIASES "cm|bed528f,cmf|9c99949,gs|22db469"
 # am wrapper: sync after mutations

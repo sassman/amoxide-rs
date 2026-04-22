@@ -2,6 +2,10 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
+functions -e b
+complete -e -c b
 alias b "cargo build"
+functions -e t
+complete -e -c t
 alias t "cargo test"
 set -gx _AM_ALIASES "b|b58de66,t|ab61de4"

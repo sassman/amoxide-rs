@@ -4,5 +4,7 @@ expression: output
 ---
 functions -e b
 functions -e t
+functions -e t
+complete -e -c t
 alias t "cargo test"
 set -gx _AM_ALIASES "t|ab61de4,ll|619d266"

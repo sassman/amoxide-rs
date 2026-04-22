@@ -2,8 +2,14 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
+functions -e ct
+complete -e -c ct
 alias ct "cargo test"
+functions -e gs
+complete -e -c gs
 alias gs "git status"
+functions -e ll
+complete -e -c ll
 alias ll "ls -lha"
 set -gx _AM_ALIASES "ct|ab61de4,gs|22db469,ll|619d266"
 # am wrapper: sync after mutations

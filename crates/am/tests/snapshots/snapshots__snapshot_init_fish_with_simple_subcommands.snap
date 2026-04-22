@@ -2,6 +2,8 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
+functions -e gs
+complete -e -c gs
 alias gs "git status"
 function jj --wraps=jj
   switch $argv[1]
