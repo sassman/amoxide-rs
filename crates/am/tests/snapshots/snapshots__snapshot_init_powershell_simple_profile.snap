@@ -110,6 +110,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('untrust', 'untrust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
+            [System.Management.Automation.CompletionResult]::new('sync', 'sync', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -346,6 +347,15 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;sync' {
+            [System.Management.Automation.CompletionResult]::new('-q', '-q', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
+            [System.Management.Automation.CompletionResult]::new('--quiet', '--quiet', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;help' {
             [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new alias')
             [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove an alias')
@@ -363,6 +373,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('untrust', 'untrust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
+            [System.Management.Automation.CompletionResult]::new('sync', 'sync', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -428,6 +439,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;reload' {
+            break
+        }
+        'am;help;sync' {
             break
         }
         'am;help;help' {

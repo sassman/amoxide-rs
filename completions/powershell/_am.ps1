@@ -41,6 +41,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('untrust', 'untrust', [CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
+            [CompletionResult]::new('sync', 'sync', [CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -277,6 +278,15 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;sync' {
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
+            [CompletionResult]::new('--quiet', '--quiet', [CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;help' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove an alias')
@@ -294,6 +304,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('untrust', 'untrust', [CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [CompletionResult]::new('hook', 'hook', [CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
             [CompletionResult]::new('reload', 'reload', [CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
+            [CompletionResult]::new('sync', 'sync', [CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -359,6 +370,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;reload' {
+            break
+        }
+        'am;help;sync' {
             break
         }
         'am;help;help' {

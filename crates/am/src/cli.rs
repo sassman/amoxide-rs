@@ -140,6 +140,16 @@ pub enum Commands {
     /// Internal: called by the am wrapper to reload profile aliases after switching
     #[command(hide = true)]
     Reload { shell: Shell },
+
+    /// Internal: compute and emit the minimal shell ops to sync the shell with
+    /// the effective merged alias state (global + profile + project).
+    #[command(hide = true)]
+    Sync {
+        /// Suppress info and warning messages (still unloads/loads aliases).
+        #[arg(short, long)]
+        quiet: bool,
+        shell: Shell,
+    },
 }
 
 #[derive(Subcommand)]

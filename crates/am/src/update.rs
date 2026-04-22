@@ -4,6 +4,7 @@ use crate::display::render_listing;
 use crate::effects::Effect;
 use crate::env_vars;
 use crate::init::{generate_init, generate_reload};
+use crate::precedence::{self, Precedence};
 use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
 use crate::shell::bash;
@@ -691,6 +692,51 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             } else {
                 Ok(UpdateResult::done())
             }
+        }
+        Message::Sync(shell, quiet) => {
+            let prev_aliases = std::env::var(env_vars::AM_ALIASES).ok();
+            let prev_subs = std::env::var(env_vars::AM_SUBCOMMANDS).ok();
+            // Legacy migration: if the new vars are empty but the old
+            // _AM_PROJECT_ALIASES exists, fold its entries into prev_aliases
+            // so the first sync after upgrade sees them as "known prior state".
+            let legacy_project = std::env::var(env_vars::AM_PROJECT_ALIASES).ok();
+            let merged_prev_aliases = match (prev_aliases.as_deref(), legacy_project.as_deref()) {
+                (None, None) => None,
+                (Some(a), None) => Some(a.to_string()),
+                (None, Some(b)) => Some(b.to_string()),
+                (Some(a), Some(b)) => Some(format!("{a},{b}")),
+            };
+
+            let resolved_aliases = model
+                .profile_config()
+                .resolve_active_aliases(&model.session.active_profiles);
+            let resolved_subs = model
+                .profile_config()
+                .resolve_active_subcommands(&model.session.active_profiles);
+
+            let (project_aliases, project_subs) = match model.project_trust() {
+                Some(t) if t.is_trusted() => model.project_alias_set_and_subcommands(),
+                _ => (crate::AliasSet::default(), crate::subcommand::SubcommandSet::new()),
+            };
+
+            let shell_cfg = model.config.shell.clone();
+            let shell_impl = shell
+                .clone()
+                .as_shell(&shell_cfg, Default::default(), Default::default());
+
+            let diff = Precedence::new()
+                .with_global(&model.config.aliases, &model.config.subcommands)
+                .with_profiles(&resolved_aliases, &resolved_subs)
+                .with_project(&project_aliases, &project_subs)
+                .with_shell_state_from_env(merged_prev_aliases.as_deref(), prev_subs.as_deref())
+                .resolve();
+
+            let output = precedence::render_diff(&diff, shell_impl.as_ref());
+            if !output.is_empty() {
+                print!("{output}");
+            }
+            let _ = quiet; // messaging/warning added in Task 10
+            Ok(UpdateResult::done())
         }
         Message::ToggleProfiles(names) => {
             for name in &names {

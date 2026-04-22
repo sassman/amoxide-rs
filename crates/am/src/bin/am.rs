@@ -48,7 +48,7 @@ fn main() -> anyhow::Result<()> {
     // Don't log for commands whose stdout is eval'd by the shell
     if !matches!(
         &cli.command,
-        Commands::Init { .. } | Commands::Hook { .. } | Commands::Reload { .. }
+        Commands::Init { .. } | Commands::Hook { .. } | Commands::Reload { .. } | Commands::Sync { .. }
     ) {
         setup_logging();
     }
@@ -387,6 +387,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
         Commands::Hook { shell, quiet } => Message::Hook(shell.clone(), *quiet),
         Commands::Reload { shell } => Message::Reload(shell.clone()),
+        Commands::Sync { shell, quiet } => Message::Sync(shell.clone(), *quiet),
     };
 
     let result = update(&mut model, message)?;

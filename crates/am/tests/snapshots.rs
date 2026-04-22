@@ -1112,3 +1112,17 @@ fn snapshot_init_bash_force_with_tracked_aliases() {
     );
     insta::assert_snapshot!(output);
 }
+
+#[test]
+fn sync_fresh_load_emits_aliases_and_env_var() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let aliases = aliases(&[("gs", "git status")]);
+    let diff = Precedence::new()
+        .with_profiles(&aliases, &SubcommandSet::new())
+        .resolve();
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let out = render_diff(&diff, shell.as_ref());
+    assert!(out.contains("alias gs \"git status\""));
+    assert!(out.contains("_AM_ALIASES"));
+    assert!(out.contains("gs|"));
+}
