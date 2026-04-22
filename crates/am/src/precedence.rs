@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use crate::alias::{AliasName, AliasSet, TomlAlias};
+use crate::alias::{AliasSet, TomlAlias};
 use crate::subcommand::{SubcommandEntry, SubcommandSet};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,7 +98,11 @@ impl Precedence {
     /// with project > profile > global precedence.
     fn merged_aliases(&self) -> BTreeMap<String, TomlAlias> {
         let mut out = BTreeMap::new();
-        for layer in [&self.global_aliases, &self.profile_aliases, &self.project_aliases] {
+        for layer in [
+            &self.global_aliases,
+            &self.profile_aliases,
+            &self.project_aliases,
+        ] {
             for (name, alias) in layer.iter() {
                 out.insert(name.as_ref().to_string(), alias.clone());
             }
@@ -110,7 +114,11 @@ impl Precedence {
     /// with project > profile > global precedence.
     fn merged_subcommands(&self) -> SubcommandSet {
         let mut out = SubcommandSet::new();
-        for layer in [&self.global_subcommands, &self.profile_subcommands, &self.project_subcommands] {
+        for layer in [
+            &self.global_subcommands,
+            &self.profile_subcommands,
+            &self.project_subcommands,
+        ] {
             for (k, v) in layer {
                 out.insert(k.clone(), v.clone());
             }
@@ -207,9 +215,7 @@ impl Precedence {
 
         // Subcommand wrappers (one entry per program).
         for (program, entries) in &subcmd_groups {
-            let base_cmd = merged_aliases
-                .get(program)
-                .map(|a| a.command().to_string());
+            let base_cmd = merged_aliases.get(program).map(|a| a.command().to_string());
             let hash = Self::subcmd_program_hash(program, &merged_subcommands);
             effective.insert(
                 program.clone(),
@@ -244,7 +250,7 @@ impl Precedence {
         let mut diff = PrecedenceDiff::default();
 
         // --- Regular + wrapper diff against shell_alias_state ---
-        for (name, _) in &self.shell_alias_state {
+        for name in self.shell_alias_state.keys() {
             if !effective.contains_key(name) {
                 diff.removed.push(name.clone());
             }
@@ -264,7 +270,7 @@ impl Precedence {
         // The program-level wrapper already lives in `effective`/`diff` above.
         // Here we additionally track individual keys so they appear in
         // `_AM_SUBCOMMANDS` with fine-grained hashes.
-        for (name, _) in &self.shell_subcmd_state {
+        for name in self.shell_subcmd_state.keys() {
             // A program-level entry (no ':') is tracked in shell_alias_state, not here.
             if !name.contains(':') {
                 continue;
@@ -324,7 +330,11 @@ pub fn render_diff(diff: &PrecedenceDiff, shell: &dyn ShellAdapter) -> String {
             EntryKind::Alias(alias) => {
                 lines.push(shell.alias(&alias.as_entry(&entry.name)));
             }
-            EntryKind::SubcommandWrapper { program, entries, base_cmd } => {
+            EntryKind::SubcommandWrapper {
+                program,
+                entries,
+                base_cmd,
+            } => {
                 let cmd = base_cmd
                     .clone()
                     .unwrap_or_else(|| format!("command {program}"));
@@ -337,7 +347,12 @@ pub fn render_diff(diff: &PrecedenceDiff, shell: &dyn ShellAdapter) -> String {
     // 3. Update tracking env vars
     let mut alias_pairs = Vec::new();
     let mut sub_pairs = Vec::new();
-    for e in diff.added.iter().chain(diff.changed.iter()).chain(diff.unchanged.iter()) {
+    for e in diff
+        .added
+        .iter()
+        .chain(diff.changed.iter())
+        .chain(diff.unchanged.iter())
+    {
         let pair = format!("{}|{}", e.name, e.hash);
         match &e.kind {
             EntryKind::SubcommandKey { .. } => sub_pairs.push(pair),
@@ -358,6 +373,7 @@ pub fn render_diff(diff: &PrecedenceDiff, shell: &dyn ShellAdapter) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::alias::AliasName;
 
     #[test]
     fn empty_inputs_produce_empty_diff() {
@@ -438,8 +454,7 @@ mod tests {
 
     #[test]
     fn parse_shell_state_new_format() {
-        let p = Precedence::new()
-            .with_shell_state_from_env(Some("b|abc1234,t|def5678"), None);
+        let p = Precedence::new().with_shell_state_from_env(Some("b|abc1234,t|def5678"), None);
         let aliases = p.shell_alias_state_for_test();
         assert_eq!(aliases.get("b"), Some(&Some("abc1234".into())));
         assert_eq!(aliases.get("t"), Some(&Some("def5678".into())));
@@ -463,8 +478,7 @@ mod tests {
 
     #[test]
     fn parse_shell_state_mixed_format() {
-        let p = Precedence::new()
-            .with_shell_state_from_env(Some("b|abc1234,t,gs|fed9876"), None);
+        let p = Precedence::new().with_shell_state_from_env(Some("b|abc1234,t,gs|fed9876"), None);
         let aliases = p.shell_alias_state_for_test();
         assert_eq!(aliases.get("b"), Some(&Some("abc1234".into())));
         assert_eq!(aliases.get("t"), Some(&None));
@@ -503,10 +517,7 @@ mod tests {
             .with_project(&project, &SubcommandSet::new())
             .resolve();
         let added_names: BTreeSet<_> = diff.added.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(
-            added_names,
-            BTreeSet::from(["ll", "gs", "b"]),
-        );
+        assert_eq!(added_names, BTreeSet::from(["ll", "gs", "b"]),);
         assert!(diff.changed.is_empty());
         assert!(diff.removed.is_empty());
         assert!(diff.unchanged.is_empty());
@@ -574,7 +585,11 @@ mod tests {
             .with_profiles(&profile, &SubcommandSet::new())
             .with_shell_state_from_env(Some(&prev), None)
             .resolve();
-        assert_eq!(diff.changed.len(), 1, "shadow restoration must emit a reload");
+        assert_eq!(
+            diff.changed.len(),
+            1,
+            "shadow restoration must emit a reload"
+        );
         assert_eq!(cmd_of(&diff.changed[0]), "profile-t");
         assert!(diff.removed.is_empty());
     }
@@ -595,7 +610,11 @@ mod tests {
             .resolve();
         let wrapper = find(&diff.added, "jj").expect("expected jj wrapper in added");
         match &wrapper.kind {
-            EntryKind::SubcommandWrapper { program, entries, base_cmd } => {
+            EntryKind::SubcommandWrapper {
+                program,
+                entries,
+                base_cmd,
+            } => {
                 assert_eq!(program, "jj");
                 assert_eq!(entries.len(), 1);
                 assert_eq!(entries[0].short_subcommands, vec!["ab"]);
@@ -613,9 +632,7 @@ mod tests {
     fn resolve_subcommand_base_cmd_from_regular_alias_same_name() {
         let aliases = aset(&[("jj", "just-a-joke")]);
         let subs = subset(&[("jj:ab", &["abandon"])]);
-        let diff = Precedence::new()
-            .with_project(&aliases, &subs)
-            .resolve();
+        let diff = Precedence::new().with_project(&aliases, &subs).resolve();
         let wrapper = find(&diff.added, "jj").unwrap();
         match &wrapper.kind {
             EntryKind::SubcommandWrapper { base_cmd, .. } => {
@@ -679,7 +696,11 @@ mod tests {
         assert!(diff.added.is_empty(), "got added: {:?}", diff.added);
         assert!(diff.changed.is_empty(), "got changed: {:?}", diff.changed);
         assert!(diff.removed.is_empty(), "got removed: {:?}", diff.removed);
-        assert_eq!(diff.unchanged.len(), 2, "jj wrapper + jj:ab key both unchanged");
+        assert_eq!(
+            diff.unchanged.len(),
+            2,
+            "jj wrapper + jj:ab key both unchanged"
+        );
     }
 
     #[test]
@@ -704,7 +725,10 @@ mod tests {
         let p = Precedence::new()
             .with_shell_state_from_env(Some("b|abc1234"), None)
             .with_shell_state_from_introspection(&fns, &HashSet::new());
-        assert_eq!(p.shell_alias_state_for_test().get("b"), Some(&Some("abc1234".into())));
+        assert_eq!(
+            p.shell_alias_state_for_test().get("b"),
+            Some(&Some("abc1234".into()))
+        );
     }
 
     #[test]
@@ -722,10 +746,19 @@ mod tests {
             .with_project(&AliasSet::default(), &subs_after)
             .with_shell_state_from_env(Some(&prev_aliases), Some(&prev_subs))
             .resolve();
-        assert!(find(&diff.changed, "jj").is_some(), "wrapper must be regenerated");
-        assert!(find(&diff.added, "jj:bl").is_some(), "new key must be added");
+        assert!(
+            find(&diff.changed, "jj").is_some(),
+            "wrapper must be regenerated"
+        );
+        assert!(
+            find(&diff.added, "jj:bl").is_some(),
+            "new key must be added"
+        );
         // jj:ab itself unchanged
-        assert!(find(&diff.unchanged, "jj:ab").is_some(), "jj:ab entry itself is unchanged");
+        assert!(
+            find(&diff.unchanged, "jj:ab").is_some(),
+            "jj:ab entry itself is unchanged"
+        );
     }
 
     use crate::config::ShellsTomlConfig;
@@ -744,9 +777,18 @@ mod tests {
             .resolve();
 
         let out = crate::precedence::render_diff(&diff, shell.as_ref());
-        assert!(out.contains("functions -e gone"), "gone must be unloaded: {out}");
-        assert!(out.contains("functions -e b"), "changed b must be unloaded: {out}");
-        assert!(out.contains("alias b \"make build\""), "b must be reloaded: {out}");
+        assert!(
+            out.contains("functions -e gone"),
+            "gone must be unloaded: {out}"
+        );
+        assert!(
+            out.contains("functions -e b"),
+            "changed b must be unloaded: {out}"
+        );
+        assert!(
+            out.contains("alias b \"make build\""),
+            "b must be reloaded: {out}"
+        );
         // env-var update must be the last section
         let env_pos = out.find("_AM_ALIASES").expect("env update missing");
         let alias_pos = out.find("alias b").unwrap();

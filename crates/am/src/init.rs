@@ -437,5 +437,4 @@ mod tests {
             "init must use name|hash format in _AM_ALIASES, got: {output}"
         );
     }
-
 }

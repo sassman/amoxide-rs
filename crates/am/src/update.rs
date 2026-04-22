@@ -657,9 +657,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
 
             let shell_cfg = model.config.shell.clone();
             let cwd = model.cwd.clone();
-            let shell_impl = shell
-                .clone()
-                .as_shell(&shell_cfg, Default::default(), Default::default());
+            let shell_impl =
+                shell
+                    .clone()
+                    .as_shell(&shell_cfg, Default::default(), Default::default());
 
             let resolved_aliases = model
                 .profile_config()
@@ -706,7 +707,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let (project_aliases, project_subs) = if include_project {
                 model.project_alias_set_and_subcommands()
             } else {
-                (crate::AliasSet::default(), crate::subcommand::SubcommandSet::new())
+                (
+                    crate::AliasSet::default(),
+                    crate::subcommand::SubcommandSet::new(),
+                )
             };
 
             let is_fresh_load = prev_aliases.as_deref().is_none_or(|s| s.is_empty())
@@ -750,10 +754,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         parts.push(format!("{} removed", diff.removed.len()));
                     }
                     if !parts.is_empty() {
-                        lines.push(shell_impl.echo(&format!(
-                            "am: aliases changed ({})",
-                            parts.join(", ")
-                        )));
+                        lines.push(
+                            shell_impl.echo(&format!("am: aliases changed ({})", parts.join(", "))),
+                        );
                     }
                 }
             }
@@ -769,10 +772,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
                 }
             } else if let Some(p) = project_path.as_deref() {
-                lines.push(shell_impl.set_env(
-                    env_vars::AM_PROJECT_PATH,
-                    &p.display().to_string(),
-                ));
+                lines.push(shell_impl.set_env(env_vars::AM_PROJECT_PATH, &p.display().to_string()));
             } else if prev_project_path.is_some() {
                 lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
             }

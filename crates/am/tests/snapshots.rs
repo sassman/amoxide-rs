@@ -709,7 +709,9 @@ fn sync_tampered_returns_save_security_effect_and_excludes_project() {
     // Smoke test: we don't care about stdout, just the effect list.
     let res = update(&mut model, Message::Sync(Shell::Fish, true)).unwrap();
     assert!(
-        res.effects.iter().any(|e| matches!(e, amoxide::Effect::SaveSecurity)),
+        res.effects
+            .iter()
+            .any(|e| matches!(e, amoxide::Effect::SaveSecurity)),
         "tampered file must trigger SaveSecurity effect"
     );
 }
@@ -782,7 +784,8 @@ fn snapshot_sync_zsh_fresh_load_project_only() {
 fn snapshot_sync_powershell_fresh_load_project_only() {
     use amoxide::precedence::{render_diff, Precedence};
     let project = aliases(&[("b", "cargo build")]);
-    let shell = Shell::Powershell.as_shell(&Default::default(), Default::default(), Default::default());
+    let shell =
+        Shell::Powershell.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
         .with_project(&project, &SubcommandSet::new())
         .resolve();

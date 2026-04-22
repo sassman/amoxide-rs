@@ -46,10 +46,7 @@ fn main() -> anyhow::Result<()> {
     let mut model = AppModel::default();
 
     // Don't log for commands whose stdout is eval'd by the shell
-    if !matches!(
-        &cli.command,
-        Commands::Init { .. } | Commands::Sync { .. }
-    ) {
+    if !matches!(&cli.command, Commands::Init { .. } | Commands::Sync { .. }) {
         setup_logging();
     }
 
