@@ -7,9 +7,11 @@ complete -e -c b
 function b
     cargo build $argv
 end
+complete -c b --wraps "cargo"
 functions -e t
 complete -e -c t
 function t
     cargo test $argv
 end
+complete -c t --wraps "cargo"
 set -gx _AM_ALIASES "b|b58de66,t|ab61de4"

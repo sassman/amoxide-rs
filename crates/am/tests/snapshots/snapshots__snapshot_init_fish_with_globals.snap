@@ -7,11 +7,13 @@ complete -e -c ct
 function ct
     cargo test $argv
 end
+complete -c ct --wraps "cargo"
 functions -e ll
 complete -e -c ll
 function ll
     ls -lha $argv
 end
+complete -c ll --wraps "ls"
 set -gx _AM_ALIASES "ct|ab61de4,ll|619d266"
 # am wrapper: sync after mutations
 function am --wraps=am

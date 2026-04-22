@@ -7,6 +7,7 @@ complete -e -c gs
 function gs
     git status $argv
 end
+complete -c gs --wraps "git"
 function jj --wraps=jj
   switch $argv[1]
     case 'ab'

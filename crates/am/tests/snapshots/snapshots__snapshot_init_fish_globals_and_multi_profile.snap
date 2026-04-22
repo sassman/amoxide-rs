@@ -7,21 +7,25 @@ complete -e -c cm
 function cm
     git commit -sm $argv
 end
+complete -c cm --wraps "git"
 functions -e cmf
 complete -e -c cmf
 function cmf
     cm feat: $argv
 end
+complete -c cmf --wraps "cm"
 functions -e gs
 complete -e -c gs
 function gs
     git status $argv
 end
+complete -c gs --wraps "git"
 functions -e ll
 complete -e -c ll
 function ll
     ls -lha $argv
 end
+complete -c ll --wraps "ls"
 set -gx _AM_ALIASES "cm|bed528f,cmf|9c99949,gs|22db469,ll|619d266"
 # am wrapper: sync after mutations
 function am --wraps=am

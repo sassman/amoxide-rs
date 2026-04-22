@@ -8,4 +8,5 @@ complete -e -c b
 function b
     cargo build --release $argv
 end
+complete -c b --wraps "cargo"
 set -gx _AM_ALIASES "b|0dc3caa,t|ab61de4"

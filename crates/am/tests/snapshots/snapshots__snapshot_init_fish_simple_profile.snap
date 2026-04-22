@@ -7,11 +7,13 @@ complete -e -c gs
 function gs
     git status $argv
 end
+complete -c gs --wraps "git"
 functions -e ll
 complete -e -c ll
 function ll
     ls -lha $argv
 end
+complete -c ll --wraps "ls"
 set -gx _AM_ALIASES "gs|22db469,ll|619d266"
 # am wrapper: sync after mutations
 function am --wraps=am
