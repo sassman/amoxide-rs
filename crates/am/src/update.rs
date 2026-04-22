@@ -802,24 +802,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let mut effects = Vec::new();
             for name in names {
                 let was_active = model.session.is_active(&name);
-                let profile_alias_names: Vec<String> = model
+                let items = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| {
-                        p.aliases
-                            .iter()
-                            .map(|(n, _)| n.as_ref().to_string())
-                            .collect()
-                    })
+                    .map(profile_items)
                     .unwrap_or_default();
                 model.session.toggle_profile(name.clone());
-                let msg = profile_toggle_message(
-                    &name,
-                    !was_active,
-                    None,
-                    &profile_alias_names,
-                    &project_names,
-                );
+                let msg = profile_toggle_message(&name, !was_active, None, &items, &project_names);
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
@@ -835,25 +824,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let project_names = project_alias_names(model);
             let mut effects = Vec::new();
             for (i, name) in names.into_iter().enumerate() {
-                let profile_alias_names: Vec<String> = model
+                let items = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| {
-                        p.aliases
-                            .iter()
-                            .map(|(n, _)| n.as_ref().to_string())
-                            .collect()
-                    })
+                    .map(profile_items)
                     .unwrap_or_default();
                 let pos = priority + i;
                 model.session.use_profile_at(name.clone(), pos);
-                let msg = profile_toggle_message(
-                    &name,
-                    true,
-                    Some(pos),
-                    &profile_alias_names,
-                    &project_names,
-                );
+                let msg = profile_toggle_message(&name, true, Some(pos), &items, &project_names);
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
@@ -964,17 +942,30 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
     }
 }
 
-/// Names of trusted project-layer aliases, or empty if no project is loaded.
+/// Names of trusted project-layer items (regular alias names + subcommand
+/// keys like `git:st`). Empty if no project is loaded or trusted.
 fn project_alias_names(model: &AppModel) -> std::collections::BTreeSet<String> {
-    model
-        .project_aliases()
-        .map(|p| {
-            p.aliases
-                .iter()
-                .map(|(n, _)| n.as_ref().to_string())
-                .collect()
-        })
-        .unwrap_or_default()
+    let Some(project) = model.project_aliases() else {
+        return std::collections::BTreeSet::new();
+    };
+    let mut set: std::collections::BTreeSet<String> = project
+        .aliases
+        .iter()
+        .map(|(n, _)| n.as_ref().to_string())
+        .collect();
+    set.extend(project.subcommands.keys().cloned());
+    set
+}
+
+/// Profile items (regular alias names + subcommand keys).
+fn profile_items(profile: &Profile) -> Vec<String> {
+    let mut items: Vec<String> = profile
+        .aliases
+        .iter()
+        .map(|(n, _)| n.as_ref().to_string())
+        .collect();
+    items.extend(profile.subcommands.keys().cloned());
+    items
 }
 
 /// Build the user-facing message for a profile activation/deactivation,
