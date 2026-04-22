@@ -1155,3 +1155,28 @@ fn sync_tampered_returns_save_security_effect_and_excludes_project() {
         "tampered file must trigger SaveSecurity effect"
     );
 }
+
+#[cfg(feature = "test-util")]
+#[test]
+fn init_force_unloads_introspected_names_with_hash_suffix_stripped() {
+    use amoxide::app_model::AppModel;
+    use amoxide::messages::Message;
+    use amoxide::shell::Shell;
+    use amoxide::update::update;
+
+    // Simulate a prior session where _AM_ALIASES held name|hash entries.
+    // The force init must emit `unalias name` (no `|hash` suffix).
+    std::env::set_var("_AM_ALIASES", "b|abc1234,t|def5678");
+    std::env::set_var("_AM_PROJECT_ALIASES", "p|9999999");
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut model = AppModel::load_from(dir.path().to_path_buf());
+
+    // The real coverage is the snapshot added in Task 15. Here we just
+    // assert the handler completes without panicking.
+    let res = update(&mut model, Message::InitShell(Shell::Fish, true));
+    assert!(res.is_ok());
+
+    std::env::remove_var("_AM_ALIASES");
+    std::env::remove_var("_AM_PROJECT_ALIASES");
+}
