@@ -27,73 +27,42 @@ pub fn generate_init(
     profile_aliases: &AliasSet,
     subcommands: &SubcommandSet,
 ) -> String {
+    use crate::precedence::{self, Precedence};
+
     let shell_impl = ctx.shell.clone().as_shell(
         ctx.cfg,
         ctx.external_functions.clone(),
         ctx.external_aliases.clone(),
     );
-    let mut lines: Vec<String> = Vec::new();
-    let mut all_names: Vec<String> = Vec::new();
 
-    // Determine which program names have subcommand wrappers
-    let subcmd_groups = group_by_program(subcommands);
-    let programs_with_wrappers: std::collections::BTreeSet<&str> =
-        subcmd_groups.keys().map(|s| s.as_str()).collect();
+    // Split subcommands back into global/profile buckets. Callers today pass
+    // a single merged SubcommandSet — for init, global = config.subcommands
+    // and profile = resolved from active profiles. Since both are already
+    // merged upstream we simply pass the full set as "profile" to keep the
+    // engine's precedence order intact (global vs profile tier is invisible
+    // on init — there is no shell state yet).
+    let diff = Precedence::new()
+        .with_global(global_aliases, &SubcommandSet::new())
+        .with_profiles(profile_aliases, subcommands)
+        .resolve();
 
-    // Emit global aliases (skip those absorbed by subcommand wrappers)
-    for (alias_name, alias_value) in global_aliases.iter() {
-        let name = alias_name.as_ref();
-        if !programs_with_wrappers.contains(name) {
-            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
-        }
-        all_names.push(name.to_string());
+    let mut output = precedence::render_diff(&diff, shell_impl.as_ref());
+
+    // Clean up any legacy tracking var from older installs.
+    if !output.is_empty() {
+        output.push('\n');
     }
+    output.push_str(&shell_impl.unset_env(env_vars::AM_PROFILE_ALIASES_LEGACY));
 
-    // Emit profile aliases (skip those absorbed by subcommand wrappers)
-    for (alias_name, alias_value) in profile_aliases.iter() {
-        let name = alias_name.as_ref();
-        if !programs_with_wrappers.contains(name) {
-            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
-        }
-        all_names.push(name.to_string());
-    }
+    // Wrapper function + cd hook + completions.
+    output.push('\n');
+    output.push_str(&am_wrapper(ctx.shell));
+    output.push('\n');
+    output.push_str(&cd_hook_setup(ctx.shell));
+    output.push('\n');
+    output.push_str(&completions(ctx.shell));
 
-    // Emit subcommand wrappers
-    for (program, entries) in &subcmd_groups {
-        // Determine base command: alias value if regular alias exists, else "command <program>"
-        let all_aliases = global_aliases.iter().chain(profile_aliases.iter());
-        let base_cmd = all_aliases
-            .filter(|(n, _)| n.as_ref() == program.as_str())
-            .map(|(_, v)| v.command().to_string())
-            .last()
-            .unwrap_or_else(|| format!("command {program}"));
-
-        lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
-        all_names.push(program.to_string());
-    }
-
-    // Track all loaded aliases (global + profile + subcommand wrappers) for reload cleanup
-    if !all_names.is_empty() {
-        all_names.sort();
-        all_names.dedup();
-        lines.push(shell_impl.set_env(env_vars::AM_ALIASES, &all_names.join(",")));
-    }
-    // Clean up legacy tracking var from older versions
-    lines.push(shell_impl.unset_env(env_vars::AM_PROFILE_ALIASES_LEGACY));
-
-    // Wrapper function
-    lines.push(String::new());
-    lines.push(am_wrapper(ctx.shell));
-
-    // cd hook for project aliases
-    lines.push(String::new());
-    lines.push(cd_hook_setup(ctx.shell));
-
-    // Shell completions
-    lines.push(String::new());
-    lines.push(completions(ctx.shell));
-
-    lines.join("\n")
+    output
 }
 
 /// Like [`generate_init`] but prepends force-cleanup lines for `prev_names`.
@@ -664,6 +633,20 @@ mod tests {
         );
         let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
         assert!(output.contains("abbr --add gs \"git status\""));
+    }
+
+    #[test]
+    fn init_delegates_alias_emission_to_precedence() {
+        // init output must match render_diff output for the same inputs.
+        let aliases = test_aliases();
+        let ctx = default_ctx(&Shell::Fish);
+        let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
+        // Everything should be in _AM_ALIASES with name|hash format (not bare names).
+        let gs_hash = crate::trust::compute_short_hash(b"git status");
+        assert!(
+            output.contains(&format!("gs|{gs_hash}")),
+            "init must use name|hash format in _AM_ALIASES, got: {output}"
+        );
     }
 
     #[test]
