@@ -47,6 +47,14 @@ pub fn compute_hash(content: &[u8]) -> String {
     blake3::hash(content).to_hex().to_string()
 }
 
+/// Compute a 7-character short BLAKE3 hash of byte content.
+///
+/// Returns the first 7 hex characters of the BLAKE3 hash — analogous to
+/// git's short SHA. 28 bits gives collision probability <0.2 % for 1 000 items.
+pub fn compute_short_hash(content: &[u8]) -> String {
+    blake3::hash(content).to_hex()[..7].to_string()
+}
+
 /// Render the "loaded" info message shown on cd into a trusted directory.
 ///
 /// Alias names are right-padded so `->` and commands align in columns.
@@ -116,6 +124,27 @@ mod tests {
         let hash1 = compute_hash(b"[aliases]\nb = \"make build\"\n");
         let hash2 = compute_hash(b"[aliases]\nb = \"make build\"\n");
         assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn compute_short_hash_returns_7_chars() {
+        let hash = compute_short_hash(b"make build");
+        assert_eq!(hash.len(), 7);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn compute_short_hash_deterministic() {
+        let h1 = compute_short_hash(b"make build");
+        let h2 = compute_short_hash(b"make build");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn compute_short_hash_different_content() {
+        let h1 = compute_short_hash(b"make build");
+        let h2 = compute_short_hash(b"cargo build");
+        assert_ne!(h1, h2);
     }
 
     #[test]

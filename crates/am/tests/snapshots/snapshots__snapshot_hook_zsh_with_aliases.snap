@@ -1,5 +1,6 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 526
 expression: output
 ---
 printf '%s\n' 'am: loaded .aliases'
@@ -7,4 +8,4 @@ printf '%s\n' '  b → cargo build'
 printf '%s\n' '  t → cargo test'
 alias b="cargo build"
 alias t="cargo test"
-export _AM_PROJECT_ALIASES="b,t"
+export _AM_PROJECT_ALIASES="b|b58de66,t|ab61de4"
