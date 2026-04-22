@@ -168,39 +168,10 @@ impl Precedence {
         &self.shell_subcmd_state
     }
 
-    /// Permissive grouping of subcommand entries by program. Unlike
-    /// [`crate::subcommand::group_by_program`], this does NOT enforce equal
-    /// short/long counts — it treats `long_subcommands` as the verbatim
-    /// expansion for a given short key (e.g. `ab` → `abandon --force`).
-    fn group_subcommands_by_program(
-        subs: &SubcommandSet,
-    ) -> BTreeMap<String, Vec<SubcommandEntry>> {
-        let mut groups: BTreeMap<String, Vec<SubcommandEntry>> = BTreeMap::new();
-        for (key, longs) in subs {
-            let Some((program, rest)) = key.split_once(':') else {
-                continue;
-            };
-            if program.is_empty() || rest.is_empty() {
-                continue;
-            }
-            let short_subcommands: Vec<String> =
-                rest.split(':').map(|s| s.to_string()).collect();
-            if short_subcommands.iter().any(|s| s.is_empty()) {
-                continue;
-            }
-            groups.entry(program.to_string()).or_default().push(SubcommandEntry {
-                program: program.to_string(),
-                short_subcommands,
-                long_subcommands: longs.clone(),
-            });
-        }
-        groups
-    }
-
     pub fn resolve(self) -> PrecedenceDiff {
         let merged_aliases = self.merged_aliases();
         let merged_subcommands = self.merged_subcommands();
-        let subcmd_groups = Self::group_subcommands_by_program(&merged_subcommands);
+        let subcmd_groups = crate::subcommand::group_by_program(&merged_subcommands);
         let program_names: BTreeSet<String> = subcmd_groups.keys().cloned().collect();
 
         let mut effective: BTreeMap<String, EffectiveEntry> = BTreeMap::new();
@@ -579,7 +550,7 @@ mod tests {
     #[test]
     fn resolve_subcommand_different_keys_coexist_across_layers() {
         let profile_subs = subset(&[("jj:ab", &["abandon"])]);
-        let project_subs = subset(&[("jj:bl", &["branch", "list"])]);
+        let project_subs = subset(&[("jj:b:l", &["branch", "list"])]);
         let diff = Precedence::new()
             .with_profiles(&AliasSet::default(), &profile_subs)
             .with_project(&AliasSet::default(), &project_subs)
@@ -588,7 +559,7 @@ mod tests {
         match &wrapper.kind {
             EntryKind::SubcommandWrapper { entries, .. } => {
                 let keys: BTreeSet<_> = entries.iter().map(|e| e.to_key()).collect();
-                assert_eq!(keys, BTreeSet::from(["jj:ab".into(), "jj:bl".into()]));
+                assert_eq!(keys, BTreeSet::from(["jj:ab".into(), "jj:b:l".into()]));
             }
             _ => panic!(),
         }
@@ -597,7 +568,7 @@ mod tests {
     #[test]
     fn resolve_subcommand_project_key_overrides_profile_same_key() {
         let profile_subs = subset(&[("jj:ab", &["abandon"])]);
-        let project_subs = subset(&[("jj:ab", &["abandon", "--force"])]);
+        let project_subs = subset(&[("jj:ab", &["abandon-force"])]);
         let diff = Precedence::new()
             .with_profiles(&AliasSet::default(), &profile_subs)
             .with_project(&AliasSet::default(), &project_subs)
@@ -606,7 +577,7 @@ mod tests {
         match &wrapper.kind {
             EntryKind::SubcommandWrapper { entries, .. } => {
                 assert_eq!(entries.len(), 1);
-                assert_eq!(entries[0].long_subcommands, vec!["abandon", "--force"]);
+                assert_eq!(entries[0].long_subcommands, vec!["abandon-force"]);
             }
             _ => panic!(),
         }
