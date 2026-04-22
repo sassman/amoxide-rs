@@ -740,13 +740,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 {
                     let mut parts = Vec::new();
                     if !diff.added.is_empty() {
-                        parts.push(format!("{} added", diff.added.len()));
+                        parts.push(format!("{} loaded", diff.added.len()));
                     }
                     if !diff.changed.is_empty() {
                         parts.push(format!("{} updated", diff.changed.len()));
                     }
                     if !diff.removed.is_empty() {
-                        parts.push(format!("{} removed", diff.removed.len()));
+                        parts.push(format!("{} unloaded", diff.removed.len()));
                     }
                     if !parts.is_empty() {
                         lines.push(
@@ -1013,9 +1013,9 @@ fn profile_toggle_message(
     };
 
     let (primary_verb, secondary_verb) = if activated {
-        ("added", "shadowed by .aliases")
+        ("loaded", "shadowed by .aliases")
     } else {
-        ("removed", "kept by .aliases")
+        ("unloaded", "kept by .aliases")
     };
 
     match (unshadowed.is_empty(), shadowed.is_empty()) {
