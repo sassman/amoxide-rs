@@ -71,6 +71,16 @@ impl Precedence {
         self
     }
 
+    pub fn with_shell_state_from_env(
+        mut self,
+        aliases: Option<&str>,
+        subcommands: Option<&str>,
+    ) -> Self {
+        self.shell_alias_state = Self::parse_state(aliases);
+        self.shell_subcmd_state = Self::parse_state(subcommands);
+        self
+    }
+
     /// Internal: merged alias set keyed by shell-visible name,
     /// with project > profile > global precedence.
     fn merged_aliases(&self) -> BTreeMap<String, TomlAlias> {
@@ -113,6 +123,21 @@ impl Precedence {
         crate::trust::compute_short_hash(longs.join(",").as_bytes())
     }
 
+    fn parse_state(raw: Option<&str>) -> BTreeMap<String, Option<String>> {
+        let mut map = BTreeMap::new();
+        let Some(s) = raw.filter(|s| !s.is_empty()) else {
+            return map;
+        };
+        for entry in s.split(',') {
+            if let Some((name, hash)) = entry.split_once('|') {
+                map.insert(name.to_string(), Some(hash.to_string()));
+            } else {
+                map.insert(entry.to_string(), None);
+            }
+        }
+        map
+    }
+
     #[cfg(test)]
     fn merged_aliases_for_test(&self) -> BTreeMap<String, TomlAlias> {
         self.merged_aliases()
@@ -131,6 +156,16 @@ impl Precedence {
     #[cfg(test)]
     pub(crate) fn subcmd_key_hash_for_test(longs: &[String]) -> String {
         Self::subcmd_key_hash(longs)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn shell_alias_state_for_test(&self) -> &BTreeMap<String, Option<String>> {
+        &self.shell_alias_state
+    }
+
+    #[cfg(test)]
+    pub(crate) fn shell_subcmd_state_for_test(&self) -> &BTreeMap<String, Option<String>> {
+        &self.shell_subcmd_state
     }
 
     pub fn resolve(self) -> PrecedenceDiff {
@@ -217,5 +252,50 @@ mod tests {
             key_hash,
             Precedence::subcmd_key_hash_for_test(&["branch".into(), "list".into()])
         );
+    }
+
+    #[test]
+    fn parse_shell_state_new_format() {
+        let p = Precedence::new()
+            .with_shell_state_from_env(Some("b|abc1234,t|def5678"), None);
+        let aliases = p.shell_alias_state_for_test();
+        assert_eq!(aliases.get("b"), Some(&Some("abc1234".into())));
+        assert_eq!(aliases.get("t"), Some(&Some("def5678".into())));
+    }
+
+    #[test]
+    fn parse_shell_state_old_name_only_format_treated_as_unknown() {
+        let p = Precedence::new().with_shell_state_from_env(Some("b,t"), None);
+        let aliases = p.shell_alias_state_for_test();
+        assert_eq!(aliases.get("b"), Some(&None));
+        assert_eq!(aliases.get("t"), Some(&None));
+    }
+
+    #[test]
+    fn parse_shell_state_empty_and_none() {
+        let p1 = Precedence::new().with_shell_state_from_env(None, None);
+        assert!(p1.shell_alias_state_for_test().is_empty());
+        let p2 = Precedence::new().with_shell_state_from_env(Some(""), None);
+        assert!(p2.shell_alias_state_for_test().is_empty());
+    }
+
+    #[test]
+    fn parse_shell_state_mixed_format() {
+        let p = Precedence::new()
+            .with_shell_state_from_env(Some("b|abc1234,t,gs|fed9876"), None);
+        let aliases = p.shell_alias_state_for_test();
+        assert_eq!(aliases.get("b"), Some(&Some("abc1234".into())));
+        assert_eq!(aliases.get("t"), Some(&None));
+        assert_eq!(aliases.get("gs"), Some(&Some("fed9876".into())));
+    }
+
+    #[test]
+    fn parse_shell_state_subcommands_stored_separately() {
+        let p = Precedence::new()
+            .with_shell_state_from_env(Some("b|aaa0000"), Some("jj|bbb1111,jj:ab|ccc2222"));
+        assert!(p.shell_alias_state_for_test().contains_key("b"));
+        let subs = p.shell_subcmd_state_for_test();
+        assert_eq!(subs.get("jj"), Some(&Some("bbb1111".into())));
+        assert_eq!(subs.get("jj:ab"), Some(&Some("ccc2222".into())));
     }
 }
