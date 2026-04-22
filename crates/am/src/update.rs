@@ -696,9 +696,6 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         Message::Sync(shell, quiet) => {
             let prev_aliases = std::env::var(env_vars::AM_ALIASES).ok();
             let prev_subs = std::env::var(env_vars::AM_SUBCOMMANDS).ok();
-            // Legacy migration: if the new vars are empty but the old
-            // _AM_PROJECT_ALIASES exists, fold its entries into prev_aliases
-            // so the first sync after upgrade sees them as "known prior state".
             let legacy_project = std::env::var(env_vars::AM_PROJECT_ALIASES).ok();
             let merged_prev_aliases = match (prev_aliases.as_deref(), legacy_project.as_deref()) {
                 (None, None) => None,
@@ -706,6 +703,13 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 (None, Some(b)) => Some(b.to_string()),
                 (Some(a), Some(b)) => Some(format!("{a},{b}")),
             };
+            let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
+
+            let shell_cfg = model.config.shell.clone();
+            let cwd = model.cwd.clone();
+            let shell_impl = shell
+                .clone()
+                .as_shell(&shell_cfg, Default::default(), Default::default());
 
             let resolved_aliases = model
                 .profile_config()
@@ -714,15 +718,49 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .profile_config()
                 .resolve_active_subcommands(&model.session.active_profiles);
 
-            let (project_aliases, project_subs) = match model.project_trust() {
-                Some(t) if t.is_trusted() => model.project_alias_set_and_subcommands(),
-                _ => (crate::AliasSet::default(), crate::subcommand::SubcommandSet::new()),
+            // Decide project inclusion and evaluate trust warnings.
+            let mut lines: Vec<String> = Vec::new();
+            let mut security_changed = false;
+            let (include_project, project_path) = match model.project_trust() {
+                Some(crate::trust::ProjectTrust::Trusted(..)) => {
+                    (true, model.project_path().map(|p| p.to_path_buf()))
+                }
+                Some(trust) => {
+                    let path = trust.path().to_path_buf();
+                    let is_direct = path.parent().is_some_and(|p| p == cwd);
+                    let already_seen = prev_project_path
+                        .as_deref()
+                        .is_some_and(|p| std::path::Path::new(p) == path);
+                    let show_msg = !quiet && is_direct && !already_seen;
+                    match trust {
+                        crate::trust::ProjectTrust::Unknown(_) if show_msg => {
+                            lines.push(shell_impl.echo(
+                                "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
+                            ));
+                        }
+                        crate::trust::ProjectTrust::Tampered(_) => {
+                            security_changed = true;
+                            if show_msg {
+                                lines.push(shell_impl.echo(
+                                    "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
+                                ));
+                            }
+                        }
+                        _ => {}
+                    }
+                    (false, Some(path))
+                }
+                None => (false, None),
             };
 
-            let shell_cfg = model.config.shell.clone();
-            let shell_impl = shell
-                .clone()
-                .as_shell(&shell_cfg, Default::default(), Default::default());
+            let (project_aliases, project_subs) = if include_project {
+                model.project_alias_set_and_subcommands()
+            } else {
+                (crate::AliasSet::default(), crate::subcommand::SubcommandSet::new())
+            };
+
+            let is_fresh_load = merged_prev_aliases.as_deref().is_none_or(|s| s.is_empty())
+                && prev_subs.as_deref().is_none_or(|s| s.is_empty());
 
             let diff = Precedence::new()
                 .with_global(&model.config.aliases, &model.config.subcommands)
@@ -731,12 +769,83 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .with_shell_state_from_env(merged_prev_aliases.as_deref(), prev_subs.as_deref())
                 .resolve();
 
-            let output = precedence::render_diff(&diff, shell_impl.as_ref());
-            if !output.is_empty() {
-                print!("{output}");
+            // ── Human-readable messaging ────────────────────────
+            if !quiet {
+                if is_fresh_load && include_project {
+                    if let Some(path) = project_path.as_deref() {
+                        if let Ok(project) = crate::project::ProjectAliases::load(path) {
+                            for line in crate::trust::render_load_message(
+                                &project.aliases,
+                                &project.subcommands,
+                            )
+                            .lines()
+                            {
+                                lines.push(shell_impl.echo(line));
+                            }
+                        }
+                    }
+                } else if !is_fresh_load
+                    && (!diff.added.is_empty()
+                        || !diff.changed.is_empty()
+                        || !diff.removed.is_empty())
+                {
+                    let mut parts = Vec::new();
+                    if !diff.added.is_empty() {
+                        parts.push(format!("{} added", diff.added.len()));
+                    }
+                    if !diff.changed.is_empty() {
+                        parts.push(format!("{} updated", diff.changed.len()));
+                    }
+                    if !diff.removed.is_empty() {
+                        parts.push(format!("{} removed", diff.removed.len()));
+                    }
+                    if !parts.is_empty() {
+                        lines.push(shell_impl.echo(&format!(
+                            "am: aliases changed ({})",
+                            parts.join(", ")
+                        )));
+                    }
+                }
             }
-            let _ = quiet; // messaging/warning added in Task 10
-            Ok(UpdateResult::done())
+
+            let rendered = precedence::render_diff(&diff, shell_impl.as_ref());
+            if !rendered.is_empty() {
+                lines.push(rendered);
+            }
+
+            // ── _AM_PROJECT_PATH bookkeeping ───────────────────
+            if include_project {
+                if prev_project_path.is_some() {
+                    lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
+                }
+            } else if let Some(p) = project_path.as_deref() {
+                lines.push(shell_impl.set_env(
+                    env_vars::AM_PROJECT_PATH,
+                    &p.display().to_string(),
+                ));
+            } else if prev_project_path.is_some() {
+                lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
+            }
+
+            // ── Legacy env var cleanup on first sync after upgrade ──
+            if legacy_project.is_some() {
+                lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
+            }
+
+            let joined = lines
+                .into_iter()
+                .filter(|l| !l.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !joined.is_empty() {
+                print!("{joined}");
+            }
+
+            if security_changed {
+                Ok(UpdateResult::effect(Effect::SaveSecurity))
+            } else {
+                Ok(UpdateResult::done())
+            }
         }
         Message::ToggleProfiles(names) => {
             for name in &names {

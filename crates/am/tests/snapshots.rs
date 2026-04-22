@@ -1126,3 +1126,32 @@ fn sync_fresh_load_emits_aliases_and_env_var() {
     assert!(out.contains("_AM_ALIASES"));
     assert!(out.contains("gs|"));
 }
+
+#[test]
+fn sync_tampered_returns_save_security_effect_and_excludes_project() {
+    use amoxide::app_model::AppModel;
+    use amoxide::messages::Message;
+    use amoxide::shell::Shell;
+    use amoxide::update::update;
+
+    let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
+    fs::write(&aliases_path, "[aliases]\nt = \"cargo test\"\n").unwrap();
+
+    let mut sec = amoxide::security::SecurityConfig::default();
+    // Trust with a wrong hash to force tamper.
+    sec.trust(&aliases_path, "wrong_hash");
+    let mut model = AppModel::new_with_security(
+        amoxide::Config::default(),
+        amoxide::ProfileConfig::default(),
+        sec,
+    )
+    .with_cwd(dir.path().to_path_buf());
+
+    // Smoke test: we don't care about stdout, just the effect list.
+    let res = update(&mut model, Message::Sync(Shell::Fish, true)).unwrap();
+    assert!(
+        res.effects.iter().any(|e| matches!(e, amoxide::Effect::SaveSecurity)),
+        "tampered file must trigger SaveSecurity effect"
+    );
+}
