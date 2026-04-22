@@ -2,8 +2,10 @@
 /// Value: comma-separated list, e.g. `"gs,ll"`.
 pub const AM_ALIASES: &str = "_AM_ALIASES";
 
-/// Tracks project-level alias names loaded by the cd hook.
-/// Value: comma-separated list, e.g. `"b,t"`.
+/// Tracks project-level aliases loaded by the cd hook.
+/// Value: comma-separated entries of `name|short_hash`, e.g. `"b|a132b21,t|1241ab1"`.
+/// The short hash is the first 7 hex chars of the BLAKE3 hash of the alias value,
+/// enabling per-alias change detection on reload.
 pub const AM_PROJECT_ALIASES: &str = "_AM_PROJECT_ALIASES";
 
 /// Path of the `.aliases` file currently in scope, used to suppress
