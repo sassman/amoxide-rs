@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::alias::AliasSet;
 use crate::env_vars;
 use crate::project::ProjectAliases;
 use crate::security::{SecurityConfig, TrustStatus};
@@ -47,6 +48,7 @@ pub fn generate_hook(ctx: &ShellContext, previous_aliases: Option<&str>) -> crat
         prev_project_path.as_deref(),
         &mut security,
         false,
+        &AliasSet::default(),
     )?;
     Ok(output)
 }
@@ -68,6 +70,7 @@ pub fn generate_hook_with_security(
     prev_project_path: Option<&str>,
     security_config: &mut SecurityConfig,
     quiet: bool,
+    profile_aliases: &AliasSet,
 ) -> crate::Result<(String, bool)> {
     let shell_impl = ctx.shell.clone().as_shell(
         ctx.cfg,
@@ -91,6 +94,17 @@ pub fn generate_hook_with_security(
     let unload_prev = |lines: &mut Vec<String>| {
         for name in &unload_prev_names {
             lines.push(shell_impl.unalias(name));
+        }
+    };
+
+    // Helper: after unloading project aliases, re-emit any global/profile
+    // aliases that were shadowed by the now-removed project alias.
+    let restore_shadowed = |lines: &mut Vec<String>, names: &[String]| {
+        for name in names {
+            if let Some(alias) = profile_aliases.get(&crate::alias::AliasName::from(name.as_str()))
+            {
+                lines.push(shell_impl.alias(&alias.as_entry(name)));
+            }
         }
     };
 
@@ -187,6 +201,13 @@ pub fn generate_hook_with_security(
                                 lines.push(shell_impl.unalias(name));
                             }
                         }
+
+                        // Restore global/profile aliases that were shadowed by
+                        // removed project aliases. Changed aliases will be
+                        // reloaded with the new project value below.
+                        let removed_shell_names: Vec<String> =
+                            removed.iter().filter(|n| !n.contains(':')).cloned().collect();
+                        restore_shadowed(&mut lines, &removed_shell_names);
 
                         // 2. Show messages
                         if show_messages {
@@ -289,6 +310,7 @@ pub fn generate_hook_with_security(
                 }
                 TrustStatus::Unknown => {
                     unload_prev(&mut lines);
+                    restore_shadowed(&mut lines, &unload_prev_names);
                     if show_messages {
                         lines.push(shell_impl.echo(
                             "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
@@ -297,9 +319,11 @@ pub fn generate_hook_with_security(
                 }
                 TrustStatus::Untrusted => {
                     unload_prev(&mut lines);
+                    restore_shadowed(&mut lines, &unload_prev_names);
                 }
                 TrustStatus::Tampered => {
                     unload_prev(&mut lines);
+                    restore_shadowed(&mut lines, &unload_prev_names);
                     security_changed = true;
                     if show_messages {
                         lines.push(shell_impl.echo(
@@ -325,6 +349,7 @@ pub fn generate_hook_with_security(
         None => {
             if !prev.is_empty() {
                 unload_prev(&mut lines);
+                restore_shadowed(&mut lines, &unload_prev_names);
                 if !quiet {
                     let prev_names: Vec<&str> =
                         unload_prev_names.iter().map(|s| s.as_str()).collect();
@@ -446,6 +471,16 @@ mod tests {
         }
 
         fn run(&mut self, shell: &Shell, cwd: &Path, prev: Option<&str>) -> (String, bool) {
+            self.run_with_profile_aliases(shell, cwd, prev, &AliasSet::default())
+        }
+
+        fn run_with_profile_aliases(
+            &mut self,
+            shell: &Shell,
+            cwd: &Path,
+            prev: Option<&str>,
+            profile_aliases: &AliasSet,
+        ) -> (String, bool) {
             use crate::config::ShellsTomlConfig;
             let cfg = ShellsTomlConfig::default();
             let ctx = ShellContext {
@@ -455,7 +490,15 @@ mod tests {
                 external_functions: Default::default(),
                 external_aliases: Default::default(),
             };
-            generate_hook_with_security(&ctx, prev, None, &mut self.security, false).unwrap()
+            generate_hook_with_security(
+                &ctx,
+                prev,
+                None,
+                &mut self.security,
+                false,
+                profile_aliases,
+            )
+            .unwrap()
         }
 
         /// Update the .aliases content and re-trust.
@@ -964,5 +1007,161 @@ mod tests {
         let output = "export _AM_PROJECT_ALIASES=\"b|abc1234,t|def5678\"";
         let prev = extract_prev_aliases(output, &Shell::Bash);
         assert_eq!(prev, Some("b|abc1234,t|def5678".to_string()));
+    }
+
+    // ─── Shadow restoration tests ──────────────────────────────────
+
+    #[test]
+    fn test_hook_restores_shadowed_profile_alias_on_leave() {
+        let mut t = TestBed::new()
+            .with_aliases("[aliases]\nt = \"cargo test --release\"\n")
+            .with_security_trusted()
+            .setup();
+
+        let cwd = t.root();
+
+        // Build a profile alias set that also has "t"
+        let mut profile_aliases = AliasSet::default();
+        profile_aliases.insert("t".into(), crate::TomlAlias::Command("cargo test".into()));
+
+        // First: load project aliases
+        let (output, _) =
+            t.run_with_profile_aliases(&Shell::Fish, &cwd, None, &profile_aliases);
+        assert!(output.contains("alias t \"cargo test --release\""));
+        let prev = extract_prev_aliases(&output, &Shell::Fish);
+
+        // Now simulate cd away (no .aliases in new dir)
+        let empty_dir = tempfile::tempdir().unwrap();
+        let (output, _) = t.run_with_profile_aliases(
+            &Shell::Fish,
+            empty_dir.path(),
+            prev.as_deref(),
+            &profile_aliases,
+        );
+
+        // Project alias "t" should be unloaded
+        assert!(
+            output.contains("functions -e t"),
+            "should unload project alias t, got: {output}"
+        );
+        // Profile alias "t" should be restored
+        assert!(
+            output.contains("alias t \"cargo test\""),
+            "should restore profile alias t, got: {output}"
+        );
+    }
+
+    #[test]
+    fn test_hook_restores_shadowed_alias_on_untrusted() {
+        let mut t = TestBed::new()
+            .with_aliases("[aliases]\nt = \"cargo test --release\"\n")
+            .with_security_trusted()
+            .setup();
+
+        let cwd = t.root();
+        let mut profile_aliases = AliasSet::default();
+        profile_aliases.insert("t".into(), crate::TomlAlias::Command("cargo test".into()));
+
+        // Load project aliases
+        let (output, _) =
+            t.run_with_profile_aliases(&Shell::Fish, &cwd, None, &profile_aliases);
+        let prev = extract_prev_aliases(&output, &Shell::Fish);
+
+        // Tamper with the file (change without re-trusting)
+        std::fs::write(t.dir.path().join(".aliases"), "[aliases]\nt = \"hacked\"\n").unwrap();
+
+        // Hook detects tamper -> unloads project aliases -> should restore profile alias
+        let (output, _) = t.run_with_profile_aliases(
+            &Shell::Fish,
+            &cwd,
+            prev.as_deref(),
+            &profile_aliases,
+        );
+        assert!(
+            output.contains("functions -e t"),
+            "should unload project alias t, got: {output}"
+        );
+        assert!(
+            output.contains("alias t \"cargo test\""),
+            "should restore profile alias t, got: {output}"
+        );
+    }
+
+    #[test]
+    fn test_hook_restores_shadowed_alias_on_incremental_remove() {
+        let mut t = TestBed::new()
+            .with_aliases("[aliases]\nb = \"make build\"\nt = \"cargo test --release\"\n")
+            .with_security_trusted()
+            .setup();
+
+        let cwd = t.root();
+        let mut profile_aliases = AliasSet::default();
+        profile_aliases.insert("t".into(), crate::TomlAlias::Command("cargo test".into()));
+
+        // Load both project aliases
+        let (output, _) =
+            t.run_with_profile_aliases(&Shell::Fish, &cwd, None, &profile_aliases);
+        let prev = extract_prev_aliases(&output, &Shell::Fish);
+
+        // Remove "t" from project (keep "b")
+        t.update_aliases("[aliases]\nb = \"make build\"\n");
+
+        let (output, _) = t.run_with_profile_aliases(
+            &Shell::Fish,
+            &cwd,
+            prev.as_deref(),
+            &profile_aliases,
+        );
+
+        // "t" was removed from project -> should be unloaded then restored from profile
+        assert!(
+            output.contains("functions -e t"),
+            "removed alias t should be unloaded, got: {output}"
+        );
+        assert!(
+            output.contains("alias t \"cargo test\""),
+            "profile alias t should be restored after project removal, got: {output}"
+        );
+        // "b" should NOT be touched (unchanged)
+        assert!(
+            !output.contains("functions -e b"),
+            "unchanged alias b should not be unloaded, got: {output}"
+        );
+    }
+
+    #[test]
+    fn test_hook_no_restore_when_no_profile_shadow() {
+        let mut t = TestBed::new()
+            .with_aliases("[aliases]\nt = \"cargo test --release\"\n")
+            .with_security_trusted()
+            .setup();
+
+        let cwd = t.root();
+
+        // Empty profile — no shadow to restore
+        let profile_aliases = AliasSet::default();
+
+        let (output, _) =
+            t.run_with_profile_aliases(&Shell::Fish, &cwd, None, &profile_aliases);
+        let prev = extract_prev_aliases(&output, &Shell::Fish);
+
+        // cd away
+        let empty_dir = tempfile::tempdir().unwrap();
+        let (output, _) = t.run_with_profile_aliases(
+            &Shell::Fish,
+            empty_dir.path(),
+            prev.as_deref(),
+            &profile_aliases,
+        );
+
+        assert!(
+            output.contains("functions -e t"),
+            "should unload project alias t, got: {output}"
+        );
+        // No restore — there was no profile alias to bring back
+        assert!(
+            !output.contains("alias t"),
+            "should not restore any alias when profile has none, got: {output}"
+        );
     }
 }

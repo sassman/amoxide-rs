@@ -664,12 +664,23 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 external_functions: Default::default(),
                 external_aliases: Default::default(),
             };
+
+            // Resolve global + active profile aliases for shadow restoration
+            let resolved_profile = model
+                .profile_config()
+                .resolve_active_aliases(&model.session.active_profiles);
+            let mut all_profile_aliases = model.config.aliases.clone();
+            for (name, alias) in resolved_profile.iter() {
+                all_profile_aliases.insert(name.clone(), alias.clone());
+            }
+
             let (output, security_changed) = crate::hook::generate_hook_with_security(
                 &ctx,
                 prev.as_deref(),
                 prev_project_path.as_deref(),
                 model.security_config_mut(),
                 quiet,
+                &all_profile_aliases,
             )
             .map_err(|e| UpdateError::Other(e.to_string()))?;
             if !output.is_empty() {

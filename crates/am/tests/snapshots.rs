@@ -493,7 +493,7 @@ fn snapshot_hook_fish_with_aliases() {
         external_functions: Default::default(),
         external_aliases: Default::default(),
     };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false, &AliasSet::default()).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -522,7 +522,7 @@ fn snapshot_hook_zsh_with_aliases() {
         external_functions: Default::default(),
         external_aliases: Default::default(),
     };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false, &AliasSet::default()).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -551,7 +551,7 @@ fn snapshot_hook_powershell_with_aliases() {
         external_functions: Default::default(),
         external_aliases: Default::default(),
     };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false, &AliasSet::default()).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -580,7 +580,7 @@ fn snapshot_hook_bash_with_aliases() {
         external_functions: Default::default(),
         external_aliases: Default::default(),
     };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
+    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false, &AliasSet::default()).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -609,7 +609,7 @@ fn snapshot_hook_fish_transition() {
         external_aliases: Default::default(),
     };
     let (output, _) =
-        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();
+        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false, &AliasSet::default()).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -626,7 +626,7 @@ fn snapshot_hook_fish_leaving_project() {
         external_aliases: Default::default(),
     };
     let (output, _) =
-        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();
+        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false, &AliasSet::default()).unwrap();
     insta::assert_snapshot!(output);
 }
 
