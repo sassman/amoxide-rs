@@ -287,6 +287,74 @@ impl Precedence {
     }
 }
 
+use crate::env_vars;
+use crate::shell::ShellAdapter;
+
+/// Render a [`PrecedenceDiff`] into shell code using the given adapter.
+///
+/// Emission order:
+///   1. unload (removed + changed) — skipping subcommand-key names (they're
+///      tracking-only, not shell functions)
+///   2. load (added + changed)
+///   3. set `_AM_ALIASES` / `_AM_SUBCOMMANDS` to the union of added + changed
+///      + unchanged
+pub fn render_diff(diff: &PrecedenceDiff, shell: &dyn ShellAdapter) -> String {
+    let mut lines: Vec<String> = Vec::new();
+
+    // 1. Unload
+    for name in &diff.removed {
+        if name.contains(':') {
+            continue;
+        }
+        lines.push(shell.unalias(name));
+    }
+    for entry in &diff.changed {
+        if matches!(entry.kind, EntryKind::SubcommandKey { .. }) {
+            continue;
+        }
+        if entry.name.contains(':') {
+            continue;
+        }
+        lines.push(shell.unalias(&entry.name));
+    }
+
+    // 2. Load (added + changed)
+    for entry in diff.added.iter().chain(diff.changed.iter()) {
+        match &entry.kind {
+            EntryKind::Alias(alias) => {
+                lines.push(shell.alias(&alias.as_entry(&entry.name)));
+            }
+            EntryKind::SubcommandWrapper { program, entries, base_cmd } => {
+                let cmd = base_cmd
+                    .clone()
+                    .unwrap_or_else(|| format!("command {program}"));
+                lines.push(shell.subcommand_wrapper(program, &cmd, entries));
+            }
+            EntryKind::SubcommandKey { .. } => {}
+        }
+    }
+
+    // 3. Update tracking env vars
+    let mut alias_pairs = Vec::new();
+    let mut sub_pairs = Vec::new();
+    for e in diff.added.iter().chain(diff.changed.iter()).chain(diff.unchanged.iter()) {
+        let pair = format!("{}|{}", e.name, e.hash);
+        match &e.kind {
+            EntryKind::SubcommandKey { .. } => sub_pairs.push(pair),
+            _ => alias_pairs.push(pair),
+        }
+    }
+
+    if !alias_pairs.is_empty() {
+        lines.push(shell.set_env(env_vars::AM_ALIASES, &alias_pairs.join(",")));
+    }
+    if !sub_pairs.is_empty() {
+        lines.push(shell.set_env(env_vars::AM_SUBCOMMANDS, &sub_pairs.join(",")));
+    }
+
+    lines.join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -658,5 +726,38 @@ mod tests {
         assert!(find(&diff.added, "jj:bl").is_some(), "new key must be added");
         // jj:ab itself unchanged
         assert!(find(&diff.unchanged, "jj:ab").is_some(), "jj:ab entry itself is unchanged");
+    }
+
+    use crate::config::ShellsTomlConfig;
+    use crate::shell::Shell;
+
+    #[test]
+    fn render_emits_unloads_then_loads_then_env() {
+        let cfg = ShellsTomlConfig::default();
+        let shell = Shell::Fish.as_shell(&cfg, Default::default(), Default::default());
+
+        // Previous shell state: `b|0000000,gone|aaa` ; new effective: `b|make build`.
+        let project = aset(&[("b", "make build")]);
+        let diff = Precedence::new()
+            .with_project(&project, &SubcommandSet::new())
+            .with_shell_state_from_env(Some("b|0000000,gone|aaa"), None)
+            .resolve();
+
+        let out = crate::precedence::render_diff(&diff, shell.as_ref());
+        assert!(out.contains("functions -e gone"), "gone must be unloaded: {out}");
+        assert!(out.contains("functions -e b"), "changed b must be unloaded: {out}");
+        assert!(out.contains("alias b \"make build\""), "b must be reloaded: {out}");
+        // env-var update must be the last section
+        let env_pos = out.find("_AM_ALIASES").expect("env update missing");
+        let alias_pos = out.find("alias b").unwrap();
+        assert!(env_pos > alias_pos, "env update must come after loads");
+    }
+
+    #[test]
+    fn render_empty_diff_produces_empty_string() {
+        let cfg = ShellsTomlConfig::default();
+        let shell = Shell::Fish.as_shell(&cfg, Default::default(), Default::default());
+        let out = crate::precedence::render_diff(&PrecedenceDiff::default(), shell.as_ref());
+        assert!(out.is_empty());
     }
 }

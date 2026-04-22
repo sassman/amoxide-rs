@@ -8,6 +8,12 @@ pub const AM_ALIASES: &str = "_AM_ALIASES";
 /// enabling per-alias change detection on reload.
 pub const AM_PROJECT_ALIASES: &str = "_AM_PROJECT_ALIASES";
 
+/// Tracks effective subcommand-key state in the shell.
+/// Value: comma-separated entries of `name|short_hash`, covering both
+/// program-level wrapper hashes (e.g. `jj|abc1234`) and per-key entry
+/// hashes (e.g. `jj:ab|def5678`).
+pub const AM_SUBCOMMANDS: &str = "_AM_SUBCOMMANDS";
+
 /// Path of the `.aliases` file currently in scope, used to suppress
 /// duplicate hook messages when navigating into subdirectories.
 pub const AM_PROJECT_PATH: &str = "_AM_PROJECT_PATH";
