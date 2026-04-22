@@ -5,5 +5,7 @@ expression: output
 functions -e old1
 functions -e new1
 complete -e -c new1
-alias new1 "echo new"
+function new1
+    echo new $argv
+end
 set -gx _AM_ALIASES "new1|4d1fcee"

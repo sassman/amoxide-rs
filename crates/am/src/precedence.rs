@@ -786,13 +786,13 @@ mod tests {
             "changed b must be unloaded: {out}"
         );
         assert!(
-            out.contains("alias b \"make build\""),
+            out.contains("function b\n    make build $argv\nend"),
             "b must be reloaded: {out}"
         );
         // env-var update must be the last section
         let env_pos = out.find("_AM_ALIASES").expect("env update missing");
-        let alias_pos = out.find("alias b").unwrap();
-        assert!(env_pos > alias_pos, "env update must come after loads");
+        let fn_pos = out.find("function b").unwrap();
+        assert!(env_pos > fn_pos, "env update must come after loads");
     }
 
     #[test]

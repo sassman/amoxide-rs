@@ -169,8 +169,8 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("alias gs \"git status\""));
-        assert!(output.contains("alias ll \"ls -lha\""));
+        assert!(output.contains("function gs\n    git status $argv\nend"));
+        assert!(output.contains("function ll\n    ls -lha $argv\nend"));
     }
 
     #[test]
@@ -275,7 +275,7 @@ mod tests {
             &AliasSet::default(),
             &SubcommandSet::new(),
         );
-        assert!(output.contains("alias ll \"ls -lha\""));
+        assert!(output.contains("function ll\n    ls -lha $argv\nend"));
     }
 
     #[test]

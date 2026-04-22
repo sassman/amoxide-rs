@@ -5,5 +5,7 @@ expression: output
 functions -e b
 functions -e b
 complete -e -c b
-alias b "cargo build --release"
+function b
+    cargo build --release $argv
+end
 set -gx _AM_ALIASES "b|0dc3caa,t|ab61de4"

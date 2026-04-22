@@ -4,10 +4,14 @@ expression: output
 ---
 functions -e gs
 complete -e -c gs
-alias gs "git status"
+function gs
+    git status $argv
+end
 functions -e ll
 complete -e -c ll
-alias ll "ls -lha"
+function ll
+    ls -lha $argv
+end
 set -gx _AM_ALIASES "gs|22db469,ll|619d266"
 # am wrapper: sync after mutations
 function am --wraps=am

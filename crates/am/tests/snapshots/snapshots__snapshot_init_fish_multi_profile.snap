@@ -4,7 +4,9 @@ expression: output
 ---
 functions -e cm
 complete -e -c cm
-alias cm "git commit -sm"
+function cm
+    git commit -sm $argv
+end
 functions -e cmf
 complete -e -c cmf
 function cmf
@@ -12,7 +14,9 @@ function cmf
 end
 functions -e gs
 complete -e -c gs
-alias gs "git status"
+function gs
+    git status $argv
+end
 set -gx _AM_ALIASES "cm|bed528f,cmf|9c99949,gs|22db469"
 # am wrapper: sync after mutations
 function am --wraps=am

@@ -680,7 +680,7 @@ fn sync_fresh_load_emits_aliases_and_env_var() {
         .resolve();
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let out = render_diff(&diff, shell.as_ref());
-    assert!(out.contains("alias gs \"git status\""));
+    assert!(out.contains("function gs\n    git status $argv\nend"));
     assert!(out.contains("_AM_ALIASES"));
     assert!(out.contains("gs|"));
 }

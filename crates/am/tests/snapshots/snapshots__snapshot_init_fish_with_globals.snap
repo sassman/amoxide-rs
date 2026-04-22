@@ -4,10 +4,14 @@ expression: output
 ---
 functions -e ct
 complete -e -c ct
-alias ct "cargo test"
+function ct
+    cargo test $argv
+end
 functions -e ll
 complete -e -c ll
-alias ll "ls -lha"
+function ll
+    ls -lha $argv
+end
 set -gx _AM_ALIASES "ct|ab61de4,ll|619d266"
 # am wrapper: sync after mutations
 function am --wraps=am
