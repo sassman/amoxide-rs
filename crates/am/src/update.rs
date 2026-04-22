@@ -669,40 +669,42 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .profile_config()
                 .resolve_active_subcommands(&model.session.active_profiles);
 
-            // Decide project inclusion and evaluate trust warnings.
+            // Resolve project state. `project_path` is the `.aliases` file path
+            // (regardless of trust); `include_project` is true only when trusted.
+            let project_path = model.project_trust().map(|t| t.path().to_path_buf());
+            let is_direct = project_path
+                .as_deref()
+                .is_some_and(|p| p.parent().is_some_and(|pp| pp == cwd));
+            let already_seen_path = match (prev_project_path.as_deref(), project_path.as_deref()) {
+                (Some(prev), Some(cur)) => std::path::Path::new(prev) == cur,
+                _ => false,
+            };
+            let show_warn = !quiet && is_direct && !already_seen_path;
+
             let mut lines: Vec<String> = Vec::new();
             let mut security_changed = false;
-            let (include_project, project_path) = match model.project_trust() {
+            let mut include_project = false;
+            match model.project_trust() {
                 Some(crate::trust::ProjectTrust::Trusted(..)) => {
-                    (true, model.project_path().map(|p| p.to_path_buf()))
+                    include_project = true;
                 }
-                Some(trust) => {
-                    let path = trust.path().to_path_buf();
-                    let is_direct = path.parent().is_some_and(|p| p == cwd);
-                    let already_seen = prev_project_path
-                        .as_deref()
-                        .is_some_and(|p| std::path::Path::new(p) == path);
-                    let show_msg = !quiet && is_direct && !already_seen;
-                    match trust {
-                        crate::trust::ProjectTrust::Unknown(_) if show_msg => {
-                            lines.push(shell_impl.echo(
-                                "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
-                            ));
-                        }
-                        crate::trust::ProjectTrust::Tampered(_) => {
-                            security_changed = true;
-                            if show_msg {
-                                lines.push(shell_impl.echo(
-                                    "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
-                                ));
-                            }
-                        }
-                        _ => {}
+                Some(crate::trust::ProjectTrust::Unknown(_)) => {
+                    if show_warn {
+                        lines.push(shell_impl.echo(
+                            "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
+                        ));
                     }
-                    (false, Some(path))
                 }
-                None => (false, None),
-            };
+                Some(crate::trust::ProjectTrust::Tampered(_)) => {
+                    security_changed = true;
+                    if show_warn {
+                        lines.push(shell_impl.echo(
+                            "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
+                        ));
+                    }
+                }
+                Some(crate::trust::ProjectTrust::Untrusted(_)) | None => {}
+            }
 
             let (project_aliases, project_subs) = if include_project {
                 model.project_alias_set_and_subcommands()
@@ -713,8 +715,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 )
             };
 
-            let is_fresh_load = prev_aliases.as_deref().is_none_or(|s| s.is_empty())
-                && prev_subs.as_deref().is_none_or(|s| s.is_empty());
+            // Fresh project load: we're directly in a trusted project we haven't
+            // seen before (or cd'd into a different project). Triggers the full
+            // listing instead of the compact incremental summary.
+            let is_fresh_project_load = include_project && is_direct && !already_seen_path;
 
             let diff = Precedence::new()
                 .with_global(&model.config.aliases, &model.config.subcommands)
@@ -725,23 +729,15 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
 
             // ── Human-readable messaging ────────────────────────
             if !quiet {
-                if is_fresh_load && include_project {
-                    if let Some(path) = project_path.as_deref() {
-                        if let Ok(project) = crate::project::ProjectAliases::load(path) {
-                            for line in crate::trust::render_load_message(
-                                &project.aliases,
-                                &project.subcommands,
-                            )
-                            .lines()
-                            {
-                                lines.push(shell_impl.echo(line));
-                            }
-                        }
+                if is_fresh_project_load {
+                    for line in
+                        crate::trust::render_load_message(&project_aliases, &project_subs).lines()
+                    {
+                        lines.push(shell_impl.echo(line));
                     }
-                } else if !is_fresh_load
-                    && (!diff.added.is_empty()
-                        || !diff.changed.is_empty()
-                        || !diff.removed.is_empty())
+                } else if !diff.added.is_empty()
+                    || !diff.changed.is_empty()
+                    || !diff.removed.is_empty()
                 {
                     let mut parts = Vec::new();
                     if !diff.added.is_empty() {
@@ -767,14 +763,18 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
 
             // ── _AM_PROJECT_PATH bookkeeping ───────────────────
-            if include_project {
-                if prev_project_path.is_some() {
+            // Always track the current project path (regardless of trust) so
+            // subsequent syncs can detect "first time in this project".
+            let current_path_str = project_path.as_ref().map(|p| p.display().to_string());
+            match (prev_project_path.as_deref(), current_path_str.as_deref()) {
+                (Some(prev), Some(cur)) if prev == cur => {}
+                (_, Some(cur)) => {
+                    lines.push(shell_impl.set_env(env_vars::AM_PROJECT_PATH, cur));
+                }
+                (Some(_), None) => {
                     lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
                 }
-            } else if let Some(p) = project_path.as_deref() {
-                lines.push(shell_impl.set_env(env_vars::AM_PROJECT_PATH, &p.display().to_string()));
-            } else if prev_project_path.is_some() {
-                lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
+                (None, None) => {}
             }
 
             let joined = lines
