@@ -81,6 +81,19 @@ impl Precedence {
         self
     }
 
+    pub fn with_shell_state_from_introspection(
+        mut self,
+        functions: &HashSet<String>,
+        aliases: &HashSet<String>,
+    ) -> Self {
+        for name in functions.iter().chain(aliases.iter()) {
+            self.shell_alias_state.entry(name.clone()).or_insert(None);
+        }
+        self.external_functions = functions.clone();
+        self.external_aliases = aliases.clone();
+        self
+    }
+
     /// Internal: merged alias set keyed by shell-visible name,
     /// with project > profile > global precedence.
     fn merged_aliases(&self) -> BTreeMap<String, TomlAlias> {
@@ -599,6 +612,31 @@ mod tests {
         assert!(diff.changed.is_empty(), "got changed: {:?}", diff.changed);
         assert!(diff.removed.is_empty(), "got removed: {:?}", diff.removed);
         assert_eq!(diff.unchanged.len(), 2, "jj wrapper + jj:ab key both unchanged");
+    }
+
+    #[test]
+    fn introspection_adds_names_with_unknown_hash() {
+        let mut fns = HashSet::new();
+        fns.insert("gs".to_string());
+        let mut aliases = HashSet::new();
+        aliases.insert("ll".to_string());
+        let p = Precedence::new()
+            .with_shell_state_from_env(Some("b|abc1234"), None)
+            .with_shell_state_from_introspection(&fns, &aliases);
+        let state = p.shell_alias_state_for_test();
+        assert_eq!(state.get("b"), Some(&Some("abc1234".into())));
+        assert_eq!(state.get("gs"), Some(&None));
+        assert_eq!(state.get("ll"), Some(&None));
+    }
+
+    #[test]
+    fn introspection_does_not_overwrite_known_hashes() {
+        let mut fns = HashSet::new();
+        fns.insert("b".to_string());
+        let p = Precedence::new()
+            .with_shell_state_from_env(Some("b|abc1234"), None)
+            .with_shell_state_from_introspection(&fns, &HashSet::new());
+        assert_eq!(p.shell_alias_state_for_test().get("b"), Some(&Some("abc1234".into())));
     }
 
     #[test]
