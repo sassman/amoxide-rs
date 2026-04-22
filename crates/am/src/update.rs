@@ -3,7 +3,7 @@ pub use crate::app_model::AppModel;
 use crate::display::render_listing;
 use crate::effects::Effect;
 use crate::env_vars;
-use crate::init::{generate_init, generate_reload};
+use crate::init::generate_init;
 use crate::precedence::{self, Precedence};
 use crate::profile::AliasCollection;
 use crate::project::ProjectAliases;
@@ -593,13 +593,11 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     Default::default(),
                 );
                 let prev_global = std::env::var(env_vars::AM_ALIASES).unwrap_or_default();
-                let prev_legacy_project =
-                    std::env::var(env_vars::AM_PROJECT_ALIASES).unwrap_or_default();
                 let prev_subs = std::env::var(env_vars::AM_SUBCOMMANDS).unwrap_or_default();
 
                 let mut names: std::collections::BTreeSet<String> =
                     std::collections::BTreeSet::new();
-                for raw in prev_global.split(',').chain(prev_legacy_project.split(',')) {
+                for raw in prev_global.split(',') {
                     let name = raw.split_once('|').map_or(raw, |(n, _)| n);
                     if !name.is_empty() && !name.contains(':') {
                         names.insert(name.to_string());
@@ -635,8 +633,6 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     output.push_str(&shell_impl.force_unalias(name));
                     output.push('\n');
                 }
-                output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
-                output.push('\n');
                 output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
                 output.push('\n');
                 output.push_str(&shell_impl.unset_env(env_vars::AM_SUBCOMMANDS));
@@ -654,87 +650,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             print!("{output}");
             Ok(UpdateResult::done())
         }
-        Message::Reload(shell) => {
-            let resolved = model
-                .profile_config()
-                .resolve_active_aliases(&model.session.active_profiles);
-            let resolved_subs = model
-                .profile_config()
-                .resolve_active_subcommands(&model.session.active_profiles);
-            let mut all_subs = model.config.subcommands.clone();
-            for (k, v) in resolved_subs {
-                all_subs.insert(k, v);
-            }
-            let prev = std::env::var(env_vars::AM_ALIASES).ok();
-            let ctx = ShellContext {
-                shell: &shell,
-                cfg: &model.config.shell,
-                cwd: &model.cwd,
-                external_functions: Default::default(),
-                external_aliases: Default::default(),
-            };
-            let output = generate_reload(
-                &ctx,
-                &model.config.aliases,
-                &resolved,
-                &all_subs,
-                prev.as_deref(),
-            );
-            if !output.is_empty() {
-                print!("{output}");
-            }
-            Ok(UpdateResult::done())
-        }
-        Message::Hook(shell, quiet) => {
-            let prev = std::env::var(env_vars::AM_PROJECT_ALIASES).ok();
-            let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
-            let shell_cfg = model.config.shell.clone();
-            let cwd = model.cwd.clone();
-            let ctx = ShellContext {
-                shell: &shell,
-                cfg: &shell_cfg,
-                cwd: &cwd,
-                external_functions: Default::default(),
-                external_aliases: Default::default(),
-            };
-
-            // Resolve global + active profile aliases for shadow restoration
-            let resolved_profile = model
-                .profile_config()
-                .resolve_active_aliases(&model.session.active_profiles);
-            let mut all_profile_aliases = model.config.aliases.clone();
-            for (name, alias) in resolved_profile.iter() {
-                all_profile_aliases.insert(name.clone(), alias.clone());
-            }
-
-            let (output, security_changed) = crate::hook::generate_hook_with_security(
-                &ctx,
-                prev.as_deref(),
-                prev_project_path.as_deref(),
-                model.security_config_mut(),
-                quiet,
-                &all_profile_aliases,
-            )
-            .map_err(|e| UpdateError::Other(e.to_string()))?;
-            if !output.is_empty() {
-                print!("{output}");
-            }
-            if security_changed {
-                Ok(UpdateResult::effect(Effect::SaveSecurity))
-            } else {
-                Ok(UpdateResult::done())
-            }
-        }
         Message::Sync(shell, quiet) => {
             let prev_aliases = std::env::var(env_vars::AM_ALIASES).ok();
             let prev_subs = std::env::var(env_vars::AM_SUBCOMMANDS).ok();
-            let legacy_project = std::env::var(env_vars::AM_PROJECT_ALIASES).ok();
-            let merged_prev_aliases = match (prev_aliases.as_deref(), legacy_project.as_deref()) {
-                (None, None) => None,
-                (Some(a), None) => Some(a.to_string()),
-                (None, Some(b)) => Some(b.to_string()),
-                (Some(a), Some(b)) => Some(format!("{a},{b}")),
-            };
             let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
 
             let shell_cfg = model.config.shell.clone();
@@ -791,14 +709,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 (crate::AliasSet::default(), crate::subcommand::SubcommandSet::new())
             };
 
-            let is_fresh_load = merged_prev_aliases.as_deref().is_none_or(|s| s.is_empty())
+            let is_fresh_load = prev_aliases.as_deref().is_none_or(|s| s.is_empty())
                 && prev_subs.as_deref().is_none_or(|s| s.is_empty());
 
             let diff = Precedence::new()
                 .with_global(&model.config.aliases, &model.config.subcommands)
                 .with_profiles(&resolved_aliases, &resolved_subs)
                 .with_project(&project_aliases, &project_subs)
-                .with_shell_state_from_env(merged_prev_aliases.as_deref(), prev_subs.as_deref())
+                .with_shell_state_from_env(prev_aliases.as_deref(), prev_subs.as_deref())
                 .resolve();
 
             // ── Human-readable messaging ────────────────────────
@@ -857,11 +775,6 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 ));
             } else if prev_project_path.is_some() {
                 lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
-            }
-
-            // ── Legacy env var cleanup on first sync after upgrade ──
-            if legacy_project.is_some() {
-                lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
             }
 
             let joined = lines

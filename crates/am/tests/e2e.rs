@@ -8,17 +8,17 @@
 /// CI primes the shell environment before invoking this suite.
 use std::process::Command;
 
-/// Proof that the `_AM_DETECTING_ALIASES` guard works: when `am hook` is invoked
+/// Proof that the `_AM_DETECTING_ALIASES` guard works: when `am sync` is invoked
 /// while the env var is set (as it happens during alias scanning), the binary must
 /// exit cleanly with no stdout so that `eval "$(...)"` in shell startup scripts
 /// is a no-op — preventing infinite recursion.
 ///
-/// Without the guard `am hook zsh` in a directory containing an `.aliases` file
+/// Without the guard `am sync zsh` in a directory containing an `.aliases` file
 /// outputs shell code (at minimum a trust warning), which would be eval'd by the
 /// child zsh and could trigger another scan cycle.
 #[test]
 #[ignore = "e2e: requires the am binary and a zsh installation"]
-fn am_hook_is_silent_when_am_detecting_aliases_guard_is_active() {
+fn am_sync_is_silent_when_am_detecting_aliases_guard_is_active() {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     std::fs::write(
         dir.path().join(".aliases"),
@@ -27,9 +27,8 @@ fn am_hook_is_silent_when_am_detecting_aliases_guard_is_active() {
     .unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_am"))
-        .args(["hook", "zsh"])
+        .args(["sync", "zsh"])
         .env("_AM_DETECTING_ALIASES", "1")
-        .env_remove("_AM_PROJECT_ALIASES")
         .env_remove("_AM_PROJECT_PATH")
         .current_dir(dir.path())
         .output()
@@ -43,7 +42,7 @@ fn am_hook_is_silent_when_am_detecting_aliases_guard_is_active() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.is_empty(),
-        "am hook must produce no stdout when _AM_DETECTING_ALIASES is set\n\
+        "am sync must produce no stdout when _AM_DETECTING_ALIASES is set\n\
          (any output would be eval'd by the shell and could cause recursion)\n\
          got: {stdout:?}"
     );

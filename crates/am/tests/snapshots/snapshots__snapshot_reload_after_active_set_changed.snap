@@ -1,9 +1,0 @@
----
-source: crates/am/tests/snapshots.rs
-expression: output
----
-functions -e ct
-functions -e gs
-alias ct "cargo test"
-alias ll "ls -lha"
-set -gx _AM_ALIASES "ct,ll"

@@ -35,8 +35,6 @@ pub enum Message {
         raw: bool,
     },
     InitShell(Shell, bool),
-    Hook(Shell, bool),
-    Reload(Shell),
     Sync(Shell, bool),
 
     ToggleProfiles(Vec<String>),
