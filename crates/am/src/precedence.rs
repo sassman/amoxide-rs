@@ -95,9 +95,42 @@ impl Precedence {
         out
     }
 
+    fn alias_hash(alias: &TomlAlias) -> String {
+        crate::trust::compute_short_hash(alias.command().as_bytes())
+    }
+
+    fn subcmd_program_hash(program: &str, subs: &SubcommandSet) -> String {
+        let entries_str: String = subs
+            .iter()
+            .filter(|(k, _)| k.starts_with(&format!("{program}:")))
+            .map(|(k, v)| format!("{k}={}", v.join(",")))
+            .collect::<Vec<_>>()
+            .join(";");
+        crate::trust::compute_short_hash(entries_str.as_bytes())
+    }
+
+    fn subcmd_key_hash(longs: &[String]) -> String {
+        crate::trust::compute_short_hash(longs.join(",").as_bytes())
+    }
+
     #[cfg(test)]
     fn merged_aliases_for_test(&self) -> BTreeMap<String, TomlAlias> {
         self.merged_aliases()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn alias_hash_for_test(alias: &TomlAlias) -> String {
+        Self::alias_hash(alias)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn subcmd_program_hash_for_test(program: &str, subs: &SubcommandSet) -> String {
+        Self::subcmd_program_hash(program, subs)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn subcmd_key_hash_for_test(longs: &[String]) -> String {
+        Self::subcmd_key_hash(longs)
     }
 
     pub fn resolve(self) -> PrecedenceDiff {
@@ -150,5 +183,39 @@ mod tests {
             .with_profiles(&profile, &SubcommandSet::new());
         let merged = p.merged_aliases_for_test();
         assert_eq!(merged.get("t").unwrap().command(), "profile-t");
+    }
+
+    #[test]
+    fn hash_alias_stable_and_differs_by_command() {
+        let a = TomlAlias::Command("make build".into());
+        let b = TomlAlias::Command("cargo build".into());
+        let h_a = Precedence::alias_hash_for_test(&a);
+        let h_b = Precedence::alias_hash_for_test(&b);
+        assert_eq!(h_a.len(), 7);
+        assert_ne!(h_a, h_b);
+        assert_eq!(h_a, Precedence::alias_hash_for_test(&a));
+    }
+
+    #[test]
+    fn hash_subcmd_program_includes_all_entries_under_it() {
+        let mut a = SubcommandSet::new();
+        a.insert("jj:ab".into(), vec!["abandon".into()]);
+        let mut b = a.clone();
+        b.insert("jj:bl".into(), vec!["branch".into(), "list".into()]);
+
+        let h_a = Precedence::subcmd_program_hash_for_test("jj", &a);
+        let h_b = Precedence::subcmd_program_hash_for_test("jj", &b);
+        assert_eq!(h_a.len(), 7);
+        assert_ne!(h_a, h_b, "adding jj:bl must change jj program hash");
+    }
+
+    #[test]
+    fn hash_subcmd_key_hashes_long_subcommands() {
+        let key_hash = Precedence::subcmd_key_hash_for_test(&["branch".into(), "list".into()]);
+        assert_eq!(key_hash.len(), 7);
+        assert_eq!(
+            key_hash,
+            Precedence::subcmd_key_hash_for_test(&["branch".into(), "list".into()])
+        );
     }
 }
