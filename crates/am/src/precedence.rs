@@ -169,7 +169,42 @@ impl Precedence {
     }
 
     pub fn resolve(self) -> PrecedenceDiff {
-        PrecedenceDiff::default()
+        let mut effective: BTreeMap<String, EffectiveEntry> = BTreeMap::new();
+
+        for (name, alias) in self.merged_aliases() {
+            let hash = Self::alias_hash(&alias);
+            effective.insert(
+                name.clone(),
+                EffectiveEntry {
+                    name,
+                    kind: EntryKind::Alias(alias),
+                    hash,
+                },
+            );
+        }
+
+        let mut diff = PrecedenceDiff::default();
+
+        for (name, _prev_hash) in &self.shell_alias_state {
+            if !effective.contains_key(name) {
+                diff.removed.push(name.clone());
+            }
+        }
+
+        for (name, entry) in effective {
+            match self.shell_alias_state.get(&name) {
+                None => diff.added.push(entry),
+                Some(prev) => {
+                    if prev.as_deref() == Some(entry.hash.as_str()) {
+                        diff.unchanged.push(entry);
+                    } else {
+                        diff.changed.push(entry);
+                    }
+                }
+            }
+        }
+
+        diff
     }
 }
 
@@ -297,5 +332,103 @@ mod tests {
         let subs = p.shell_subcmd_state_for_test();
         assert_eq!(subs.get("jj"), Some(&Some("bbb1111".into())));
         assert_eq!(subs.get("jj:ab"), Some(&Some("ccc2222".into())));
+    }
+
+    fn find<'a>(v: &'a [EffectiveEntry], name: &str) -> Option<&'a EffectiveEntry> {
+        v.iter().find(|e| e.name == name)
+    }
+
+    fn cmd_of(entry: &EffectiveEntry) -> &str {
+        match &entry.kind {
+            EntryKind::Alias(a) => a.command(),
+            _ => panic!("expected Alias, got {:?}", entry.kind),
+        }
+    }
+
+    #[test]
+    fn resolve_fresh_load_everything_added() {
+        let global = aset(&[("ll", "ls -lha")]);
+        let profile = aset(&[("gs", "git status")]);
+        let project = aset(&[("b", "make build")]);
+        let diff = Precedence::new()
+            .with_global(&global, &SubcommandSet::new())
+            .with_profiles(&profile, &SubcommandSet::new())
+            .with_project(&project, &SubcommandSet::new())
+            .resolve();
+        let added_names: BTreeSet<_> = diff.added.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(
+            added_names,
+            BTreeSet::from(["ll", "gs", "b"]),
+        );
+        assert!(diff.changed.is_empty());
+        assert!(diff.removed.is_empty());
+        assert!(diff.unchanged.is_empty());
+    }
+
+    #[test]
+    fn resolve_unchanged_when_hashes_match() {
+        let project = aset(&[("b", "make build")]);
+        let hash = Precedence::alias_hash_for_test(&TomlAlias::Command("make build".into()));
+        let prev = format!("b|{hash}");
+        let diff = Precedence::new()
+            .with_project(&project, &SubcommandSet::new())
+            .with_shell_state_from_env(Some(&prev), None)
+            .resolve();
+        assert!(diff.added.is_empty());
+        assert!(diff.changed.is_empty());
+        assert!(diff.removed.is_empty());
+        assert_eq!(diff.unchanged.len(), 1);
+        assert_eq!(diff.unchanged[0].name, "b");
+    }
+
+    #[test]
+    fn resolve_changed_when_hash_differs() {
+        let project = aset(&[("b", "cargo build")]);
+        let prev = "b|0000000"; // obviously not the real hash
+        let diff = Precedence::new()
+            .with_project(&project, &SubcommandSet::new())
+            .with_shell_state_from_env(Some(prev), None)
+            .resolve();
+        assert_eq!(diff.changed.len(), 1);
+        assert_eq!(cmd_of(&diff.changed[0]), "cargo build");
+        assert!(diff.added.is_empty());
+        assert!(diff.removed.is_empty());
+    }
+
+    #[test]
+    fn resolve_backward_compat_bare_name_triggers_reload() {
+        let project = aset(&[("b", "make build")]);
+        let diff = Precedence::new()
+            .with_project(&project, &SubcommandSet::new())
+            .with_shell_state_from_env(Some("b"), None) // old format
+            .resolve();
+        assert_eq!(diff.changed.len(), 1);
+        assert_eq!(diff.changed[0].name, "b");
+    }
+
+    #[test]
+    fn resolve_removed_when_no_layer_contains_name() {
+        let diff = Precedence::new()
+            .with_shell_state_from_env(Some("gone|abc1234"), None)
+            .resolve();
+        assert_eq!(diff.removed, vec!["gone".to_string()]);
+    }
+
+    #[test]
+    fn resolve_shadow_restoration_via_changed_entry() {
+        // Previous session: project 't' shadowed profile 't'. Now project layer is
+        // gone (we left the project directory). Effective 't' reverts to profile.
+        // The stored hash was the project's; the new effective hash is the profile's.
+        // This must be detected as Changed -> the shell reloads with the profile value.
+        let profile = aset(&[("t", "profile-t")]);
+        let project_hash = Precedence::alias_hash_for_test(&TomlAlias::Command("project-t".into()));
+        let prev = format!("t|{project_hash}");
+        let diff = Precedence::new()
+            .with_profiles(&profile, &SubcommandSet::new())
+            .with_shell_state_from_env(Some(&prev), None)
+            .resolve();
+        assert_eq!(diff.changed.len(), 1, "shadow restoration must emit a reload");
+        assert_eq!(cmd_of(&diff.changed[0]), "profile-t");
+        assert!(diff.removed.is_empty());
     }
 }
