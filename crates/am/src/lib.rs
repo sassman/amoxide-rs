@@ -12,6 +12,7 @@ pub mod hook;
 pub mod import_export;
 pub mod init;
 pub mod messages;
+pub mod precedence;
 pub mod profile;
 pub mod project;
 pub mod prompt;
