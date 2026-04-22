@@ -814,9 +814,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     "activated"
                 };
                 let msg = if was_active || list.is_empty() {
-                    format!("{name} {action}, {total} aliases")
+                    format!("am: {name} {action}, {total} aliases")
                 } else {
-                    format!("{name} {action} — {total} loaded: {list}")
+                    format!("am: {name} {action} — {total} loaded: {list}")
                 };
                 effects.push(Effect::Print(msg));
             }
@@ -840,9 +840,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 model.session.use_profile_at(name.clone(), priority + i);
                 let pos = priority + i;
                 let msg = if list.is_empty() {
-                    format!("{name} activated at position {pos}, {total} aliases loaded")
+                    format!("am: {name} activated at position {pos}, {total} aliases loaded")
                 } else {
-                    format!("{name} activated at position {pos} — {total} loaded: {list}")
+                    format!("am: {name} activated at position {pos} — {total} loaded: {list}")
                 };
                 effects.push(Effect::Print(msg));
             }
