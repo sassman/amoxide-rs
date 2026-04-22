@@ -53,6 +53,53 @@ impl Precedence {
         Self::default()
     }
 
+    pub fn with_global(mut self, aliases: &AliasSet, subs: &SubcommandSet) -> Self {
+        self.global_aliases = aliases.clone();
+        self.global_subcommands = subs.clone();
+        self
+    }
+
+    pub fn with_profiles(mut self, aliases: &AliasSet, subs: &SubcommandSet) -> Self {
+        self.profile_aliases = aliases.clone();
+        self.profile_subcommands = subs.clone();
+        self
+    }
+
+    pub fn with_project(mut self, aliases: &AliasSet, subs: &SubcommandSet) -> Self {
+        self.project_aliases = aliases.clone();
+        self.project_subcommands = subs.clone();
+        self
+    }
+
+    /// Internal: merged alias set keyed by shell-visible name,
+    /// with project > profile > global precedence.
+    fn merged_aliases(&self) -> BTreeMap<String, TomlAlias> {
+        let mut out = BTreeMap::new();
+        for layer in [&self.global_aliases, &self.profile_aliases, &self.project_aliases] {
+            for (name, alias) in layer.iter() {
+                out.insert(name.as_ref().to_string(), alias.clone());
+            }
+        }
+        out
+    }
+
+    /// Internal: merged subcommand set keyed by full "program:seg:..." key,
+    /// with project > profile > global precedence.
+    fn merged_subcommands(&self) -> SubcommandSet {
+        let mut out = SubcommandSet::new();
+        for layer in [&self.global_subcommands, &self.profile_subcommands, &self.project_subcommands] {
+            for (k, v) in layer {
+                out.insert(k.clone(), v.clone());
+            }
+        }
+        out
+    }
+
+    #[cfg(test)]
+    fn merged_aliases_for_test(&self) -> BTreeMap<String, TomlAlias> {
+        self.merged_aliases()
+    }
+
     pub fn resolve(self) -> PrecedenceDiff {
         PrecedenceDiff::default()
     }
@@ -66,5 +113,42 @@ mod tests {
     fn empty_inputs_produce_empty_diff() {
         let diff = Precedence::new().resolve();
         assert_eq!(diff, PrecedenceDiff::default());
+    }
+
+    fn aset(pairs: &[(&str, &str)]) -> AliasSet {
+        let mut s = AliasSet::default();
+        for (n, c) in pairs {
+            s.insert(AliasName::from(*n), TomlAlias::Command((*c).into()));
+        }
+        s
+    }
+
+    #[test]
+    fn merge_project_overrides_profile_overrides_global() {
+        let global = aset(&[("ll", "ls -lha"), ("t", "global-t")]);
+        let profile = aset(&[("gs", "git status"), ("t", "profile-t")]);
+        let project = aset(&[("b", "make build"), ("t", "project-t")]);
+
+        let p = Precedence::new()
+            .with_global(&global, &SubcommandSet::new())
+            .with_profiles(&profile, &SubcommandSet::new())
+            .with_project(&project, &SubcommandSet::new());
+
+        let merged = p.merged_aliases_for_test();
+        assert_eq!(merged.get("ll").unwrap().command(), "ls -lha");
+        assert_eq!(merged.get("gs").unwrap().command(), "git status");
+        assert_eq!(merged.get("b").unwrap().command(), "make build");
+        assert_eq!(merged.get("t").unwrap().command(), "project-t");
+    }
+
+    #[test]
+    fn merge_without_project_falls_back_to_profile() {
+        let global = aset(&[("t", "global-t")]);
+        let profile = aset(&[("t", "profile-t")]);
+        let p = Precedence::new()
+            .with_global(&global, &SubcommandSet::new())
+            .with_profiles(&profile, &SubcommandSet::new());
+        let merged = p.merged_aliases_for_test();
+        assert_eq!(merged.get("t").unwrap().command(), "profile-t");
     }
 }
