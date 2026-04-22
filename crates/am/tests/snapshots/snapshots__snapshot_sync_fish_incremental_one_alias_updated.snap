@@ -1,0 +1,7 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+functions -e b
+alias b "cargo build --release"
+set -gx _AM_ALIASES "b|0dc3caa,t|ab61de4"

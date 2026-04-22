@@ -4,70 +4,46 @@ expression: output
 ---
 function global:gs { git status @args }
 function global:ll { ls -lha @args }
-$env:_AM_ALIASES = "gs,ll"
-Remove-Item -ErrorAction SilentlyContinue Env:_AM_PROFILE_ALIASES
-
-# am wrapper: reload aliases after mutations
+$env:_AM_ALIASES = "gs|22db469,ll|619d266"
+# am wrapper: sync after mutations
 function am {
     $amBin = (Get-Command -CommandType Application am | Select-Object -First 1).Source
     & $amBin @args
     if ($LASTEXITCODE -ne 0) { return }
-    # tui — always reload
-    if ($args.Count -ge 1 -and $args[0] -in 'tui', 't') {
-        $out = (& $amBin reload powershell) -join "`r`n"
-        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        $out = (& $amBin hook powershell) -join "`r`n"
-        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        return
-    }
-    # top-level use — reload
-    if ($args.Count -ge 1 -and $args[0] -in 'use', 'u') {
-        $out = (& $amBin reload powershell) -join "`r`n"
-        if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        return
-    }
-    # profile mutation — reload
-    if ($args.Count -ge 1 -and $args[0] -in 'profile', 'p') {
-        if ($args.Count -ge 2 -and $args[1] -in 'use', 'u', 'add', 'a', 'remove', 'r') {
-            $out = (& $amBin reload powershell) -join "`r`n"
-            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        }
-    }
-    # alias mutation — reload
-    elseif ($args.Count -ge 1 -and $args[0] -in 'add', 'a', 'remove', 'r') {
-        if ($args -contains '-l' -or $args -contains '--local') {
-            $out = (& $amBin hook powershell) -join "`r`n"
-            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        } else {
-            $out = (& $amBin reload powershell) -join "`r`n"
-            if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
-        }
-    }
-    # trust/untrust — reload project aliases
-    elseif ($args.Count -ge 1 -and $args[0] -eq 'trust') {
-        $out = (& $amBin hook powershell) -join "`r`n"
+    if ($args.Count -lt 1) { return }
+    $first = $args[0]
+    $second = if ($args.Count -ge 2) { $args[1] } else { $null }
+
+    $runSync = {
+        $out = (& $amBin sync powershell) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
-    elseif ($args.Count -ge 1 -and $args[0] -eq 'untrust') {
-        $out = (& $amBin hook --quiet powershell) -join "`r`n"
+    $runSyncQuiet = {
+        $out = (& $amBin sync --quiet powershell) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
+    }
+
+    if ($first -in 'add', 'a', 'remove', 'r', 'use', 'u', 'trust', 'tui', 't') {
+        & $runSync
+    } elseif ($first -eq 'untrust') {
+        & $runSyncQuiet
+    } elseif ($first -in 'profile', 'p') {
+        if ($second -in 'use', 'u', 'add', 'a', 'remove', 'r') { & $runSync }
     }
 }
 
-
-# am cd hook: track directory changes and reload project aliases
+# am cd hook: sync project aliases on directory change
 $env:__AM_LAST_DIR = $PWD.Path
 $__am_original_prompt = $function:prompt
 function global:prompt {
     if ($PWD.Path -ne $env:__AM_LAST_DIR) {
         $env:__AM_LAST_DIR = $PWD.Path
         $amBin = (Get-Command -CommandType Application am | Select-Object -First 1).Source
-        $hookCode = (& $amBin hook powershell) -join "`r`n"
+        $hookCode = (& $amBin sync powershell) -join "`r`n"
         if ($hookCode) { Invoke-Command -ScriptBlock ([scriptblock]::Create($hookCode)) -NoNewScope }
     }
     if ($__am_original_prompt) { & $__am_original_prompt } else { "PS $($PWD.Path)> " }
 }
-
 
 
 
@@ -108,8 +84,6 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('share', 'share', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
             [System.Management.Automation.CompletionResult]::new('trust', 'trust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
             [System.Management.Automation.CompletionResult]::new('untrust', 'untrust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
-            [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
-            [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [System.Management.Automation.CompletionResult]::new('sync', 'sync', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
@@ -331,22 +305,6 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
             break
         }
-        'am;hook' {
-            [System.Management.Automation.CompletionResult]::new('-q', '-q', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
-            [System.Management.Automation.CompletionResult]::new('--quiet', '--quiet', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
-            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
-            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
-            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
-            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
-            break
-        }
-        'am;reload' {
-            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
-            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
-            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
-            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
-            break
-        }
         'am;sync' {
             [System.Management.Automation.CompletionResult]::new('-q', '-q', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
             [System.Management.Automation.CompletionResult]::new('--quiet', '--quiet', [System.Management.Automation.CompletionResultType]::ParameterName, 'Suppress info and warning messages (still unloads/loads aliases)')
@@ -371,8 +329,6 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('share', 'share', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Generate a share command for posting aliases to a pastebin service')
             [System.Management.Automation.CompletionResult]::new('trust', 'trust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
             [System.Management.Automation.CompletionResult]::new('untrust', 'untrust', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
-            [System.Management.Automation.CompletionResult]::new('hook', 'hook', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the cd hook to load/unload project aliases')
-            [System.Management.Automation.CompletionResult]::new('reload', 'reload', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: called by the am wrapper to reload profile aliases after switching')
             [System.Management.Automation.CompletionResult]::new('sync', 'sync', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
             [System.Management.Automation.CompletionResult]::new('help', 'help', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
@@ -433,12 +389,6 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;untrust' {
-            break
-        }
-        'am;help;hook' {
-            break
-        }
-        'am;help;reload' {
             break
         }
         'am;help;sync' {

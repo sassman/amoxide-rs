@@ -736,3 +736,120 @@ fn init_force_unloads_introspected_names_with_hash_suffix_stripped() {
 
     std::env::remove_var("_AM_ALIASES");
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Sync snapshots — cover behaviors that snapshot_hook_* and
+// snapshot_reload_* used to exercise, now through the Precedence Engine.
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_sync_fish_fresh_load_project_only() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let project = aliases(&[("b", "cargo build"), ("t", "cargo test")]);
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_bash_fresh_load_project_only() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let project = aliases(&[("b", "cargo build")]);
+    let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_zsh_fresh_load_project_only() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let project = aliases(&[("b", "cargo build")]);
+    let shell = Shell::Zsh.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_powershell_fresh_load_project_only() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let project = aliases(&[("b", "cargo build")]);
+    let shell = Shell::Powershell.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_fish_transition_to_new_project() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let project = aliases(&[("new1", "echo new")]);
+    let prev_hash = amoxide::trust::compute_short_hash(b"echo old");
+    let prev = format!("old1|{prev_hash}");
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .with_shell_state_from_env(Some(&prev), None)
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_fish_leaving_project_with_shadow_restoration() {
+    use amoxide::precedence::{render_diff, Precedence};
+    // Previously the project shadowed a profile alias `t`. Now we've left the
+    // project directory — effective `t` reverts to the profile value. The
+    // stored hash was the project's; new effective hash is the profile's.
+    // The engine must re-emit the profile `t` (shadow restoration).
+    let profile = aliases(&[("t", "cargo test"), ("ll", "ls -lha")]);
+    let project_hash = amoxide::trust::compute_short_hash(b"cargo test --release");
+    let ll_hash = amoxide::trust::compute_short_hash(b"ls -lha");
+    let prev = format!("t|{project_hash},b|aaa1111,ll|{ll_hash}");
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_profiles(&profile, &SubcommandSet::new())
+        .with_shell_state_from_env(Some(&prev), None)
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_fish_incremental_one_alias_updated() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let project = aliases(&[("b", "cargo build --release"), ("t", "cargo test")]);
+    let old_b_hash = amoxide::trust::compute_short_hash(b"cargo build");
+    let t_hash = amoxide::trust::compute_short_hash(b"cargo test");
+    let prev = format!("b|{old_b_hash},t|{t_hash}");
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .with_shell_state_from_env(Some(&prev), None)
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_bash_subcommand_wrapper_fresh_load() {
+    use amoxide::precedence::{render_diff, Precedence};
+    let mut subs = SubcommandSet::new();
+    subs.insert("jj:ab".into(), vec!["abandon".into()]);
+    let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&AliasSet::default(), &subs)
+        .resolve();
+    let output = render_diff(&diff, shell.as_ref());
+    insta::assert_snapshot!(output);
+}
