@@ -57,7 +57,7 @@ The TUI companion (`am-tui`) is a separate install. It's optional but recommende
 | `am status` | Check if the shell is set up correctly |
 | `am setup` | Guided shell setup |
 | `am tui` | Interactive TUI for managing aliases and profiles (*separate install*) |
-| `am hook` | Called by the cd hook (internal) |
+| `am sync` | Called by the shell wrapper and cd hook to sync aliases (internal) |
 
 ::: tip
 All verbs have short forms: `am a` for add, `am r` for remove, `am p` for profile, `am l` for ls.

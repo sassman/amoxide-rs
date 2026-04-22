@@ -117,14 +117,15 @@ These messages only appear when entering or leaving the directory containing the
 
 ## How It Works
 
-The `am init` shell hook calls `am hook <shell>` on every directory change. The hook:
+The `am init` shell hook calls `am sync <shell>` on every directory change. Sync:
 
 1. Walks up from the current directory looking for a `.aliases` file (stopping before `$HOME`)
 2. Checks whether the file is trusted (path + hash match in `security.toml`)
-3. If trusted: unloads any previously active project aliases and loads the new ones
-4. If not trusted: shows a warning or stays silent, depending on the trust state
+3. Merges all layers with precedence — global < profile < project — and computes the minimal set of shell operations needed
+4. Emits only the unloads/loads that actually change the shell (unchanged aliases stay put)
+5. If the file is not trusted, shows a warning or stays silent, depending on the trust state
 
-This means aliases automatically follow your context — switch to a Rust project and get Rust aliases, switch to a Node project and get Node aliases — as long as you've trusted the respective `.aliases` files.
+This means aliases automatically follow your context — switch to a Rust project and get Rust aliases, switch to a Node project and get Node aliases — as long as you've trusted the respective `.aliases` files. When a project alias shares a name with a profile alias, the project value wins; when you leave the project, the profile value takes over automatically.
 
 ## Workflow
 

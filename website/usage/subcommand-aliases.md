@@ -86,7 +86,7 @@ Short form: `am r -g jj:ab`
 
 ## How It Works
 
-At shell init (and on `am reload`), amoxide generates a wrapper function for each program that has subcommand aliases:
+At shell init (and on every `am sync` triggered by `cd` or an `am` mutation), amoxide generates a wrapper function for each program that has subcommand aliases:
 
 ```sh
 # generated for jj (bash/zsh)

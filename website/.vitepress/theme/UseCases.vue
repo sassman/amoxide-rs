@@ -65,12 +65,12 @@
           <div class="code-panel">
             <div class="ctab"><span>every day after that</span></div>
             <pre v-pre><span class="t-pr">❯ </span><span class="t-kw">am use</span> node
-<span class="t-out">node activated — 4 loaded: l, b, r, t</span>
+<span class="t-out">am: profile node activated — 4 loaded: l, b, r, t</span>
 <span class="t-pr">❯ </span><span class="t-hl">l</span>    <span class="t-cm">  # npm run lint</span>
 <span class="t-pr">❯ </span><span class="t-hl">t</span>    <span class="t-cm">  # npm test</span>
 
 <span class="t-pr">❯ </span><span class="t-kw">am use</span> rust
-<span class="t-out">rust activated — 4 loaded: l, b, r, t</span>
+<span class="t-out">am: profile rust activated — 4 loaded: l, b, r, t</span>
 <span class="t-pr">❯ </span><span class="t-hl">l</span>    <span class="t-cm">  # cargo clippy --locked --all-targets -- -D warnings</span>
 <span class="t-pr">❯ </span><span class="t-hl">t</span>    <span class="t-cm">  # cargo test</span></pre>
           </div>
@@ -126,7 +126,11 @@
           <div class="code-panel">
             <div class="ctab"><span>every developer, automatically</span></div>
             <pre v-pre><span class="t-pr">❯ </span><span class="t-kw">cd</span> ~/work/myproject
-<span class="t-out">project activated — 4 loaded: ci, db, deploy, ti</span>
+<span class="t-out">am: loaded .aliases
+  ci     → just ci-check
+  db     → just db-migrate --env staging
+  deploy → just deploy --target production
+  ti     → cargo test --features integration -- --test-threads 1</span>
 
 <span class="t-pr">❯ </span><span class="t-kw">am ls</span>
 <span class="t-out">📁 project (.aliases)
@@ -251,12 +255,18 @@ api-7d4f9b8c6-xk2pm    1/1     Running   0</span>
           <div class="code-panel">
             <div class="ctab"><span>switching clients — nothing to remember</span></div>
             <pre v-pre><span class="t-pr">❯ </span><span class="t-kw">cd</span> ~/clients/client-a
-<span class="t-out">client-a activated — 4 loaded: deploy, logs, stage, tf:plan</span>
+<span class="t-out">am: loaded .aliases
+  deploy  → ./scripts/deploy.sh --env staging
+  logs    → ssh app@client-a.internal journalctl -u api -f
+  stage   → open https://staging.client-a.internal
+  tf:plan → terraform plan -var-file=client-a.tfvars</span>
 <span class="t-pr">❯ </span><span class="t-hl">deploy</span>
 
 <span class="t-pr">❯ </span><span class="t-kw">cd</span> ~/clients/client-b
-<span class="t-out">client-a deactivated
-client-b activated — 3 loaded: infra:plan, preview, ship</span>
+<span class="t-out">am: loaded .aliases
+  infra:plan → terraform -chdir=infra plan
+  preview    → open https://preview.client-b.internal
+  ship       → ./scripts/ship.sh</span>
 <span class="t-pr">❯ </span><span class="t-hl">preview</span>
 
 <span class="t-cm"># no stale aliases. no cross-contamination.</span></pre>
@@ -317,8 +327,8 @@ client-b activated — 3 loaded: infra:plan, preview, ship</span>
           <div class="code-panel">
             <div class="ctab"><span>what's actually loaded, right now</span></div>
             <pre v-pre><span class="t-pr">❯ </span><span class="t-kw">am use</span> git work
-<span class="t-out">git activated — 4 loaded: gl, gm, gp, gs
-work activated — 3 loaded: jira, standup, vpn</span>
+<span class="t-out">am: profile git activated — 4 loaded: gl, gm, gp, gs
+am: profile work activated — 3 loaded: jira, standup, vpn</span>
 
 <span class="t-pr">❯ </span><span class="t-kw">am ls</span>
 <span class="t-out">├─● git (active)
