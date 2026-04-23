@@ -3,9 +3,9 @@
 //! exactly what to load, reload, or unload.
 //!
 //! Split into three submodules:
-//!   * [`env_state`] — `_AM_ALIASES` / `_AM_SUBCOMMANDS` wire format.
-//!   * [`diff`] — the `PrecedenceDiff` output and how it renders to shell code.
-//!   * [`engine`] — the `Precedence` builder and `resolve()` logic.
+//!   * `env_state` — `_AM_ALIASES` / `_AM_SUBCOMMANDS` wire format.
+//!   * `diff` — the `PrecedenceDiff` output and how it renders to shell code.
+//!   * `engine` — the `Precedence` builder and `resolve()` logic.
 
 mod diff;
 mod engine;
