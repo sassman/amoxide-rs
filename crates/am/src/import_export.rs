@@ -481,11 +481,13 @@ pub fn prompt_merge_subcommands(
 
         if apply_overwrites {
             for conflict in &merge.conflicts {
-                accepted.insert(conflict.key.clone(), conflict.incoming.clone());
+                accepted
+                    .as_mut()
+                    .insert(conflict.key.clone(), conflict.incoming.clone());
             }
         }
 
-        let imported = accepted.len();
+        let imported = accepted.as_ref().len();
         let skipped = if apply_overwrites { 0 } else { n };
         eprintln!(
             "\u{2713} Imported {imported} subcommand aliases into \"{scope}\" ({skipped} skipped)"
@@ -493,7 +495,7 @@ pub fn prompt_merge_subcommands(
     } else {
         eprintln!(
             "\u{2713} Imported {} subcommand aliases into \"{scope}\"",
-            accepted.len()
+            accepted.as_ref().len()
         );
     }
 

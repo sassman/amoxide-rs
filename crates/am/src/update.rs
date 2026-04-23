@@ -306,7 +306,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             target,
         } => match target {
             AliasTarget::Global => {
-                model.config.subcommands.remove(&original_key);
+                model.config.subcommands.as_mut().remove(&original_key);
                 model.config.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
@@ -324,7 +324,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         &[Effect::RemoveLocalSubcommand { key: original_key }],
                     ))
                 } else {
-                    model.config.subcommands.remove(&original_key);
+                    model.config.subcommands.as_mut().remove(&original_key);
                     model.config.add_subcommand(new_key, long_subcommands);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
@@ -344,7 +344,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                 let profile = resolve_profile_mut(model, &target)?;
-                profile.subcommands.remove(&original_key);
+                profile.subcommands.as_mut().remove(&original_key);
                 profile.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
@@ -361,7 +361,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 match src_subcommands {
                     Some(subs) => keys
                         .iter()
-                        .filter_map(|k| Some((k.clone(), subs.get(k)?.clone())))
+                        .filter_map(|k| Some((k.clone(), subs.as_ref().get(k)?.clone())))
                         .collect(),
                     None => vec![],
                 }
@@ -415,7 +415,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 match src_subcommands {
                     Some(subs) => keys
                         .iter()
-                        .filter_map(|k| Some((k.clone(), subs.get(k)?.clone())))
+                        .filter_map(|k| Some((k.clone(), subs.as_ref().get(k)?.clone())))
                         .collect(),
                     None => vec![],
                 }
@@ -447,7 +447,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match &from {
                 AliasTarget::Global => {
                     for (key, _) in &pairs {
-                        model.config.subcommands.remove(key);
+                        model.config.subcommands.as_mut().remove(key);
                     }
                 }
                 AliasTarget::Local => {} // handled via effects below
@@ -455,7 +455,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     if let Some(profile) = model.profile_config_mut().get_profile_by_name_mut(name)
                     {
                         for (key, _) in &pairs {
-                            profile.subcommands.remove(key);
+                            profile.subcommands.as_mut().remove(key);
                         }
                     }
                 }
@@ -466,7 +466,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             model.profile_config_mut().get_profile_by_name_mut(name)
                         {
                             for (key, _) in &pairs {
-                                profile.subcommands.remove(key);
+                                profile.subcommands.as_mut().remove(key);
                             }
                         }
                     }
@@ -565,7 +565,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .resolve_active_subcommands(&model.session.active_profiles);
             let mut all_subs = model.config.subcommands.clone();
             for (k, v) in resolved_subs {
-                all_subs.insert(k, v);
+                all_subs.as_mut().insert(k, v);
             }
             let (external_functions, external_aliases) = match shell {
                 Shell::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
@@ -856,7 +856,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
             if let Some(subcommands) = payload.global_subcommands {
                 for (key, longs) in subcommands {
-                    model.config.subcommands.insert(key, longs);
+                    model.config.subcommands.as_mut().insert(key, longs);
                 }
                 effects.push(Effect::SaveConfig);
             }
@@ -953,7 +953,7 @@ fn project_alias_names(model: &AppModel) -> std::collections::BTreeSet<String> {
         .iter()
         .map(|(n, _)| n.as_ref().to_string())
         .collect();
-    set.extend(project.subcommands.keys().cloned());
+    set.extend(project.subcommands.as_ref().keys().cloned());
     set
 }
 
@@ -964,7 +964,7 @@ fn profile_items(profile: &Profile) -> Vec<String> {
         .iter()
         .map(|(n, _)| n.as_ref().to_string())
         .collect();
-    items.extend(profile.subcommands.keys().cloned());
+    items.extend(profile.subcommands.as_ref().keys().cloned());
     items
 }
 
@@ -1231,6 +1231,7 @@ mod tests {
         model
             .config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         let result = update(
             &mut model,
@@ -1242,9 +1243,9 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(!model.config.subcommands.contains_key("jj:ab"));
+        assert!(!model.config.subcommands.as_ref().contains_key("jj:ab"));
         assert_eq!(
-            model.config.subcommands.get("jj:a"),
+            model.config.subcommands.as_ref().get("jj:a"),
             Some(&vec!["abandon".to_string()])
         );
         assert!(result
@@ -1259,6 +1260,7 @@ mod tests {
         model
             .config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
@@ -1272,11 +1274,11 @@ mod tests {
         .unwrap();
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
         assert_eq!(
-            profile.subcommands.get("jj:ab"),
+            profile.subcommands.as_ref().get("jj:ab"),
             Some(&vec!["abandon".to_string()])
         );
         // Source preserved
-        assert!(model.config.subcommands.contains_key("jj:ab"));
+        assert!(model.config.subcommands.as_ref().contains_key("jj:ab"));
     }
 
     #[test]
@@ -1285,6 +1287,7 @@ mod tests {
         model
             .config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
@@ -1296,9 +1299,9 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(!model.config.subcommands.contains_key("jj:ab"));
+        assert!(!model.config.subcommands.as_ref().contains_key("jj:ab"));
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
-        assert!(profile.subcommands.contains_key("jj:ab"));
+        assert!(profile.subcommands.as_ref().contains_key("jj:ab"));
     }
 
     #[test]
@@ -1733,8 +1736,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(model.config.subcommands.len(), 1);
-        assert_eq!(model.config.subcommands["jj:ab"], vec!["abandon"]);
+        assert_eq!(model.config.subcommands.as_ref().len(), 1);
+        assert_eq!(model.config.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
         assert_eq!(result.effects, vec![Effect::SaveConfig]);
     }
 
@@ -1795,7 +1798,7 @@ mod tests {
 
         assert_eq!(result.effects, vec![Effect::SaveProfiles]);
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
-        assert_eq!(profile.subcommands.len(), 1);
+        assert_eq!(profile.subcommands.as_ref().len(), 1);
     }
 
     #[test]

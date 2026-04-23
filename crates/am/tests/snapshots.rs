@@ -209,8 +209,12 @@ fn snapshot_init_fish_deep_chain() {
 fn snapshot_init_fish_with_simple_subcommands() {
     let globals = aliases(&[("gs", "git status")]);
     let mut subcommands = SubcommandSet::new();
-    subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
-    subcommands.insert("jj:new".into(), vec!["new --no-edit".into()]);
+    subcommands
+        .as_mut()
+        .insert("jj:ab".into(), vec!["abandon".into()]);
+    subcommands
+        .as_mut()
+        .insert("jj:new".into(), vec!["new --no-edit".into()]);
     let output = generate_init(
         &default_ctx(&Shell::Fish),
         &globals,
@@ -223,17 +227,23 @@ fn snapshot_init_fish_with_simple_subcommands() {
 #[test]
 fn snapshot_init_bash_with_kubectl_subcommands() {
     let mut subcommands = SubcommandSet::new();
-    subcommands.insert("kubectl:get:po".into(), vec!["get".into(), "pods".into()]);
-    subcommands.insert(
+    subcommands
+        .as_mut()
+        .insert("kubectl:get:po".into(), vec!["get".into(), "pods".into()]);
+    subcommands.as_mut().insert(
         "kubectl:get:svc".into(),
         vec!["get".into(), "services".into()],
     );
-    subcommands.insert("kubectl:apply:f".into(), vec!["apply".into(), "-f".into()]);
-    subcommands.insert(
+    subcommands
+        .as_mut()
+        .insert("kubectl:apply:f".into(), vec!["apply".into(), "-f".into()]);
+    subcommands.as_mut().insert(
         "kubectl:rollout:status".into(),
         vec!["rollout".into(), "status".into()],
     );
-    subcommands.insert("kubectl:logs:f".into(), vec!["logs".into(), "-f".into()]);
+    subcommands
+        .as_mut()
+        .insert("kubectl:logs:f".into(), vec!["logs".into(), "-f".into()]);
     let output = generate_init(
         &default_ctx(&Shell::Bash),
         &AliasSet::default(),
@@ -848,7 +858,7 @@ fn snapshot_sync_fish_incremental_one_alias_updated() {
 fn snapshot_sync_bash_subcommand_wrapper_fresh_load() {
     use amoxide::precedence::{render_diff, Precedence};
     let mut subs = SubcommandSet::new();
-    subs.insert("jj:ab".into(), vec!["abandon".into()]);
+    subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
     let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
         .with_project(&AliasSet::default(), &subs)

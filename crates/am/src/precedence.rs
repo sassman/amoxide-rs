@@ -120,7 +120,7 @@ impl Precedence {
             &self.project_subcommands,
         ] {
             for (k, v) in layer {
-                out.insert(k.clone(), v.clone());
+                out.as_mut().insert(k.clone(), v.clone());
             }
         }
         out
@@ -132,6 +132,7 @@ impl Precedence {
 
     fn subcmd_program_hash(program: &str, subs: &SubcommandSet) -> String {
         let entries_str: String = subs
+            .as_ref()
             .iter()
             .filter(|(k, _)| k.starts_with(&format!("{program}:")))
             .map(|(k, v)| format!("{k}={}", v.join(",")))
@@ -233,7 +234,7 @@ impl Precedence {
 
         // Per-key subcommand tracking for `_AM_SUBCOMMANDS`.
         let mut effective_subkeys: BTreeMap<String, EffectiveEntry> = BTreeMap::new();
-        for (key, longs) in merged_subcommands.iter() {
+        for (key, longs) in &merged_subcommands {
             let hash = Self::subcmd_key_hash(longs);
             effective_subkeys.insert(
                 key.clone(),
@@ -432,9 +433,10 @@ mod tests {
     #[test]
     fn hash_subcmd_program_includes_all_entries_under_it() {
         let mut a = SubcommandSet::new();
-        a.insert("jj:ab".into(), vec!["abandon".into()]);
+        a.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
         let mut b = a.clone();
-        b.insert("jj:bl".into(), vec!["branch".into(), "list".into()]);
+        b.as_mut()
+            .insert("jj:bl".into(), vec!["branch".into(), "list".into()]);
 
         let h_a = Precedence::subcmd_program_hash_for_test("jj", &a);
         let h_b = Precedence::subcmd_program_hash_for_test("jj", &b);
@@ -597,7 +599,8 @@ mod tests {
     fn subset(pairs: &[(&str, &[&str])]) -> SubcommandSet {
         let mut s = SubcommandSet::new();
         for (k, longs) in pairs {
-            s.insert((*k).into(), longs.iter().map(|x| (*x).into()).collect());
+            s.as_mut()
+                .insert((*k).into(), longs.iter().map(|x| (*x).into()).collect());
         }
         s
     }

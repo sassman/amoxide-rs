@@ -143,7 +143,7 @@ mod tests {
 
     fn test_subcommands() -> SubcommandSet {
         let mut subs = SubcommandSet::new();
-        subs.insert("jj:ab".into(), vec!["abandon".into()]);
+        subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
         subs
     }
 

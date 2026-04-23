@@ -866,6 +866,7 @@ mod subcommand_render {
         let mut config = Config::default();
         config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
         let mut model = TuiModel::new().unwrap();

@@ -262,7 +262,7 @@ impl AppModel {
         let path = self.project_path_or_create();
         let mut project = self.project_aliases().cloned().unwrap_or_default();
         for (key, longs) in subcommands {
-            project.subcommands.insert(key, longs);
+            project.subcommands.as_mut().insert(key, longs);
         }
         project.save(&path)?;
         let hash = compute_file_hash(&path)?;

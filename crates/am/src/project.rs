@@ -125,11 +125,11 @@ impl ProjectAliases {
     }
 
     pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands.insert(key, long_subcommands);
+        self.subcommands.as_mut().insert(key, long_subcommands);
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
-        self.subcommands.remove(key).ok_or_else(|| {
+        self.subcommands.as_mut().remove(key).ok_or_else(|| {
             anyhow::anyhow!("Subcommand alias '{key}' not found in {ALIASES_FILE}")
         })?;
         Ok(())
@@ -238,11 +238,12 @@ mod tests {
         let mut project = ProjectAliases::default();
         project
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         project.save(&path).unwrap();
 
         let loaded = ProjectAliases::load(&path).unwrap();
-        assert_eq!(loaded.subcommands.len(), 1);
-        assert_eq!(loaded.subcommands["jj:ab"], vec!["abandon"]);
+        assert_eq!(loaded.subcommands.as_ref().len(), 1);
+        assert_eq!(loaded.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
     }
 }

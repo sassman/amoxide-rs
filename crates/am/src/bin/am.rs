@@ -216,7 +216,7 @@ fn main() -> anyhow::Result<()> {
                         .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
                     if !profile.is_empty() {
                         let alias_count = profile.aliases.iter().count();
-                        let subcmd_count = profile.subcommands.len();
+                        let subcmd_count = profile.subcommands.as_ref().len();
                         let question = match (alias_count, subcmd_count) {
                             (a, 0) => format!(
                                 "Profile '{name}' has {a} alias{}. Remove?",

@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::anyhow;
 use log::warn;
+use serde::{Deserialize, Serialize};
 
 /// Validates that a name is a safe shell identifier.
 ///
@@ -86,8 +87,61 @@ impl SubcommandEntry {
 }
 
 /// Storage type for subcommand aliases. Key is the full colon-joined string
-/// (e.g., "jj:b:l"), value is the Vec of long subcommands (e.g., ["branch", "list"]).
-pub type SubcommandSet = BTreeMap<String, Vec<String>>;
+/// (e.g., `"jj:b:l"`), value is the Vec of long subcommands (e.g.,
+/// `["branch", "list"]`).
+///
+/// Wraps `BTreeMap<String, Vec<String>>` as a newtype so the API is explicit
+/// and the serde boundary is transparent (preserves `[subcommands]` TOML
+/// layout).
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct SubcommandSet(BTreeMap<String, Vec<String>>);
+
+impl AsRef<BTreeMap<String, Vec<String>>> for SubcommandSet {
+    fn as_ref(&self) -> &BTreeMap<String, Vec<String>> {
+        &self.0
+    }
+}
+
+impl AsMut<BTreeMap<String, Vec<String>>> for SubcommandSet {
+    fn as_mut(&mut self) -> &mut BTreeMap<String, Vec<String>> {
+        &mut self.0
+    }
+}
+
+impl SubcommandSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Kept as a method so `#[serde(skip_serializing_if = "SubcommandSet::is_empty")]`
+    /// can reference it directly. All other access should go through `AsRef`/`AsMut`.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl<'a> IntoIterator for &'a SubcommandSet {
+    type Item = (&'a String, &'a Vec<String>);
+    type IntoIter = std::collections::btree_map::Iter<'a, String, Vec<String>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl IntoIterator for SubcommandSet {
+    type Item = (String, Vec<String>);
+    type IntoIter = std::collections::btree_map::IntoIter<String, Vec<String>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl FromIterator<(String, Vec<String>)> for SubcommandSet {
+    fn from_iter<I: IntoIterator<Item = (String, Vec<String>)>>(iter: I) -> Self {
+        Self(BTreeMap::from_iter(iter))
+    }
+}
 
 /// Group subcommand entries by program name.
 pub fn group_by_program(set: &SubcommandSet) -> BTreeMap<String, Vec<SubcommandEntry>> {
@@ -220,9 +274,11 @@ mod tests {
     #[test]
     fn group_by_program_groups_correctly() {
         let mut set = SubcommandSet::new();
-        set.insert("jj:ab".into(), vec!["abandon".into()]);
-        set.insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
-        set.insert("git:co".into(), vec!["checkout".into()]);
+        set.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
+        set.as_mut()
+            .insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+        set.as_mut()
+            .insert("git:co".into(), vec!["checkout".into()]);
 
         let groups = group_by_program(&set);
         assert_eq!(groups.len(), 2);
@@ -240,15 +296,79 @@ mod tests {
     #[test]
     fn group_by_program_skips_invalid_entries() {
         let mut set = SubcommandSet::new();
-        set.insert("jj:ab".into(), vec!["abandon".into()]);
+        set.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
         // mismatched counts — invalid
-        set.insert("jj:b:l".into(), vec!["branch".into()]);
+        set.as_mut().insert("jj:b:l".into(), vec!["branch".into()]);
         // no colon — invalid
-        set.insert("bad".into(), vec!["whatever".into()]);
+        set.as_mut().insert("bad".into(), vec!["whatever".into()]);
 
         let groups = group_by_program(&set);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups["jj"].len(), 1);
         assert_eq!(groups["jj"][0].short_subcommands, vec!["ab"]);
+    }
+
+    // --- SubcommandSet newtype API ---
+
+    #[test]
+    fn subcommandset_basic_ops_via_as_ref_as_mut() {
+        let mut set = SubcommandSet::new();
+        assert!(set.is_empty());
+
+        set.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
+        assert_eq!(set.as_ref().len(), 1);
+        assert!(set.as_ref().contains_key("jj:ab"));
+        assert_eq!(
+            set.as_ref().get("jj:ab"),
+            Some(&vec!["abandon".to_string()])
+        );
+
+        let removed = set.as_mut().remove("jj:ab");
+        assert_eq!(removed, Some(vec!["abandon".to_string()]));
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn subcommandset_iteration_via_into_iterator() {
+        let set: SubcommandSet = [
+            ("a:x".to_string(), vec!["one".to_string()]),
+            ("b:y".to_string(), vec!["two".to_string()]),
+        ]
+        .into_iter()
+        .collect();
+
+        // IntoIterator for &SubcommandSet lets for-loops work directly.
+        let keys: Vec<&str> = (&set).into_iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(keys, vec!["a:x", "b:y"]);
+
+        // Owning IntoIterator yields (String, Vec<String>).
+        let owned: Vec<(String, Vec<String>)> = set.into_iter().collect();
+        assert_eq!(owned.len(), 2);
+    }
+
+    #[test]
+    fn subcommandset_serde_transparent() {
+        let set: SubcommandSet = [
+            ("jj:ab".to_string(), vec!["abandon".to_string()]),
+            (
+                "jj:b:l".to_string(),
+                vec!["branch".to_string(), "list".to_string()],
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        // Serializes as a plain map (not as a tuple-struct wrapper).
+        #[derive(serde::Serialize, serde::Deserialize)]
+        struct Wrapper {
+            subcommands: SubcommandSet,
+        }
+        let toml_str = toml::to_string(&Wrapper { subcommands: set }).unwrap();
+        assert!(toml_str.contains("[subcommands]"));
+        assert!(toml_str.contains("\"jj:ab\" = [\"abandon\"]"));
+
+        let parsed: Wrapper = toml::from_str(&toml_str).unwrap();
+        assert_eq!(parsed.subcommands.as_ref().len(), 2);
+        assert_eq!(parsed.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
     }
 }

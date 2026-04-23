@@ -130,7 +130,7 @@ fn emit_trie_children(
 
 fn collect_prog_names(subcommands: &amoxide::SubcommandSet) -> Vec<String> {
     let mut names = std::collections::BTreeSet::new();
-    for key in subcommands.keys() {
+    for key in subcommands.as_ref().keys() {
         if let Some(prog) = key.split(':').next() {
             names.insert(prog.to_string());
         }
@@ -597,6 +597,7 @@ mod tests {
         fn global_subcommand(mut self, key: &str, longs: &[&str]) -> Self {
             self.config
                 .subcommands
+                .as_mut()
                 .insert(key.into(), longs.iter().map(|s| s.to_string()).collect());
             self
         }
