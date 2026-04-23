@@ -297,6 +297,30 @@ impl Precedence {
 }
 
 impl PrecedenceDiff {
+    /// Human-readable summary of what changed, suitable for echoing to the
+    /// user (e.g. `"am: aliases changed — 1 loaded: b | 1 unloaded: t"`).
+    ///
+    /// Returns `None` when nothing changed so callers can stay silent.
+    pub fn change_summary(&self) -> Option<String> {
+        let added: Vec<&str> = self.added.iter().map(|e| e.name.as_str()).collect();
+        let changed: Vec<&str> = self.changed.iter().map(|e| e.name.as_str()).collect();
+        let removed: Vec<&str> = self.removed.iter().map(|s| s.as_str()).collect();
+        let parts: Vec<String> = [
+            ("loaded", &added[..]),
+            ("updated", &changed[..]),
+            ("unloaded", &removed[..]),
+        ]
+        .iter()
+        .filter(|(_, names)| !names.is_empty())
+        .map(|(verb, names)| format!("{} {verb}: {}", names.len(), names.join(", ")))
+        .collect();
+        if parts.is_empty() {
+            None
+        } else {
+            Some(format!("am: aliases changed — {}", parts.join(" | ")))
+        }
+    }
+
     /// Render this diff into shell code using the given adapter.
     ///
     /// Emission order:

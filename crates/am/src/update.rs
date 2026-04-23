@@ -734,20 +734,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     {
                         lines.push(shell_impl.echo(line));
                     }
-                } else {
-                    let added: Vec<&str> = diff.added.iter().map(|e| e.name.as_str()).collect();
-                    let changed: Vec<&str> = diff.changed.iter().map(|e| e.name.as_str()).collect();
-                    let removed: Vec<&str> = diff.removed.iter().map(|s| s.as_str()).collect();
-                    if let Some(msg) = format_change_summary(
-                        "am: aliases changed",
-                        &[
-                            ("loaded", &added),
-                            ("updated", &changed),
-                            ("unloaded", &removed),
-                        ],
-                    ) {
-                        lines.push(shell_impl.echo(&msg));
-                    }
+                } else if let Some(msg) = diff.change_summary() {
+                    lines.push(shell_impl.echo(&msg));
                 }
             }
 
@@ -1019,21 +1007,17 @@ fn profile_toggle_message(
     .expect("profile_aliases non-empty but produced no sections")
 }
 
-/// Format a list of names as `"N verb: a, b, c"`. Shared between the profile
-/// activation/deactivation message and the sync handler's incremental summary
-/// so they stay consistent.
-fn format_section(verb: &str, names: &[&str]) -> String {
-    format!("{} {verb}: {}", names.len(), names.join(", "))
-}
-
 /// Build a full change-summary line like
 /// `"<head> — N verb1: a, b | M verb2: c"`. Empty sections are skipped.
 /// Returns `None` when every section is empty (caller decides to stay silent).
+///
+/// Kept as a private helper for `profile_toggle_message`. The sync handler's
+/// equivalent lives on the diff itself as [`PrecedenceDiff::change_summary`].
 fn format_change_summary(head: &str, sections: &[(&str, &[&str])]) -> Option<String> {
     let parts: Vec<String> = sections
         .iter()
         .filter(|(_, names)| !names.is_empty())
-        .map(|(verb, names)| format_section(verb, names))
+        .map(|(verb, names)| format!("{} {verb}: {}", names.len(), names.join(", ")))
         .collect();
     if parts.is_empty() {
         None
