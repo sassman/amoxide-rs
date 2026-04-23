@@ -1,0 +1,1 @@
+import{_ as i,o as a,c as t,a3 as s}from"./chunks/framework.9CwVJi_H.js";const u=JSON.parse('{"title":"FAQ","description":"","frontmatter":{},"headers":[],"relativePath":"de/faq.md","filePath":"de/faq.md"}'),n={name:"de/faq.md"};function l(h,e,d,r,o,p){return a(),t("div",null,[...e[0]||(e[0]=[s("",19)])])}const k=i(n,[["render",l]]);export{u as __pageData,k as default};
