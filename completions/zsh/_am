@@ -293,19 +293,10 @@ _arguments "${_arguments_options[@]}" : \
 '--version[Print version]' \
 && ret=0
 ;;
-(hook)
+(sync)
 _arguments "${_arguments_options[@]}" : \
 '-q[Suppress info and warning messages (still unloads/loads aliases)]' \
 '--quiet[Suppress info and warning messages (still unloads/loads aliases)]' \
-'-h[Print help]' \
-'--help[Print help]' \
-'-V[Print version]' \
-'--version[Print version]' \
-':shell:(bash brush fish powershell zsh)' \
-&& ret=0
-;;
-(reload)
-_arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -409,11 +400,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(hook)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(reload)
+(sync)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -447,8 +434,7 @@ _am_commands() {
 'share:Generate a share command for posting aliases to a pastebin service' \
 'trust:Review and trust the project .aliases file in the current directory' \
 'untrust:Remove trust for the project .aliases file in the current directory' \
-'hook:Internal\: called by the cd hook to load/unload project aliases' \
-'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
+'sync:Internal\: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'am commands' commands "$@"
@@ -480,8 +466,7 @@ _am__subcmd__help_commands() {
 'share:Generate a share command for posting aliases to a pastebin service' \
 'trust:Review and trust the project .aliases file in the current directory' \
 'untrust:Remove trust for the project .aliases file in the current directory' \
-'hook:Internal\: called by the cd hook to load/unload project aliases' \
-'reload:Internal\: called by the am wrapper to reload profile aliases after switching' \
+'sync:Internal\: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'am help commands' commands "$@"
@@ -500,11 +485,6 @@ _am__subcmd__help__subcmd__export_commands() {
 _am__subcmd__help__subcmd__help_commands() {
     local commands; commands=()
     _describe -t commands 'am help help commands' commands "$@"
-}
-(( $+functions[_am__subcmd__help__subcmd__hook_commands] )) ||
-_am__subcmd__help__subcmd__hook_commands() {
-    local commands; commands=()
-    _describe -t commands 'am help hook commands' commands "$@"
 }
 (( $+functions[_am__subcmd__help__subcmd__import_commands] )) ||
 _am__subcmd__help__subcmd__import_commands() {
@@ -551,11 +531,6 @@ _am__subcmd__help__subcmd__profile__subcmd__use_commands() {
     local commands; commands=()
     _describe -t commands 'am help profile use commands' commands "$@"
 }
-(( $+functions[_am__subcmd__help__subcmd__reload_commands] )) ||
-_am__subcmd__help__subcmd__reload_commands() {
-    local commands; commands=()
-    _describe -t commands 'am help reload commands' commands "$@"
-}
 (( $+functions[_am__subcmd__help__subcmd__remove_commands] )) ||
 _am__subcmd__help__subcmd__remove_commands() {
     local commands; commands=()
@@ -576,6 +551,11 @@ _am__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'am help status commands' commands "$@"
 }
+(( $+functions[_am__subcmd__help__subcmd__sync_commands] )) ||
+_am__subcmd__help__subcmd__sync_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help sync commands' commands "$@"
+}
 (( $+functions[_am__subcmd__help__subcmd__trust_commands] )) ||
 _am__subcmd__help__subcmd__trust_commands() {
     local commands; commands=()
@@ -595,11 +575,6 @@ _am__subcmd__help__subcmd__untrust_commands() {
 _am__subcmd__help__subcmd__use_commands() {
     local commands; commands=()
     _describe -t commands 'am help use commands' commands "$@"
-}
-(( $+functions[_am__subcmd__hook_commands] )) ||
-_am__subcmd__hook_commands() {
-    local commands; commands=()
-    _describe -t commands 'am hook commands' commands "$@"
 }
 (( $+functions[_am__subcmd__import_commands] )) ||
 _am__subcmd__import_commands() {
@@ -683,11 +658,6 @@ _am__subcmd__profile__subcmd__use_commands() {
     local commands; commands=()
     _describe -t commands 'am profile use commands' commands "$@"
 }
-(( $+functions[_am__subcmd__reload_commands] )) ||
-_am__subcmd__reload_commands() {
-    local commands; commands=()
-    _describe -t commands 'am reload commands' commands "$@"
-}
 (( $+functions[_am__subcmd__remove_commands] )) ||
 _am__subcmd__remove_commands() {
     local commands; commands=()
@@ -707,6 +677,11 @@ _am__subcmd__share_commands() {
 _am__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'am status commands' commands "$@"
+}
+(( $+functions[_am__subcmd__sync_commands] )) ||
+_am__subcmd__sync_commands() {
+    local commands; commands=()
+    _describe -t commands 'am sync commands' commands "$@"
 }
 (( $+functions[_am__subcmd__trust_commands] )) ||
 _am__subcmd__trust_commands() {

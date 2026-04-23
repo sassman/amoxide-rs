@@ -1,0 +1,12 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+jj() {
+  case "$1" in
+    ab) shift; command jj abandon "$@" ;;
+    *) command jj "$@" ;;
+  esac
+}
+export _AM_ALIASES="jj|33f7a66"
+export _AM_SUBCOMMANDS="jj:ab|8296f9c"

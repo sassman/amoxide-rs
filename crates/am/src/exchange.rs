@@ -54,15 +54,15 @@ impl ExportAll {
     pub fn flatten_subcommands(&self) -> SubcommandSet {
         let mut result = SubcommandSet::new();
         for (k, v) in &self.global_subcommands {
-            result.insert(k.clone(), v.clone());
+            result.as_mut().insert(k.clone(), v.clone());
         }
         for profile in &self.profiles {
             for (k, v) in &profile.subcommands {
-                result.insert(k.clone(), v.clone());
+                result.as_mut().insert(k.clone(), v.clone());
             }
         }
         for (k, v) in &self.local_subcommands {
-            result.insert(k.clone(), v.clone());
+            result.as_mut().insert(k.clone(), v.clone());
         }
         result
     }
@@ -103,9 +103,11 @@ pub fn subcommand_merge_check(
     let mut new_subcommands = SubcommandSet::new();
     let mut conflicts = Vec::new();
     for (key, incoming_longs) in incoming {
-        match current.get(key) {
+        match current.as_ref().get(key) {
             None => {
-                new_subcommands.insert(key.clone(), incoming_longs.clone());
+                new_subcommands
+                    .as_mut()
+                    .insert(key.clone(), incoming_longs.clone());
             }
             Some(existing_longs) => {
                 if existing_longs != incoming_longs {
@@ -183,7 +185,7 @@ pub fn render_import_summary_subcommands(
     scope_name: &str,
     result: &SubcommandMergeResult,
 ) -> String {
-    let total = result.new_subcommands.len() + result.conflicts.len();
+    let total = result.new_subcommands.as_ref().len() + result.conflicts.len();
     let mut output = format!("Importing subcommands into \"{scope_name}\" ({total} entries)\n");
 
     if !result.new_subcommands.is_empty() {
@@ -872,25 +874,27 @@ mod tests {
         let mut export = ExportAll::default();
         export
             .global_subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         export.profiles.push(Profile {
             name: "vcs".into(),
             aliases: AliasSet::default(),
             subcommands: {
                 let mut s = SubcommandSet::new();
-                s.insert("jj:d".into(), vec!["diff".into()]);
+                s.as_mut().insert("jj:d".into(), vec!["diff".into()]);
                 s
             },
         });
         export
             .local_subcommands
+            .as_mut()
             .insert("git:psh".into(), vec!["push".into()]);
 
         let flat = export.flatten_subcommands();
-        assert_eq!(flat.len(), 3);
-        assert!(flat.contains_key("jj:ab"));
-        assert!(flat.contains_key("jj:d"));
-        assert!(flat.contains_key("git:psh"));
+        assert_eq!(flat.as_ref().len(), 3);
+        assert!(flat.as_ref().contains_key("jj:ab"));
+        assert!(flat.as_ref().contains_key("jj:d"));
+        assert!(flat.as_ref().contains_key("git:psh"));
     }
 
     #[test]
@@ -898,14 +902,15 @@ mod tests {
         let mut export = ExportAll::default();
         export
             .global_subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
-        export.local_subcommands.insert(
+        export.local_subcommands.as_mut().insert(
             "jj:ab".into(),
             vec!["abandon", "!"].into_iter().map(String::from).collect(),
         );
 
         let flat = export.flatten_subcommands();
-        assert_eq!(flat["jj:ab"], vec!["abandon", "!"]);
+        assert_eq!(flat.as_ref()["jj:ab"], vec!["abandon", "!"]);
     }
 
     // ─── subcommand_merge_check ──────────────────────────────────────────
@@ -914,19 +919,23 @@ mod tests {
     fn test_merge_check_new_entries() {
         let current = SubcommandSet::new();
         let mut incoming = SubcommandSet::new();
-        incoming.insert("jj:ab".into(), vec!["abandon".into()]);
+        incoming
+            .as_mut()
+            .insert("jj:ab".into(), vec!["abandon".into()]);
 
         let result = subcommand_merge_check(&current, &incoming);
-        assert_eq!(result.new_subcommands.len(), 1);
+        assert_eq!(result.new_subcommands.as_ref().len(), 1);
         assert!(result.conflicts.is_empty());
     }
 
     #[test]
     fn test_merge_check_conflict() {
         let mut current = SubcommandSet::new();
-        current.insert("jj:ab".into(), vec!["abandon".into()]);
+        current
+            .as_mut()
+            .insert("jj:ab".into(), vec!["abandon".into()]);
         let mut incoming = SubcommandSet::new();
-        incoming.insert(
+        incoming.as_mut().insert(
             "jj:ab".into(),
             vec!["abandon", "--detach"]
                 .into_iter()
@@ -943,9 +952,13 @@ mod tests {
     #[test]
     fn test_merge_check_identical_entry_skipped() {
         let mut current = SubcommandSet::new();
-        current.insert("jj:ab".into(), vec!["abandon".into()]);
+        current
+            .as_mut()
+            .insert("jj:ab".into(), vec!["abandon".into()]);
         let mut incoming = SubcommandSet::new();
-        incoming.insert("jj:ab".into(), vec!["abandon".into()]);
+        incoming
+            .as_mut()
+            .insert("jj:ab".into(), vec!["abandon".into()]);
 
         let result = subcommand_merge_check(&current, &incoming);
         assert!(result.new_subcommands.is_empty());
@@ -993,7 +1006,9 @@ mod tests {
     #[test]
     fn test_render_import_summary_subcommands_new_only() {
         let mut new_subcommands = SubcommandSet::new();
-        new_subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
+        new_subcommands
+            .as_mut()
+            .insert("jj:ab".into(), vec!["abandon".into()]);
         let result = SubcommandMergeResult {
             new_subcommands,
             conflicts: vec![],
@@ -1028,6 +1043,7 @@ mod tests {
         let mut export = ExportAll::default();
         export
             .global_subcommands
+            .as_mut()
             .insert("jj:\x1Bab".into(), vec!["abandon".into()]);
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
@@ -1040,6 +1056,7 @@ mod tests {
         let mut export = ExportAll::default();
         export
             .local_subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["aban\x07don".into()]);
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
@@ -1055,7 +1072,8 @@ mod tests {
                 aliases: AliasSet::default(),
                 subcommands: {
                     let mut s = SubcommandSet::new();
-                    s.insert("jj:ab".into(), vec!["aban\x1Bdon".into()]);
+                    s.as_mut()
+                        .insert("jj:ab".into(), vec!["aban\x1Bdon".into()]);
                     s
                 },
             }],
@@ -1074,6 +1092,7 @@ mod tests {
         let mut export = ExportAll::default();
         export
             .global_subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         assert!(!export.is_empty());
     }
@@ -1083,6 +1102,7 @@ mod tests {
         let mut export = ExportAll::default();
         export
             .local_subcommands
+            .as_mut()
             .insert("git:psh".into(), vec!["push".into()]);
         assert!(!export.is_empty());
     }

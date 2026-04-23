@@ -86,11 +86,12 @@ impl Config {
     }
 
     pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands.insert(key, long_subcommands);
+        self.subcommands.as_mut().insert(key, long_subcommands);
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
         self.subcommands
+            .as_mut()
             .remove(key)
             .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))?;
         Ok(())
@@ -164,19 +165,20 @@ mod tests {
         let mut config = Config::default();
         config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         config.save_to(dir.path()).unwrap();
 
         let loaded = Config::load_from(dir.path()).unwrap();
-        assert_eq!(loaded.subcommands.len(), 1);
-        assert_eq!(loaded.subcommands["jj:ab"], vec!["abandon"]);
+        assert_eq!(loaded.subcommands.as_ref().len(), 1);
+        assert_eq!(loaded.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
     }
 
     #[test]
     fn test_add_and_remove_subcommand() {
         let mut config = Config::default();
         config.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
-        assert_eq!(config.subcommands.len(), 1);
+        assert_eq!(config.subcommands.as_ref().len(), 1);
 
         config.remove_subcommand("jj:ab").unwrap();
         assert!(config.subcommands.is_empty());

@@ -101,14 +101,14 @@ impl AliasSet {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum TomlAlias {
     Command(String),
     Detailed(AliasDetail),
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct AliasDetail {
     pub command: String,
     pub description: Option<String>,

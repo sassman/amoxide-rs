@@ -34,7 +34,7 @@ fn setup_logging() {
 fn main() -> anyhow::Result<()> {
     // Guard against recursive invocation during alias scanning.
     // When `zsh -i -c alias` is spawned to enumerate existing shell aliases it
-    // sources the user's startup files, which call `am hook` (or `am init`).
+    // sources the user's startup files, which call `am sync` (or `am init`).
     // If those calls were allowed to run normally they could trigger another
     // scan, causing infinite recursion.  Exiting here makes `eval "$(...)"` a
     // no-op, which is safe.
@@ -46,10 +46,7 @@ fn main() -> anyhow::Result<()> {
     let mut model = AppModel::default();
 
     // Don't log for commands whose stdout is eval'd by the shell
-    if !matches!(
-        &cli.command,
-        Commands::Init { .. } | Commands::Hook { .. } | Commands::Reload { .. }
-    ) {
+    if !matches!(&cli.command, Commands::Init { .. } | Commands::Sync { .. }) {
         setup_logging();
     }
 
@@ -219,7 +216,7 @@ fn main() -> anyhow::Result<()> {
                         .ok_or_else(|| anyhow::anyhow!("Profile '{name}' not found"))?;
                     if !profile.is_empty() {
                         let alias_count = profile.aliases.iter().count();
-                        let subcmd_count = profile.subcommands.len();
+                        let subcmd_count = profile.subcommands.as_ref().len();
                         let question = match (alias_count, subcmd_count) {
                             (a, 0) => format!(
                                 "Profile '{name}' has {a} alias{}. Remove?",
@@ -335,7 +332,7 @@ fn main() -> anyhow::Result<()> {
                 let cmd = alias_value.command();
                 println!("  {:width$} \u{2192} {cmd}", name, width = max_name_len);
             }
-            let subcmd_groups = amoxide::subcommand::group_by_program(&project.subcommands);
+            let subcmd_groups = project.subcommands.group_by_program();
             if !subcmd_groups.is_empty() {
                 println!();
                 for (program, entries) in &subcmd_groups {
@@ -371,7 +368,7 @@ fn main() -> anyhow::Result<()> {
             if answer == Answer::Yes {
                 let result = update(&mut model, Message::Trust)?;
                 execute_effects(&mut model, &result.effects)?;
-                // The shell wrapper calls `am hook` after this, which loads
+                // The shell wrapper calls `am sync` after this, which loads
                 // the aliases and shows the load message.
             } else {
                 let result = update(&mut model, Message::Untrust { forget: false })?;
@@ -385,8 +382,7 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         }
         Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
-        Commands::Hook { shell, quiet } => Message::Hook(shell.clone(), *quiet),
-        Commands::Reload { shell } => Message::Reload(shell.clone()),
+        Commands::Sync { shell, quiet } => Message::Sync(shell.clone(), *quiet),
     };
 
     let result = update(&mut model, message)?;

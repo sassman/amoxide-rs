@@ -25,9 +25,6 @@ _am() {
             am,help)
                 cmd="am__subcmd__help"
                 ;;
-            am,hook)
-                cmd="am__subcmd__hook"
-                ;;
             am,import)
                 cmd="am__subcmd__import"
                 ;;
@@ -40,9 +37,6 @@ _am() {
             am,profile)
                 cmd="am__subcmd__profile"
                 ;;
-            am,reload)
-                cmd="am__subcmd__reload"
-                ;;
             am,remove)
                 cmd="am__subcmd__remove"
                 ;;
@@ -54,6 +48,9 @@ _am() {
                 ;;
             am,status)
                 cmd="am__subcmd__status"
+                ;;
+            am,sync)
+                cmd="am__subcmd__sync"
                 ;;
             am,trust)
                 cmd="am__subcmd__trust"
@@ -76,9 +73,6 @@ _am() {
             am__subcmd__help,help)
                 cmd="am__subcmd__help__subcmd__help"
                 ;;
-            am__subcmd__help,hook)
-                cmd="am__subcmd__help__subcmd__hook"
-                ;;
             am__subcmd__help,import)
                 cmd="am__subcmd__help__subcmd__import"
                 ;;
@@ -91,9 +85,6 @@ _am() {
             am__subcmd__help,profile)
                 cmd="am__subcmd__help__subcmd__profile"
                 ;;
-            am__subcmd__help,reload)
-                cmd="am__subcmd__help__subcmd__reload"
-                ;;
             am__subcmd__help,remove)
                 cmd="am__subcmd__help__subcmd__remove"
                 ;;
@@ -105,6 +96,9 @@ _am() {
                 ;;
             am__subcmd__help,status)
                 cmd="am__subcmd__help__subcmd__status"
+                ;;
+            am__subcmd__help,sync)
+                cmd="am__subcmd__help__subcmd__sync"
                 ;;
             am__subcmd__help,trust)
                 cmd="am__subcmd__help__subcmd__trust"
@@ -167,7 +161,7 @@ _am() {
 
     case "${cmd}" in
         am)
-            opts="-h -V --help --version add remove ls status profile init setup use tui export import share trust untrust hook reload help"
+            opts="-h -V --help --version add remove ls status profile init setup use tui export import share trust untrust sync help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -229,7 +223,7 @@ _am() {
             return 0
             ;;
         am__subcmd__help)
-            opts="add remove ls status profile init setup use tui export import share trust untrust hook reload help"
+            opts="add remove ls status profile init setup use tui export import share trust untrust sync help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -271,20 +265,6 @@ _am() {
             return 0
             ;;
         am__subcmd__help__subcmd__help)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        am__subcmd__help__subcmd__hook)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -410,20 +390,6 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__subcmd__help__subcmd__reload)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         am__subcmd__help__subcmd__remove)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -467,6 +433,20 @@ _am() {
             return 0
             ;;
         am__subcmd__help__subcmd__status)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__help__subcmd__sync)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -525,20 +505,6 @@ _am() {
         am__subcmd__help__subcmd__use)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        am__subcmd__hook)
-            opts="-q -h -V --quiet --help --version bash brush fish powershell zsh"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -762,20 +728,6 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__subcmd__reload)
-            opts="-h -V --help --version bash brush fish powershell zsh"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         am__subcmd__remove)
             opts="-p -l -g -h -V --profile --local --global --sub --help --version <NAME>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -840,6 +792,20 @@ _am() {
             ;;
         am__subcmd__status)
             opts="-h -V --help --version"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__sync)
+            opts="-q -h -V --quiet --help --version bash brush fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

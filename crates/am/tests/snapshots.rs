@@ -1,16 +1,13 @@
 use amoxide::alias::{AliasConflict, MergeResult};
-use amoxide::config::{FishConfig, ShellsTomlConfig};
+use amoxide::config::ShellsTomlConfig;
 use amoxide::display::{render_listing, render_profiles};
 use amoxide::exchange::{
     render_import_summary, render_suspicious_warning, ExportAll, SuspiciousAlias,
 };
-use amoxide::hook::generate_hook_with_security;
-use amoxide::init::{generate_force_init, generate_init, generate_reload};
+use amoxide::init::generate_init;
 use amoxide::project::ProjectAliases;
-use amoxide::security::SecurityConfig;
 use amoxide::shell::{Shell, ShellContext};
 use amoxide::subcommand::SubcommandSet;
-use amoxide::trust::compute_file_hash;
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
 
 static DEFAULT_CFG: std::sync::LazyLock<ShellsTomlConfig> =
@@ -212,8 +209,12 @@ fn snapshot_init_fish_deep_chain() {
 fn snapshot_init_fish_with_simple_subcommands() {
     let globals = aliases(&[("gs", "git status")]);
     let mut subcommands = SubcommandSet::new();
-    subcommands.insert("jj:ab".into(), vec!["abandon".into()]);
-    subcommands.insert("jj:new".into(), vec!["new --no-edit".into()]);
+    subcommands
+        .as_mut()
+        .insert("jj:ab".into(), vec!["abandon".into()]);
+    subcommands
+        .as_mut()
+        .insert("jj:new".into(), vec!["new --no-edit".into()]);
     let output = generate_init(
         &default_ctx(&Shell::Fish),
         &globals,
@@ -226,142 +227,28 @@ fn snapshot_init_fish_with_simple_subcommands() {
 #[test]
 fn snapshot_init_bash_with_kubectl_subcommands() {
     let mut subcommands = SubcommandSet::new();
-    subcommands.insert("kubectl:get:po".into(), vec!["get".into(), "pods".into()]);
-    subcommands.insert(
+    subcommands
+        .as_mut()
+        .insert("kubectl:get:po".into(), vec!["get".into(), "pods".into()]);
+    subcommands.as_mut().insert(
         "kubectl:get:svc".into(),
         vec!["get".into(), "services".into()],
     );
-    subcommands.insert("kubectl:apply:f".into(), vec!["apply".into(), "-f".into()]);
-    subcommands.insert(
+    subcommands
+        .as_mut()
+        .insert("kubectl:apply:f".into(), vec!["apply".into(), "-f".into()]);
+    subcommands.as_mut().insert(
         "kubectl:rollout:status".into(),
         vec!["rollout".into(), "status".into()],
     );
-    subcommands.insert("kubectl:logs:f".into(), vec!["logs".into(), "-f".into()]);
+    subcommands
+        .as_mut()
+        .insert("kubectl:logs:f".into(), vec!["logs".into(), "-f".into()]);
     let output = generate_init(
         &default_ctx(&Shell::Bash),
         &AliasSet::default(),
         &AliasSet::default(),
         &subcommands,
-    );
-    insta::assert_snapshot!(output);
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Reload snapshots
-// ═══════════════════════════════════════════════════════════════════════
-
-#[test]
-fn snapshot_reload_fish_switch_profile() {
-    let config = git_conventional_config();
-    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Fish),
-        &AliasSet::default(),
-        &resolved,
-        &SubcommandSet::new(),
-        Some("gs,cm"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_zsh_switch_profile() {
-    let config = git_conventional_config();
-    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Zsh),
-        &AliasSet::default(),
-        &resolved,
-        &SubcommandSet::new(),
-        Some("gs,cm"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_powershell_switch_profile() {
-    let config = git_conventional_config();
-    let resolved = config.resolve_active_aliases(&["git-conventional"]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Powershell),
-        &AliasSet::default(),
-        &resolved,
-        &SubcommandSet::new(),
-        Some("gs,cm"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_bash_switch_profile() {
-    let config = git_conventional_config();
-    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Bash),
-        &AliasSet::default(),
-        &resolved,
-        &SubcommandSet::new(),
-        Some("gs,cm"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_fish_after_global_add() {
-    // Simulates: user had profile aliases loaded, then adds a global alias
-    let globals = aliases(&[("ll", "ls -lha")]);
-    let config = git_conventional_config();
-    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Fish),
-        &globals,
-        &resolved,
-        &SubcommandSet::new(),
-        Some("cm,cmf,gs"), // previously tracked aliases
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_fish_globals_only_no_profile() {
-    // No active profile, only globals
-    let globals = aliases(&[("ll", "ls -lha"), ("gs", "git status")]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Fish),
-        &globals,
-        &AliasSet::default(),
-        &SubcommandSet::new(),
-        Some("old"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_zsh_after_global_add() {
-    let globals = aliases(&[("ll", "ls -lha")]);
-    let config = git_conventional_config();
-    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Zsh),
-        &globals,
-        &resolved,
-        &SubcommandSet::new(),
-        Some("cm,cmf,gs"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_bash_after_global_add() {
-    let globals = aliases(&[("ll", "ls -lha")]);
-    let config = git_conventional_config();
-    let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_reload(
-        &default_ctx(&Shell::Bash),
-        &globals,
-        &resolved,
-        &SubcommandSet::new(),
-        Some("cm,cmf,gs"),
     );
     insta::assert_snapshot!(output);
 }
@@ -378,255 +265,6 @@ fn snapshot_init_fish_globals_and_multi_profile() {
         &resolved,
         &SubcommandSet::new(),
     );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_after_profile_removed() {
-    // Scenario: rust profile had its own aliases, then was removed from active set
-    // Now only git's aliases should remain
-    let config = profiles(indoc! {r#"
-        [[profiles]]
-        name = "git"
-        [profiles.aliases]
-        gs = "git status"
-        cm = "git commit -sm"
-
-        [[profiles]]
-        name = "rust"
-        [profiles.aliases]
-        ct = "cargo test"
-    "#});
-    // rust is no longer in the active set
-    let resolved = config.resolve_active_aliases(&["git"]);
-    // Previously tracked: cm,ct,gs (git's + rust's aliases were all loaded)
-    let output = generate_reload(
-        &default_ctx(&Shell::Fish),
-        &AliasSet::default(),
-        &resolved,
-        &SubcommandSet::new(),
-        Some("cm,ct,gs"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_after_parent_profile_removed() {
-    // Scenario: git was removed, git-conventional is now standalone
-    let config = profiles(indoc! {r#"
-        [[profiles]]
-        name = "git-conventional"
-        [profiles.aliases]
-        cmf = "cm feat: {{@}}"
-    "#});
-    // git was removed, only git-conventional active
-    let resolved = config.resolve_active_aliases(&["git-conventional"]);
-    // Previously tracked: cm,cmf,gs (git's + git-conventional's were loaded)
-    let output = generate_reload(
-        &default_ctx(&Shell::Fish),
-        &AliasSet::default(),
-        &resolved,
-        &SubcommandSet::new(),
-        Some("cm,cmf,gs"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_reload_after_active_set_changed() {
-    // Scenario: previously had git+rust active, now changed to base+rust
-    let config = profiles(indoc! {r#"
-        [[profiles]]
-        name = "base"
-        [profiles.aliases]
-        ll = "ls -lha"
-
-        [[profiles]]
-        name = "git"
-        [profiles.aliases]
-        gs = "git status"
-
-        [[profiles]]
-        name = "rust"
-        [profiles.aliases]
-        ct = "cargo test"
-    "#});
-    let resolved = config.resolve_active_aliases(&["base", "rust"]);
-    // Previously tracked: ct,gs (from rust + git)
-    // Now should have: ct,ll (from rust + base)
-    let output = generate_reload(
-        &default_ctx(&Shell::Fish),
-        &AliasSet::default(),
-        &resolved,
-        &SubcommandSet::new(),
-        Some("ct,gs"),
-    );
-    insta::assert_snapshot!(output);
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Hook snapshots
-// ═══════════════════════════════════════════════════════════════════════
-
-#[test]
-fn snapshot_hook_fish_with_aliases() {
-    let dir = tempfile::tempdir().unwrap();
-    let aliases_path = dir.path().join(".aliases");
-    fs::write(
-        &aliases_path,
-        indoc! {r#"
-            [aliases]
-            t = "cargo test"
-            b = "cargo build"
-        "#},
-    )
-    .unwrap();
-
-    let mut security = SecurityConfig::default();
-    let hash = compute_file_hash(&aliases_path).unwrap();
-    security.trust(&aliases_path, &hash);
-
-    let ctx = ShellContext {
-        shell: &Shell::Fish,
-        cfg: &DEFAULT_CFG,
-        cwd: dir.path(),
-        external_functions: Default::default(),
-        external_aliases: Default::default(),
-    };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_hook_zsh_with_aliases() {
-    let dir = tempfile::tempdir().unwrap();
-    let aliases_path = dir.path().join(".aliases");
-    fs::write(
-        &aliases_path,
-        indoc! {r#"
-            [aliases]
-            t = "cargo test"
-            b = "cargo build"
-        "#},
-    )
-    .unwrap();
-
-    let mut security = SecurityConfig::default();
-    let hash = compute_file_hash(&aliases_path).unwrap();
-    security.trust(&aliases_path, &hash);
-
-    let ctx = ShellContext {
-        shell: &Shell::Zsh,
-        cfg: &DEFAULT_CFG,
-        cwd: dir.path(),
-        external_functions: Default::default(),
-        external_aliases: Default::default(),
-    };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_hook_powershell_with_aliases() {
-    let dir = tempfile::tempdir().unwrap();
-    let aliases_path = dir.path().join(".aliases");
-    fs::write(
-        &aliases_path,
-        indoc! {r#"
-            [aliases]
-            t = "cargo test"
-            b = "cargo build"
-        "#},
-    )
-    .unwrap();
-
-    let mut security = SecurityConfig::default();
-    let hash = compute_file_hash(&aliases_path).unwrap();
-    security.trust(&aliases_path, &hash);
-
-    let ctx = ShellContext {
-        shell: &Shell::Powershell,
-        cfg: &DEFAULT_CFG,
-        cwd: dir.path(),
-        external_functions: Default::default(),
-        external_aliases: Default::default(),
-    };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_hook_bash_with_aliases() {
-    let dir = tempfile::tempdir().unwrap();
-    let aliases_path = dir.path().join(".aliases");
-    fs::write(
-        &aliases_path,
-        indoc! {r#"
-            [aliases]
-            t = "cargo test"
-            b = "cargo build"
-        "#},
-    )
-    .unwrap();
-
-    let mut security = SecurityConfig::default();
-    let hash = compute_file_hash(&aliases_path).unwrap();
-    security.trust(&aliases_path, &hash);
-
-    let ctx = ShellContext {
-        shell: &Shell::Bash,
-        cfg: &DEFAULT_CFG,
-        cwd: dir.path(),
-        external_functions: Default::default(),
-        external_aliases: Default::default(),
-    };
-    let (output, _) = generate_hook_with_security(&ctx, None, None, &mut security, false).unwrap();
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_hook_fish_transition() {
-    let dir = tempfile::tempdir().unwrap();
-    let aliases_path = dir.path().join(".aliases");
-    fs::write(
-        &aliases_path,
-        indoc! {r#"
-            [aliases]
-            t = "make test"
-        "#},
-    )
-    .unwrap();
-
-    let mut security = SecurityConfig::default();
-    let hash = compute_file_hash(&aliases_path).unwrap();
-    security.trust(&aliases_path, &hash);
-
-    let ctx = ShellContext {
-        shell: &Shell::Fish,
-        cfg: &DEFAULT_CFG,
-        cwd: dir.path(),
-        external_functions: Default::default(),
-        external_aliases: Default::default(),
-    };
-    let (output, _) =
-        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();
-    insta::assert_snapshot!(output);
-}
-
-#[test]
-fn snapshot_hook_fish_leaving_project() {
-    let dir = tempfile::tempdir().unwrap();
-    // No .aliases file
-    let mut security = SecurityConfig::default();
-    let ctx = ShellContext {
-        shell: &Shell::Fish,
-        cfg: &DEFAULT_CFG,
-        cwd: dir.path(),
-        external_functions: Default::default(),
-        external_aliases: Default::default(),
-    };
-    let (output, _) =
-        generate_hook_with_security(&ctx, Some("old_a,old_b"), None, &mut security, false).unwrap();
     insta::assert_snapshot!(output);
 }
 
@@ -1043,72 +681,188 @@ fn snapshot_share_help() {
     insta::assert_snapshot!(output);
 }
 
-fn abbr_ctx(shell: &Shell) -> ShellContext<'_> {
-    static ABBR_CFG: std::sync::LazyLock<ShellsTomlConfig> =
-        std::sync::LazyLock::new(|| ShellsTomlConfig {
-            fish: Some(FishConfig { use_abbr: true }),
-        });
-    ShellContext {
-        shell,
-        cfg: &ABBR_CFG,
-        cwd: std::path::Path::new("/tmp"),
-        external_functions: Default::default(),
-        external_aliases: Default::default(),
-    }
+#[test]
+fn sync_fresh_load_emits_aliases_and_env_var() {
+    use amoxide::precedence::Precedence;
+    let aliases = aliases(&[("gs", "git status")]);
+    let diff = Precedence::new()
+        .with_profiles(&aliases, &SubcommandSet::new())
+        .resolve();
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let out = diff.render(shell.as_ref());
+    assert!(out.contains("function gs\n    git status $argv\nend"));
+    assert!(out.contains("_AM_ALIASES"));
+    assert!(out.contains("gs|"));
 }
 
 #[test]
-fn snapshot_init_fish_force_with_tracked_aliases() {
-    // Simulates: _AM_ALIASES=gs,ll is set, user runs am init --force fish.
-    // force_unalias must emit both cleanup forms for each tracked name,
-    // followed by the normal init output.
-    let prev_names = vec!["gs".to_string(), "ll".to_string()];
-    let output = generate_force_init(
-        &default_ctx(&Shell::Fish),
-        &aliases(&[("gs", "git status"), ("ll", "ls -lha")]),
-        &AliasSet::default(),
-        &SubcommandSet::new(),
-        &prev_names,
+fn sync_tampered_returns_save_security_effect_and_excludes_project() {
+    use amoxide::app_model::AppModel;
+    use amoxide::messages::Message;
+    use amoxide::shell::Shell;
+    use amoxide::update::update;
+
+    let dir = tempfile::tempdir().unwrap();
+    let aliases_path = dir.path().join(".aliases");
+    fs::write(&aliases_path, "[aliases]\nt = \"cargo test\"\n").unwrap();
+
+    let mut sec = amoxide::security::SecurityConfig::default();
+    // Trust with a wrong hash to force tamper.
+    sec.trust(&aliases_path, "wrong_hash");
+    let mut model = AppModel::new_with_security(
+        amoxide::Config::default(),
+        amoxide::ProfileConfig::default(),
+        sec,
+    )
+    .with_cwd(dir.path().to_path_buf());
+
+    // Smoke test: we don't care about stdout, just the effect list.
+    let res = update(&mut model, Message::Sync(Shell::Fish, true)).unwrap();
+    assert!(
+        res.effects
+            .iter()
+            .any(|e| matches!(e, amoxide::Effect::SaveSecurity)),
+        "tampered file must trigger SaveSecurity effect"
     );
+}
+
+#[cfg(feature = "test-util")]
+#[test]
+fn init_force_unloads_introspected_names_with_hash_suffix_stripped() {
+    use amoxide::app_model::AppModel;
+    use amoxide::messages::Message;
+    use amoxide::shell::Shell;
+    use amoxide::update::update;
+
+    // Simulate a prior session where _AM_ALIASES held name|hash entries.
+    // The force init must emit `unalias name` (no `|hash` suffix).
+    std::env::set_var("_AM_ALIASES", "b|abc1234,t|def5678");
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut model = AppModel::load_from(dir.path().to_path_buf());
+
+    // The real coverage is the snapshot added in Task 15. Here we just
+    // assert the handler completes without panicking.
+    let res = update(&mut model, Message::InitShell(Shell::Fish, true));
+    assert!(res.is_ok());
+
+    std::env::remove_var("_AM_ALIASES");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Sync snapshots — cover behaviors that snapshot_hook_* and
+// snapshot_reload_* used to exercise, now through the Precedence Engine.
+// ═══════════════════════════════════════════════════════════════════════
+
+#[test]
+fn snapshot_sync_fish_fresh_load_project_only() {
+    use amoxide::precedence::Precedence;
+    let project = aliases(&[("b", "cargo build"), ("t", "cargo test")]);
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
 
 #[test]
-fn snapshot_init_fish_abbr_force_with_tracked_aliases() {
-    // Same but with use_abbr = true — cleanup must still emit both forms.
-    let prev_names = vec!["gs".to_string()];
-    let output = generate_force_init(
-        &abbr_ctx(&Shell::Fish),
-        &aliases(&[("gs", "git status")]),
-        &AliasSet::default(),
-        &SubcommandSet::new(),
-        &prev_names,
-    );
+fn snapshot_sync_bash_fresh_load_project_only() {
+    use amoxide::precedence::Precedence;
+    let project = aliases(&[("b", "cargo build")]);
+    let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
 
 #[test]
-fn snapshot_init_fish_force_no_previous() {
-    // --force with no tracked aliases: no cleanup lines, just normal init.
-    let output = generate_force_init(
-        &default_ctx(&Shell::Fish),
-        &aliases(&[("gs", "git status")]),
-        &AliasSet::default(),
-        &SubcommandSet::new(),
-        &[],
-    );
+fn snapshot_sync_zsh_fresh_load_project_only() {
+    use amoxide::precedence::Precedence;
+    let project = aliases(&[("b", "cargo build")]);
+    let shell = Shell::Zsh.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
 
 #[test]
-fn snapshot_init_bash_force_with_tracked_aliases() {
-    let prev_names = vec!["gs".to_string()];
-    let output = generate_force_init(
-        &default_ctx(&Shell::Bash),
-        &aliases(&[("gs", "git status")]),
-        &AliasSet::default(),
-        &SubcommandSet::new(),
-        &prev_names,
-    );
+fn snapshot_sync_powershell_fresh_load_project_only() {
+    use amoxide::precedence::Precedence;
+    let project = aliases(&[("b", "cargo build")]);
+    let shell =
+        Shell::Powershell.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .resolve();
+    let output = diff.render(shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_fish_transition_to_new_project() {
+    use amoxide::precedence::Precedence;
+    let project = aliases(&[("new1", "echo new")]);
+    let prev_hash = amoxide::trust::compute_short_hash(b"echo old");
+    let prev = format!("old1|{prev_hash}");
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .with_shell_state_from_env(Some(&prev), None)
+        .resolve();
+    let output = diff.render(shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_fish_leaving_project_with_shadow_restoration() {
+    use amoxide::precedence::Precedence;
+    // Previously the project shadowed a profile alias `t`. Now we've left the
+    // project directory — effective `t` reverts to the profile value. The
+    // stored hash was the project's; new effective hash is the profile's.
+    // The engine must re-emit the profile `t` (shadow restoration).
+    let profile = aliases(&[("t", "cargo test"), ("ll", "ls -lha")]);
+    let project_hash = amoxide::trust::compute_short_hash(b"cargo test --release");
+    let ll_hash = amoxide::trust::compute_short_hash(b"ls -lha");
+    let prev = format!("t|{project_hash},b|aaa1111,ll|{ll_hash}");
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_profiles(&profile, &SubcommandSet::new())
+        .with_shell_state_from_env(Some(&prev), None)
+        .resolve();
+    let output = diff.render(shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_fish_incremental_one_alias_updated() {
+    use amoxide::precedence::Precedence;
+    let project = aliases(&[("b", "cargo build --release"), ("t", "cargo test")]);
+    let old_b_hash = amoxide::trust::compute_short_hash(b"cargo build");
+    let t_hash = amoxide::trust::compute_short_hash(b"cargo test");
+    let prev = format!("b|{old_b_hash},t|{t_hash}");
+    let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&project, &SubcommandSet::new())
+        .with_shell_state_from_env(Some(&prev), None)
+        .resolve();
+    let output = diff.render(shell.as_ref());
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn snapshot_sync_bash_subcommand_wrapper_fresh_load() {
+    use amoxide::precedence::Precedence;
+    let mut subs = SubcommandSet::new();
+    subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
+    let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
+    let diff = Precedence::new()
+        .with_project(&AliasSet::default(), &subs)
+        .resolve();
+    let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }

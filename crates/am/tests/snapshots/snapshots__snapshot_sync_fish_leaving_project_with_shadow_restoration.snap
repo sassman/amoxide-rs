@@ -1,0 +1,13 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+functions -e b
+functions -e t
+functions -e t
+complete -e -c t
+function t
+    cargo test $argv
+end
+complete -c t --wraps "cargo"
+set -gx _AM_ALIASES "t|ab61de4,ll|619d266"

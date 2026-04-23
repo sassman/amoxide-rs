@@ -2,52 +2,44 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-alias gs "git status"
-alias ll "ls -lha"
-set -gx _AM_ALIASES "gs,ll"
-set -e _AM_PROFILE_ALIASES
-
-# am wrapper: reload aliases after mutations
+functions -e gs
+complete -e -c gs
+function gs
+    git status $argv
+end
+complete -c gs --wraps "git"
+functions -e ll
+complete -e -c ll
+function ll
+    ls -lha $argv
+end
+complete -c ll --wraps "ls"
+set -gx _AM_ALIASES "gs|22db469,ll|619d266"
+# am wrapper: sync after mutations
 function am --wraps=am
     command am $argv
     set -l am_status $status
     if test $am_status -ne 0
         return $am_status
     end
-    # tui may have changed anything → always reload after
-    if begin; test "$argv[1]" = tui; or test "$argv[1]" = t; end
-        command am reload fish | source
-        command am hook fish | source
-        return
-    end
-    # top-level use → reload aliases
-    if begin; test "$argv[1]" = use; or test "$argv[1]" = u; end
-        command am reload fish | source
-        return
-    end
-    # profile mutation → reload aliases
-    if begin; test "$argv[1]" = profile; or test "$argv[1]" = p; end
-        if begin; test "$argv[2]" = use; or test "$argv[2]" = u; or test "$argv[2]" = add; or test "$argv[2]" = a; or test "$argv[2]" = remove; or test "$argv[2]" = r; end
-            command am reload fish | source
-        end
-    else if begin; test "$argv[1]" = add; or test "$argv[1]" = a; or test "$argv[1]" = remove; or test "$argv[1]" = r; end
-        if contains -- -l $argv; or contains -- --local $argv
-            # local alias change → reload project aliases
-            command am hook fish | source
-        else
-            # profile/global alias change → reload
-            command am reload fish | source
-        end
-    else if test "$argv[1]" = trust
-        command am hook fish | source
-    else if test "$argv[1]" = untrust
-        command am hook --quiet fish | source
+    switch "$argv[1]"
+        case add a remove r trust tui t
+            command am sync fish | source
+        case use u untrust
+            command am sync --quiet fish | source
+        case profile p
+            switch "$argv[2]"
+                case use u
+                    command am sync --quiet fish | source
+                case add a remove r
+                    command am sync fish | source
+            end
     end
 end
 
 # am cd hook
 function __am_hook --on-variable PWD
-    am hook fish | source
+    am sync fish | source
 end
 __am_hook
 
@@ -93,8 +85,7 @@ complete -c am -n "__fish_am_needs_command" -f -a "import" -d 'Import aliases fr
 complete -c am -n "__fish_am_needs_command" -f -a "share" -d 'Generate a share command for posting aliases to a pastebin service'
 complete -c am -n "__fish_am_needs_command" -f -a "trust" -d 'Review and trust the project .aliases file in the current directory'
 complete -c am -n "__fish_am_needs_command" -f -a "untrust" -d 'Remove trust for the project .aliases file in the current directory'
-complete -c am -n "__fish_am_needs_command" -f -a "hook" -d 'Internal: called by the cd hook to load/unload project aliases'
-complete -c am -n "__fish_am_needs_command" -f -a "reload" -d 'Internal: called by the am wrapper to reload profile aliases after switching'
+complete -c am -n "__fish_am_needs_command" -f -a "sync" -d 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)'
 complete -c am -n "__fish_am_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c am -n "__fish_am_using_subcommand add" -s p -l profile -d 'Profile to add the alias to (defaults to active profile)' -r
 complete -c am -n "__fish_am_using_subcommand add" -l sub -d 'Define a subcommand alias (repeatable: --sub short long)' -r
@@ -178,28 +169,25 @@ complete -c am -n "__fish_am_using_subcommand trust" -s V -l version -d 'Print v
 complete -c am -n "__fish_am_using_subcommand untrust" -s f -l forget -d 'Forget the path entirely (remove from security tracking instead of marking untrusted)'
 complete -c am -n "__fish_am_using_subcommand untrust" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand untrust" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand hook" -s q -l quiet -d 'Suppress info and warning messages (still unloads/loads aliases)'
-complete -c am -n "__fish_am_using_subcommand hook" -s h -l help -d 'Print help'
-complete -c am -n "__fish_am_using_subcommand hook" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand reload" -s h -l help -d 'Print help'
-complete -c am -n "__fish_am_using_subcommand reload" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "add" -d 'Add a new alias'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "remove" -d 'Remove an alias'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "ls" -d 'List all profiles and project aliases'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "status" -d 'Check if the shell is set up correctly'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "profile" -d 'Manage profiles (defaults to listing when no subcommand given)'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "init" -d 'Print shell init code'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "setup" -d 'Guided setup — adds amoxide to your shell profile'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "use" -d 'Shortcut for `am profile use` — toggle one or more profiles'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "tui" -d 'Launch the interactive TUI for managing aliases and profiles'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "export" -d 'Export aliases to stdout as TOML'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "import" -d 'Import aliases from a URL or file'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "share" -d 'Generate a share command for posting aliases to a pastebin service'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "trust" -d 'Review and trust the project .aliases file in the current directory'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "untrust" -d 'Remove trust for the project .aliases file in the current directory'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "hook" -d 'Internal: called by the cd hook to load/unload project aliases'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "reload" -d 'Internal: called by the am wrapper to reload profile aliases after switching'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust hook reload help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c am -n "__fish_am_using_subcommand sync" -s q -l quiet -d 'Suppress info and warning messages (still unloads/loads aliases)'
+complete -c am -n "__fish_am_using_subcommand sync" -s h -l help -d 'Print help'
+complete -c am -n "__fish_am_using_subcommand sync" -s V -l version -d 'Print version'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "add" -d 'Add a new alias'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "remove" -d 'Remove an alias'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "ls" -d 'List all profiles and project aliases'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "status" -d 'Check if the shell is set up correctly'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "profile" -d 'Manage profiles (defaults to listing when no subcommand given)'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "init" -d 'Print shell init code'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "setup" -d 'Guided setup — adds amoxide to your shell profile'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "use" -d 'Shortcut for `am profile use` — toggle one or more profiles'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "tui" -d 'Launch the interactive TUI for managing aliases and profiles'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "export" -d 'Export aliases to stdout as TOML'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "import" -d 'Import aliases from a URL or file'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "share" -d 'Generate a share command for posting aliases to a pastebin service'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "trust" -d 'Review and trust the project .aliases file in the current directory'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "untrust" -d 'Remove trust for the project .aliases file in the current directory'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "sync" -d 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls status profile init setup use tui export import share trust untrust sync help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c am -n "__fish_am_using_subcommand help; and __fish_seen_subcommand_from profile" -f -a "add" -d 'Add a new profile'
 complete -c am -n "__fish_am_using_subcommand help; and __fish_seen_subcommand_from profile" -f -a "use" -d 'Toggle one or more profiles as active/inactive, optionally at a specific priority'
 complete -c am -n "__fish_am_using_subcommand help; and __fish_seen_subcommand_from profile" -f -a "remove" -d 'Remove a profile'

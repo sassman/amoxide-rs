@@ -117,12 +117,15 @@ Diese Meldungen erscheinen nur beim Betreten oder Verlassen des Verzeichnisses m
 
 ## Wie es funktioniert
 
-Der `am init` Shell-Hook ruft `am hook <shell>` bei jedem Verzeichniswechsel auf. Der Hook:
+Der `am init` Shell-Hook ruft `am sync <shell>` bei jedem Verzeichniswechsel auf. Sync:
 
 1. Sucht vom aktuellen Verzeichnis aufwärts nach einer `.aliases`-Datei (stoppt vor `$HOME`)
 2. Prüft, ob die Datei vertrauenswürdig ist (Pfad + Hash in `security.toml`)
-3. Falls vertrauenswürdig: entlädt vorherige Projekt-Aliase und lädt die neuen
-4. Falls nicht vertrauenswürdig: zeigt eine Warnung oder bleibt still, je nach Vertrauensstatus
+3. Führt alle Ebenen mit Präzedenz zusammen — global < Profil < Projekt — und berechnet den minimalen Satz an Shell-Operationen
+4. Gibt nur die Unloads/Loads aus, die sich tatsächlich auf die Shell auswirken (unveränderte Aliase bleiben bestehen)
+5. Falls die Datei nicht vertrauenswürdig ist, zeigt eine Warnung oder bleibt still, je nach Vertrauensstatus
+
+Dadurch folgen Aliase automatisch dem Kontext — ein Wechsel in ein Rust-Projekt lädt die Rust-Aliase, ein Wechsel in ein Node-Projekt die Node-Aliase — vorausgesetzt, die jeweiligen `.aliases`-Dateien sind vertrauenswürdig. Wenn ein Projekt-Alias denselben Namen wie ein Profil-Alias hat, gewinnt der Projekt-Wert; beim Verlassen des Projekts übernimmt automatisch wieder der Profil-Wert.
 
 ## Workflow
 

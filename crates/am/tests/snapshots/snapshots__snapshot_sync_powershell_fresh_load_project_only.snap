@@ -1,0 +1,6 @@
+---
+source: crates/am/tests/snapshots.rs
+expression: output
+---
+function global:b { cargo build @args }
+$env:_AM_ALIASES = "b|b58de66"

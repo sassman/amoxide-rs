@@ -1,8 +1,0 @@
----
-source: crates/am/tests/snapshots.rs
-expression: output
----
-if (Test-Path Function:\gs) { Remove-Item Function:\gs }
-if (Test-Path Function:\cm) { Remove-Item Function:\cm }
-function global:cmf { cm feat: $args }
-$env:_AM_ALIASES = "cmf"

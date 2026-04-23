@@ -23,7 +23,7 @@ fn render_items(
     aliases: &AliasSet,
     subcommands: &crate::subcommand::SubcommandSet,
 ) {
-    let subcmd_groups = crate::subcommand::group_by_program(subcommands);
+    let subcmd_groups = subcommands.group_by_program();
 
     // Chain aliases then subcommand groups into one peekable stream.
     // Each "item" is rendered with ├─ unless peek() returns None (last item).
@@ -594,8 +594,9 @@ mod tests {
 
         let config: ProfileConfig = ProfileConfig::default();
         let mut subs = SubcommandSet::new();
-        subs.insert("jj:ab".into(), vec!["abandon".into()]);
-        subs.insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+        subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
+        subs.as_mut()
+            .insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
 
         let output = render_listing(&AliasSet::default(), &subs, &config, &[], None, None);
         assert!(output.contains("jj (subcommands)"));

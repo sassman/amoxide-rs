@@ -826,6 +826,7 @@ mod tests {
             .app_model
             .config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         model.rebuild_tree();
         let idx = model
@@ -1007,13 +1008,18 @@ mod tests {
         });
         update(&mut model, TuiMessage::TextInputConfirm);
         assert_eq!(model.mode, Mode::Normal);
-        assert!(model.app_model.config.subcommands.contains_key("jj:ab"));
+        assert!(model
+            .app_model
+            .config
+            .subcommands
+            .as_ref()
+            .contains_key("jj:ab"));
     }
 
     fn make_subcmd_model(keys: &[(&str, &[&str])]) -> TuiModel {
         let mut config = amoxide::Config::default();
         for (key, longs) in keys {
-            config.subcommands.insert(
+            config.subcommands.as_mut().insert(
                 key.to_string(),
                 longs.iter().map(|s| s.to_string()).collect(),
             );
@@ -1057,7 +1063,12 @@ mod tests {
             .unwrap();
         model.cursor = idx;
         update(&mut model, TuiMessage::DeleteItem);
-        assert!(!model.app_model.config.subcommands.contains_key("jj:ab"));
+        assert!(!model
+            .app_model
+            .config
+            .subcommands
+            .as_ref()
+            .contains_key("jj:ab"));
     }
 
     #[test]

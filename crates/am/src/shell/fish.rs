@@ -127,13 +127,51 @@ impl ShellAdapter for Fish {
     }
 
     fn alias(&self, entry: &AliasEntry) -> String {
+        // Emit a plain `function` and register completion inheritance via a
+        // separate `complete -c NAME --wraps CMD` call, rather than going
+        // through fish's `alias` builtin. Reasons:
+        //   - fish's `alias` puts `--wraps=<full body>` directly in the
+        //     function signature, which shows up in `type NAME` output and
+        //     stacks on redefinition (the `--wraps=` entries accumulate).
+        //   - `function NAME` alone has a clean signature.
+        //   - `complete -c NAME --wraps` registers inheritance in the
+        //     completion system, which the prelude's `complete -e -c NAME`
+        //     wipes before each emission, so no stacking.
+        //   - We wrap the first whitespace-separated token of the command —
+        //     the actual wrapped binary — rather than the full argv, which
+        //     is what fish's completion system expects.
+        let prelude = format!(
+            "functions -e {name}\ncomplete -e -c {name}",
+            name = entry.name
+        );
+        let wrap_target = entry
+            .command
+            .split_whitespace()
+            .next()
+            .filter(|s| !s.is_empty());
+        let wraps_line = wrap_target.map(|w| {
+            format!(
+                "\ncomplete -c {name} --wraps {cmd}",
+                name = entry.name,
+                cmd = quote_cmd(w),
+            )
+        });
         if !entry.raw && has_template_args(entry.command) {
             let body = substitute_fish(entry.command);
-            format!("function {}\n    {}\nend", entry.name, body)
+            format!(
+                "{prelude}\nfunction {name}\n    {body}\nend{wraps}",
+                name = entry.name,
+                wraps = wraps_line.as_deref().unwrap_or(""),
+            )
         } else if self.use_abbr {
             format!("abbr --add {} {}", entry.name, quote_cmd(entry.command))
         } else {
-            format!("alias {} {}", entry.name, quote_cmd(entry.command))
+            format!(
+                "{prelude}\nfunction {name}\n    {cmd} $argv\nend{wraps}",
+                name = entry.name,
+                cmd = entry.command,
+                wraps = wraps_line.as_deref().unwrap_or(""),
+            )
         }
     }
 
@@ -240,11 +278,11 @@ mod tests {
     fn test_fish_simple_alias() {
         assert_eq!(
             Fish::default().alias(&simple("h", "'echo hello'")),
-            "alias h 'echo hello'"
+            "functions -e h\ncomplete -e -c h\nfunction h\n    'echo hello' $argv\nend\ncomplete -c h --wraps \"'echo\""
         );
         assert_eq!(
             Fish::default().alias(&simple("h", "echo hello")),
-            "alias h \"echo hello\""
+            "functions -e h\ncomplete -e -c h\nfunction h\n    echo hello $argv\nend\ncomplete -c h --wraps \"echo\""
         );
     }
 
@@ -252,11 +290,11 @@ mod tests {
     fn test_fish_parameterized() {
         assert_eq!(
             Fish::default().alias(&simple("cmf", "cm feat: {{@}}")),
-            "function cmf\n    cm feat: $argv\nend"
+            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    cm feat: $argv\nend\ncomplete -c cmf --wraps \"cm\""
         );
         assert_eq!(
             Fish::default().alias(&simple("x", "echo {{1}} and {{2}}")),
-            "function x\n    echo $argv[1] and $argv[2]\nend"
+            "functions -e x\ncomplete -e -c x\nfunction x\n    echo $argv[1] and $argv[2]\nend\ncomplete -c x --wraps \"echo\""
         );
     }
 
@@ -264,7 +302,7 @@ mod tests {
     fn test_fish_raw_skips_templates() {
         assert_eq!(
             Fish::default().alias(&raw("my-awk", "awk '{print {{1}}}'")),
-            "alias my-awk \"awk '{print {{1}}}'\""
+            "functions -e my-awk\ncomplete -e -c my-awk\nfunction my-awk\n    awk '{print {{1}}}' $argv\nend\ncomplete -c my-awk --wraps \"awk\""
         );
     }
 
@@ -412,7 +450,7 @@ mod tests {
         let fish = Fish { use_abbr: true };
         assert_eq!(
             fish.alias(&simple("cmf", "cm feat: {{@}}")),
-            "function cmf\n    cm feat: $argv\nend"
+            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    cm feat: $argv\nend\ncomplete -c cmf --wraps \"cm\""
         );
     }
 

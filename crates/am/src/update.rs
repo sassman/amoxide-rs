@@ -3,8 +3,8 @@ pub use crate::app_model::AppModel;
 use crate::display::render_listing;
 use crate::effects::Effect;
 use crate::env_vars;
-use crate::init::{generate_init, generate_reload};
-use crate::profile::AliasCollection;
+use crate::init::generate_init;
+use crate::precedence::{format_change_summary, Precedence};
 use crate::project::ProjectAliases;
 use crate::shell::bash;
 use crate::shell::zsh;
@@ -306,7 +306,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             target,
         } => match target {
             AliasTarget::Global => {
-                model.config.subcommands.remove(&original_key);
+                model.config.subcommands.as_mut().remove(&original_key);
                 model.config.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
@@ -324,7 +324,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         &[Effect::RemoveLocalSubcommand { key: original_key }],
                     ))
                 } else {
-                    model.config.subcommands.remove(&original_key);
+                    model.config.subcommands.as_mut().remove(&original_key);
                     model.config.add_subcommand(new_key, long_subcommands);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
@@ -344,7 +344,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                 let profile = resolve_profile_mut(model, &target)?;
-                profile.subcommands.remove(&original_key);
+                profile.subcommands.as_mut().remove(&original_key);
                 profile.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
@@ -361,7 +361,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 match src_subcommands {
                     Some(subs) => keys
                         .iter()
-                        .filter_map(|k| Some((k.clone(), subs.get(k)?.clone())))
+                        .filter_map(|k| Some((k.clone(), subs.as_ref().get(k)?.clone())))
                         .collect(),
                     None => vec![],
                 }
@@ -415,7 +415,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 match src_subcommands {
                     Some(subs) => keys
                         .iter()
-                        .filter_map(|k| Some((k.clone(), subs.get(k)?.clone())))
+                        .filter_map(|k| Some((k.clone(), subs.as_ref().get(k)?.clone())))
                         .collect(),
                     None => vec![],
                 }
@@ -447,7 +447,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match &from {
                 AliasTarget::Global => {
                     for (key, _) in &pairs {
-                        model.config.subcommands.remove(key);
+                        model.config.subcommands.as_mut().remove(key);
                     }
                 }
                 AliasTarget::Local => {} // handled via effects below
@@ -455,7 +455,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     if let Some(profile) = model.profile_config_mut().get_profile_by_name_mut(name)
                     {
                         for (key, _) in &pairs {
-                            profile.subcommands.remove(key);
+                            profile.subcommands.as_mut().remove(key);
                         }
                     }
                 }
@@ -466,7 +466,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             model.profile_config_mut().get_profile_by_name_mut(name)
                         {
                             for (key, _) in &pairs {
-                                profile.subcommands.remove(key);
+                                profile.subcommands.as_mut().remove(key);
                             }
                         }
                     }
@@ -565,7 +565,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .resolve_active_subcommands(&model.session.active_profiles);
             let mut all_subs = model.config.subcommands.clone();
             for (k, v) in resolved_subs {
-                all_subs.insert(k, v);
+                all_subs.as_mut().insert(k, v);
             }
             let (external_functions, external_aliases) = match shell {
                 Shell::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
@@ -591,22 +591,50 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     Default::default(),
                     Default::default(),
                 );
-                let prev_global = std::env::var(env_vars::AM_ALIASES).unwrap_or_default();
-                let prev_project = std::env::var(env_vars::AM_PROJECT_ALIASES).unwrap_or_default();
-                let all_prev: Vec<&str> = prev_global
-                    .split(',')
-                    .chain(prev_project.split(','))
-                    .filter(|s| !s.is_empty())
-                    .collect();
-                for name in all_prev {
+                let prev_global = std::env::var(env_vars::AM_ALIASES).ok();
+
+                // Per-key subcommand entries (containing ':') are tracking-only,
+                // not shell functions. Program-level wrapper names (no ':') are
+                // picked up from prev_global because PrecedenceDiff::render writes
+                // them there alongside regular aliases.
+                let mut names: std::collections::BTreeSet<String> =
+                    crate::precedence::AliasWithHashList::parse(prev_global.as_deref())
+                        .iter()
+                        .map(|e| e.name())
+                        .filter(|n| !n.contains(':'))
+                        .map(String::from)
+                        .collect();
+
+                // Union with shell introspection for bash/zsh.
+                match shell {
+                    Shell::Zsh => {
+                        for n in zsh::scan_external_functions().iter() {
+                            names.insert(n.clone());
+                        }
+                        for n in zsh::scan_external_aliases().iter() {
+                            names.insert(n.clone());
+                        }
+                    }
+                    Shell::Bash => {
+                        for n in bash::scan_external_functions().iter() {
+                            names.insert(n.clone());
+                        }
+                        for n in bash::scan_external_aliases().iter() {
+                            names.insert(n.clone());
+                        }
+                    }
+                    _ => {}
+                }
+
+                for name in &names {
                     output.push_str(&shell_impl.force_unalias(name));
                     output.push('\n');
                 }
-                // Clear project-alias tracking so __am_hook reloads them fresh
-                // instead of assuming they're still loaded.
-                output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_ALIASES));
-                output.push('\n');
                 output.push_str(&shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
+                output.push('\n');
+                output.push_str(&shell_impl.unset_env(env_vars::AM_SUBCOMMANDS));
+                output.push('\n');
+                output.push_str(&shell_impl.unset_env(env_vars::AM_ALIASES));
                 output.push('\n');
             }
 
@@ -619,60 +647,125 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             print!("{output}");
             Ok(UpdateResult::done())
         }
-        Message::Reload(shell) => {
-            let resolved = model
+        Message::Sync(shell, quiet) => {
+            let prev_aliases = std::env::var(env_vars::AM_ALIASES).ok();
+            let prev_subs = std::env::var(env_vars::AM_SUBCOMMANDS).ok();
+            let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
+
+            let shell_cfg = model.config.shell.clone();
+            let cwd = model.cwd.clone();
+            let shell_impl =
+                shell
+                    .clone()
+                    .as_shell(&shell_cfg, Default::default(), Default::default());
+
+            let resolved_aliases = model
                 .profile_config()
                 .resolve_active_aliases(&model.session.active_profiles);
             let resolved_subs = model
                 .profile_config()
                 .resolve_active_subcommands(&model.session.active_profiles);
-            let mut all_subs = model.config.subcommands.clone();
-            for (k, v) in resolved_subs {
-                all_subs.insert(k, v);
-            }
-            let prev = std::env::var(env_vars::AM_ALIASES).ok();
-            let ctx = ShellContext {
-                shell: &shell,
-                cfg: &model.config.shell,
-                cwd: &model.cwd,
-                external_functions: Default::default(),
-                external_aliases: Default::default(),
+
+            // Resolve project state. `project_path` is the `.aliases` file path
+            // (regardless of trust); `include_project` is true only when trusted.
+            let project_path = model.project_trust().map(|t| t.path().to_path_buf());
+            let is_direct = project_path
+                .as_deref()
+                .is_some_and(|p| p.parent().is_some_and(|pp| pp == cwd));
+            let already_seen_path = match (prev_project_path.as_deref(), project_path.as_deref()) {
+                (Some(prev), Some(cur)) => std::path::Path::new(prev) == cur,
+                _ => false,
             };
-            let output = generate_reload(
-                &ctx,
-                &model.config.aliases,
-                &resolved,
-                &all_subs,
-                prev.as_deref(),
-            );
-            if !output.is_empty() {
-                print!("{output}");
+            let show_warn = !quiet && is_direct && !already_seen_path;
+
+            let mut lines: Vec<String> = Vec::new();
+            let mut security_changed = false;
+            let mut include_project = false;
+            match model.project_trust() {
+                Some(crate::trust::ProjectTrust::Trusted(..)) => {
+                    include_project = true;
+                }
+                Some(crate::trust::ProjectTrust::Unknown(_)) => {
+                    if show_warn {
+                        lines.push(shell_impl.echo(
+                            "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
+                        ));
+                    }
+                }
+                Some(crate::trust::ProjectTrust::Tampered(_)) => {
+                    security_changed = true;
+                    if show_warn {
+                        lines.push(shell_impl.echo(
+                            "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
+                        ));
+                    }
+                }
+                Some(crate::trust::ProjectTrust::Untrusted(_)) | None => {}
             }
-            Ok(UpdateResult::done())
-        }
-        Message::Hook(shell, quiet) => {
-            let prev = std::env::var(env_vars::AM_PROJECT_ALIASES).ok();
-            let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
-            let shell_cfg = model.config.shell.clone();
-            let cwd = model.cwd.clone();
-            let ctx = ShellContext {
-                shell: &shell,
-                cfg: &shell_cfg,
-                cwd: &cwd,
-                external_functions: Default::default(),
-                external_aliases: Default::default(),
+
+            let (project_aliases, project_subs) = if include_project {
+                model.project_alias_set_and_subcommands()
+            } else {
+                (
+                    crate::AliasSet::default(),
+                    crate::subcommand::SubcommandSet::new(),
+                )
             };
-            let (output, security_changed) = crate::hook::generate_hook_with_security(
-                &ctx,
-                prev.as_deref(),
-                prev_project_path.as_deref(),
-                model.security_config_mut(),
-                quiet,
-            )
-            .map_err(|e| UpdateError::Other(e.to_string()))?;
-            if !output.is_empty() {
-                print!("{output}");
+
+            // Fresh project load: we're directly in a trusted project we haven't
+            // seen before (or cd'd into a different project). Triggers the full
+            // listing instead of the compact incremental summary.
+            let is_fresh_project_load = include_project && is_direct && !already_seen_path;
+
+            let diff = Precedence::new()
+                .with_global(&model.config.aliases, &model.config.subcommands)
+                .with_profiles(&resolved_aliases, &resolved_subs)
+                .with_project(&project_aliases, &project_subs)
+                .with_shell_state_from_env(prev_aliases.as_deref(), prev_subs.as_deref())
+                .resolve();
+
+            // ── Human-readable messaging ────────────────────────
+            if !quiet {
+                if is_fresh_project_load {
+                    for line in
+                        crate::trust::render_load_message(&project_aliases, &project_subs).lines()
+                    {
+                        lines.push(shell_impl.echo(line));
+                    }
+                } else if let Some(msg) = diff.change_summary() {
+                    lines.push(shell_impl.echo(&msg));
+                }
             }
+
+            let rendered = diff.render(shell_impl.as_ref());
+            if !rendered.is_empty() {
+                lines.push(rendered);
+            }
+
+            // ── _AM_PROJECT_PATH bookkeeping ───────────────────
+            // Always track the current project path (regardless of trust) so
+            // subsequent syncs can detect "first time in this project".
+            let current_path_str = project_path.as_ref().map(|p| p.display().to_string());
+            match (prev_project_path.as_deref(), current_path_str.as_deref()) {
+                (Some(prev), Some(cur)) if prev == cur => {}
+                (_, Some(cur)) => {
+                    lines.push(shell_impl.set_env(env_vars::AM_PROJECT_PATH, cur));
+                }
+                (Some(_), None) => {
+                    lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
+                }
+                (None, None) => {}
+            }
+
+            let joined = lines
+                .into_iter()
+                .filter(|l| !l.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !joined.is_empty() {
+                print!("{joined}");
+            }
+
             if security_changed {
                 Ok(UpdateResult::effect(Effect::SaveSecurity))
             } else {
@@ -686,25 +779,17 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     .get_profile_by_name(name)
                     .ok_or_else(|| UpdateError::ProfileNotFound { name: name.clone() })?;
             }
+            let project_names = project_alias_names(model);
             let mut effects = Vec::new();
             for name in names {
                 let was_active = model.session.is_active(&name);
-                let (total, list) = model
+                let items = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| (p.len(), p.short_list()))
-                    .unwrap_or((0, String::new()));
+                    .map(profile_items)
+                    .unwrap_or_default();
                 model.session.toggle_profile(name.clone());
-                let action = if was_active {
-                    "deactivated"
-                } else {
-                    "activated"
-                };
-                let msg = if was_active || list.is_empty() {
-                    format!("{name} {action}, {total} aliases")
-                } else {
-                    format!("{name} {action} — {total} loaded: {list}")
-                };
+                let msg = profile_toggle_message(&name, !was_active, None, &items, &project_names);
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
@@ -717,20 +802,17 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     .get_profile_by_name(name)
                     .ok_or_else(|| UpdateError::ProfileNotFound { name: name.clone() })?;
             }
+            let project_names = project_alias_names(model);
             let mut effects = Vec::new();
             for (i, name) in names.into_iter().enumerate() {
-                let (total, list) = model
+                let items = model
                     .profile_config()
                     .get_profile_by_name(&name)
-                    .map(|p| (p.len(), p.short_list()))
-                    .unwrap_or((0, String::new()));
-                model.session.use_profile_at(name.clone(), priority + i);
+                    .map(profile_items)
+                    .unwrap_or_default();
                 let pos = priority + i;
-                let msg = if list.is_empty() {
-                    format!("{name} activated at position {pos}, {total} aliases loaded")
-                } else {
-                    format!("{name} activated at position {pos} — {total} loaded: {list}")
-                };
+                model.session.use_profile_at(name.clone(), pos);
+                let msg = profile_toggle_message(&name, true, Some(pos), &items, &project_names);
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
@@ -755,7 +837,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
             if let Some(subcommands) = payload.global_subcommands {
                 for (key, longs) in subcommands {
-                    model.config.subcommands.insert(key, longs);
+                    model.config.subcommands.as_mut().insert(key, longs);
                 }
                 effects.push(Effect::SaveConfig);
             }
@@ -839,6 +921,88 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             ]))
         }
     }
+}
+
+/// Names of trusted project-layer items (regular alias names + subcommand
+/// keys like `git:st`). Empty if no project is loaded or trusted.
+fn project_alias_names(model: &AppModel) -> std::collections::BTreeSet<String> {
+    let Some(project) = model.project_aliases() else {
+        return std::collections::BTreeSet::new();
+    };
+    let mut set: std::collections::BTreeSet<String> = project
+        .aliases
+        .iter()
+        .map(|(n, _)| n.as_ref().to_string())
+        .collect();
+    set.extend(project.subcommands.as_ref().keys().cloned());
+    set
+}
+
+/// Profile items (regular alias names + subcommand keys).
+fn profile_items(profile: &Profile) -> Vec<String> {
+    let mut items: Vec<String> = profile
+        .aliases
+        .iter()
+        .map(|(n, _)| n.as_ref().to_string())
+        .collect();
+    items.extend(profile.subcommands.as_ref().keys().cloned());
+    items
+}
+
+/// Build the user-facing message for a profile activation/deactivation,
+/// highlighting which of the profile's aliases are shadowed by the project's
+/// `.aliases`. `activated = false` means the profile is being deactivated.
+fn profile_toggle_message(
+    name: &str,
+    activated: bool,
+    position: Option<usize>,
+    profile_aliases: &[String],
+    project_names: &std::collections::BTreeSet<String>,
+) -> String {
+    if profile_aliases.is_empty() {
+        let action = if activated {
+            "activated"
+        } else {
+            "deactivated"
+        };
+        return match position {
+            Some(pos) => format!("am: profile {name} {action} at position {pos}, 0 aliases"),
+            None => format!("am: profile {name} {action}, 0 aliases"),
+        };
+    }
+
+    let (unshadowed, shadowed): (Vec<&str>, Vec<&str>) = profile_aliases
+        .iter()
+        .map(|s| s.as_str())
+        .partition(|n| !project_names.contains(*n));
+
+    let head = match (activated, position) {
+        (true, Some(pos)) => format!("am: profile {name} activated at position {pos}"),
+        (true, None) => format!("am: profile {name} activated"),
+        (false, _) => format!("am: profile {name} deactivated"),
+    };
+
+    let (primary_verb, secondary_verb) = if activated {
+        ("loaded", "shadowed by .aliases")
+    } else {
+        ("unloaded", "kept by .aliases")
+    };
+
+    // "All shadowed" / "all kept" is a special-case phrasing only the profile
+    // path uses — sync never has this shape. Keep it inline.
+    if unshadowed.is_empty() && !shadowed.is_empty() {
+        return format!(
+            "{head} — all {} {secondary_verb}: {}",
+            shadowed.len(),
+            shadowed.join(", ")
+        );
+    }
+
+    format_change_summary(
+        &head,
+        &[(primary_verb, &unshadowed), (secondary_verb, &shadowed)],
+    )
+    .expect("profile_aliases non-empty but produced no sections")
 }
 
 fn resolve_profile<'a>(
@@ -1041,6 +1205,7 @@ mod tests {
         model
             .config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         let result = update(
             &mut model,
@@ -1052,9 +1217,9 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(!model.config.subcommands.contains_key("jj:ab"));
+        assert!(!model.config.subcommands.as_ref().contains_key("jj:ab"));
         assert_eq!(
-            model.config.subcommands.get("jj:a"),
+            model.config.subcommands.as_ref().get("jj:a"),
             Some(&vec!["abandon".to_string()])
         );
         assert!(result
@@ -1069,6 +1234,7 @@ mod tests {
         model
             .config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
@@ -1082,11 +1248,11 @@ mod tests {
         .unwrap();
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
         assert_eq!(
-            profile.subcommands.get("jj:ab"),
+            profile.subcommands.as_ref().get("jj:ab"),
             Some(&vec!["abandon".to_string()])
         );
         // Source preserved
-        assert!(model.config.subcommands.contains_key("jj:ab"));
+        assert!(model.config.subcommands.as_ref().contains_key("jj:ab"));
     }
 
     #[test]
@@ -1095,6 +1261,7 @@ mod tests {
         model
             .config
             .subcommands
+            .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
@@ -1106,9 +1273,9 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(!model.config.subcommands.contains_key("jj:ab"));
+        assert!(!model.config.subcommands.as_ref().contains_key("jj:ab"));
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
-        assert!(profile.subcommands.contains_key("jj:ab"));
+        assert!(profile.subcommands.as_ref().contains_key("jj:ab"));
     }
 
     #[test]
@@ -1543,8 +1710,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(model.config.subcommands.len(), 1);
-        assert_eq!(model.config.subcommands["jj:ab"], vec!["abandon"]);
+        assert_eq!(model.config.subcommands.as_ref().len(), 1);
+        assert_eq!(model.config.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
         assert_eq!(result.effects, vec![Effect::SaveConfig]);
     }
 
@@ -1605,7 +1772,7 @@ mod tests {
 
         assert_eq!(result.effects, vec![Effect::SaveProfiles]);
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
-        assert_eq!(profile.subcommands.len(), 1);
+        assert_eq!(profile.subcommands.as_ref().len(), 1);
     }
 
     #[test]

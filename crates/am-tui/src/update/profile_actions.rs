@@ -49,6 +49,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     let keys_to_remove: Vec<String> = {
                         let lib_target = derive_target_from_cursor(model);
                         get_subcommand_set(model, &lib_target)
+                            .as_ref()
                             .keys()
                             .filter(|k| k.starts_with(&prefix))
                             .cloned()
@@ -75,6 +76,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     let keys_to_remove: Vec<String> = {
                         let lib_target = derive_target_from_cursor(model);
                         get_subcommand_set(model, &lib_target)
+                            .as_ref()
                             .keys()
                             .filter(|k| k.starts_with(&prog_prefix))
                             .cloned()

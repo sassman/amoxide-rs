@@ -1,6 +1,5 @@
-use crate::env_vars;
 use crate::shell::{Shell, ShellContext};
-use crate::subcommand::{group_by_program, SubcommandSet};
+use crate::subcommand::SubcommandSet;
 use crate::AliasSet;
 
 const WRAPPER_BASH: &str = include_str!("shell_wrappers/wrapper.bash");
@@ -27,184 +26,38 @@ pub fn generate_init(
     profile_aliases: &AliasSet,
     subcommands: &SubcommandSet,
 ) -> String {
+    use crate::precedence::Precedence;
+
     let shell_impl = ctx.shell.clone().as_shell(
         ctx.cfg,
         ctx.external_functions.clone(),
         ctx.external_aliases.clone(),
     );
-    let mut lines: Vec<String> = Vec::new();
-    let mut all_names: Vec<String> = Vec::new();
 
-    // Determine which program names have subcommand wrappers
-    let subcmd_groups = group_by_program(subcommands);
-    let programs_with_wrappers: std::collections::BTreeSet<&str> =
-        subcmd_groups.keys().map(|s| s.as_str()).collect();
+    // Split subcommands back into global/profile buckets. Callers today pass
+    // a single merged SubcommandSet — for init, global = config.subcommands
+    // and profile = resolved from active profiles. Since both are already
+    // merged upstream we simply pass the full set as "profile" to keep the
+    // engine's precedence order intact (global vs profile tier is invisible
+    // on init — there is no shell state yet).
+    let diff = Precedence::new()
+        .with_global(global_aliases, &SubcommandSet::new())
+        .with_profiles(profile_aliases, subcommands)
+        .resolve();
 
-    // Emit global aliases (skip those absorbed by subcommand wrappers)
-    for (alias_name, alias_value) in global_aliases.iter() {
-        let name = alias_name.as_ref();
-        if !programs_with_wrappers.contains(name) {
-            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
-        }
-        all_names.push(name.to_string());
-    }
+    let mut output = diff.render(shell_impl.as_ref());
 
-    // Emit profile aliases (skip those absorbed by subcommand wrappers)
-    for (alias_name, alias_value) in profile_aliases.iter() {
-        let name = alias_name.as_ref();
-        if !programs_with_wrappers.contains(name) {
-            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
-        }
-        all_names.push(name.to_string());
-    }
-
-    // Emit subcommand wrappers
-    for (program, entries) in &subcmd_groups {
-        // Determine base command: alias value if regular alias exists, else "command <program>"
-        let all_aliases = global_aliases.iter().chain(profile_aliases.iter());
-        let base_cmd = all_aliases
-            .filter(|(n, _)| n.as_ref() == program.as_str())
-            .map(|(_, v)| v.command().to_string())
-            .last()
-            .unwrap_or_else(|| format!("command {program}"));
-
-        lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
-        all_names.push(program.to_string());
-    }
-
-    // Track all loaded aliases (global + profile + subcommand wrappers) for reload cleanup
-    if !all_names.is_empty() {
-        all_names.sort();
-        all_names.dedup();
-        lines.push(shell_impl.set_env(env_vars::AM_ALIASES, &all_names.join(",")));
-    }
-    // Clean up legacy tracking var from older versions
-    lines.push(shell_impl.unset_env(env_vars::AM_PROFILE_ALIASES_LEGACY));
-
-    // Wrapper function
-    lines.push(String::new());
-    lines.push(am_wrapper(ctx.shell));
-
-    // cd hook for project aliases
-    lines.push(String::new());
-    lines.push(cd_hook_setup(ctx.shell));
-
-    // Shell completions
-    lines.push(String::new());
-    lines.push(completions(ctx.shell));
-
-    lines.join("\n")
-}
-
-/// Like [`generate_init`] but prepends force-cleanup lines for `prev_names`.
-/// Each name is unloaded using all possible shell forms before the normal init runs.
-/// Intended for testing; production code reads prev_names from env vars in `update.rs`.
-pub fn generate_force_init(
-    ctx: &ShellContext,
-    global_aliases: &AliasSet,
-    profile_aliases: &AliasSet,
-    subcommands: &SubcommandSet,
-    prev_names: &[String],
-) -> String {
-    let shell_impl = ctx
-        .shell
-        .clone()
-        .as_shell(ctx.cfg, Default::default(), Default::default());
-    let mut output = String::new();
-    for name in prev_names {
-        output.push_str(&shell_impl.force_unalias(name));
+    // Wrapper function + cd hook + completions.
+    if !output.is_empty() {
         output.push('\n');
     }
-    // Clear project-alias tracking so __am_hook reloads them fresh.
-    output.push_str(&shell_impl.unset_env(crate::env_vars::AM_PROJECT_ALIASES));
+    output.push_str(&am_wrapper(ctx.shell));
     output.push('\n');
-    output.push_str(&shell_impl.unset_env(crate::env_vars::AM_PROJECT_PATH));
+    output.push_str(&cd_hook_setup(ctx.shell));
     output.push('\n');
-    output.push_str(&generate_init(
-        ctx,
-        global_aliases,
-        profile_aliases,
-        subcommands,
-    ));
+    output.push_str(&completions(ctx.shell));
+
     output
-}
-
-/// Generate shell code to reload all aliases (global + profile) after a mutation.
-/// Unloads old aliases, loads new ones, updates the tracking env var.
-pub fn generate_reload(
-    ctx: &ShellContext,
-    global_aliases: &AliasSet,
-    profile_aliases: &AliasSet,
-    subcommands: &SubcommandSet,
-    previous_aliases: Option<&str>,
-) -> String {
-    let shell_impl = ctx.shell.clone().as_shell(
-        ctx.cfg,
-        ctx.external_functions.clone(),
-        ctx.external_aliases.clone(),
-    );
-    let mut lines: Vec<String> = Vec::new();
-
-    // Unload all previously tracked aliases
-    let prev: Vec<&str> = previous_aliases
-        .filter(|s| !s.is_empty())
-        .map(|s| s.split(',').collect())
-        .unwrap_or_default();
-
-    for alias_name in &prev {
-        lines.push(shell_impl.unalias(alias_name));
-    }
-
-    // Determine which program names have subcommand wrappers
-    let subcmd_groups = group_by_program(subcommands);
-    let programs_with_wrappers: std::collections::BTreeSet<&str> =
-        subcmd_groups.keys().map(|s| s.as_str()).collect();
-
-    // Load global + profile aliases (skip those absorbed by subcommand wrappers)
-    let mut all_names: Vec<String> = Vec::new();
-
-    for (alias_name, alias_value) in global_aliases.iter() {
-        let name = alias_name.as_ref();
-        if !programs_with_wrappers.contains(name) {
-            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
-        }
-        all_names.push(name.to_string());
-    }
-
-    for (alias_name, alias_value) in profile_aliases.iter() {
-        let name = alias_name.as_ref();
-        if !programs_with_wrappers.contains(name) {
-            lines.push(shell_impl.alias(&alias_value.as_entry(name)));
-        }
-        all_names.push(name.to_string());
-    }
-
-    // Emit subcommand wrappers
-    for (program, entries) in &subcmd_groups {
-        // Determine base command: alias value if regular alias exists, else "command <program>"
-        let all_aliases = global_aliases.iter().chain(profile_aliases.iter());
-        let base_cmd = all_aliases
-            .filter(|(n, _)| n.as_ref() == program.as_str())
-            .map(|(_, v)| v.command().to_string())
-            .last()
-            .unwrap_or_else(|| format!("command {program}"));
-
-        lines.push(shell_impl.subcommand_wrapper(program, &base_cmd, entries));
-        all_names.push(program.to_string());
-    }
-
-    // Update tracking
-    if all_names.is_empty() {
-        if !prev.is_empty() {
-            lines.push(shell_impl.unset_env(env_vars::AM_ALIASES));
-        }
-    } else {
-        all_names.sort();
-        all_names.dedup();
-        lines.push(shell_impl.set_env(env_vars::AM_ALIASES, &all_names.join(",")));
-    }
-
-    lines.join("\n")
 }
 
 fn shell_script(template: &str, shell: &Shell) -> String {
@@ -270,6 +123,7 @@ fn powershell_completions() -> String {
 mod tests {
     use super::*;
     use crate::config::ShellsTomlConfig;
+    use crate::env_vars;
     use crate::shell::ShellContext;
     use crate::subcommand::SubcommandSet;
     use crate::{AliasName, TomlAlias};
@@ -289,7 +143,7 @@ mod tests {
 
     fn test_subcommands() -> SubcommandSet {
         let mut subs = SubcommandSet::new();
-        subs.insert("jj:ab".into(), vec!["abandon".into()]);
+        subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
         subs
     }
 
@@ -315,8 +169,8 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("alias gs \"git status\""));
-        assert!(output.contains("alias ll \"ls -lha\""));
+        assert!(output.contains("function gs\n    git status $argv\nend"));
+        assert!(output.contains("function ll\n    ls -lha $argv\nend"));
     }
 
     #[test]
@@ -341,9 +195,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("function am --wraps=am"));
-        assert!(output.contains("am reload fish"));
-        assert!(output.contains("--local"));
-        assert!(output.contains("am hook fish"));
+        assert!(output.contains("am sync fish"));
     }
 
     #[test]
@@ -356,7 +208,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("--on-variable PWD"));
-        assert!(output.contains("am hook fish"));
+        assert!(output.contains("am sync fish"));
     }
 
     #[test]
@@ -382,9 +234,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("am()"));
-        assert!(output.contains("am reload zsh"));
-        assert!(output.contains("--local"));
-        assert!(output.contains("am hook zsh"));
+        assert!(output.contains("am sync zsh"));
     }
 
     #[test]
@@ -397,7 +247,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("chpwd_functions"));
-        assert!(output.contains("am hook zsh"));
+        assert!(output.contains("am sync zsh"));
     }
 
     #[test]
@@ -413,64 +263,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reload_unloads_old_and_loads_new() {
-        let aliases = test_aliases();
-        let output = generate_reload(
-            &default_ctx(&Shell::Fish),
-            &AliasSet::default(),
-            &aliases,
-            &SubcommandSet::new(),
-            Some("old1,old2"),
-        );
-        assert!(output.contains("functions -e old1"));
-        assert!(output.contains("functions -e old2"));
-        assert!(output.contains("alias gs \"git status\""));
-        assert!(output.contains("alias ll \"ls -lha\""));
-        assert!(output.contains(env_vars::AM_ALIASES));
-    }
-
-    #[test]
-    fn test_reload_zsh_unloads_with_unset_f() {
-        let aliases = test_aliases();
-        let output = generate_reload(
-            &default_ctx(&Shell::Zsh),
-            &AliasSet::default(),
-            &aliases,
-            &SubcommandSet::new(),
-            Some("old1"),
-        );
-        assert!(output.contains("unset -f old1"));
-        assert!(output.contains("alias gs=\"git status\""));
-    }
-
-    #[test]
-    fn test_reload_no_previous() {
-        let aliases = test_aliases();
-        let output = generate_reload(
-            &default_ctx(&Shell::Fish),
-            &AliasSet::default(),
-            &aliases,
-            &SubcommandSet::new(),
-            None,
-        );
-        assert!(!output.contains("functions -e"));
-        assert!(output.contains("alias gs"));
-    }
-
-    #[test]
-    fn test_reload_to_empty_clears_tracking() {
-        let output = generate_reload(
-            &default_ctx(&Shell::Fish),
-            &AliasSet::default(),
-            &AliasSet::default(),
-            &SubcommandSet::new(),
-            Some("old1"),
-        );
-        assert!(output.contains("functions -e old1"));
-        assert!(output.contains("set -e _AM_ALIASES"));
-    }
-
-    #[test]
     fn test_init_includes_global_aliases() {
         let mut globals = AliasSet::default();
         globals.insert(
@@ -483,7 +275,7 @@ mod tests {
             &AliasSet::default(),
             &SubcommandSet::new(),
         );
-        assert!(output.contains("alias ll \"ls -lha\""));
+        assert!(output.contains("function ll\n    ls -lha $argv\nend"));
     }
 
     #[test]
@@ -509,24 +301,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reload_includes_globals() {
-        let mut globals = AliasSet::default();
-        globals.insert(
-            "ll".into(),
-            crate::TomlAlias::Command("ls -lha".to_string()),
-        );
-        let output = generate_reload(
-            &default_ctx(&Shell::Fish),
-            &globals,
-            &AliasSet::default(),
-            &SubcommandSet::new(),
-            Some("old"),
-        );
-        assert!(output.contains("functions -e old"));
-        assert!(output.contains("alias ll \"ls -lha\""));
-    }
-
-    #[test]
     fn test_bash_init_contains_aliases() {
         let aliases = test_aliases();
         let output = generate_init(
@@ -549,9 +323,7 @@ mod tests {
             &SubcommandSet::new(),
         );
         assert!(output.contains("am()"));
-        assert!(output.contains("am reload bash"));
-        assert!(output.contains("--local"));
-        assert!(output.contains("am hook bash"));
+        assert!(output.contains("am sync bash"));
     }
 
     #[test]
@@ -566,21 +338,7 @@ mod tests {
         assert!(output.contains("PROMPT_COMMAND"));
         assert!(output.contains("__am_hook"));
         assert!(output.contains("__am_prev_dir"));
-        assert!(output.contains("am hook bash"));
-    }
-
-    #[test]
-    fn test_reload_bash_unloads_with_unset_f() {
-        let aliases = test_aliases();
-        let output = generate_reload(
-            &default_ctx(&Shell::Bash),
-            &AliasSet::default(),
-            &aliases,
-            &SubcommandSet::new(),
-            Some("old1"),
-        );
-        assert!(output.contains("unset -f old1"));
-        assert!(output.contains("alias gs=\"git status\""));
+        assert!(output.contains("am sync bash"));
     }
 
     #[test]
@@ -667,26 +425,16 @@ mod tests {
     }
 
     #[test]
-    fn test_fish_reload_with_abbr_unloads_via_abbr_erase() {
-        use crate::config::{FishConfig, ShellsTomlConfig};
-        let cfg = ShellsTomlConfig {
-            fish: Some(FishConfig { use_abbr: true }),
-        };
-        let cwd = std::path::Path::new("/tmp");
-        let ctx = ShellContext {
-            shell: &Shell::Fish,
-            cfg: &cfg,
-            cwd,
-            external_functions: Default::default(),
-            external_aliases: Default::default(),
-        };
-        let output = generate_reload(
-            &ctx,
-            &AliasSet::default(),
-            &AliasSet::default(),
-            &SubcommandSet::new(),
-            Some("old1"),
+    fn init_delegates_alias_emission_to_precedence() {
+        // init output must match PrecedenceDiff::render output for the same inputs.
+        let aliases = test_aliases();
+        let ctx = default_ctx(&Shell::Fish);
+        let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
+        // Everything should be in _AM_ALIASES with name|hash format (not bare names).
+        let gs_hash = crate::trust::compute_short_hash(b"git status");
+        assert!(
+            output.contains(&format!("gs|{gs_hash}")),
+            "init must use name|hash format in _AM_ALIASES, got: {output}"
         );
-        assert!(output.contains("abbr --erase old1"));
     }
 }
