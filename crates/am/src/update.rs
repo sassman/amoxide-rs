@@ -734,28 +734,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     {
                         lines.push(shell_impl.echo(line));
                     }
-                } else if !diff.added.is_empty()
-                    || !diff.changed.is_empty()
-                    || !diff.removed.is_empty()
-                {
-                    let mut parts = Vec::new();
+                } else {
                     let added: Vec<&str> = diff.added.iter().map(|e| e.name.as_str()).collect();
-                    if !added.is_empty() {
-                        parts.push(format_section("loaded", &added));
-                    }
                     let changed: Vec<&str> = diff.changed.iter().map(|e| e.name.as_str()).collect();
-                    if !changed.is_empty() {
-                        parts.push(format_section("updated", &changed));
-                    }
                     let removed: Vec<&str> = diff.removed.iter().map(|s| s.as_str()).collect();
-                    if !removed.is_empty() {
-                        parts.push(format_section("unloaded", &removed));
-                    }
-                    if !parts.is_empty() {
-                        lines.push(
-                            shell_impl
-                                .echo(&format!("am: aliases changed — {}", parts.join(" | "))),
-                        );
+                    if let Some(msg) = format_change_summary(
+                        "am: aliases changed",
+                        &[
+                            ("loaded", &added),
+                            ("updated", &changed),
+                            ("unloaded", &removed),
+                        ],
+                    ) {
+                        lines.push(shell_impl.echo(&msg));
                     }
                 }
             }
@@ -1011,20 +1002,21 @@ fn profile_toggle_message(
         ("unloaded", "kept by .aliases")
     };
 
-    match (unshadowed.is_empty(), shadowed.is_empty()) {
-        (false, true) => format!("{head} — {}", format_section(primary_verb, &unshadowed)),
-        (true, false) => format!(
+    // "All shadowed" / "all kept" is a special-case phrasing only the profile
+    // path uses — sync never has this shape. Keep it inline.
+    if unshadowed.is_empty() && !shadowed.is_empty() {
+        return format!(
             "{head} — all {} {secondary_verb}: {}",
             shadowed.len(),
             shadowed.join(", ")
-        ),
-        (false, false) => format!(
-            "{head} — {} | {}",
-            format_section(primary_verb, &unshadowed),
-            format_section(secondary_verb, &shadowed)
-        ),
-        (true, true) => unreachable!("profile_aliases non-empty but both partitions empty"),
+        );
     }
+
+    format_change_summary(
+        &head,
+        &[(primary_verb, &unshadowed), (secondary_verb, &shadowed)],
+    )
+    .expect("profile_aliases non-empty but produced no sections")
 }
 
 /// Format a list of names as `"N verb: a, b, c"`. Shared between the profile
@@ -1032,6 +1024,22 @@ fn profile_toggle_message(
 /// so they stay consistent.
 fn format_section(verb: &str, names: &[&str]) -> String {
     format!("{} {verb}: {}", names.len(), names.join(", "))
+}
+
+/// Build a full change-summary line like
+/// `"<head> — N verb1: a, b | M verb2: c"`. Empty sections are skipped.
+/// Returns `None` when every section is empty (caller decides to stay silent).
+fn format_change_summary(head: &str, sections: &[(&str, &[&str])]) -> Option<String> {
+    let parts: Vec<String> = sections
+        .iter()
+        .filter(|(_, names)| !names.is_empty())
+        .map(|(verb, names)| format_section(verb, names))
+        .collect();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(format!("{head} — {}", parts.join(" | ")))
+    }
 }
 
 fn resolve_profile<'a>(

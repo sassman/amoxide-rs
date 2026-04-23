@@ -92,11 +92,6 @@ pub fn render_load_message(
     lines.join("\n")
 }
 
-/// Render the "unloaded" info message shown when leaving a trusted directory.
-pub fn render_unload_message(alias_names: &[&str]) -> String {
-    format!("am: unloaded .aliases: {}", alias_names.join(", "))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,18 +185,6 @@ mod tests {
         assert!(msg.contains("make build"));
         assert!(msg.contains("cargo test"));
         assert!(msg.contains("cargo build"));
-    }
-
-    #[test]
-    fn render_unload_message_comma_separated() {
-        let msg = render_unload_message(&["b", "t", "cb"]);
-        assert_eq!(msg, "am: unloaded .aliases: b, t, cb");
-    }
-
-    #[test]
-    fn render_unload_message_single() {
-        let msg = render_unload_message(&["b"]);
-        assert_eq!(msg, "am: unloaded .aliases: b");
     }
 
     #[test]
