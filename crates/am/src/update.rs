@@ -739,18 +739,22 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     || !diff.removed.is_empty()
                 {
                     let mut parts = Vec::new();
-                    if !diff.added.is_empty() {
-                        parts.push(format!("{} loaded", diff.added.len()));
+                    let added: Vec<&str> = diff.added.iter().map(|e| e.name.as_str()).collect();
+                    if !added.is_empty() {
+                        parts.push(format_section("loaded", &added));
                     }
-                    if !diff.changed.is_empty() {
-                        parts.push(format!("{} updated", diff.changed.len()));
+                    let changed: Vec<&str> = diff.changed.iter().map(|e| e.name.as_str()).collect();
+                    if !changed.is_empty() {
+                        parts.push(format_section("updated", &changed));
                     }
-                    if !diff.removed.is_empty() {
-                        parts.push(format!("{} unloaded", diff.removed.len()));
+                    let removed: Vec<&str> = diff.removed.iter().map(|s| s.as_str()).collect();
+                    if !removed.is_empty() {
+                        parts.push(format_section("unloaded", &removed));
                     }
                     if !parts.is_empty() {
                         lines.push(
-                            shell_impl.echo(&format!("am: aliases changed ({})", parts.join(", "))),
+                            shell_impl
+                                .echo(&format!("am: aliases changed — {}", parts.join(" | "))),
                         );
                     }
                 }
@@ -990,12 +994,10 @@ fn profile_toggle_message(
         };
     }
 
-    let (unshadowed, shadowed): (Vec<&String>, Vec<&String>) = profile_aliases
+    let (unshadowed, shadowed): (Vec<&str>, Vec<&str>) = profile_aliases
         .iter()
-        .partition(|n| !project_names.contains(n.as_str()));
-
-    let fmt_list =
-        |v: &[&String]| -> String { v.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ") };
+        .map(|s| s.as_str())
+        .partition(|n| !project_names.contains(*n));
 
     let head = match (activated, position) {
         (true, Some(pos)) => format!("am: profile {name} activated at position {pos}"),
@@ -1010,25 +1012,26 @@ fn profile_toggle_message(
     };
 
     match (unshadowed.is_empty(), shadowed.is_empty()) {
-        (false, true) => format!(
-            "{head} — {} {primary_verb}: {}",
-            unshadowed.len(),
-            fmt_list(&unshadowed)
-        ),
+        (false, true) => format!("{head} — {}", format_section(primary_verb, &unshadowed)),
         (true, false) => format!(
             "{head} — all {} {secondary_verb}: {}",
             shadowed.len(),
-            fmt_list(&shadowed)
+            shadowed.join(", ")
         ),
         (false, false) => format!(
-            "{head} — {} {primary_verb}: {} | {} {secondary_verb}: {}",
-            unshadowed.len(),
-            fmt_list(&unshadowed),
-            shadowed.len(),
-            fmt_list(&shadowed)
+            "{head} — {} | {}",
+            format_section(primary_verb, &unshadowed),
+            format_section(secondary_verb, &shadowed)
         ),
         (true, true) => unreachable!("profile_aliases non-empty but both partitions empty"),
     }
+}
+
+/// Format a list of names as `"N verb: a, b, c"`. Shared between the profile
+/// activation/deactivation message and the sync handler's incremental summary
+/// so they stay consistent.
+fn format_section(verb: &str, names: &[&str]) -> String {
+    format!("{} {verb}: {}", names.len(), names.join(", "))
 }
 
 fn resolve_profile<'a>(
