@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use crate::alias::{AliasSet, TomlAlias};
+use crate::env_vars;
+use crate::shell::ShellAdapter;
 use crate::subcommand::{SubcommandEntry, SubcommandSet};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -294,81 +296,80 @@ impl Precedence {
     }
 }
 
-use crate::env_vars;
-use crate::shell::ShellAdapter;
+impl PrecedenceDiff {
+    /// Render this diff into shell code using the given adapter.
+    ///
+    /// Emission order:
+    ///   1. unload (removed + changed) — skipping subcommand-key names
+    ///      (they're tracking-only, not shell functions)
+    ///   2. load (added + changed)
+    ///   3. set `_AM_ALIASES` / `_AM_SUBCOMMANDS` to the union of added +
+    ///      changed + unchanged
+    pub fn render(&self, shell: &dyn ShellAdapter) -> String {
+        let mut lines: Vec<String> = Vec::new();
 
-/// Render a [`PrecedenceDiff`] into shell code using the given adapter.
-///
-/// Emission order:
-///   1. unload (removed + changed) — skipping subcommand-key names (they're
-///      tracking-only, not shell functions)
-///   2. load (added + changed)
-///   3. set `_AM_ALIASES` / `_AM_SUBCOMMANDS` to the union of added + changed
-///      + unchanged
-pub fn render_diff(diff: &PrecedenceDiff, shell: &dyn ShellAdapter) -> String {
-    let mut lines: Vec<String> = Vec::new();
-
-    // 1. Unload
-    for name in &diff.removed {
-        if name.contains(':') {
-            continue;
-        }
-        lines.push(shell.unalias(name));
-    }
-    for entry in &diff.changed {
-        if matches!(entry.kind, EntryKind::SubcommandKey { .. }) {
-            continue;
-        }
-        if entry.name.contains(':') {
-            continue;
-        }
-        lines.push(shell.unalias(&entry.name));
-    }
-
-    // 2. Load (added + changed)
-    for entry in diff.added.iter().chain(diff.changed.iter()) {
-        match &entry.kind {
-            EntryKind::Alias(alias) => {
-                lines.push(shell.alias(&alias.as_entry(&entry.name)));
+        // 1. Unload
+        for name in &self.removed {
+            if name.contains(':') {
+                continue;
             }
-            EntryKind::SubcommandWrapper {
-                program,
-                entries,
-                base_cmd,
-            } => {
-                let cmd = base_cmd
-                    .clone()
-                    .unwrap_or_else(|| format!("command {program}"));
-                lines.push(shell.subcommand_wrapper(program, &cmd, entries));
+            lines.push(shell.unalias(name));
+        }
+        for entry in &self.changed {
+            if matches!(entry.kind, EntryKind::SubcommandKey { .. }) {
+                continue;
             }
-            EntryKind::SubcommandKey { .. } => {}
+            if entry.name.contains(':') {
+                continue;
+            }
+            lines.push(shell.unalias(&entry.name));
         }
-    }
 
-    // 3. Update tracking env vars
-    let mut alias_pairs = Vec::new();
-    let mut sub_pairs = Vec::new();
-    for e in diff
-        .added
-        .iter()
-        .chain(diff.changed.iter())
-        .chain(diff.unchanged.iter())
-    {
-        let pair = format!("{}|{}", e.name, e.hash);
-        match &e.kind {
-            EntryKind::SubcommandKey { .. } => sub_pairs.push(pair),
-            _ => alias_pairs.push(pair),
+        // 2. Load (added + changed)
+        for entry in self.added.iter().chain(self.changed.iter()) {
+            match &entry.kind {
+                EntryKind::Alias(alias) => {
+                    lines.push(shell.alias(&alias.as_entry(&entry.name)));
+                }
+                EntryKind::SubcommandWrapper {
+                    program,
+                    entries,
+                    base_cmd,
+                } => {
+                    let cmd = base_cmd
+                        .clone()
+                        .unwrap_or_else(|| format!("command {program}"));
+                    lines.push(shell.subcommand_wrapper(program, &cmd, entries));
+                }
+                EntryKind::SubcommandKey { .. } => {}
+            }
         }
-    }
 
-    if !alias_pairs.is_empty() {
-        lines.push(shell.set_env(env_vars::AM_ALIASES, &alias_pairs.join(",")));
-    }
-    if !sub_pairs.is_empty() {
-        lines.push(shell.set_env(env_vars::AM_SUBCOMMANDS, &sub_pairs.join(",")));
-    }
+        // 3. Update tracking env vars
+        let mut alias_pairs = Vec::new();
+        let mut sub_pairs = Vec::new();
+        for e in self
+            .added
+            .iter()
+            .chain(self.changed.iter())
+            .chain(self.unchanged.iter())
+        {
+            let pair = format!("{}|{}", e.name, e.hash);
+            match &e.kind {
+                EntryKind::SubcommandKey { .. } => sub_pairs.push(pair),
+                _ => alias_pairs.push(pair),
+            }
+        }
 
-    lines.join("\n")
+        if !alias_pairs.is_empty() {
+            lines.push(shell.set_env(env_vars::AM_ALIASES, &alias_pairs.join(",")));
+        }
+        if !sub_pairs.is_empty() {
+            lines.push(shell.set_env(env_vars::AM_SUBCOMMANDS, &sub_pairs.join(",")));
+        }
+
+        lines.join("\n")
+    }
 }
 
 #[cfg(test)]
@@ -779,7 +780,7 @@ mod tests {
             .with_shell_state_from_env(Some("b|0000000,gone|aaa"), None)
             .resolve();
 
-        let out = crate::precedence::render_diff(&diff, shell.as_ref());
+        let out = diff.render(shell.as_ref());
         assert!(
             out.contains("functions -e gone"),
             "gone must be unloaded: {out}"
@@ -802,7 +803,7 @@ mod tests {
     fn render_empty_diff_produces_empty_string() {
         let cfg = ShellsTomlConfig::default();
         let shell = Shell::Fish.as_shell(&cfg, Default::default(), Default::default());
-        let out = crate::precedence::render_diff(&PrecedenceDiff::default(), shell.as_ref());
+        let out = PrecedenceDiff::default().render(shell.as_ref());
         assert!(out.is_empty());
     }
 }

@@ -4,7 +4,7 @@ use crate::display::render_listing;
 use crate::effects::Effect;
 use crate::env_vars;
 use crate::init::generate_init;
-use crate::precedence::{self, Precedence};
+use crate::precedence::Precedence;
 use crate::project::ProjectAliases;
 use crate::shell::bash;
 use crate::shell::zsh;
@@ -604,7 +604,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
                 // Per-key subcommand entries (containing ':') are tracking-only,
                 // not shell functions. Program-level wrapper names (no ':') are
-                // picked up from prev_global because render_diff writes them there.
+                // picked up from prev_global because PrecedenceDiff::render writes them there.
                 let _ = prev_subs;
 
                 // Union with shell introspection for bash/zsh.
@@ -756,7 +756,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
             }
 
-            let rendered = precedence::render_diff(&diff, shell_impl.as_ref());
+            let rendered = diff.render(shell_impl.as_ref());
             if !rendered.is_empty() {
                 lines.push(rendered);
             }

@@ -26,7 +26,7 @@ pub fn generate_init(
     profile_aliases: &AliasSet,
     subcommands: &SubcommandSet,
 ) -> String {
-    use crate::precedence::{self, Precedence};
+    use crate::precedence::Precedence;
 
     let shell_impl = ctx.shell.clone().as_shell(
         ctx.cfg,
@@ -45,7 +45,7 @@ pub fn generate_init(
         .with_profiles(profile_aliases, subcommands)
         .resolve();
 
-    let mut output = precedence::render_diff(&diff, shell_impl.as_ref());
+    let mut output = diff.render(shell_impl.as_ref());
 
     // Wrapper function + cd hook + completions.
     if !output.is_empty() {
@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn init_delegates_alias_emission_to_precedence() {
-        // init output must match render_diff output for the same inputs.
+        // init output must match PrecedenceDiff::render output for the same inputs.
         let aliases = test_aliases();
         let ctx = default_ctx(&Shell::Fish);
         let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
