@@ -591,21 +591,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     Default::default(),
                     Default::default(),
                 );
-                let prev_global = std::env::var(env_vars::AM_ALIASES).unwrap_or_default();
-                let prev_subs = std::env::var(env_vars::AM_SUBCOMMANDS).unwrap_or_default();
+                let prev_global = std::env::var(env_vars::AM_ALIASES).ok();
 
-                let mut names: std::collections::BTreeSet<String> =
-                    std::collections::BTreeSet::new();
-                for raw in prev_global.split(',') {
-                    let name = raw.split_once('|').map_or(raw, |(n, _)| n);
-                    if !name.is_empty() && !name.contains(':') {
-                        names.insert(name.to_string());
-                    }
-                }
                 // Per-key subcommand entries (containing ':') are tracking-only,
                 // not shell functions. Program-level wrapper names (no ':') are
-                // picked up from prev_global because PrecedenceDiff::render writes them there.
-                let _ = prev_subs;
+                // picked up from prev_global because PrecedenceDiff::render writes
+                // them there alongside regular aliases.
+                let mut names: std::collections::BTreeSet<String> =
+                    crate::precedence::AliasWithHashList::parse(prev_global.as_deref())
+                        .iter()
+                        .map(|e| e.name())
+                        .filter(|n| !n.contains(':'))
+                        .map(String::from)
+                        .collect();
 
                 // Union with shell introspection for bash/zsh.
                 match shell {
