@@ -36,6 +36,26 @@ pub struct PrecedenceDiff {
     pub unchanged: Vec<EffectiveEntry>,
 }
 
+/// Build a change-summary line like
+/// `"<head> — N verb1: a, b | M verb2: c"`.
+///
+/// Empty sections are skipped; returns `None` when every section is empty so
+/// callers can stay silent. Shared between [`PrecedenceDiff::change_summary`]
+/// (fixed head, shell-state diff verbs) and the profile-toggle message in
+/// `update.rs` (dynamic head, shadow-aware verbs).
+pub(crate) fn format_change_summary(head: &str, sections: &[(&str, &[&str])]) -> Option<String> {
+    let parts: Vec<String> = sections
+        .iter()
+        .filter(|(_, names)| !names.is_empty())
+        .map(|(verb, names)| format!("{} {verb}: {}", names.len(), names.join(", ")))
+        .collect();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(format!("{head} — {}", parts.join(" | ")))
+    }
+}
+
 impl PrecedenceDiff {
     /// Human-readable summary of what changed, suitable for echoing to the
     /// user (e.g. `"am: aliases changed — 1 loaded: b | 1 unloaded: t"`).
@@ -45,20 +65,14 @@ impl PrecedenceDiff {
         let added: Vec<&str> = self.added.iter().map(|e| e.name.as_str()).collect();
         let changed: Vec<&str> = self.changed.iter().map(|e| e.name.as_str()).collect();
         let removed: Vec<&str> = self.removed.iter().map(|s| s.as_str()).collect();
-        let parts: Vec<String> = [
-            ("loaded", &added[..]),
-            ("updated", &changed[..]),
-            ("unloaded", &removed[..]),
-        ]
-        .iter()
-        .filter(|(_, names)| !names.is_empty())
-        .map(|(verb, names)| format!("{} {verb}: {}", names.len(), names.join(", ")))
-        .collect();
-        if parts.is_empty() {
-            None
-        } else {
-            Some(format!("am: aliases changed — {}", parts.join(" | ")))
-        }
+        format_change_summary(
+            "am: aliases changed",
+            &[
+                ("loaded", &added),
+                ("updated", &changed),
+                ("unloaded", &removed),
+            ],
+        )
     }
 
     /// Render this diff into shell code using the given adapter.

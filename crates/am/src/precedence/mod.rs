@@ -11,6 +11,7 @@ mod diff;
 mod engine;
 mod env_state;
 
+pub(crate) use diff::format_change_summary;
 pub use diff::{EffectiveEntry, EntryKind, PrecedenceDiff};
 pub use engine::Precedence;
 pub use env_state::{AliasWithHash, AliasWithHashList};

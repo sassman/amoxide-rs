@@ -4,7 +4,7 @@ use crate::display::render_listing;
 use crate::effects::Effect;
 use crate::env_vars;
 use crate::init::generate_init;
-use crate::precedence::Precedence;
+use crate::precedence::{format_change_summary, Precedence};
 use crate::project::ProjectAliases;
 use crate::shell::bash;
 use crate::shell::zsh;
@@ -1003,25 +1003,6 @@ fn profile_toggle_message(
         &[(primary_verb, &unshadowed), (secondary_verb, &shadowed)],
     )
     .expect("profile_aliases non-empty but produced no sections")
-}
-
-/// Build a full change-summary line like
-/// `"<head> — N verb1: a, b | M verb2: c"`. Empty sections are skipped.
-/// Returns `None` when every section is empty (caller decides to stay silent).
-///
-/// Kept as a private helper for `profile_toggle_message`. The sync handler's
-/// equivalent lives on the diff itself as [`PrecedenceDiff::change_summary`].
-fn format_change_summary(head: &str, sections: &[(&str, &[&str])]) -> Option<String> {
-    let parts: Vec<String> = sections
-        .iter()
-        .filter(|(_, names)| !names.is_empty())
-        .map(|(verb, names)| format!("{} {verb}: {}", names.len(), names.join(", ")))
-        .collect();
-    if parts.is_empty() {
-        None
-    } else {
-        Some(format!("{head} — {}", parts.join(" | ")))
-    }
 }
 
 fn resolve_profile<'a>(
