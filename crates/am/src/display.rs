@@ -23,7 +23,7 @@ fn render_items(
     aliases: &AliasSet,
     subcommands: &crate::subcommand::SubcommandSet,
 ) {
-    let subcmd_groups = crate::subcommand::group_by_program(subcommands);
+    let subcmd_groups = subcommands.group_by_program();
 
     // Chain aliases then subcommand groups into one peekable stream.
     // Each "item" is rendered with ├─ unless peek() returns None (last item).

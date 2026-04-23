@@ -119,6 +119,25 @@ impl SubcommandSet {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    /// Group the entries by program name. Each entry whose key fails to parse
+    /// (mismatched short/long count, empty segment, etc.) is skipped with a
+    /// warning. Returns a `BTreeMap<program, Vec<SubcommandEntry>>` so callers
+    /// can iterate per-program.
+    pub fn group_by_program(&self) -> BTreeMap<String, Vec<SubcommandEntry>> {
+        let mut groups: BTreeMap<String, Vec<SubcommandEntry>> = BTreeMap::new();
+        for (key, values) in self {
+            match SubcommandEntry::parse_key(key, values.clone()) {
+                Ok(entry) => {
+                    groups.entry(entry.program.clone()).or_default().push(entry);
+                }
+                Err(e) => {
+                    warn!("Skipping invalid subcommand alias '{key}': {e}");
+                }
+            }
+        }
+        groups
+    }
 }
 
 impl<'a> IntoIterator for &'a SubcommandSet {
@@ -141,22 +160,6 @@ impl FromIterator<(String, Vec<String>)> for SubcommandSet {
     fn from_iter<I: IntoIterator<Item = (String, Vec<String>)>>(iter: I) -> Self {
         Self(BTreeMap::from_iter(iter))
     }
-}
-
-/// Group subcommand entries by program name.
-pub fn group_by_program(set: &SubcommandSet) -> BTreeMap<String, Vec<SubcommandEntry>> {
-    let mut groups: BTreeMap<String, Vec<SubcommandEntry>> = BTreeMap::new();
-    for (key, values) in set {
-        match SubcommandEntry::parse_key(key, values.clone()) {
-            Ok(entry) => {
-                groups.entry(entry.program.clone()).or_default().push(entry);
-            }
-            Err(e) => {
-                warn!("Skipping invalid subcommand alias '{key}': {e}");
-            }
-        }
-    }
-    groups
 }
 
 #[cfg(test)]
@@ -280,7 +283,7 @@ mod tests {
         set.as_mut()
             .insert("git:co".into(), vec!["checkout".into()]);
 
-        let groups = group_by_program(&set);
+        let groups = set.group_by_program();
         assert_eq!(groups.len(), 2);
         assert_eq!(groups["jj"].len(), 2);
         assert_eq!(groups["git"].len(), 1);
@@ -289,7 +292,7 @@ mod tests {
     #[test]
     fn group_by_program_empty() {
         let set = SubcommandSet::new();
-        let groups = group_by_program(&set);
+        let groups = set.group_by_program();
         assert!(groups.is_empty());
     }
 
@@ -302,7 +305,7 @@ mod tests {
         // no colon — invalid
         set.as_mut().insert("bad".into(), vec!["whatever".into()]);
 
-        let groups = group_by_program(&set);
+        let groups = set.group_by_program();
         assert_eq!(groups.len(), 1);
         assert_eq!(groups["jj"].len(), 1);
         assert_eq!(groups["jj"][0].short_subcommands, vec!["ab"]);

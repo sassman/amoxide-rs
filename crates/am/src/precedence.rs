@@ -193,7 +193,7 @@ impl Precedence {
     pub fn resolve(self) -> PrecedenceDiff {
         let merged_aliases = self.merged_aliases();
         let merged_subcommands = self.merged_subcommands();
-        let subcmd_groups = crate::subcommand::group_by_program(&merged_subcommands);
+        let subcmd_groups = merged_subcommands.group_by_program();
         let program_names: BTreeSet<String> = subcmd_groups.keys().cloned().collect();
 
         let mut effective: BTreeMap<String, EffectiveEntry> = BTreeMap::new();

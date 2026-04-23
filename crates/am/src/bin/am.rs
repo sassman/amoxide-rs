@@ -332,7 +332,7 @@ fn main() -> anyhow::Result<()> {
                 let cmd = alias_value.command();
                 println!("  {:width$} \u{2192} {cmd}", name, width = max_name_len);
             }
-            let subcmd_groups = amoxide::subcommand::group_by_program(&project.subcommands);
+            let subcmd_groups = project.subcommands.group_by_program();
             if !subcmd_groups.is_empty() {
                 println!();
                 for (program, entries) in &subcmd_groups {

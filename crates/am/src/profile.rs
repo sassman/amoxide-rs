@@ -4,7 +4,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::dirs::config_dir;
-use crate::subcommand::{group_by_program, SubcommandSet};
+use crate::subcommand::SubcommandSet;
 use crate::{AliasDetail, AliasName, AliasSet, Result, TomlAlias};
 
 /// A collection of aliases (regular and/or subcommand) that can report its
@@ -284,7 +284,7 @@ impl AliasCollection for Profile {
             .map(|(k, _)| k.as_ref().to_string())
             .collect();
 
-        let groups = group_by_program(&self.subcommands);
+        let groups = self.subcommands.group_by_program();
         for (program, entries) in &groups {
             // Each entry's short_subcommands are space-joined; entries within
             // the same program are comma-separated.

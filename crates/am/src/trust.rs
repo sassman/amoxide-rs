@@ -79,7 +79,7 @@ pub fn render_load_message(
         lines.push(format!("  {padded} \u{2192} {cmd}"));
     }
 
-    let subcmd_groups = crate::subcommand::group_by_program(subcommands);
+    let subcmd_groups = subcommands.group_by_program();
     for (program, entries) in &subcmd_groups {
         lines.push(format!("  {program} (subcommands):"));
         for entry in entries {
