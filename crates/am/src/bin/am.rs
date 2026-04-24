@@ -176,7 +176,7 @@ fn main() -> anyhow::Result<()> {
             };
             let result = update(&mut model, msg)?;
             execute_effects(&mut model, &result.effects)?;
-            model.config.save()?;
+            model.save_config()?;
             return Ok(());
         }
         Commands::Profile { action } => match action
@@ -186,7 +186,7 @@ fn main() -> anyhow::Result<()> {
             ProfileAction::Add { name } => {
                 let result = update(&mut model, Message::CreateProfile(name.clone()))?;
                 execute_effects(&mut model, &result.effects)?;
-                model.config.save()?;
+                model.save_config()?;
                 return Ok(());
             }
             ProfileAction::Use {
@@ -205,7 +205,7 @@ fn main() -> anyhow::Result<()> {
                 };
                 let result = update(&mut model, msg)?;
                 execute_effects(&mut model, &result.effects)?;
-                model.config.save()?;
+                model.save_config()?;
                 return Ok(());
             }
             ProfileAction::Remove { name, force } => {
@@ -242,7 +242,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 let result = update(&mut model, Message::RemoveProfile(name.clone()))?;
                 execute_effects(&mut model, &result.effects)?;
-                model.config.save()?;
+                model.save_config()?;
                 return Ok(());
             }
             ProfileAction::List { used } => Message::ListProfiles { used: *used },
@@ -408,9 +408,9 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
 
     for effect in effects {
         match effect {
-            Effect::SaveConfig => model.config.save()?,
-            Effect::SaveSession => model.session.save()?,
-            Effect::SaveProfiles => model.profile_config().save()?,
+            Effect::SaveConfig => model.save_config()?,
+            Effect::SaveSession => model.save_session()?,
+            Effect::SaveProfiles => model.save_profiles()?,
             Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
             Effect::AddLocalSubcommand {
@@ -419,7 +419,7 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             } => add_local_subcommand(key, long_subcommands)?,
             Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(key)?,
             Effect::Print(text) => println!("{text}"),
-            Effect::SaveSecurity => model.security_config().save()?,
+            Effect::SaveSecurity => model.save_security()?,
         }
     }
 
@@ -429,7 +429,7 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             let path = path.to_path_buf();
             let new_hash = compute_file_hash(&path)?;
             model.security_config_mut().update_hash(&path, &new_hash);
-            model.security_config().save()?;
+            model.save_security()?;
         }
     }
 

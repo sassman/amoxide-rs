@@ -171,10 +171,6 @@ impl ProfileConfig {
         Ok(decoded)
     }
 
-    pub fn save(&self) -> Result<()> {
-        self.save_to(&config_dir())
-    }
-
     pub fn save_to(&self, config_dir: &std::path::Path) -> Result<()> {
         if !config_dir.exists() {
             std::fs::create_dir_all(config_dir)?;

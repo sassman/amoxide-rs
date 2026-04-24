@@ -64,10 +64,6 @@ impl SecurityConfig {
         Self::load_from(&crate::dirs::config_dir())
     }
 
-    pub fn save(&self) -> crate::Result<()> {
-        self.save_to(&crate::dirs::config_dir())
-    }
-
     /// Check trust status for a given path and current file hash.
     /// If a trusted entry has a hash mismatch, transitions to tampered in-memory.
     pub fn check(&mut self, path: &Path, current_hash: &str) -> TrustStatus {

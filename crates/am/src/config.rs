@@ -53,10 +53,6 @@ impl Config {
         Self::load_from(&crate::dirs::config_dir())
     }
 
-    pub fn save(&self) -> crate::Result<()> {
-        self.save_to(&crate::dirs::config_dir())
-    }
-
     pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
         let key: AliasName = name.into();
         let alias = if raw {
