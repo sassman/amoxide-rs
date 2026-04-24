@@ -99,7 +99,11 @@ When you use `am` itself to modify the file — via `am add -l` or `am remove -l
 
 ### Load and unload messages
 
-When aliases are loaded, you see which commands became available:
+When you `cd` into a directory with a trusted `.aliases` file, amoxide shows which commands became available. When you leave, it reports what changed. Both messages can be configured independently.
+
+#### Loading (cd into a project)
+
+The default (`"verbose"`) shows an aligned table:
 
 ```
 am: loaded .aliases
@@ -107,11 +111,41 @@ am: loaded .aliases
   t  → cargo test
 ```
 
-When you leave the project:
+Set to `"short"` for a compact one-liner:
 
 ```
-am: unloaded .aliases: b, t
+am: loaded .aliases: b, t
 ```
+
+Set to `"off"` to suppress the message entirely.
+
+#### Unloading (cd out of a project)
+
+The default (`"verbose"`) shows a change summary including which aliases were unloaded and which were added back (e.g. a profile alias becoming active after the project alias that was shadowing it is removed):
+
+```
+am: .aliases unloaded — 2 added: i, t | 2 unloaded: docs, f
+```
+
+Set to `"short"` for a brief confirmation:
+
+```
+am: .aliases unloaded
+```
+
+Set to `"off"` to suppress the message entirely.
+
+#### Configuring verbosity <VersionBadge v="0.8.0" />
+
+Add a `[logging]` section to `~/.config/amoxide/config.toml`:
+
+```toml
+[logging]
+project_loading = "verbose"     # "off" | "short" | "verbose"
+project_unloading = "short"     # "off" | "short" | "verbose"
+```
+
+Both default to `"verbose"` if omitted. See [Config File Reference](/advanced/config-files#config-toml-logging) for the full reference. Introduced in [#109](https://github.com/sassman/amoxide-rs/issues/109).
 
 These messages only appear when entering or leaving the directory containing the `.aliases` file — not when navigating subdirectories within the same project.
 
