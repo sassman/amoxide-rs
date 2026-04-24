@@ -26,6 +26,25 @@ pub struct Config {
     pub subcommands: SubcommandSet,
     #[serde(default)]
     pub shell: ShellsTomlConfig,
+    #[serde(default)]
+    pub logging: LoggingConfig,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub struct LoggingConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_loading: Option<LogVerbosity>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_unloading: Option<LogVerbosity>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum LogVerbosity {
+    Off,
+    Short,
+    Verbose,
 }
 
 impl Config {
@@ -206,5 +225,35 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::load_from(dir.path()).unwrap();
         assert!(config.shell.fish.is_none());
+    }
+
+    #[test]
+    fn test_logging_config_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let toml_str = r#"
+[logging]
+project_loading = "short"
+project_unloading = "off"
+"#;
+        std::fs::write(dir.path().join("config.toml"), toml_str).unwrap();
+        let config = Config::load_from(dir.path()).unwrap();
+        assert!(matches!(
+            config.logging.project_loading,
+            Some(LogVerbosity::Short)
+        ));
+        assert!(matches!(
+            config.logging.project_unloading,
+            Some(LogVerbosity::Off)
+        ));
+    }
+
+    #[test]
+    fn test_logging_config_defaults_to_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let toml_str = "[aliases]\n";
+        std::fs::write(dir.path().join("config.toml"), toml_str).unwrap();
+        let config = Config::load_from(dir.path()).unwrap();
+        assert!(config.logging.project_loading.is_none());
+        assert!(config.logging.project_unloading.is_none());
     }
 }
