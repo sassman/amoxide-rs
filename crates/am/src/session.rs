@@ -35,10 +35,6 @@ impl Session {
         Self::load_from(&crate::dirs::config_dir())
     }
 
-    pub fn save(&self) -> crate::Result<()> {
-        self.save_to(&crate::dirs::config_dir())
-    }
-
     pub fn toggle_profile(&mut self, name: String) {
         if let Some(pos) = self.active_profiles.iter().position(|p| p == &name) {
             self.active_profiles.remove(pos);

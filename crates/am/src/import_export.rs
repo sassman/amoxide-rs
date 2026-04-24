@@ -512,8 +512,8 @@ fn apply_import(model: &mut AppModel, payload: ImportPayload) -> anyhow::Result<
     // Execute effects (SaveConfig, SaveProfiles)
     for effect in &result.effects {
         match effect {
-            Effect::SaveConfig => model.config.save()?,
-            Effect::SaveProfiles => model.profile_config().save()?,
+            Effect::SaveConfig => model.save_config()?,
+            Effect::SaveProfiles => model.save_profiles()?,
             _ => {}
         }
     }
@@ -939,9 +939,10 @@ mod tests {
             ..Default::default()
         };
 
-        // apply_import calls update() + saves — config save will fail
-        // because there's no config dir, but the model mutation should work
-        let _ = apply_import(&mut model, payload);
-        assert_eq!(model.config.aliases.len(), 1);
+        // apply_import routes through AppModel::save_config, which is a no-op
+        // when config_dir is empty (set that way by AppModel::new). The model's
+        // in-memory config still receives the imported aliases.
+        apply_import(&mut model, payload).unwrap();
+        assert_eq!(model.config.aliases.iter().count(), 1);
     }
 }
