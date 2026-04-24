@@ -1,4 +1,5 @@
 use crate::config::LogVerbosity;
+use crate::sync_outcome::SyncOutcome;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Echo {
@@ -30,7 +31,7 @@ impl Echo {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Effect {
     SaveConfig,
     SaveSession,
@@ -52,6 +53,7 @@ pub enum Effect {
     },
     Print(String),
     PrintLines(Vec<Echo>),
+    RenderSync(SyncOutcome),
     SaveSecurity,
 }
 
@@ -82,6 +84,7 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         }
         Effect::Print(_) => {} // caller's responsibility
         Effect::PrintLines(_) => {} // caller's responsibility, like Print
+        Effect::RenderSync(_) => {} // caller's responsibility
     }
     Ok(())
 }

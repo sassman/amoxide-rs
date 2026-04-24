@@ -57,58 +57,6 @@ pub fn compute_short_hash(content: &[u8]) -> String {
     blake3::hash(content).to_hex()[..7].to_string()
 }
 
-/// Render the "loaded" info message shown on cd into a trusted directory.
-///
-/// Alias names are right-padded so `->` and commands align in columns.
-/// Subcommand wrapper programs are listed with their short→long expansions.
-pub fn render_load_message(
-    aliases: &crate::AliasSet,
-    subcommands: &crate::subcommand::SubcommandSet,
-    log_verbosity: &crate::LogVerbosity,
-) -> Option<String> {
-    if matches!(log_verbosity, LogVerbosity::Off) {
-        return None;
-    }
-    let mut lines = vec!["am: loaded .aliases".to_string()];
-    if matches!(log_verbosity, LogVerbosity::Short) {
-        // Just list commands without alignment or subcommands
-        let mut separator = "";
-        let mut alias = String::new();
-        for (alias_name, _) in aliases.iter() {
-            alias.push_str(&format!("{separator}{alias_name}"));
-            separator = ", ";
-        }
-        lines.push(format!(": {alias}\n"));
-        return Some(lines.join(""));
-    }
-
-    // Find max alias name length for column alignment
-    let max_name_len = aliases
-        .iter()
-        .map(|(name, _)| name.as_ref().len())
-        .max()
-        .unwrap_or(0);
-
-    for (alias_name, alias_value) in aliases.iter() {
-        let name = alias_name.as_ref();
-        let cmd = alias_value.command();
-        let padded = format!("{:width$}", name, width = max_name_len);
-        lines.push(format!("  {padded} \u{2192} {cmd}"));
-    }
-
-    let subcmd_groups = subcommands.group_by_program();
-    for (program, entries) in &subcmd_groups {
-        lines.push(format!("  {program} (subcommands):"));
-        for entry in entries {
-            let shorts = entry.short_subcommands.join(" ");
-            let longs = entry.long_subcommands.join(" ");
-            lines.push(format!("    {shorts} \u{2192} {longs}"));
-        }
-    }
-
-    Some(lines.join("\n"))
-}
-
 /// Render the "loaded" info as individual shell echo statements.
 ///
 /// Returns one `Echo` per visual line, each wrapped in the shell's echo command.

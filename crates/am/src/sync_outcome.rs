@@ -7,6 +7,7 @@ use crate::subcommand::SubcommandSet;
 use crate::trust::render_load_lines;
 use crate::AliasSet;
 
+#[derive(Debug)]
 pub enum ProjectTransition {
     FreshLoad {
         aliases: AliasSet,
@@ -16,12 +17,14 @@ pub enum ProjectTransition {
     None,
 }
 
+#[derive(Debug)]
 pub enum PathUpdate {
     Set(String),
     Unset,
     Unchanged,
 }
 
+#[derive(Debug)]
 pub struct SyncOutcome {
     pub shell: Shell,
     pub shell_cfg: ShellsTomlConfig,
@@ -30,6 +33,15 @@ pub struct SyncOutcome {
     pub diff: PrecedenceDiff,
     pub security_warnings: Vec<String>,
     pub path_update: PathUpdate,
+}
+
+/// Manual implementation: `SyncOutcome` is never compared in practice, but
+/// `Effect` derives `PartialEq` and contains this type.  Always returns `false`
+/// to avoid requiring `PartialEq` on `ShellsTomlConfig` and other inner types.
+impl PartialEq for SyncOutcome {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
 }
 
 impl SyncOutcome {

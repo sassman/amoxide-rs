@@ -652,12 +652,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let prev_subs = std::env::var(env_vars::AM_SUBCOMMANDS).ok();
             let prev_project_path = std::env::var(env_vars::AM_PROJECT_PATH).ok();
 
-            let shell_cfg = model.config.shell.clone();
             let cwd = model.cwd.clone();
-            let shell_impl =
-                shell
-                    .clone()
-                    .as_shell(&shell_cfg, Default::default(), Default::default());
 
             let resolved_aliases = model
                 .profile_config()
@@ -666,19 +661,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .profile_config()
                 .resolve_active_subcommands(&model.session.active_profiles);
 
-            // Resolve project state. `project_path` is the `.aliases` file path
-            // (regardless of trust); `include_project` is true only when trusted.
+            // Resolve project state
             let project_path = model.project_trust().map(|t| t.path().to_path_buf());
             let is_direct = project_path
                 .as_deref()
                 .is_some_and(|p| p.parent().is_some_and(|pp| pp == cwd));
-            let already_seen_path = match (prev_project_path.as_deref(), project_path.as_deref()) {
-                (Some(prev), Some(cur)) => std::path::Path::new(prev) == cur,
-                _ => false,
-            };
+            let already_seen_path =
+                match (prev_project_path.as_deref(), project_path.as_deref()) {
+                    (Some(prev), Some(cur)) => std::path::Path::new(prev) == cur,
+                    _ => false,
+                };
             let show_warn = !quiet && is_direct && !already_seen_path;
 
-            let mut lines: Vec<String> = Vec::new();
+            let mut security_warnings = Vec::new();
             let mut security_changed = false;
             let mut include_project = false;
             match model.project_trust() {
@@ -687,17 +682,19 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
                 Some(crate::trust::ProjectTrust::Unknown(_)) => {
                     if show_warn {
-                        lines.push(shell_impl.echo(
-                            "am: .aliases found but not trusted. Run 'am trust' to review and allow.",
-                        ));
+                        security_warnings.push(
+                            "am: .aliases found but not trusted. Run 'am trust' to review and allow."
+                                .to_string(),
+                        );
                     }
                 }
                 Some(crate::trust::ProjectTrust::Tampered(_)) => {
                     security_changed = true;
                     if show_warn {
-                        lines.push(shell_impl.echo(
-                            "am: .aliases was modified since last trusted. Run 'am trust' to review and allow.",
-                        ));
+                        security_warnings.push(
+                            "am: .aliases was modified since last trusted. Run 'am trust' to review and allow."
+                                .to_string(),
+                        );
                     }
                 }
                 Some(crate::trust::ProjectTrust::Untrusted(_)) | None => {}
@@ -712,9 +709,6 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 )
             };
 
-            // Fresh project load: we're directly in a trusted project we haven't
-            // seen before (or cd'd into a different project). Triggers the full
-            // listing instead of the compact incremental summary.
             let is_fresh_project_load = include_project && is_direct && !already_seen_path;
 
             let diff = Precedence::new()
@@ -724,62 +718,46 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .with_shell_state_from_env(prev_aliases.as_deref(), prev_subs.as_deref())
                 .resolve();
 
-            // ── Human-readable messaging ────────────────────────
-            if !quiet {
-                if is_fresh_project_load {
-                    for line in crate::trust::render_load_message(
-                        &project_aliases,
-                        &project_subs,
-                        model
-                            .config
-                            .logging
-                            .project_loading
-                            .as_ref()
-                            .unwrap_or(&crate::LogVerbosity::Verbose),
-                    )
-                    .unwrap_or("".to_string())
-                    .lines()
-                    {
-                        lines.push(shell_impl.echo(line));
+            let transition = if is_fresh_project_load {
+                crate::sync_outcome::ProjectTransition::FreshLoad {
+                    aliases: project_aliases,
+                    subcommands: project_subs,
+                }
+            } else if prev_project_path.is_some() && project_path.is_none() {
+                crate::sync_outcome::ProjectTransition::Unloaded
+            } else {
+                crate::sync_outcome::ProjectTransition::None
+            };
+
+            let current_path_str =
+                project_path.as_ref().map(|p| p.display().to_string());
+            let path_update =
+                match (prev_project_path.as_deref(), current_path_str.as_deref()) {
+                    (Some(prev), Some(cur)) if prev == cur => {
+                        crate::sync_outcome::PathUpdate::Unchanged
                     }
-                } else if let Some(msg) = diff.change_summary() {
-                    lines.push(shell_impl.echo(&msg));
-                }
-            }
+                    (_, Some(cur)) => crate::sync_outcome::PathUpdate::Set(cur.to_string()),
+                    (Some(_), None) => crate::sync_outcome::PathUpdate::Unset,
+                    (None, None) => crate::sync_outcome::PathUpdate::Unchanged,
+                };
 
-            let rendered = diff.render(shell_impl.as_ref());
-            if !rendered.is_empty() {
-                lines.push(rendered);
-            }
-
-            // ── _AM_PROJECT_PATH bookkeeping ───────────────────
-            // Always track the current project path (regardless of trust) so
-            // subsequent syncs can detect "first time in this project".
-            let current_path_str = project_path.as_ref().map(|p| p.display().to_string());
-            match (prev_project_path.as_deref(), current_path_str.as_deref()) {
-                (Some(prev), Some(cur)) if prev == cur => {}
-                (_, Some(cur)) => {
-                    lines.push(shell_impl.set_env(env_vars::AM_PROJECT_PATH, cur));
-                }
-                (Some(_), None) => {
-                    lines.push(shell_impl.unset_env(env_vars::AM_PROJECT_PATH));
-                }
-                (None, None) => {}
-            }
-
-            let joined = lines
-                .into_iter()
-                .filter(|l| !l.is_empty())
-                .collect::<Vec<_>>()
-                .join("\n");
-            if !joined.is_empty() {
-                print!("{joined}");
-            }
+            let outcome = crate::sync_outcome::SyncOutcome {
+                shell,
+                shell_cfg: model.config.shell.clone(),
+                quiet,
+                transition,
+                diff,
+                security_warnings,
+                path_update,
+            };
 
             if security_changed {
-                Ok(UpdateResult::effect(Effect::SaveSecurity))
+                Ok(UpdateResult::with_effects(vec![
+                    Effect::RenderSync(outcome),
+                    Effect::SaveSecurity,
+                ]))
             } else {
-                Ok(UpdateResult::done())
+                Ok(UpdateResult::effect(Effect::RenderSync(outcome)))
             }
         }
         Message::ToggleProfiles(names) => {
