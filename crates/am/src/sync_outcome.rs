@@ -26,13 +26,13 @@ pub enum PathUpdate {
 
 #[derive(Debug)]
 pub struct SyncOutcome {
-    pub shell: Shell,
-    pub shell_cfg: ShellsTomlConfig,
-    pub quiet: bool,
-    pub transition: ProjectTransition,
-    pub diff: PrecedenceDiff,
-    pub security_warnings: Vec<String>,
-    pub path_update: PathUpdate,
+    shell: Shell,
+    shell_cfg: ShellsTomlConfig,
+    quiet: bool,
+    transition: ProjectTransition,
+    diff: PrecedenceDiff,
+    security_warnings: Vec<String>,
+    path_update: PathUpdate,
 }
 
 /// Manual implementation: `SyncOutcome` is never compared in practice, but
@@ -41,6 +41,64 @@ pub struct SyncOutcome {
 impl PartialEq for SyncOutcome {
     fn eq(&self, _other: &Self) -> bool {
         false
+    }
+}
+
+pub struct SyncOutcomeBuilder {
+    shell: Shell,
+    shell_cfg: ShellsTomlConfig,
+    quiet: bool,
+    transition: ProjectTransition,
+    diff: PrecedenceDiff,
+    security_warnings: Vec<String>,
+    path_update: PathUpdate,
+}
+
+impl SyncOutcomeBuilder {
+    pub fn transition(mut self, transition: ProjectTransition) -> Self {
+        self.transition = transition;
+        self
+    }
+
+    pub fn diff(mut self, diff: PrecedenceDiff) -> Self {
+        self.diff = diff;
+        self
+    }
+
+    pub fn security_warning(mut self, warning: String) -> Self {
+        self.security_warnings.push(warning);
+        self
+    }
+
+    pub fn path_update(mut self, path_update: PathUpdate) -> Self {
+        self.path_update = path_update;
+        self
+    }
+
+    pub fn build(self) -> SyncOutcome {
+        SyncOutcome {
+            shell: self.shell,
+            shell_cfg: self.shell_cfg,
+            quiet: self.quiet,
+            transition: self.transition,
+            diff: self.diff,
+            security_warnings: self.security_warnings,
+            path_update: self.path_update,
+        }
+    }
+}
+
+impl SyncOutcome {
+    pub fn builder(shell: Shell, shell_cfg: ShellsTomlConfig, quiet: bool) -> SyncOutcomeBuilder {
+        SyncOutcomeBuilder {
+            shell,
+            shell_cfg,
+            quiet,
+            transition: ProjectTransition::None,
+            diff: PrecedenceDiff::default(),
+            security_warnings: Vec::new(),
+            path_update: PathUpdate::Unchanged,
+        }
     }
 }
 
@@ -136,15 +194,10 @@ mod tests {
         quiet: bool,
         path_update: PathUpdate,
     ) -> SyncOutcome {
-        SyncOutcome {
-            shell: Shell::Fish,
-            shell_cfg: ShellsTomlConfig::default(),
-            quiet,
-            transition,
-            diff: PrecedenceDiff::default(),
-            security_warnings: vec![],
-            path_update,
-        }
+        SyncOutcome::builder(Shell::Fish, ShellsTomlConfig::default(), quiet)
+            .transition(transition)
+            .path_update(path_update)
+            .build()
     }
 
     #[test]
@@ -224,8 +277,9 @@ mod tests {
 
     #[test]
     fn render_security_warnings_unless_quiet() {
-        let mut outcome = make_outcome(ProjectTransition::None, false, PathUpdate::Unchanged);
-        outcome.security_warnings = vec!["am: .aliases found but not trusted.".into()];
+        let outcome = SyncOutcome::builder(Shell::Fish, ShellsTomlConfig::default(), false)
+            .security_warning("am: .aliases found but not trusted.".into())
+            .build();
         let logging = LoggingConfig::default();
         let lines = outcome.render(&logging);
         let text_lines: Vec<&str> = lines

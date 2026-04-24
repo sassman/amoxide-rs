@@ -741,15 +741,18 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     (None, None) => crate::sync_outcome::PathUpdate::Unchanged,
                 };
 
-            let outcome = crate::sync_outcome::SyncOutcome {
+            let mut builder = crate::sync_outcome::SyncOutcome::builder(
                 shell,
-                shell_cfg: model.config.shell.clone(),
+                model.config.shell.clone(),
                 quiet,
-                transition,
-                diff,
-                security_warnings,
-                path_update,
-            };
+            )
+            .transition(transition)
+            .diff(diff)
+            .path_update(path_update);
+            for warning in security_warnings {
+                builder = builder.security_warning(warning);
+            }
+            let outcome = builder.build();
 
             if security_changed {
                 Ok(UpdateResult::with_effects(vec![
