@@ -434,17 +434,7 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
             }
             Effect::RenderSync(outcome) => {
                 let echo_lines = outcome.render(&model.config.logging);
-                let output: String = echo_lines
-                    .into_iter()
-                    .filter_map(|e| match e {
-                        Echo::Line(s) => Some(s),
-                        Echo::Silent => None,
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                if !output.is_empty() {
-                    print!("{output}");
-                }
+                execute_effects(model, vec![Effect::PrintLines(echo_lines)])?;
             }
             Effect::SaveSecurity => model.save_security()?,
         }
