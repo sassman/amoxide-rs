@@ -66,6 +66,37 @@ To enable this setting, edit `~/.config/amoxide/config.toml` manually and add th
 am init -f fish | source
 ```
 
+## `config.toml` — Logging <VersionBadge v="0.8.0" />
+
+Controls the verbosity of messages shown when navigating into and out of directories with project aliases.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `project_loading` | string | `"verbose"` | Message shown when entering a project with trusted `.aliases` |
+| `project_unloading` | string | `"verbose"` | Message shown when leaving a project |
+
+Accepted values for both keys:
+
+| Value | Effect |
+|-------|--------|
+| `"off"` | No message is shown |
+| `"short"` | One-line summary (loading: `am: loaded .aliases: b, t`; unloading: `am: .aliases unloaded`) |
+| `"verbose"` | Full detail (loading: aligned alias table; unloading: change summary with added/unloaded counts) |
+
+```toml
+[logging]
+project_loading = "verbose"
+project_unloading = "short"
+```
+
+To suppress all navigation messages:
+
+```toml
+[logging]
+project_loading = "off"
+project_unloading = "off"
+```
+
 ## `profiles.toml` — Profile Definitions
 
 ```toml
