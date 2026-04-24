@@ -19,17 +19,17 @@ pub struct UpdateResult {
 }
 
 impl UpdateResult {
-    pub fn new(message: Message, effects: &[Effect]) -> Self {
+    pub fn new(message: Message, effects: Vec<Effect>) -> Self {
         Self {
             next: Some(message),
-            effects: effects.to_vec(),
+            effects,
         }
     }
 
-    pub fn with_effects(effects: &[Effect]) -> Self {
+    pub fn with_effects(effects: Vec<Effect>) -> Self {
         Self {
             next: None,
-            effects: effects.to_vec(),
+            effects,
         }
     }
 
@@ -195,7 +195,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             });
                         }
                     }
-                    Ok(UpdateResult::with_effects(&[
+                    Ok(UpdateResult::with_effects(vec![
                         Effect::RemoveLocalAlias { name: old_name },
                         Effect::AddLocalAlias {
                             name: new_name,
@@ -321,7 +321,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     }
                     Ok(UpdateResult::new(
                         Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
-                        &[Effect::RemoveLocalSubcommand { key: original_key }],
+                        vec![Effect::RemoveLocalSubcommand { key: original_key }],
                     ))
                 } else {
                     model.config.subcommands.as_mut().remove(&original_key);
@@ -339,7 +339,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
                 Ok(UpdateResult::new(
                     Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
-                    &[Effect::RemoveLocalSubcommand { key: original_key }],
+                    vec![Effect::RemoveLocalSubcommand { key: original_key }],
                 ))
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
@@ -392,7 +392,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             long_subcommands,
                         })
                         .collect();
-                    Ok(UpdateResult::with_effects(&effects))
+                    Ok(UpdateResult::with_effects(effects))
                 }
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
@@ -487,7 +487,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     } else {
                         effects.push(Effect::SaveConfig);
                     }
-                    Ok(UpdateResult::with_effects(&effects))
+                    Ok(UpdateResult::with_effects(effects))
                 }
                 AliasTarget::Local => {
                     let mut effects: Vec<Effect> = pairs
@@ -502,7 +502,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     } else if matches!(from, AliasTarget::Global) {
                         effects.push(Effect::SaveConfig);
                     }
-                    Ok(UpdateResult::with_effects(&effects))
+                    Ok(UpdateResult::with_effects(effects))
                 }
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
@@ -516,7 +516,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     } else {
                         effects.push(Effect::SaveProfiles);
                     }
-                    Ok(UpdateResult::with_effects(&effects))
+                    Ok(UpdateResult::with_effects(effects))
                 }
             }
         }
@@ -727,8 +727,18 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             // ── Human-readable messaging ────────────────────────
             if !quiet {
                 if is_fresh_project_load {
-                    for line in
-                        crate::trust::render_load_message(&project_aliases, &project_subs).lines()
+                    for line in crate::trust::render_load_message(
+                        &project_aliases,
+                        &project_subs,
+                        model
+                            .config
+                            .logging
+                            .project_loading
+                            .as_ref()
+                            .unwrap_or(&crate::LogVerbosity::Verbose),
+                    )
+                    .unwrap_or("".to_string())
+                    .lines()
                     {
                         lines.push(shell_impl.echo(line));
                     }
@@ -793,7 +803,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
-            Ok(UpdateResult::with_effects(&effects))
+            Ok(UpdateResult::with_effects(effects))
         }
         Message::UseProfilesAt(names, priority) => {
             for name in &names {
@@ -816,7 +826,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 effects.push(Effect::Print(msg));
             }
             effects.push(Effect::SaveSession);
-            Ok(UpdateResult::with_effects(&effects))
+            Ok(UpdateResult::with_effects(effects))
         }
         Message::RemoveProfile(name) => {
             model
@@ -824,7 +834,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .remove_profile(&name)
                 .map_err(|e| UpdateError::Other(e.to_string()))?;
             model.session.active_profiles.retain(|p| p != &name);
-            Ok(UpdateResult::with_effects(&[
+            Ok(UpdateResult::with_effects(vec![
                 Effect::SaveProfiles,
                 Effect::SaveSession,
             ]))
@@ -848,7 +858,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
             }
             // local_aliases and local_subcommands are saved by the CLI layer (needs file path)
-            Ok(UpdateResult::with_effects(&effects))
+            Ok(UpdateResult::with_effects(effects))
         }
         Message::Trust => {
             let path = model
@@ -887,14 +897,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             if forget {
                 model.security_config_mut().forget(&path);
                 model.project_trust = Some(ProjectTrust::Unknown(path.clone()));
-                Ok(UpdateResult::with_effects(&[
+                Ok(UpdateResult::with_effects(vec![
                     Effect::Print(format!("Removed {} from security tracking", path.display())),
                     Effect::SaveSecurity,
                 ]))
             } else {
                 model.security_config_mut().untrust(&path);
                 model.project_trust = Some(ProjectTrust::Untrusted(path.clone()));
-                Ok(UpdateResult::with_effects(&[
+                Ok(UpdateResult::with_effects(vec![
                     Effect::Print(format!("Untrusted: {}", path.display())),
                     Effect::SaveSecurity,
                 ]))
@@ -915,7 +925,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     *p = new_name.clone();
                 }
             }
-            Ok(UpdateResult::with_effects(&[
+            Ok(UpdateResult::with_effects(vec![
                 Effect::SaveProfiles,
                 Effect::SaveSession,
             ]))
@@ -1150,7 +1160,7 @@ fn transfer_aliases(
         effects.push(Effect::SaveProfiles);
     }
 
-    Ok(UpdateResult::with_effects(&effects))
+    Ok(UpdateResult::with_effects(effects))
 }
 
 fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(String, bool)> {
@@ -1303,7 +1313,7 @@ mod tests {
     fn update_result_new_has_message_and_effects() {
         let r = UpdateResult::new(
             Message::ListProfiles { used: false },
-            &[Effect::SaveConfig, Effect::SaveProfiles],
+            vec![Effect::SaveConfig, Effect::SaveProfiles],
         );
         assert!(r.next.is_some());
         assert_eq!(r.effects.len(), 2);
@@ -1311,7 +1321,7 @@ mod tests {
 
     #[test]
     fn update_result_with_effects_has_effects_and_no_message() {
-        let r = UpdateResult::with_effects(&[Effect::SaveConfig, Effect::SaveProfiles]);
+        let r = UpdateResult::with_effects(vec![Effect::SaveConfig, Effect::SaveProfiles]);
         assert!(r.next.is_none());
         assert_eq!(r.effects.len(), 2);
     }
