@@ -481,6 +481,7 @@ fn snapshot_export_all() {
             name: "git".into(),
             aliases: aliases(&[("gs", "git status")]),
             subcommands: Default::default(),
+            vars: Default::default(),
         }],
         local_aliases: aliases(&[("t", "cargo test")]),
         ..Default::default()
@@ -526,6 +527,7 @@ fn test_export_import_roundtrip_all() {
             name: "git".into(),
             aliases: aliases(&[("gs", "git status")]),
             subcommands: Default::default(),
+            vars: Default::default(),
         }],
         local_aliases: aliases(&[("t", "cargo test")]),
         ..Default::default()
@@ -580,6 +582,7 @@ fn test_import_payload_through_update() {
             name: "git".into(),
             aliases: aliases(&[("gp", "git push")]),
             subcommands: Default::default(),
+            vars: Default::default(),
         }],
         ..Default::default()
     };
