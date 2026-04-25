@@ -103,6 +103,46 @@ impl VarSet {
     }
 }
 
+pub static VAR_TEMPLATE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{\{([a-zA-Z_][a-zA-Z0-9_-]*)\}\}").unwrap());
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubstitutionResult {
+    pub output: String,
+    pub missing: Vec<VarName>,
+}
+
+/// Replace `{{name}}` references with values from `vars`.
+/// Names not in `vars` are left literal in `output` and reported in `missing`.
+/// Reuses `shell::substitute_quote_aware_for_vars` so single-quoted regions are handled.
+pub fn substitute_vars(cmd: &str, vars: &VarSet) -> SubstitutionResult {
+    use std::cell::RefCell;
+    let missing: RefCell<Vec<VarName>> = RefCell::new(Vec::new());
+
+    let output = crate::shell::substitute_quote_aware_for_vars(cmd, &VAR_TEMPLATE_RE, |name| {
+        // Regex enforces VarName-compatible shape, so parse() always succeeds here.
+        let parsed = match VarName::parse(name) {
+            Ok(n) => n,
+            Err(_) => return format!("{{{{{name}}}}}"),
+        };
+        match vars.get(&parsed) {
+            Some(v) => v.clone(),
+            None => {
+                let mut m = missing.borrow_mut();
+                if !m.iter().any(|x| x == &parsed) {
+                    m.push(parsed);
+                }
+                format!("{{{{{name}}}}}")
+            }
+        }
+    });
+
+    SubstitutionResult {
+        output,
+        missing: missing.into_inner(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,5 +251,67 @@ mod tests {
     fn varset_rejects_invalid_name_at_deserialize() {
         let r: Result<VarSet, _> = toml::from_str("\"1foo\" = \"x\"\n");
         assert!(r.is_err(), "must fail to parse a name starting with digit");
+    }
+
+    #[test]
+    fn substitute_vars_replaces_known() {
+        let mut vs = VarSet::default();
+        vs.insert(VarName::parse("path").unwrap(), "/opt/v1".into());
+        let r = substitute_vars("run {{path}}/x.sh", &vs);
+        assert_eq!(r.output, "run /opt/v1/x.sh");
+        assert!(r.missing.is_empty());
+    }
+
+    #[test]
+    fn substitute_vars_reports_missing_and_leaves_literal() {
+        let vs = VarSet::default();
+        let r = substitute_vars("run {{nope}}", &vs);
+        assert_eq!(r.output, "run {{nope}}");
+        assert_eq!(r.missing.len(), 1);
+        assert_eq!(r.missing[0].as_str(), "nope");
+    }
+
+    #[test]
+    fn substitute_vars_multiple_refs_same_var() {
+        let mut vs = VarSet::default();
+        vs.insert(VarName::parse("p").unwrap(), "/x".into());
+        let r = substitute_vars("a {{p}} b {{p}} c", &vs);
+        assert_eq!(r.output, "a /x b /x c");
+        assert!(r.missing.is_empty());
+    }
+
+    #[test]
+    fn substitute_vars_value_contains_shell_metacharacters_passed_through() {
+        let mut vs = VarSet::default();
+        vs.insert(
+            VarName::parse("opt-flags").unwrap(),
+            "-C opt-level=3".into(),
+        );
+        let r = substitute_vars("compile {{opt-flags}}", &vs);
+        assert_eq!(r.output, "compile -C opt-level=3");
+    }
+
+    #[test]
+    fn substitute_vars_empty_set_is_passthrough() {
+        let vs = VarSet::default();
+        let r = substitute_vars("git status", &vs);
+        assert_eq!(r.output, "git status");
+        assert!(r.missing.is_empty());
+    }
+
+    #[test]
+    fn substitute_vars_does_not_match_positional_args() {
+        let vs = VarSet::default();
+        let r = substitute_vars("echo {{1}} {{@}}", &vs);
+        assert_eq!(r.output, "echo {{1}} {{@}}");
+        assert!(r.missing.is_empty(), "positional args are not vars");
+    }
+
+    #[test]
+    fn substitute_vars_inside_single_quotes_breaks_out() {
+        let mut vs = VarSet::default();
+        vs.insert(VarName::parse("p").unwrap(), "X".into());
+        let r = substitute_vars("awk '{{p}}'", &vs);
+        assert_eq!(r.output, "awk ''X''");
     }
 }

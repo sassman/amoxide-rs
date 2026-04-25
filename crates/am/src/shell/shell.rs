@@ -146,6 +146,17 @@ pub fn has_template_args(cmd: &str) -> bool {
 ///
 /// `make_sub` receives the capture group (e.g. `"1"`, `"@"`) and returns the
 /// shell-specific variable string.
+/// Public entry point for non-shell consumers (e.g. `vars`) that need to
+/// reuse the quote-aware walker with a different regex. Thin wrapper —
+/// exists only to keep the internal `pub(super)` helper out of the crate API.
+pub fn substitute_quote_aware_for_vars(
+    cmd: &str,
+    re: &Regex,
+    make_sub: impl Fn(&str) -> String,
+) -> String {
+    substitute_quote_aware(cmd, re, make_sub)
+}
+
 pub(super) fn substitute_quote_aware(
     cmd: &str,
     re: &Regex,
