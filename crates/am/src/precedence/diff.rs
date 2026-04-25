@@ -28,12 +28,49 @@ pub struct EffectiveEntry {
     pub hash: String,
 }
 
+/// Where an alias was defined. Used by `InvalidEntry` to point users to the
+/// source of a misconfiguration. Distinct from `AliasTarget` (which encodes
+/// mutation intent including `ActiveProfile`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OriginScope {
+    Global,
+    Profile(String),
+    Project,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InvalidReason {
+    MissingVars(Vec<crate::vars::VarName>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvalidEntry {
+    pub name: String,
+    pub scope: OriginScope,
+    pub reason: InvalidReason,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Diagnostic {
+    pub message: String,
+}
+
+/// Output of `Precedence::resolve()`. Carries both the sync actions (`diff`)
+/// and human-facing warnings (`diagnostics`). Diagnostics are a sibling of
+/// `diff.invalid` — they are the rendered, ready-to-print form.
+#[derive(Debug, Default, Clone)]
+pub struct ResolveOutcome {
+    pub diff: PrecedenceDiff,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct PrecedenceDiff {
     pub added: Vec<EffectiveEntry>,
     pub changed: Vec<EffectiveEntry>,
     pub removed: Vec<String>,
     pub unchanged: Vec<EffectiveEntry>,
+    pub invalid: Vec<InvalidEntry>,
 }
 
 /// Build a change-summary line like
@@ -265,5 +302,27 @@ mod tests {
     fn unload_summary_returns_none_when_nothing_changed() {
         let diff = PrecedenceDiff::default();
         assert!(diff.unload_summary().is_none());
+    }
+
+    #[test]
+    fn precedence_diff_default_has_empty_invalid() {
+        let d = PrecedenceDiff::default();
+        assert!(d.invalid.is_empty());
+    }
+
+    #[test]
+    fn invalid_entry_has_name_scope_and_reason() {
+        use crate::vars::VarName;
+
+        let e = InvalidEntry {
+            name: "cc".into(),
+            scope: OriginScope::Profile("compile_help".into()),
+            reason: InvalidReason::MissingVars(vec![VarName::parse("opt-flags").unwrap()]),
+        };
+        assert_eq!(e.name, "cc");
+        assert!(matches!(e.scope, OriginScope::Profile(_)));
+        match e.reason {
+            InvalidReason::MissingVars(v) => assert_eq!(v[0].as_str(), "opt-flags"),
+        }
     }
 }
