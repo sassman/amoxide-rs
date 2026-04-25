@@ -7,12 +7,12 @@ use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 const CONFIG_FILE: &str = "config.toml";
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq)]
 pub struct ShellsTomlConfig {
     pub fish: Option<FishConfig>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct FishConfig {
     #[serde(default)]
     pub use_abbr: bool,
