@@ -15,7 +15,7 @@ use amoxide::{
     prompt::{ask_user, Answer},
     trust::compute_file_hash,
     update::{update, AppModel},
-    AliasTarget, Message,
+    AliasTarget, Echo, Message,
 };
 
 fn setup_logging() {
@@ -175,7 +175,7 @@ fn main() -> anyhow::Result<()> {
                 None => Message::ToggleProfiles(ordered),
             };
             let result = update(&mut model, msg)?;
-            execute_effects(&mut model, &result.effects)?;
+            execute_effects(&mut model, result.effects)?;
             model.save_config()?;
             return Ok(());
         }
@@ -185,7 +185,7 @@ fn main() -> anyhow::Result<()> {
         {
             ProfileAction::Add { name } => {
                 let result = update(&mut model, Message::CreateProfile(name.clone()))?;
-                execute_effects(&mut model, &result.effects)?;
+                execute_effects(&mut model, result.effects)?;
                 model.save_config()?;
                 return Ok(());
             }
@@ -204,7 +204,7 @@ fn main() -> anyhow::Result<()> {
                     None => Message::ToggleProfiles(ordered),
                 };
                 let result = update(&mut model, msg)?;
-                execute_effects(&mut model, &result.effects)?;
+                execute_effects(&mut model, result.effects)?;
                 model.save_config()?;
                 return Ok(());
             }
@@ -241,7 +241,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
                 let result = update(&mut model, Message::RemoveProfile(name.clone()))?;
-                execute_effects(&mut model, &result.effects)?;
+                execute_effects(&mut model, result.effects)?;
                 model.save_config()?;
                 return Ok(());
             }
@@ -367,18 +367,18 @@ fn main() -> anyhow::Result<()> {
 
             if answer == Answer::Yes {
                 let result = update(&mut model, Message::Trust)?;
-                execute_effects(&mut model, &result.effects)?;
+                execute_effects(&mut model, result.effects)?;
                 // The shell wrapper calls `am sync` after this, which loads
                 // the aliases and shows the load message.
             } else {
                 let result = update(&mut model, Message::Untrust { forget: false })?;
-                execute_effects(&mut model, &result.effects)?;
+                execute_effects(&mut model, result.effects)?;
             }
             return Ok(());
         }
         Commands::Untrust { forget } => {
             let result = update(&mut model, Message::Untrust { forget: *forget })?;
-            execute_effects(&mut model, &result.effects)?;
+            execute_effects(&mut model, result.effects)?;
             return Ok(());
         }
         Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
@@ -386,16 +386,16 @@ fn main() -> anyhow::Result<()> {
     };
 
     let result = update(&mut model, message)?;
-    execute_effects(&mut model, &result.effects)?;
+    execute_effects(&mut model, result.effects)?;
     if let Some(msg) = result.next {
         let follow_up = update(&mut model, msg)?;
-        execute_effects(&mut model, &follow_up.effects)?;
+        execute_effects(&mut model, follow_up.effects)?;
     }
 
     Ok(())
 }
 
-fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<()> {
+fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result<()> {
     let has_local_mutation = effects.iter().any(|e| {
         matches!(
             e,
@@ -411,14 +411,31 @@ fn execute_effects(model: &mut AppModel, effects: &[Effect]) -> anyhow::Result<(
             Effect::SaveConfig => model.save_config()?,
             Effect::SaveSession => model.save_session()?,
             Effect::SaveProfiles => model.save_profiles()?,
-            Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(name, cmd, *raw)?,
-            Effect::RemoveLocalAlias { name } => remove_local_alias(name)?,
+            Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(&name, &cmd, raw)?,
+            Effect::RemoveLocalAlias { name } => remove_local_alias(&name)?,
             Effect::AddLocalSubcommand {
                 key,
                 long_subcommands,
-            } => add_local_subcommand(key, long_subcommands)?,
-            Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(key)?,
+            } => add_local_subcommand(&key, &long_subcommands)?,
+            Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(&key)?,
             Effect::Print(text) => println!("{text}"),
+            Effect::PrintLines(lines) => {
+                let output: String = lines
+                    .into_iter()
+                    .filter_map(|e| match e {
+                        Echo::Line(s) => Some(s),
+                        Echo::Silent => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !output.is_empty() {
+                    print!("{output}");
+                }
+            }
+            Effect::RenderSync(outcome) => {
+                let echo_lines = outcome.render(&model.config.logging);
+                execute_effects(model, vec![Effect::PrintLines(echo_lines)])?;
+            }
             Effect::SaveSecurity => model.save_security()?,
         }
     }

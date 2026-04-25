@@ -29,7 +29,7 @@ impl Display for AliasName {
     }
 }
 
-#[derive(Debug, Deserialize, Default, Serialize, Clone)]
+#[derive(Debug, Deserialize, Default, Serialize, Clone, PartialEq)]
 pub struct AliasSet(BTreeMap<AliasName, TomlAlias>);
 
 impl AsRef<BTreeMap<AliasName, TomlAlias>> for AliasSet {

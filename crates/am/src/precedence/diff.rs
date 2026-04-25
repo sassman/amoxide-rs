@@ -75,6 +75,24 @@ impl PrecedenceDiff {
         )
     }
 
+    /// Like [`Self::change_summary`] but with project-unload prefix and labels.
+    ///
+    /// Uses "added" for aliases that gained a new definition (profile/global
+    /// taking over) and "unloaded" for aliases that are gone entirely.
+    pub fn unload_summary(&self) -> Option<String> {
+        let added: Vec<&str> = self
+            .added
+            .iter()
+            .chain(self.changed.iter())
+            .map(|e| e.name.as_str())
+            .collect();
+        let removed: Vec<&str> = self.removed.iter().map(|s| s.as_str()).collect();
+        format_change_summary(
+            "am: .aliases unloaded",
+            &[("added", &added), ("unloaded", &removed)],
+        )
+    }
+
     /// Render this diff into shell code using the given adapter.
     ///
     /// Emission order:
@@ -204,5 +222,48 @@ mod tests {
         let shell = Shell::Fish.as_shell(&cfg, Default::default(), Default::default());
         let out = PrecedenceDiff::default().render(shell.as_ref());
         assert!(out.is_empty());
+    }
+
+    #[test]
+    fn unload_summary_uses_project_prefix_and_labels() {
+        let project = aset(&[("b", "make build"), ("t", "cargo test")]);
+        let diff = Precedence::new()
+            .with_project(&project, &SubcommandSet::new())
+            .with_shell_state_from_env(Some("b|0000000,t|1111111"), None)
+            .resolve();
+
+        // All aliases removed (no global/profile to take over)
+        let summary = diff.unload_summary();
+        assert!(summary.is_some());
+        let msg = summary.unwrap();
+        assert!(msg.starts_with("am: .aliases unloaded"), "got: {msg}");
+        assert!(msg.contains("unloaded"), "got: {msg}");
+    }
+
+    #[test]
+    fn unload_summary_shows_added_for_takeover() {
+        let global = aset(&[("b", "global build")]);
+        let _project = aset(&[("b", "project build"), ("t", "cargo test")]);
+
+        // Shell had both from project. Now project is gone, global takes over b.
+        // Simulate: resolve with only global + old shell state that had both
+        let diff_after = Precedence::new()
+            .with_global(&global, &SubcommandSet::new())
+            .with_shell_state_from_env(Some("b|0000000,t|1111111"), None)
+            .resolve();
+
+        let summary = diff_after.unload_summary();
+        assert!(summary.is_some());
+        let msg = summary.unwrap();
+        assert!(msg.starts_with("am: .aliases unloaded"), "got: {msg}");
+        // b is "added" (global takes over), t is "unloaded" (gone)
+        assert!(msg.contains("added"), "expected 'added' in: {msg}");
+        assert!(msg.contains("unloaded"), "expected 'unloaded' in: {msg}");
+    }
+
+    #[test]
+    fn unload_summary_returns_none_when_nothing_changed() {
+        let diff = PrecedenceDiff::default();
+        assert!(diff.unload_summary().is_none());
     }
 }

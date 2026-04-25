@@ -1,0 +1,281 @@
+use crate::config::{LogVerbosity, LoggingConfig, ShellsTomlConfig};
+use crate::effects::Echo;
+use crate::env_vars;
+use crate::precedence::PrecedenceDiff;
+use crate::shell::Shell;
+use crate::subcommand::SubcommandSet;
+use crate::trust::render_load_lines;
+use crate::AliasSet;
+
+#[derive(Debug, PartialEq)]
+pub enum ProjectTransition {
+    FreshLoad {
+        aliases: AliasSet,
+        subcommands: SubcommandSet,
+    },
+    Unloaded,
+    None,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PathUpdate {
+    Set(String),
+    Unset,
+    Unchanged,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct SyncOutcome {
+    shell: Shell,
+    shell_cfg: ShellsTomlConfig,
+    quiet: bool,
+    transition: ProjectTransition,
+    diff: PrecedenceDiff,
+    security_warnings: Vec<String>,
+    path_update: PathUpdate,
+}
+
+pub struct SyncOutcomeBuilder {
+    shell: Shell,
+    shell_cfg: ShellsTomlConfig,
+    quiet: bool,
+    transition: ProjectTransition,
+    diff: PrecedenceDiff,
+    security_warnings: Vec<String>,
+    path_update: PathUpdate,
+}
+
+impl SyncOutcomeBuilder {
+    pub fn transition(mut self, transition: ProjectTransition) -> Self {
+        self.transition = transition;
+        self
+    }
+
+    pub fn diff(mut self, diff: PrecedenceDiff) -> Self {
+        self.diff = diff;
+        self
+    }
+
+    pub fn security_warning(mut self, warning: String) -> Self {
+        self.security_warnings.push(warning);
+        self
+    }
+
+    pub fn path_update(mut self, path_update: PathUpdate) -> Self {
+        self.path_update = path_update;
+        self
+    }
+
+    pub fn build(self) -> SyncOutcome {
+        SyncOutcome {
+            shell: self.shell,
+            shell_cfg: self.shell_cfg,
+            quiet: self.quiet,
+            transition: self.transition,
+            diff: self.diff,
+            security_warnings: self.security_warnings,
+            path_update: self.path_update,
+        }
+    }
+}
+
+impl SyncOutcome {
+    pub fn builder(shell: Shell, shell_cfg: ShellsTomlConfig, quiet: bool) -> SyncOutcomeBuilder {
+        SyncOutcomeBuilder {
+            shell,
+            shell_cfg,
+            quiet,
+            transition: ProjectTransition::None,
+            diff: PrecedenceDiff::default(),
+            security_warnings: Vec::new(),
+            path_update: PathUpdate::Unchanged,
+        }
+    }
+}
+
+impl SyncOutcome {
+    pub fn render(&self, logging: &LoggingConfig) -> Vec<Echo> {
+        let shell_impl =
+            self.shell
+                .clone()
+                .as_shell(&self.shell_cfg, Default::default(), Default::default());
+        let mut lines = Vec::new();
+
+        // Security warnings (unless quiet)
+        if !self.quiet {
+            for warn in &self.security_warnings {
+                lines.push(Echo::Line(shell_impl.echo(warn)));
+            }
+        }
+
+        // Human-readable transition message (unless quiet)
+        if !self.quiet {
+            match &self.transition {
+                ProjectTransition::FreshLoad {
+                    aliases,
+                    subcommands,
+                } => {
+                    let verbosity = logging
+                        .project_loading
+                        .as_ref()
+                        .unwrap_or(&LogVerbosity::Verbose);
+                    lines.extend(render_load_lines(
+                        aliases,
+                        subcommands,
+                        verbosity,
+                        shell_impl.as_ref(),
+                    ));
+                }
+                ProjectTransition::Unloaded => {
+                    let verbosity = logging
+                        .project_unloading
+                        .as_ref()
+                        .unwrap_or(&LogVerbosity::Verbose);
+                    lines.push(Echo::from_verbosity(
+                        verbosity,
+                        || shell_impl.echo("am: .aliases unloaded"),
+                        || {
+                            let msg = self
+                                .diff
+                                .unload_summary()
+                                .unwrap_or_else(|| "am: .aliases unloaded".to_string());
+                            shell_impl.echo(&msg)
+                        },
+                    ));
+                }
+                ProjectTransition::None => {
+                    if let Some(msg) = self.diff.change_summary() {
+                        lines.push(Echo::Line(shell_impl.echo(&msg)));
+                    }
+                }
+            }
+        }
+
+        // Functional shell commands (always — these ARE the program output)
+        let rendered = self.diff.render(shell_impl.as_ref());
+        if !rendered.is_empty() {
+            for line in rendered.lines() {
+                lines.push(Echo::always(line.to_string()));
+            }
+        }
+
+        // Path tracking (always)
+        match &self.path_update {
+            PathUpdate::Set(p) => {
+                lines.push(Echo::Line(shell_impl.set_env(env_vars::AM_PROJECT_PATH, p)));
+            }
+            PathUpdate::Unset => {
+                lines.push(Echo::Line(shell_impl.unset_env(env_vars::AM_PROJECT_PATH)));
+            }
+            PathUpdate::Unchanged => {}
+        }
+
+        lines
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_outcome(
+        transition: ProjectTransition,
+        quiet: bool,
+        path_update: PathUpdate,
+    ) -> SyncOutcome {
+        SyncOutcome::builder(Shell::Fish, ShellsTomlConfig::default(), quiet)
+            .transition(transition)
+            .path_update(path_update)
+            .build()
+    }
+
+    #[test]
+    fn render_quiet_suppresses_all_messages() {
+        let outcome = make_outcome(ProjectTransition::Unloaded, true, PathUpdate::Unchanged);
+        let logging = LoggingConfig::default();
+        let lines = outcome.render(&logging);
+        assert!(lines.iter().all(|l| matches!(l, Echo::Silent)));
+    }
+
+    #[test]
+    fn render_unloaded_off_produces_silent() {
+        let outcome = make_outcome(ProjectTransition::Unloaded, false, PathUpdate::Unchanged);
+        let logging = LoggingConfig {
+            project_loading: None,
+            project_unloading: Some(LogVerbosity::Off),
+        };
+        let lines = outcome.render(&logging);
+        assert!(lines.iter().all(|l| matches!(l, Echo::Silent)));
+    }
+
+    #[test]
+    fn render_unloaded_short_produces_message() {
+        let outcome = make_outcome(ProjectTransition::Unloaded, false, PathUpdate::Unchanged);
+        let logging = LoggingConfig {
+            project_loading: None,
+            project_unloading: Some(LogVerbosity::Short),
+        };
+        let lines = outcome.render(&logging);
+        let text_lines: Vec<&str> = lines
+            .iter()
+            .filter_map(|l| match l {
+                Echo::Line(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(text_lines
+            .iter()
+            .any(|s| s.contains("am: .aliases unloaded")));
+    }
+
+    #[test]
+    fn render_path_set_emits_set_env() {
+        let outcome = make_outcome(
+            ProjectTransition::None,
+            true,
+            PathUpdate::Set("/project/.aliases".into()),
+        );
+        let logging = LoggingConfig::default();
+        let lines = outcome.render(&logging);
+        let text_lines: Vec<&str> = lines
+            .iter()
+            .filter_map(|l| match l {
+                Echo::Line(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(text_lines.iter().any(|s| s.contains("_AM_PROJECT_PATH")));
+    }
+
+    #[test]
+    fn render_path_unset_emits_unset_env() {
+        let outcome = make_outcome(ProjectTransition::None, true, PathUpdate::Unset);
+        let logging = LoggingConfig::default();
+        let lines = outcome.render(&logging);
+        let text_lines: Vec<&str> = lines
+            .iter()
+            .filter_map(|l| match l {
+                Echo::Line(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(text_lines.iter().any(|s| s.contains("_AM_PROJECT_PATH")));
+    }
+
+    #[test]
+    fn render_security_warnings_unless_quiet() {
+        let outcome = SyncOutcome::builder(Shell::Fish, ShellsTomlConfig::default(), false)
+            .security_warning("am: .aliases found but not trusted.".into())
+            .build();
+        let logging = LoggingConfig::default();
+        let lines = outcome.render(&logging);
+        let text_lines: Vec<&str> = lines
+            .iter()
+            .filter_map(|l| match l {
+                Echo::Line(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(text_lines.iter().any(|s| s.contains("not trusted")));
+    }
+}

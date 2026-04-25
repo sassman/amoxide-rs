@@ -1,4 +1,37 @@
+use crate::config::LogVerbosity;
+use crate::sync_outcome::SyncOutcome;
+
 #[derive(Debug, Clone, PartialEq)]
+pub enum Echo {
+    Silent,
+    Line(String),
+}
+
+impl Echo {
+    /// Choose output based on verbosity. Closures are lazy — no work done for suppressed tiers.
+    pub fn from_verbosity(
+        verbosity: &LogVerbosity,
+        short: impl FnOnce() -> String,
+        verbose: impl FnOnce() -> String,
+    ) -> Self {
+        match verbosity {
+            LogVerbosity::Off => Self::Silent,
+            LogVerbosity::Short => Self::Line(short()),
+            LogVerbosity::Verbose => Self::Line(verbose()),
+        }
+    }
+
+    /// Functional shell output — always emitted regardless of verbosity.
+    pub fn always(s: String) -> Self {
+        if s.is_empty() {
+            Self::Silent
+        } else {
+            Self::Line(s)
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Effect {
     SaveConfig,
     SaveSession,
@@ -19,6 +52,8 @@ pub enum Effect {
         key: String,
     },
     Print(String),
+    PrintLines(Vec<Echo>),
+    RenderSync(SyncOutcome),
     SaveSecurity,
 }
 
@@ -47,9 +82,57 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::RemoveLocalSubcommand { key } => {
             model.save_project_subcommand_remove(key)?;
         }
-        Effect::Print(_) => {} // caller's responsibility
+        Effect::Print(_) => {}      // caller's responsibility
+        Effect::PrintLines(_) => {} // caller's responsibility, like Print
+        Effect::RenderSync(_) => {} // caller's responsibility
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod echo_tests {
+    use super::*;
+    use crate::config::LogVerbosity;
+
+    #[test]
+    fn echo_from_verbosity_off_returns_silent() {
+        let echo = Echo::from_verbosity(
+            &LogVerbosity::Off,
+            || "short".to_string(),
+            || "verbose".to_string(),
+        );
+        assert!(matches!(echo, Echo::Silent));
+    }
+
+    #[test]
+    fn echo_from_verbosity_short_returns_short_line() {
+        let echo = Echo::from_verbosity(
+            &LogVerbosity::Short,
+            || "short msg".to_string(),
+            || panic!("verbose closure should not be called"),
+        );
+        assert!(matches!(echo, Echo::Line(s) if s == "short msg"));
+    }
+
+    #[test]
+    fn echo_from_verbosity_verbose_returns_verbose_line() {
+        let echo = Echo::from_verbosity(
+            &LogVerbosity::Verbose,
+            || panic!("short closure should not be called"),
+            || "verbose msg".to_string(),
+        );
+        assert!(matches!(echo, Echo::Line(s) if s == "verbose msg"));
+    }
+
+    #[test]
+    fn echo_always_empty_is_silent() {
+        assert!(matches!(Echo::always(String::new()), Echo::Silent));
+    }
+
+    #[test]
+    fn echo_always_non_empty_is_line() {
+        assert!(matches!(Echo::always("hello".into()), Echo::Line(s) if s == "hello"));
+    }
 }
 
 #[cfg(all(test, feature = "test-util"))]

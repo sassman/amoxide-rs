@@ -21,6 +21,7 @@ pub mod setup;
 pub mod shell;
 pub mod status;
 pub mod subcommand;
+pub mod sync_outcome;
 pub mod trust;
 pub mod update;
 
