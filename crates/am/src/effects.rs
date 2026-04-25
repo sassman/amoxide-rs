@@ -82,7 +82,7 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::RemoveLocalSubcommand { key } => {
             model.save_project_subcommand_remove(key)?;
         }
-        Effect::Print(_) => {} // caller's responsibility
+        Effect::Print(_) => {}      // caller's responsibility
         Effect::PrintLines(_) => {} // caller's responsibility, like Print
         Effect::RenderSync(_) => {} // caller's responsibility
     }

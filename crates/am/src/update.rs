@@ -10,8 +10,8 @@ use crate::shell::bash;
 use crate::shell::zsh;
 use crate::shell::Shell;
 use crate::shell::ShellContext;
-use crate::trust::ProjectTrust;
 use crate::sync_outcome::{PathUpdate, ProjectTransition, SyncOutcome};
+use crate::trust::ProjectTrust;
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
 pub struct UpdateResult {
@@ -667,11 +667,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let is_direct = project_path
                 .as_deref()
                 .is_some_and(|p| p.parent().is_some_and(|pp| pp == cwd));
-            let already_seen_path =
-                match (prev_project_path.as_deref(), project_path.as_deref()) {
-                    (Some(prev), Some(cur)) => std::path::Path::new(prev) == cur,
-                    _ => false,
-                };
+            let already_seen_path = match (prev_project_path.as_deref(), project_path.as_deref()) {
+                (Some(prev), Some(cur)) => std::path::Path::new(prev) == cur,
+                _ => false,
+            };
             let show_warn = !quiet && is_direct && !already_seen_path;
 
             let mut security_warnings = Vec::new();
@@ -730,26 +729,18 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 ProjectTransition::None
             };
 
-            let current_path_str =
-                project_path.as_ref().map(|p| p.display().to_string());
-            let path_update =
-                match (prev_project_path.as_deref(), current_path_str.as_deref()) {
-                    (Some(prev), Some(cur)) if prev == cur => {
-                        PathUpdate::Unchanged
-                    }
-                    (_, Some(cur)) => PathUpdate::Set(cur.to_string()),
-                    (Some(_), None) => PathUpdate::Unset,
-                    (None, None) => PathUpdate::Unchanged,
-                };
+            let current_path_str = project_path.as_ref().map(|p| p.display().to_string());
+            let path_update = match (prev_project_path.as_deref(), current_path_str.as_deref()) {
+                (Some(prev), Some(cur)) if prev == cur => PathUpdate::Unchanged,
+                (_, Some(cur)) => PathUpdate::Set(cur.to_string()),
+                (Some(_), None) => PathUpdate::Unset,
+                (None, None) => PathUpdate::Unchanged,
+            };
 
-            let mut builder = SyncOutcome::builder(
-                shell,
-                model.config.shell.clone(),
-                quiet,
-            )
-            .transition(transition)
-            .diff(diff)
-            .path_update(path_update);
+            let mut builder = SyncOutcome::builder(shell, model.config.shell.clone(), quiet)
+                .transition(transition)
+                .diff(diff)
+                .path_update(path_update);
             for warning in security_warnings {
                 builder = builder.security_warning(warning);
             }

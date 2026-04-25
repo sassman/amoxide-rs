@@ -179,7 +179,11 @@ mod tests {
     }
 
     fn test_shell() -> Box<dyn crate::shell::ShellAdapter> {
-        Shell::Fish.as_shell(&ShellsTomlConfig::default(), Default::default(), Default::default())
+        Shell::Fish.as_shell(
+            &ShellsTomlConfig::default(),
+            Default::default(),
+            Default::default(),
+        )
     }
 
     #[test]
@@ -224,7 +228,11 @@ mod tests {
             test_shell().as_ref(),
         );
         // Header + one line per alias (3 aliases in test_aliases)
-        assert!(lines.len() >= 4, "expected at least 4 lines, got {}", lines.len());
+        assert!(
+            lines.len() >= 4,
+            "expected at least 4 lines, got {}",
+            lines.len()
+        );
         let line_strs: Vec<&str> = lines
             .iter()
             .filter_map(|l| match l {

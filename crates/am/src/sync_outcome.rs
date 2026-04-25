@@ -95,11 +95,10 @@ impl SyncOutcome {
 
 impl SyncOutcome {
     pub fn render(&self, logging: &LoggingConfig) -> Vec<Echo> {
-        let shell_impl = self.shell.clone().as_shell(
-            &self.shell_cfg,
-            Default::default(),
-            Default::default(),
-        );
+        let shell_impl =
+            self.shell
+                .clone()
+                .as_shell(&self.shell_cfg, Default::default(), Default::default());
         let mut lines = Vec::new();
 
         // Security warnings (unless quiet)
@@ -112,7 +111,10 @@ impl SyncOutcome {
         // Human-readable transition message (unless quiet)
         if !self.quiet {
             match &self.transition {
-                ProjectTransition::FreshLoad { aliases, subcommands } => {
+                ProjectTransition::FreshLoad {
+                    aliases,
+                    subcommands,
+                } => {
                     let verbosity = logging
                         .project_loading
                         .as_ref()
@@ -160,14 +162,10 @@ impl SyncOutcome {
         // Path tracking (always)
         match &self.path_update {
             PathUpdate::Set(p) => {
-                lines.push(Echo::Line(
-                    shell_impl.set_env(env_vars::AM_PROJECT_PATH, p),
-                ));
+                lines.push(Echo::Line(shell_impl.set_env(env_vars::AM_PROJECT_PATH, p)));
             }
             PathUpdate::Unset => {
-                lines.push(Echo::Line(
-                    shell_impl.unset_env(env_vars::AM_PROJECT_PATH),
-                ));
+                lines.push(Echo::Line(shell_impl.unset_env(env_vars::AM_PROJECT_PATH)));
             }
             PathUpdate::Unchanged => {}
         }
@@ -225,7 +223,9 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert!(text_lines.iter().any(|s| s.contains("am: .aliases unloaded")));
+        assert!(text_lines
+            .iter()
+            .any(|s| s.contains("am: .aliases unloaded")));
     }
 
     #[test]
@@ -249,11 +249,7 @@ mod tests {
 
     #[test]
     fn render_path_unset_emits_unset_env() {
-        let outcome = make_outcome(
-            ProjectTransition::None,
-            true,
-            PathUpdate::Unset,
-        );
+        let outcome = make_outcome(ProjectTransition::None, true, PathUpdate::Unset);
         let logging = LoggingConfig::default();
         let lines = outcome.render(&logging);
         let text_lines: Vec<&str> = lines

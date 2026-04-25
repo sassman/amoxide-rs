@@ -8,7 +8,6 @@ use amoxide::{
     dirs::relative_path,
     effects::Effect,
     env_vars,
-    Echo,
     exchange::{render_suspicious_warning, scan_suspicious, ExportAll},
     import_export::{handle_export, handle_import, handle_share},
     profile::AliasCollection,
@@ -16,7 +15,7 @@ use amoxide::{
     prompt::{ask_user, Answer},
     trust::compute_file_hash,
     update::{update, AppModel},
-    AliasTarget, Message,
+    AliasTarget, Echo, Message,
 };
 
 fn setup_logging() {
@@ -414,9 +413,10 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
             Effect::SaveProfiles => model.save_profiles()?,
             Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(&name, &cmd, raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(&name)?,
-            Effect::AddLocalSubcommand { key, long_subcommands } => {
-                add_local_subcommand(&key, &long_subcommands)?
-            }
+            Effect::AddLocalSubcommand {
+                key,
+                long_subcommands,
+            } => add_local_subcommand(&key, &long_subcommands)?,
             Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(&key)?,
             Effect::Print(text) => println!("{text}"),
             Effect::PrintLines(lines) => {
