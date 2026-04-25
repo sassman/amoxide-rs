@@ -270,9 +270,14 @@ mod tests {
     fn unload_summary_uses_project_prefix_and_labels() {
         let project = aset(&[("b", "make build"), ("t", "cargo test")]);
         let diff = Precedence::new()
-            .with_project(&project, &SubcommandSet::new())
+            .with_project(
+                &project,
+                &SubcommandSet::new(),
+                &crate::vars::VarSet::default(),
+            )
             .with_shell_state_from_env(Some("b|0000000,t|1111111"), None)
-            .resolve();
+            .resolve()
+            .diff;
 
         // All aliases removed (no global/profile to take over)
         let summary = diff.unload_summary();
@@ -290,9 +295,14 @@ mod tests {
         // Shell had both from project. Now project is gone, global takes over b.
         // Simulate: resolve with only global + old shell state that had both
         let diff_after = Precedence::new()
-            .with_global(&global, &SubcommandSet::new())
+            .with_global(
+                &global,
+                &SubcommandSet::new(),
+                &crate::vars::VarSet::default(),
+            )
             .with_shell_state_from_env(Some("b|0000000,t|1111111"), None)
-            .resolve();
+            .resolve()
+            .diff;
 
         let summary = diff_after.unload_summary();
         assert!(summary.is_some());
