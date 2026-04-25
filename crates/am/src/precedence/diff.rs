@@ -230,9 +230,10 @@ mod tests {
         // Previous shell state: `b|0000000,gone|aaa` ; new effective: `b|make build`.
         let project = aset(&[("b", "make build")]);
         let diff = Precedence::new()
-            .with_project(&project, &SubcommandSet::new())
+            .with_project(&project, &SubcommandSet::new(), &crate::vars::VarSet::default())
             .with_shell_state_from_env(Some("b|0000000,gone|aaa"), None)
-            .resolve();
+            .resolve()
+            .diff;
 
         let out = diff.render(shell.as_ref());
         assert!(

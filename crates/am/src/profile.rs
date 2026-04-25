@@ -85,6 +85,26 @@ impl ProfileConfig {
         }
         resolved
     }
+
+    /// Produce `ProfileLayer`s for each active profile in activation order.
+    /// Profiles not present in `self.profiles` are skipped silently.
+    pub fn active_profile_layers(
+        &self,
+        profile_names: &[impl AsRef<str>],
+    ) -> Vec<crate::precedence::ProfileLayer> {
+        profile_names
+            .iter()
+            .filter_map(|name| {
+                let p = self.get_profile_by_name(name.as_ref())?;
+                Some(crate::precedence::ProfileLayer {
+                    name: p.name.clone(),
+                    aliases: p.aliases.clone(),
+                    subcommands: p.subcommands.clone(),
+                    vars: p.vars.clone(),
+                })
+            })
+            .collect()
+    }
 }
 
 pub enum Response {

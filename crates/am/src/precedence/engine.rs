@@ -2,18 +2,33 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use crate::alias::{AliasSet, TomlAlias};
 use crate::subcommand::SubcommandSet;
+use crate::vars::{substitute_vars, VarSet};
 
-use super::diff::{EffectiveEntry, EntryKind, PrecedenceDiff};
+use super::diff::{
+    Diagnostic, EffectiveEntry, EntryKind, InvalidEntry, InvalidReason, OriginScope,
+    PrecedenceDiff, ResolveOutcome,
+};
 use super::env_state::AliasWithHashList;
+
+/// One profile's contribution to the precedence merge. Each layer carries its
+/// own var set so substitution can be scope-local.
+#[derive(Debug, Clone, Default)]
+pub struct ProfileLayer {
+    pub name: String,
+    pub aliases: AliasSet,
+    pub subcommands: SubcommandSet,
+    pub vars: VarSet,
+}
 
 #[derive(Debug, Default)]
 pub struct Precedence {
     global_aliases: AliasSet,
     global_subcommands: SubcommandSet,
-    profile_aliases: AliasSet,
-    profile_subcommands: SubcommandSet,
+    global_vars: VarSet,
+    profile_layers: Vec<ProfileLayer>,
     project_aliases: AliasSet,
     project_subcommands: SubcommandSet,
+    project_vars: VarSet,
     shell_alias_state: BTreeMap<String, Option<String>>,
     shell_subcmd_state: BTreeMap<String, Option<String>>,
     external_functions: HashSet<String>,
@@ -25,21 +40,32 @@ impl Precedence {
         Self::default()
     }
 
-    pub fn with_global(mut self, aliases: &AliasSet, subs: &SubcommandSet) -> Self {
+    pub fn with_global(
+        mut self,
+        aliases: &AliasSet,
+        subs: &SubcommandSet,
+        vars: &VarSet,
+    ) -> Self {
         self.global_aliases = aliases.clone();
         self.global_subcommands = subs.clone();
+        self.global_vars = vars.clone();
         self
     }
 
-    pub fn with_profiles(mut self, aliases: &AliasSet, subs: &SubcommandSet) -> Self {
-        self.profile_aliases = aliases.clone();
-        self.profile_subcommands = subs.clone();
+    pub fn with_profiles(mut self, layers: &[ProfileLayer]) -> Self {
+        self.profile_layers = layers.to_vec();
         self
     }
 
-    pub fn with_project(mut self, aliases: &AliasSet, subs: &SubcommandSet) -> Self {
+    pub fn with_project(
+        mut self,
+        aliases: &AliasSet,
+        subs: &SubcommandSet,
+        vars: &VarSet,
+    ) -> Self {
         self.project_aliases = aliases.clone();
         self.project_subcommands = subs.clone();
+        self.project_vars = vars.clone();
         self
     }
 
@@ -66,31 +92,14 @@ impl Precedence {
         self
     }
 
-    /// Internal: merged alias set keyed by shell-visible name,
-    /// with project > profile > global precedence.
-    fn merged_aliases(&self) -> BTreeMap<String, TomlAlias> {
-        let mut out = BTreeMap::new();
-        for layer in [
-            &self.global_aliases,
-            &self.profile_aliases,
-            &self.project_aliases,
-        ] {
-            for (name, alias) in layer.iter() {
-                out.insert(name.as_ref().to_string(), alias.clone());
-            }
-        }
-        out
-    }
-
     /// Internal: merged subcommand set keyed by full "program:seg:..." key,
     /// with project > profile > global precedence.
     fn merged_subcommands(&self) -> SubcommandSet {
         let mut out = SubcommandSet::new();
-        for layer in [
-            &self.global_subcommands,
-            &self.profile_subcommands,
-            &self.project_subcommands,
-        ] {
+        for layer in std::iter::once(&self.global_subcommands)
+            .chain(self.profile_layers.iter().map(|l| &l.subcommands))
+            .chain(std::iter::once(&self.project_subcommands))
+        {
             for (k, v) in layer {
                 out.as_mut().insert(k.clone(), v.clone());
             }
@@ -126,7 +135,34 @@ impl Precedence {
 
     #[cfg(test)]
     fn merged_aliases_for_test(&self) -> BTreeMap<String, TomlAlias> {
-        self.merged_aliases()
+        // Test helper: pre-substitute and merge with the same precedence the
+        // real `resolve()` uses. Skip invalid entries.
+        let (global_resolved, _, _) =
+            resolve_layer_aliases(&self.global_aliases, &self.global_vars, OriginScope::Global);
+        let mut profile_resolved = AliasSet::default();
+        for layer in &self.profile_layers {
+            let (aliases, _, _) = resolve_layer_aliases(
+                &layer.aliases,
+                &layer.vars,
+                OriginScope::Profile(layer.name.clone()),
+            );
+            for (n, a) in aliases.iter() {
+                profile_resolved.insert(n.clone(), a.clone());
+            }
+        }
+        let (project_resolved, _, _) = resolve_layer_aliases(
+            &self.project_aliases,
+            &self.project_vars,
+            OriginScope::Project,
+        );
+
+        let mut out = BTreeMap::new();
+        for layer in [&global_resolved, &profile_resolved, &project_resolved] {
+            for (name, alias) in layer.iter() {
+                out.insert(name.as_ref().to_string(), alias.clone());
+            }
+        }
+        out
     }
 
     #[cfg(test)]
@@ -154,8 +190,49 @@ impl Precedence {
         &self.shell_subcmd_state
     }
 
-    pub fn resolve(self) -> PrecedenceDiff {
-        let merged_aliases = self.merged_aliases();
+    pub fn resolve(self) -> ResolveOutcome {
+        // 1. Per-layer var substitution. Invalid aliases are excluded from the
+        //    resolved sets and recorded as `InvalidEntry` plus a `Diagnostic`.
+        let mut invalid: Vec<InvalidEntry> = Vec::new();
+        let mut diagnostics: Vec<Diagnostic> = Vec::new();
+
+        let (global_resolved, mut global_invs, mut global_diags) =
+            resolve_layer_aliases(&self.global_aliases, &self.global_vars, OriginScope::Global);
+        invalid.append(&mut global_invs);
+        diagnostics.append(&mut global_diags);
+
+        let mut profile_resolved = AliasSet::default();
+        for layer in &self.profile_layers {
+            let (resolved, mut invs, mut diags) = resolve_layer_aliases(
+                &layer.aliases,
+                &layer.vars,
+                OriginScope::Profile(layer.name.clone()),
+            );
+            invalid.append(&mut invs);
+            diagnostics.append(&mut diags);
+            for (name, alias) in resolved.iter() {
+                profile_resolved.insert(name.clone(), alias.clone());
+            }
+        }
+
+        let (project_resolved, mut project_invs, mut project_diags) = resolve_layer_aliases(
+            &self.project_aliases,
+            &self.project_vars,
+            OriginScope::Project,
+        );
+        invalid.append(&mut project_invs);
+        diagnostics.append(&mut project_diags);
+
+        // 2. Merge with project > profile > global precedence on the *resolved* sets.
+        let merged_aliases: BTreeMap<String, TomlAlias> = {
+            let mut out = BTreeMap::new();
+            for layer in [&global_resolved, &profile_resolved, &project_resolved] {
+                for (name, alias) in layer.iter() {
+                    out.insert(name.as_ref().to_string(), alias.clone());
+                }
+            }
+            out
+        };
         let merged_subcommands = self.merged_subcommands();
         let subcmd_groups = merged_subcommands.group_by_program();
         let program_names: BTreeSet<String> = subcmd_groups.keys().cloned().collect();
@@ -254,8 +331,65 @@ impl Precedence {
             }
         }
 
-        diff
+        // Names dropped from the effective set due to var-resolution failure
+        // also need to land in `removed` if they were previously loaded — so the
+        // shell unloads the stale value. The diff loop above already does this
+        // since invalid aliases are absent from the `effective` map.
+        diff.invalid = invalid;
+        ResolveOutcome { diff, diagnostics }
     }
+}
+
+/// Apply var substitution to every alias in `aliases` using `vars`. Aliases
+/// with missing vars are excluded from the returned `AliasSet` and reported
+/// via `Vec<InvalidEntry>` and `Vec<Diagnostic>`.
+fn resolve_layer_aliases(
+    aliases: &AliasSet,
+    vars: &VarSet,
+    scope: OriginScope,
+) -> (AliasSet, Vec<InvalidEntry>, Vec<Diagnostic>) {
+    let mut out = AliasSet::default();
+    let mut invs = Vec::new();
+    let mut diags = Vec::new();
+    for (name, alias) in aliases.iter() {
+        let result = substitute_vars(alias.command(), vars);
+        if result.missing.is_empty() {
+            let resolved = match alias {
+                TomlAlias::Command(_) => TomlAlias::Command(result.output),
+                TomlAlias::Detailed(d) => TomlAlias::Detailed(crate::AliasDetail {
+                    command: result.output,
+                    description: d.description.clone(),
+                    raw: d.raw,
+                }),
+            };
+            out.insert(name.clone(), resolved);
+        } else {
+            let scope_label = match &scope {
+                OriginScope::Global => "global".to_string(),
+                OriginScope::Profile(p) => format!("profile '{p}'"),
+                OriginScope::Project => "project".to_string(),
+            };
+            let names: Vec<String> = result
+                .missing
+                .iter()
+                .map(|v| v.as_str().to_string())
+                .collect();
+            diags.push(Diagnostic {
+                message: format!(
+                    "warning: alias '{}' in {} references undefined vars: {}",
+                    name.as_ref(),
+                    scope_label,
+                    names.join(", "),
+                ),
+            });
+            invs.push(InvalidEntry {
+                name: name.as_ref().to_string(),
+                scope: scope.clone(),
+                reason: InvalidReason::MissingVars(result.missing),
+            });
+        }
+    }
+    (out, invs, diags)
 }
 
 #[cfg(test)]
@@ -263,10 +397,20 @@ mod tests {
     use super::*;
     use crate::alias::AliasName;
 
+    fn profile_layer(name: &str, aliases: &AliasSet, subs: &SubcommandSet) -> ProfileLayer {
+        ProfileLayer {
+            name: name.into(),
+            aliases: aliases.clone(),
+            subcommands: subs.clone(),
+            vars: VarSet::default(),
+        }
+    }
+
     #[test]
     fn empty_inputs_produce_empty_diff() {
-        let diff = Precedence::new().resolve();
-        assert_eq!(diff, PrecedenceDiff::default());
+        let outcome = Precedence::new().resolve();
+        assert_eq!(outcome.diff, PrecedenceDiff::default());
+        assert!(outcome.diagnostics.is_empty());
     }
 
     fn aset(pairs: &[(&str, &str)]) -> AliasSet {
@@ -284,9 +428,9 @@ mod tests {
         let project = aset(&[("b", "make build"), ("t", "project-t")]);
 
         let p = Precedence::new()
-            .with_global(&global, &SubcommandSet::new())
-            .with_profiles(&profile, &SubcommandSet::new())
-            .with_project(&project, &SubcommandSet::new());
+            .with_global(&global, &SubcommandSet::new(), &VarSet::default())
+            .with_profiles(&[profile_layer("p", &profile, &SubcommandSet::new())])
+            .with_project(&project, &SubcommandSet::new(), &VarSet::default());
 
         let merged = p.merged_aliases_for_test();
         assert_eq!(merged.get("ll").unwrap().command(), "ls -lha");
@@ -300,8 +444,8 @@ mod tests {
         let global = aset(&[("t", "global-t")]);
         let profile = aset(&[("t", "profile-t")]);
         let p = Precedence::new()
-            .with_global(&global, &SubcommandSet::new())
-            .with_profiles(&profile, &SubcommandSet::new());
+            .with_global(&global, &SubcommandSet::new(), &VarSet::default())
+            .with_profiles(&[profile_layer("p", &profile, &SubcommandSet::new())]);
         let merged = p.merged_aliases_for_test();
         assert_eq!(merged.get("t").unwrap().command(), "profile-t");
     }
@@ -401,10 +545,11 @@ mod tests {
         let profile = aset(&[("gs", "git status")]);
         let project = aset(&[("b", "make build")]);
         let diff = Precedence::new()
-            .with_global(&global, &SubcommandSet::new())
-            .with_profiles(&profile, &SubcommandSet::new())
-            .with_project(&project, &SubcommandSet::new())
-            .resolve();
+            .with_global(&global, &SubcommandSet::new(), &VarSet::default())
+            .with_profiles(&[profile_layer("p", &profile, &SubcommandSet::new())])
+            .with_project(&project, &SubcommandSet::new(), &VarSet::default())
+            .resolve()
+            .diff;
         let added_names: BTreeSet<_> = diff.added.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(added_names, BTreeSet::from(["ll", "gs", "b"]),);
         assert!(diff.changed.is_empty());
@@ -418,9 +563,10 @@ mod tests {
         let hash = Precedence::alias_hash_for_test(&TomlAlias::Command("make build".into()));
         let prev = format!("b|{hash}");
         let diff = Precedence::new()
-            .with_project(&project, &SubcommandSet::new())
+            .with_project(&project, &SubcommandSet::new(), &VarSet::default())
             .with_shell_state_from_env(Some(&prev), None)
-            .resolve();
+            .resolve()
+            .diff;
         assert!(diff.added.is_empty());
         assert!(diff.changed.is_empty());
         assert!(diff.removed.is_empty());
@@ -433,9 +579,10 @@ mod tests {
         let project = aset(&[("b", "cargo build")]);
         let prev = "b|0000000"; // obviously not the real hash
         let diff = Precedence::new()
-            .with_project(&project, &SubcommandSet::new())
+            .with_project(&project, &SubcommandSet::new(), &VarSet::default())
             .with_shell_state_from_env(Some(prev), None)
-            .resolve();
+            .resolve()
+            .diff;
         assert_eq!(diff.changed.len(), 1);
         assert_eq!(cmd_of(&diff.changed[0]), "cargo build");
         assert!(diff.added.is_empty());
@@ -446,9 +593,10 @@ mod tests {
     fn resolve_backward_compat_bare_name_triggers_reload() {
         let project = aset(&[("b", "make build")]);
         let diff = Precedence::new()
-            .with_project(&project, &SubcommandSet::new())
+            .with_project(&project, &SubcommandSet::new(), &VarSet::default())
             .with_shell_state_from_env(Some("b"), None) // old format
-            .resolve();
+            .resolve()
+            .diff;
         assert_eq!(diff.changed.len(), 1);
         assert_eq!(diff.changed[0].name, "b");
     }
@@ -457,7 +605,8 @@ mod tests {
     fn resolve_removed_when_no_layer_contains_name() {
         let diff = Precedence::new()
             .with_shell_state_from_env(Some("gone|abc1234"), None)
-            .resolve();
+            .resolve()
+            .diff;
         assert_eq!(diff.removed, vec!["gone".to_string()]);
     }
 
@@ -471,9 +620,10 @@ mod tests {
         let project_hash = Precedence::alias_hash_for_test(&TomlAlias::Command("project-t".into()));
         let prev = format!("t|{project_hash}");
         let diff = Precedence::new()
-            .with_profiles(&profile, &SubcommandSet::new())
+            .with_profiles(&[profile_layer("p", &profile, &SubcommandSet::new())])
             .with_shell_state_from_env(Some(&prev), None)
-            .resolve();
+            .resolve()
+            .diff;
         assert_eq!(
             diff.changed.len(),
             1,
@@ -496,8 +646,9 @@ mod tests {
     fn resolve_subcommand_fresh_load_emits_wrapper() {
         let project_subs = subset(&[("jj:ab", &["abandon"])]);
         let diff = Precedence::new()
-            .with_project(&AliasSet::default(), &project_subs)
-            .resolve();
+            .with_project(&AliasSet::default(), &project_subs, &VarSet::default())
+            .resolve()
+            .diff;
         let wrapper = find(&diff.added, "jj").expect("expected jj wrapper in added");
         match &wrapper.kind {
             EntryKind::SubcommandWrapper {
@@ -522,7 +673,10 @@ mod tests {
     fn resolve_subcommand_base_cmd_from_regular_alias_same_name() {
         let aliases = aset(&[("jj", "just-a-joke")]);
         let subs = subset(&[("jj:ab", &["abandon"])]);
-        let diff = Precedence::new().with_project(&aliases, &subs).resolve();
+        let diff = Precedence::new()
+            .with_project(&aliases, &subs, &VarSet::default())
+            .resolve()
+            .diff;
         let wrapper = find(&diff.added, "jj").unwrap();
         match &wrapper.kind {
             EntryKind::SubcommandWrapper { base_cmd, .. } => {
@@ -540,9 +694,10 @@ mod tests {
         let profile_subs = subset(&[("jj:ab", &["abandon"])]);
         let project_subs = subset(&[("jj:b:l", &["branch", "list"])]);
         let diff = Precedence::new()
-            .with_profiles(&AliasSet::default(), &profile_subs)
-            .with_project(&AliasSet::default(), &project_subs)
-            .resolve();
+            .with_profiles(&[profile_layer("p", &AliasSet::default(), &profile_subs)])
+            .with_project(&AliasSet::default(), &project_subs, &VarSet::default())
+            .resolve()
+            .diff;
         let wrapper = find(&diff.added, "jj").unwrap();
         match &wrapper.kind {
             EntryKind::SubcommandWrapper { entries, .. } => {
@@ -558,9 +713,10 @@ mod tests {
         let profile_subs = subset(&[("jj:ab", &["abandon"])]);
         let project_subs = subset(&[("jj:ab", &["abandon-force"])]);
         let diff = Precedence::new()
-            .with_profiles(&AliasSet::default(), &profile_subs)
-            .with_project(&AliasSet::default(), &project_subs)
-            .resolve();
+            .with_profiles(&[profile_layer("p", &AliasSet::default(), &profile_subs)])
+            .with_project(&AliasSet::default(), &project_subs, &VarSet::default())
+            .resolve()
+            .diff;
         let wrapper = find(&diff.added, "jj").unwrap();
         match &wrapper.kind {
             EntryKind::SubcommandWrapper { entries, .. } => {
@@ -580,9 +736,10 @@ mod tests {
         let prev_aliases = format!("jj|{program_hash}");
         let prev_subs = format!("jj:ab|{key_hash}");
         let diff = Precedence::new()
-            .with_project(&AliasSet::default(), &subs)
+            .with_project(&AliasSet::default(), &subs, &VarSet::default())
             .with_shell_state_from_env(Some(&prev_aliases), Some(&prev_subs))
-            .resolve();
+            .resolve()
+            .diff;
         assert!(diff.added.is_empty(), "got added: {:?}", diff.added);
         assert!(diff.changed.is_empty(), "got changed: {:?}", diff.changed);
         assert!(diff.removed.is_empty(), "got removed: {:?}", diff.removed);
@@ -633,9 +790,10 @@ mod tests {
 
         let subs_after = subset(&[("jj:ab", &["abandon"]), ("jj:bl", &["branch", "list"])]);
         let diff = Precedence::new()
-            .with_project(&AliasSet::default(), &subs_after)
+            .with_project(&AliasSet::default(), &subs_after, &VarSet::default())
             .with_shell_state_from_env(Some(&prev_aliases), Some(&prev_subs))
-            .resolve();
+            .resolve()
+            .diff;
         assert!(
             find(&diff.changed, "jj").is_some(),
             "wrapper must be regenerated"
@@ -649,5 +807,186 @@ mod tests {
             find(&diff.unchanged, "jj:ab").is_some(),
             "jj:ab entry itself is unchanged"
         );
+    }
+
+    fn vset(pairs: &[(&str, &str)]) -> VarSet {
+        let mut v = VarSet::default();
+        for (k, val) in pairs {
+            v.insert(crate::vars::VarName::parse(k).unwrap(), (*val).to_string());
+        }
+        v
+    }
+
+    #[test]
+    fn resolve_substitutes_vars_for_global_alias() {
+        let aliases = aset(&[("hello", "echo {{who}}")]);
+        let vars = vset(&[("who", "world")]);
+        let outcome = Precedence::new()
+            .with_global(&aliases, &SubcommandSet::new(), &vars)
+            .resolve();
+        let added = outcome.diff.added;
+        assert_eq!(added.len(), 1);
+        assert_eq!(cmd_of(&added[0]), "echo world");
+        assert!(outcome.diff.invalid.is_empty());
+    }
+
+    #[test]
+    fn resolve_global_alias_using_profile_var_is_invalid() {
+        let global_aliases = aset(&[("hello", "echo {{who}}")]);
+        let profile_aliases = AliasSet::default();
+        let global_vars = VarSet::default();
+        let profile_vars = vset(&[("who", "world")]);
+
+        let outcome = Precedence::new()
+            .with_global(&global_aliases, &SubcommandSet::new(), &global_vars)
+            .with_profiles(&[ProfileLayer {
+                aliases: profile_aliases.clone(),
+                subcommands: SubcommandSet::new(),
+                vars: profile_vars,
+                name: "p1".into(),
+            }])
+            .resolve();
+
+        assert_eq!(outcome.diff.invalid.len(), 1);
+        let inv = &outcome.diff.invalid[0];
+        assert_eq!(inv.name, "hello");
+        assert!(matches!(inv.scope, OriginScope::Global));
+        match &inv.reason {
+            InvalidReason::MissingVars(v) => {
+                assert_eq!(v.len(), 1);
+                assert_eq!(v[0].as_str(), "who");
+            }
+        }
+        assert!(outcome.diff.added.iter().all(|e| e.name != "hello"));
+        assert!(outcome.diff.changed.iter().all(|e| e.name != "hello"));
+    }
+
+    #[test]
+    fn resolve_two_profiles_use_their_own_vars() {
+        let p1_alias = aset(&[("run", "exec {{path}}/run.sh")]);
+        let p1_vars = vset(&[("path", "/v1")]);
+        let p2_alias = aset(&[("test", "exec {{path}}/test.sh")]);
+        let p2_vars = vset(&[("path", "/v2")]);
+
+        let outcome = Precedence::new()
+            .with_profiles(&[
+                ProfileLayer {
+                    aliases: p1_alias,
+                    subcommands: SubcommandSet::new(),
+                    vars: p1_vars,
+                    name: "p1".into(),
+                },
+                ProfileLayer {
+                    aliases: p2_alias,
+                    subcommands: SubcommandSet::new(),
+                    vars: p2_vars,
+                    name: "p2".into(),
+                },
+            ])
+            .resolve();
+
+        let run = find(&outcome.diff.added, "run").unwrap();
+        assert_eq!(cmd_of(run), "exec /v1/run.sh");
+        let test_entry = find(&outcome.diff.added, "test").unwrap();
+        assert_eq!(cmd_of(test_entry), "exec /v2/test.sh");
+        assert!(outcome.diff.invalid.is_empty());
+    }
+
+    #[test]
+    fn resolve_invalid_alias_previously_loaded_appears_in_both_invalid_and_removed() {
+        let project_aliases = aset(&[("cc", "compile {{flags}}")]);
+        let project_vars = VarSet::default();
+        let prev_hash = Precedence::alias_hash_for_test(&TomlAlias::Command("compile X".into()));
+        let prev = format!("cc|{prev_hash}");
+
+        let outcome = Precedence::new()
+            .with_project(&project_aliases, &SubcommandSet::new(), &project_vars)
+            .with_shell_state_from_env(Some(&prev), None)
+            .resolve();
+
+        assert_eq!(
+            outcome.diff.removed,
+            vec!["cc".to_string()],
+            "must unload from shell"
+        );
+        assert_eq!(outcome.diff.invalid.len(), 1, "must be diagnosed as invalid");
+        assert_eq!(outcome.diff.invalid[0].name, "cc");
+    }
+
+    #[test]
+    fn resolve_invalid_alias_never_loaded_only_in_invalid() {
+        let global_aliases = aset(&[("cc", "compile {{flags}}")]);
+        let outcome = Precedence::new()
+            .with_global(&global_aliases, &SubcommandSet::new(), &VarSet::default())
+            .resolve();
+
+        assert!(outcome.diff.removed.is_empty());
+        assert_eq!(outcome.diff.invalid.len(), 1);
+        assert!(outcome.diff.added.iter().all(|e| e.name != "cc"));
+    }
+
+    /// Cross-scope combinations: any alias that references a var not in its
+    /// own scope is invalid, regardless of direction.
+    #[test]
+    fn resolve_cross_scope_var_lookup_always_invalid() {
+        let cases = [
+            ("global", "profile"),
+            ("global", "project"),
+            ("profile", "global"),
+            ("profile", "project"),
+            ("project", "global"),
+            ("project", "profile"),
+        ];
+        for (alias_scope, var_scope) in cases {
+            let alias = aset(&[("a", "x {{v}}")]);
+            let vars = vset(&[("v", "VALUE")]);
+
+            let mut p = Precedence::new();
+            match alias_scope {
+                "global" => {
+                    p = p.with_global(&alias, &SubcommandSet::new(), &VarSet::default());
+                }
+                "profile" => {
+                    p = p.with_profiles(&[ProfileLayer {
+                        aliases: alias.clone(),
+                        subcommands: SubcommandSet::new(),
+                        vars: VarSet::default(),
+                        name: "p".into(),
+                    }]);
+                }
+                "project" => {
+                    p = p.with_project(&alias, &SubcommandSet::new(), &VarSet::default());
+                }
+                _ => unreachable!(),
+            }
+            match var_scope {
+                "global" => {
+                    p = p.with_global(&AliasSet::default(), &SubcommandSet::new(), &vars);
+                }
+                "profile" => {
+                    p = p.with_profiles(&[ProfileLayer {
+                        aliases: AliasSet::default(),
+                        subcommands: SubcommandSet::new(),
+                        vars: vars.clone(),
+                        name: "px".into(),
+                    }]);
+                }
+                "project" => {
+                    p = p.with_project(&AliasSet::default(), &SubcommandSet::new(), &vars);
+                }
+                _ => unreachable!(),
+            }
+
+            let outcome = p.resolve();
+            assert_eq!(
+                outcome.diff.invalid.len(),
+                1,
+                "alias_scope={alias_scope} var_scope={var_scope}: expected 1 invalid"
+            );
+            assert!(
+                outcome.diff.added.iter().all(|e| e.name != "a"),
+                "alias_scope={alias_scope} var_scope={var_scope}: alias must not be added"
+            );
+        }
     }
 }

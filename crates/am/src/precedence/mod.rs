@@ -16,5 +16,5 @@ pub use diff::{
     Diagnostic, EffectiveEntry, EntryKind, InvalidEntry, InvalidReason, OriginScope,
     PrecedenceDiff, ResolveOutcome,
 };
-pub use engine::Precedence;
+pub use engine::{Precedence, ProfileLayer};
 pub use env_state::{AliasWithHash, AliasWithHashList};

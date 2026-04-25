@@ -22,6 +22,28 @@ fn default_ctx(shell: &Shell) -> ShellContext<'_> {
         external_aliases: Default::default(),
     }
 }
+
+/// Test adapter mirroring the pre-vars `generate_init` shape: takes a single
+/// merged profile alias set and wraps it in a `ProfileLayer` with empty vars.
+fn init_for_test(
+    ctx: &ShellContext,
+    global_aliases: &AliasSet,
+    profile_aliases: &AliasSet,
+    subs: &SubcommandSet,
+) -> String {
+    generate_init(
+        ctx,
+        global_aliases,
+        &amoxide::vars::VarSet::default(),
+        &[amoxide::precedence::ProfileLayer {
+            name: "_init".into(),
+            aliases: profile_aliases.clone(),
+            subcommands: subs.clone(),
+            vars: amoxide::vars::VarSet::default(),
+        }],
+        &SubcommandSet::new(),
+    )
+}
 use indoc::indoc;
 use std::fs;
 
@@ -94,7 +116,7 @@ fn snapshot_init_fish_simple_profile() {
         gs = "git status"
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &AliasSet::default(),
         &resolved,
@@ -113,7 +135,7 @@ fn snapshot_init_zsh_simple_profile() {
         gs = "git status"
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Zsh),
         &AliasSet::default(),
         &resolved,
@@ -132,7 +154,7 @@ fn snapshot_init_powershell_simple_profile() {
         gs = "git status"
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Powershell),
         &AliasSet::default(),
         &resolved,
@@ -151,7 +173,7 @@ fn snapshot_init_bash_simple_profile() {
         gs = "git status"
     "#});
     let resolved = config.resolve_active_aliases(&["default"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Bash),
         &AliasSet::default(),
         &resolved,
@@ -164,7 +186,7 @@ fn snapshot_init_bash_simple_profile() {
 fn snapshot_init_fish_multi_profile() {
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &AliasSet::default(),
         &resolved,
@@ -183,7 +205,7 @@ fn snapshot_init_fish_with_globals() {
     "#});
     let globals = aliases(&[("ll", "ls -lha")]);
     let resolved = config.resolve_active_aliases(&["rust"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &globals,
         &resolved,
@@ -196,7 +218,7 @@ fn snapshot_init_fish_with_globals() {
 fn snapshot_init_fish_deep_chain() {
     let config = deep_chain_config();
     let resolved = config.resolve_active_aliases(&["base", "git", "rust"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &AliasSet::default(),
         &resolved,
@@ -215,7 +237,7 @@ fn snapshot_init_fish_with_simple_subcommands() {
     subcommands
         .as_mut()
         .insert("jj:new".into(), vec!["new --no-edit".into()]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &globals,
         &AliasSet::default(),
@@ -244,7 +266,7 @@ fn snapshot_init_bash_with_kubectl_subcommands() {
     subcommands
         .as_mut()
         .insert("kubectl:logs:f".into(), vec!["logs".into(), "-f".into()]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Bash),
         &AliasSet::default(),
         &AliasSet::default(),
@@ -259,7 +281,7 @@ fn snapshot_init_fish_globals_and_multi_profile() {
     let globals = aliases(&[("ll", "ls -lha")]);
     let config = git_conventional_config();
     let resolved = config.resolve_active_aliases(&["git", "git-conventional"]);
-    let output = generate_init(
+    let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &globals,
         &resolved,
@@ -689,8 +711,14 @@ fn sync_fresh_load_emits_aliases_and_env_var() {
     use amoxide::precedence::Precedence;
     let aliases = aliases(&[("gs", "git status")]);
     let diff = Precedence::new()
-        .with_profiles(&aliases, &SubcommandSet::new())
-        .resolve();
+        .with_profiles(&[amoxide::precedence::ProfileLayer {
+            name: "_test".into(),
+            aliases: aliases.clone(),
+            subcommands: SubcommandSet::new(),
+            vars: amoxide::vars::VarSet::default(),
+        }])
+        .resolve()
+        .diff;
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let out = diff.render(shell.as_ref());
     assert!(out.contains("function gs\n    git status $argv\nend"));
@@ -763,8 +791,9 @@ fn snapshot_sync_fish_fresh_load_project_only() {
     let project = aliases(&[("b", "cargo build"), ("t", "cargo test")]);
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new())
-        .resolve();
+        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
@@ -775,8 +804,9 @@ fn snapshot_sync_bash_fresh_load_project_only() {
     let project = aliases(&[("b", "cargo build")]);
     let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new())
-        .resolve();
+        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
@@ -787,8 +817,9 @@ fn snapshot_sync_zsh_fresh_load_project_only() {
     let project = aliases(&[("b", "cargo build")]);
     let shell = Shell::Zsh.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new())
-        .resolve();
+        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
@@ -800,8 +831,9 @@ fn snapshot_sync_powershell_fresh_load_project_only() {
     let shell =
         Shell::Powershell.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new())
-        .resolve();
+        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
@@ -814,9 +846,10 @@ fn snapshot_sync_fish_transition_to_new_project() {
     let prev = format!("old1|{prev_hash}");
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new())
+        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
         .with_shell_state_from_env(Some(&prev), None)
-        .resolve();
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
@@ -834,9 +867,15 @@ fn snapshot_sync_fish_leaving_project_with_shadow_restoration() {
     let prev = format!("t|{project_hash},b|aaa1111,ll|{ll_hash}");
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_profiles(&profile, &SubcommandSet::new())
+        .with_profiles(&[amoxide::precedence::ProfileLayer {
+            name: "_test".into(),
+            aliases: profile.clone(),
+            subcommands: SubcommandSet::new(),
+            vars: amoxide::vars::VarSet::default(),
+        }])
         .with_shell_state_from_env(Some(&prev), None)
-        .resolve();
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
@@ -850,9 +889,10 @@ fn snapshot_sync_fish_incremental_one_alias_updated() {
     let prev = format!("b|{old_b_hash},t|{t_hash}");
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new())
+        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
         .with_shell_state_from_env(Some(&prev), None)
-        .resolve();
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }
@@ -864,8 +904,9 @@ fn snapshot_sync_bash_subcommand_wrapper_fresh_load() {
     subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
     let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&AliasSet::default(), &subs)
-        .resolve();
+        .with_project(&AliasSet::default(), &subs, &amoxide::vars::VarSet::default())
+        .resolve()
+        .diff;
     let output = diff.render(shell.as_ref());
     insta::assert_snapshot!(output);
 }

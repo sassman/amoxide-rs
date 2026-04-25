@@ -614,16 +614,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
         },
         Message::InitShell(shell, force) => {
-            let resolved = model
+            let profile_layers = model
                 .profile_config()
-                .resolve_active_aliases(&model.session.active_profiles);
-            let resolved_subs = model
-                .profile_config()
-                .resolve_active_subcommands(&model.session.active_profiles);
-            let mut all_subs = model.config.subcommands.clone();
-            for (k, v) in resolved_subs {
-                all_subs.as_mut().insert(k, v);
-            }
+                .active_profile_layers(&model.session.active_profiles);
             let (external_functions, external_aliases) = match shell {
                 Shell::Zsh => (zsh::scan_external_functions(), zsh::scan_external_aliases()),
                 Shell::Bash => (
@@ -698,8 +691,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             output.push_str(&generate_init(
                 &ctx,
                 &model.config.aliases,
-                &resolved,
-                &all_subs,
+                &model.config.vars,
+                &profile_layers,
+                &model.config.subcommands,
             ));
             print!("{output}");
             Ok(UpdateResult::done())
@@ -711,12 +705,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
 
             let cwd = model.cwd.clone();
 
-            let resolved_aliases = model
+            let profile_layers = model
                 .profile_config()
-                .resolve_active_aliases(&model.session.active_profiles);
-            let resolved_subs = model
-                .profile_config()
-                .resolve_active_subcommands(&model.session.active_profiles);
+                .active_profile_layers(&model.session.active_profiles);
 
             // Resolve project state
             let project_path = model.project_trust().map(|t| t.path().to_path_buf());
@@ -764,15 +755,37 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     crate::subcommand::SubcommandSet::new(),
                 )
             };
+            let project_vars = if include_project {
+                model
+                    .project_aliases()
+                    .map(|p| p.vars.clone())
+                    .unwrap_or_default()
+            } else {
+                crate::vars::VarSet::default()
+            };
 
             let is_fresh_project_load = include_project && is_direct && !already_seen_path;
 
-            let diff = Precedence::new()
-                .with_global(&model.config.aliases, &model.config.subcommands)
-                .with_profiles(&resolved_aliases, &resolved_subs)
-                .with_project(&project_aliases, &project_subs)
+            let resolve_outcome = Precedence::new()
+                .with_global(
+                    &model.config.aliases,
+                    &model.config.subcommands,
+                    &model.config.vars,
+                )
+                .with_profiles(&profile_layers)
+                .with_project(&project_aliases, &project_subs, &project_vars)
                 .with_shell_state_from_env(prev_aliases.as_deref(), prev_subs.as_deref())
                 .resolve();
+            let diff = resolve_outcome.diff;
+
+            // Diagnostics from var resolution (missing vars, etc.) are surfaced
+            // through the same channel as security warnings — both are
+            // user-facing warning lines printed before the diff.
+            if !quiet {
+                for d in resolve_outcome.diagnostics {
+                    security_warnings.push(d.message);
+                }
+            }
 
             let transition = if is_fresh_project_load {
                 ProjectTransition::FreshLoad {
