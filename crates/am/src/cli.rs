@@ -24,17 +24,8 @@ pub enum Commands {
     /// Remove an alias
     #[command(alias = "r")]
     Remove {
-        /// Profile to remove the alias from (defaults to active profile)
-        #[arg(short, long, conflicts_with_all = ["local", "global"])]
-        profile: Option<String>,
-
-        /// Remove from the project's .aliases file instead of a profile
-        #[arg(short, long, conflicts_with = "global")]
-        local: bool,
-
-        /// Remove a global alias
-        #[arg(short, long)]
-        global: bool,
+        #[command(flatten)]
+        scope: TargetScopeArgs,
 
         /// The alias name to remove
         name: String,
@@ -190,17 +181,8 @@ pub enum ProfileAction {
 
 #[derive(Args)]
 pub struct Alias {
-    /// Profile to add the alias to (defaults to active profile)
-    #[arg(short, long, conflicts_with_all = ["local", "global"])]
-    pub profile: Option<String>,
-
-    /// Add to the project's .aliases file instead of a profile
-    #[arg(short, long, conflicts_with = "global")]
-    pub local: bool,
-
-    /// Add as a global alias (always loaded, independent of profile)
-    #[arg(short, long)]
-    pub global: bool,
+    #[command(flatten)]
+    pub scope: TargetScopeArgs,
 
     /// Disable {{N}} template detection (treat command as literal)
     #[arg(long)]
@@ -263,9 +245,11 @@ pub struct ShareArgs {
     pub paste_rs: bool,
 }
 
-/// Variable scope flags (mirrors `Alias` flags).
+/// Scope flags for single-target operations (alias add/remove, var set/unset/get/list).
+/// Distinct from `ScopeArgs`, which is for bulk operations (export/import/share)
+/// and supports `--all` plus repeatable `-p`.
 #[derive(Args, Debug, Clone)]
-pub struct VarScopeArgs {
+pub struct TargetScopeArgs {
     /// Operate on a specific profile (defaults to active profile)
     #[arg(short, long, conflicts_with_all = ["local", "global"])]
     pub profile: Option<String>,
@@ -274,7 +258,7 @@ pub struct VarScopeArgs {
     #[arg(short, long, conflicts_with = "global")]
     pub local: bool,
 
-    /// Operate on global vars
+    /// Operate on global config
     #[arg(short, long)]
     pub global: bool,
 }
@@ -284,7 +268,7 @@ pub enum VarAction {
     /// Set a variable's value (upsert)
     Set {
         #[command(flatten)]
-        scope: VarScopeArgs,
+        scope: TargetScopeArgs,
         /// Variable name
         name: String,
         /// Variable value
@@ -293,21 +277,21 @@ pub enum VarAction {
     /// Remove a variable
     Unset {
         #[command(flatten)]
-        scope: VarScopeArgs,
+        scope: TargetScopeArgs,
         /// Variable name
         name: String,
     },
     /// Print a variable's value
     Get {
         #[command(flatten)]
-        scope: VarScopeArgs,
+        scope: TargetScopeArgs,
         /// Variable name
         name: String,
     },
     /// List variables (all scopes if no flag given)
     List {
         #[command(flatten)]
-        scope: VarScopeArgs,
+        scope: TargetScopeArgs,
     },
 }
 

@@ -18,7 +18,7 @@ use amoxide::{
     AliasTarget, Echo, Message,
 };
 
-fn var_scope_to_target(scope: &VarScopeArgs) -> AliasTarget {
+fn target_from_scope(scope: &TargetScopeArgs) -> AliasTarget {
     if scope.global {
         AliasTarget::Global
     } else if scope.local {
@@ -66,24 +66,13 @@ fn main() -> anyhow::Result<()> {
 
     let message = match &cli.command {
         Commands::Add(Alias {
-            profile,
-            local,
-            global,
+            scope,
             raw,
             name,
             command,
             sub,
         }) => {
-            let target = if *global {
-                AliasTarget::Global
-            } else if *local {
-                AliasTarget::Local
-            } else {
-                profile
-                    .as_deref()
-                    .map(|p| AliasTarget::Profile(p.to_owned()))
-                    .unwrap_or(AliasTarget::ActiveProfile)
-            };
+            let target = target_from_scope(scope);
 
             // Check if this is a subcommand alias
             let is_colon_notation = name.contains(':');
@@ -132,23 +121,8 @@ fn main() -> anyhow::Result<()> {
                 Message::AddAlias(name.clone(), alias_cmd, target, *raw)
             }
         }
-        Commands::Remove {
-            profile,
-            local,
-            global,
-            name,
-            sub,
-        } => {
-            let target = if *global {
-                AliasTarget::Global
-            } else if *local {
-                AliasTarget::Local
-            } else {
-                profile
-                    .as_deref()
-                    .map(|p| AliasTarget::Profile(p.to_owned()))
-                    .unwrap_or(AliasTarget::ActiveProfile)
-            };
+        Commands::Remove { scope, name, sub } => {
+            let target = target_from_scope(scope);
 
             let is_colon_notation = name.contains(':');
             let has_sub_flag = !sub.is_empty();
@@ -401,21 +375,21 @@ fn main() -> anyhow::Result<()> {
         Commands::Sync { shell, quiet } => Message::Sync(shell.clone(), *quiet),
         Commands::Var { action } => match action {
             VarAction::Set { scope, name, value } => Message::SetVar {
-                target: var_scope_to_target(scope),
+                target: target_from_scope(scope),
                 name: name.clone(),
                 value: value.clone(),
             },
             VarAction::Unset { scope, name } => Message::UnsetVar {
-                target: var_scope_to_target(scope),
+                target: target_from_scope(scope),
                 name: name.clone(),
             },
             VarAction::Get { scope, name } => Message::GetVar {
-                target: var_scope_to_target(scope),
+                target: target_from_scope(scope),
                 name: name.clone(),
             },
             VarAction::List { scope } => {
                 let target = if scope.global || scope.local || scope.profile.is_some() {
-                    Some(var_scope_to_target(scope))
+                    Some(target_from_scope(scope))
                 } else {
                     None
                 };
