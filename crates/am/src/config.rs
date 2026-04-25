@@ -24,6 +24,8 @@ pub struct Config {
     pub aliases: AliasSet,
     #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
     pub subcommands: SubcommandSet,
+    #[serde(default, skip_serializing_if = "crate::vars::VarSet::is_empty")]
+    pub vars: crate::vars::VarSet,
     #[serde(default)]
     pub shell: ShellsTomlConfig,
     #[serde(default)]
@@ -110,6 +112,14 @@ impl Config {
             .remove(key)
             .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))?;
         Ok(())
+    }
+
+    pub fn set_var(&mut self, name: crate::vars::VarName, value: String) {
+        self.vars.insert(name, value);
+    }
+
+    pub fn unset_var(&mut self, name: &crate::vars::VarName) -> Option<String> {
+        self.vars.remove(name)
     }
 }
 
@@ -255,5 +265,39 @@ project_unloading = "off"
         let config = Config::load_from(dir.path()).unwrap();
         assert!(config.logging.project_loading.is_none());
         assert!(config.logging.project_unloading.is_none());
+    }
+
+    #[test]
+    fn config_vars_default_empty_and_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        assert!(config.vars.is_empty());
+        config.set_var(crate::vars::VarName::parse("path").unwrap(), "/opt/v1".into());
+        config.save_to(dir.path()).unwrap();
+        let loaded = Config::load_from(dir.path()).unwrap();
+        assert_eq!(loaded.vars.len(), 1);
+        assert_eq!(
+            loaded
+                .vars
+                .get(&crate::vars::VarName::parse("path").unwrap())
+                .map(String::as_str),
+            Some("/opt/v1")
+        );
+    }
+
+    #[test]
+    fn config_unset_var_returns_value() {
+        let mut config = Config::default();
+        config.set_var(crate::vars::VarName::parse("x").unwrap(), "y".into());
+        let prev = config.unset_var(&crate::vars::VarName::parse("x").unwrap());
+        assert_eq!(prev.as_deref(), Some("y"));
+        assert!(config.vars.is_empty());
+    }
+
+    #[test]
+    fn config_unset_unknown_var_returns_none() {
+        let mut config = Config::default();
+        let prev = config.unset_var(&crate::vars::VarName::parse("nope").unwrap());
+        assert!(prev.is_none());
     }
 }
