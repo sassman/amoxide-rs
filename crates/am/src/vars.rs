@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::{self, Display};
 use std::sync::LazyLock;
 
@@ -64,6 +65,44 @@ impl<'de> Deserialize<'de> for VarName {
     }
 }
 
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct VarSet(BTreeMap<VarName, String>);
+
+impl VarSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn get(&self, name: &VarName) -> Option<&String> {
+        self.0.get(name)
+    }
+
+    pub fn contains(&self, name: &VarName) -> bool {
+        self.0.contains_key(name)
+    }
+
+    pub fn insert(&mut self, name: VarName, value: String) -> Option<String> {
+        self.0.insert(name, value)
+    }
+
+    pub fn remove(&mut self, name: &VarName) -> Option<String> {
+        self.0.remove(name)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&VarName, &String)> {
+        self.0.iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,5 +154,62 @@ mod tests {
         let n = VarName::parse("opt-flags").unwrap();
         assert_eq!(n.to_string(), "opt-flags");
         assert_eq!(n.as_str(), "opt-flags");
+    }
+
+    #[test]
+    fn varset_default_is_empty() {
+        let s = VarSet::default();
+        assert!(s.is_empty());
+        assert_eq!(s.len(), 0);
+    }
+
+    #[test]
+    fn varset_insert_get_remove() {
+        let mut s = VarSet::default();
+        let n = VarName::parse("path").unwrap();
+        s.insert(n.clone(), "/v1".to_string());
+        assert_eq!(s.get(&n).map(String::as_str), Some("/v1"));
+        assert_eq!(s.len(), 1);
+        assert_eq!(s.remove(&n), Some("/v1".to_string()));
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn varset_serde_roundtrip_populated() {
+        #[derive(Serialize, Deserialize)]
+        struct Wrapper {
+            #[serde(default)]
+            vars: VarSet,
+        }
+        let toml_str = "[vars]\npath = \"/opt/v1\"\nopt-flags = \"-C opt-level=3\"\n";
+        let w: Wrapper = toml::from_str(toml_str).unwrap();
+        assert_eq!(w.vars.len(), 2);
+        assert_eq!(
+            w.vars
+                .get(&VarName::parse("path").unwrap())
+                .map(String::as_str),
+            Some("/opt/v1")
+        );
+
+        let out = toml::to_string(&w.vars).unwrap();
+        let parsed: VarSet = toml::from_str(&out).unwrap();
+        assert_eq!(parsed.len(), 2);
+    }
+
+    #[test]
+    fn varset_missing_table_defaults_to_empty() {
+        #[derive(Deserialize)]
+        struct Wrapper {
+            #[serde(default)]
+            vars: VarSet,
+        }
+        let w: Wrapper = toml::from_str("").unwrap();
+        assert!(w.vars.is_empty());
+    }
+
+    #[test]
+    fn varset_rejects_invalid_name_at_deserialize() {
+        let r: Result<VarSet, _> = toml::from_str("\"1foo\" = \"x\"\n");
+        assert!(r.is_err(), "must fail to parse a name starting with digit");
     }
 }
