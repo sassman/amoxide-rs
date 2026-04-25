@@ -80,6 +80,62 @@ impl From<anyhow::Error> for UpdateError {
     }
 }
 
+/// Concrete scope a mutation will land in, after resolving `AliasTarget`
+/// against the model's session and project state.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ConcreteScope {
+    Global,
+    Local,
+    Profile(String),
+}
+
+/// Resolve an `AliasTarget` to a concrete scope.
+///
+/// Mirrors the per-handler ladder used by `AddAlias`/`RemoveAlias`/`UpdateAlias`:
+/// - `Global`/`Local`/`Profile(name)` map 1:1 (with trust enforcement on `Local`).
+/// - `ActiveProfile`:
+///   - empty session + project file present + trusted → `Local`.
+///   - empty session + no project file → `Global`.
+///   - any active profile → first-active profile.
+pub fn resolve_target(
+    model: &AppModel,
+    target: &AliasTarget,
+) -> Result<ConcreteScope, UpdateError> {
+    match target {
+        AliasTarget::Global => Ok(ConcreteScope::Global),
+        AliasTarget::Local => {
+            require_project_trust(model)?;
+            Ok(ConcreteScope::Local)
+        }
+        AliasTarget::Profile(name) => Ok(ConcreteScope::Profile(name.clone())),
+        AliasTarget::ActiveProfile => {
+            if model.session.active_profiles.is_empty() {
+                if model.project_path().is_some() {
+                    require_project_trust(model)?;
+                    Ok(ConcreteScope::Local)
+                } else {
+                    Ok(ConcreteScope::Global)
+                }
+            } else {
+                Ok(ConcreteScope::Profile(
+                    model.session.active_profiles[0].clone(),
+                ))
+            }
+        }
+    }
+}
+
+fn require_project_trust(model: &AppModel) -> Result<(), UpdateError> {
+    if let Some(trust) = model.project_trust() {
+        if !trust.is_trusted() {
+            return Err(UpdateError::ProjectNotTrusted {
+                path: trust.path().to_path_buf(),
+            });
+        }
+    }
+    Ok(())
+}
+
 pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, UpdateError> {
     match message {
         Message::AddAlias(name, cmd, target, raw) => match target {
@@ -1202,6 +1258,37 @@ mod tests {
     use crate::effects::Effect;
     use crate::security::SecurityConfig;
     use crate::ProfileConfig;
+
+    #[test]
+    fn resolve_target_global_passes_through() {
+        let model = AppModel::new(Config::default(), ProfileConfig::default());
+        assert_eq!(
+            resolve_target(&model, &AliasTarget::Global).unwrap(),
+            ConcreteScope::Global
+        );
+    }
+
+    #[test]
+    fn resolve_target_active_profile_no_session_no_project_falls_back_to_global() {
+        // Isolated tempdir as cwd so we don't pick up the user's actual `.aliases`.
+        let dir = tempfile::tempdir().unwrap();
+        let model = AppModel::new(Config::default(), ProfileConfig::default())
+            .with_cwd(dir.path().to_path_buf());
+        assert_eq!(
+            resolve_target(&model, &AliasTarget::ActiveProfile).unwrap(),
+            ConcreteScope::Global
+        );
+    }
+
+    #[test]
+    fn resolve_target_active_profile_with_session_uses_first() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        model.session.active_profiles = vec!["alpha".into(), "beta".into()];
+        assert_eq!(
+            resolve_target(&model, &AliasTarget::ActiveProfile).unwrap(),
+            ConcreteScope::Profile("alpha".into())
+        );
+    }
 
     #[test]
     fn update_subcommand_alias_replaces_key() {
