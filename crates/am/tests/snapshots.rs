@@ -791,7 +791,11 @@ fn snapshot_sync_fish_fresh_load_project_only() {
     let project = aliases(&[("b", "cargo build"), ("t", "cargo test")]);
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .with_project(
+            &project,
+            &SubcommandSet::new(),
+            &amoxide::vars::VarSet::default(),
+        )
         .resolve()
         .diff;
     let output = diff.render(shell.as_ref());
@@ -804,7 +808,11 @@ fn snapshot_sync_bash_fresh_load_project_only() {
     let project = aliases(&[("b", "cargo build")]);
     let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .with_project(
+            &project,
+            &SubcommandSet::new(),
+            &amoxide::vars::VarSet::default(),
+        )
         .resolve()
         .diff;
     let output = diff.render(shell.as_ref());
@@ -817,7 +825,11 @@ fn snapshot_sync_zsh_fresh_load_project_only() {
     let project = aliases(&[("b", "cargo build")]);
     let shell = Shell::Zsh.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .with_project(
+            &project,
+            &SubcommandSet::new(),
+            &amoxide::vars::VarSet::default(),
+        )
         .resolve()
         .diff;
     let output = diff.render(shell.as_ref());
@@ -831,7 +843,11 @@ fn snapshot_sync_powershell_fresh_load_project_only() {
     let shell =
         Shell::Powershell.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .with_project(
+            &project,
+            &SubcommandSet::new(),
+            &amoxide::vars::VarSet::default(),
+        )
         .resolve()
         .diff;
     let output = diff.render(shell.as_ref());
@@ -846,7 +862,11 @@ fn snapshot_sync_fish_transition_to_new_project() {
     let prev = format!("old1|{prev_hash}");
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .with_project(
+            &project,
+            &SubcommandSet::new(),
+            &amoxide::vars::VarSet::default(),
+        )
         .with_shell_state_from_env(Some(&prev), None)
         .resolve()
         .diff;
@@ -889,7 +909,11 @@ fn snapshot_sync_fish_incremental_one_alias_updated() {
     let prev = format!("b|{old_b_hash},t|{t_hash}");
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&project, &SubcommandSet::new(), &amoxide::vars::VarSet::default())
+        .with_project(
+            &project,
+            &SubcommandSet::new(),
+            &amoxide::vars::VarSet::default(),
+        )
         .with_shell_state_from_env(Some(&prev), None)
         .resolve()
         .diff;
@@ -904,7 +928,11 @@ fn snapshot_sync_bash_subcommand_wrapper_fresh_load() {
     subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
     let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
-        .with_project(&AliasSet::default(), &subs, &amoxide::vars::VarSet::default())
+        .with_project(
+            &AliasSet::default(),
+            &subs,
+            &amoxide::vars::VarSet::default(),
+        )
         .resolve()
         .diff;
     let output = diff.render(shell.as_ref());

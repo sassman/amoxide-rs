@@ -1042,9 +1042,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     }
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
-                ConcreteScope::Local => {
-                    Ok(UpdateResult::effect(Effect::RemoveLocalVar { name }))
-                }
+                ConcreteScope::Local => Ok(UpdateResult::effect(Effect::RemoveLocalVar { name })),
                 ConcreteScope::Profile(profile_name) => {
                     let profile = model
                         .profile_config_mut()

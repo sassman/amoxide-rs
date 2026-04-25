@@ -40,12 +40,7 @@ impl Precedence {
         Self::default()
     }
 
-    pub fn with_global(
-        mut self,
-        aliases: &AliasSet,
-        subs: &SubcommandSet,
-        vars: &VarSet,
-    ) -> Self {
+    pub fn with_global(mut self, aliases: &AliasSet, subs: &SubcommandSet, vars: &VarSet) -> Self {
         self.global_aliases = aliases.clone();
         self.global_subcommands = subs.clone();
         self.global_vars = vars.clone();
@@ -57,12 +52,7 @@ impl Precedence {
         self
     }
 
-    pub fn with_project(
-        mut self,
-        aliases: &AliasSet,
-        subs: &SubcommandSet,
-        vars: &VarSet,
-    ) -> Self {
+    pub fn with_project(mut self, aliases: &AliasSet, subs: &SubcommandSet, vars: &VarSet) -> Self {
         self.project_aliases = aliases.clone();
         self.project_subcommands = subs.clone();
         self.project_vars = vars.clone();
@@ -909,7 +899,11 @@ mod tests {
             vec!["cc".to_string()],
             "must unload from shell"
         );
-        assert_eq!(outcome.diff.invalid.len(), 1, "must be diagnosed as invalid");
+        assert_eq!(
+            outcome.diff.invalid.len(),
+            1,
+            "must be diagnosed as invalid"
+        );
         assert_eq!(outcome.diff.invalid[0].name, "cc");
     }
 

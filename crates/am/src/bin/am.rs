@@ -400,11 +400,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
         Commands::Sync { shell, quiet } => Message::Sync(shell.clone(), *quiet),
         Commands::Var { action } => match action {
-            VarAction::Set {
-                scope,
-                name,
-                value,
-            } => Message::SetVar {
+            VarAction::Set { scope, name, value } => Message::SetVar {
                 target: var_scope_to_target(scope),
                 name: name.clone(),
                 value: value.clone(),
@@ -418,12 +414,11 @@ fn main() -> anyhow::Result<()> {
                 name: name.clone(),
             },
             VarAction::List { scope } => {
-                let target =
-                    if scope.global || scope.local || scope.profile.is_some() {
-                        Some(var_scope_to_target(scope))
-                    } else {
-                        None
-                    };
+                let target = if scope.global || scope.local || scope.profile.is_some() {
+                    Some(var_scope_to_target(scope))
+                } else {
+                    None
+                };
                 Message::ListVars { target }
             }
         },

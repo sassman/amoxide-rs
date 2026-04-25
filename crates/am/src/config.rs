@@ -272,7 +272,10 @@ project_unloading = "off"
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
         assert!(config.vars.is_empty());
-        config.set_var(crate::vars::VarName::parse("path").unwrap(), "/opt/v1".into());
+        config.set_var(
+            crate::vars::VarName::parse("path").unwrap(),
+            "/opt/v1".into(),
+        );
         config.save_to(dir.path()).unwrap();
         let loaded = Config::load_from(dir.path()).unwrap();
         assert_eq!(loaded.vars.len(), 1);
