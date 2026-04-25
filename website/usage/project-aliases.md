@@ -97,11 +97,13 @@ This happens when the file is edited manually, updated by `git pull`, or changed
 
 When you use `am` itself to modify the file — via `am add -l` or `am remove -l` — the hash is updated automatically, so those changes never trigger this warning.
 
-### Load and unload messages
+## Load and Unload Messages <VersionBadge v="0.8.0" />
 
 When you `cd` into a directory with a trusted `.aliases` file, amoxide shows which commands became available. When you leave, it reports what changed. Both messages can be configured independently.
 
-#### Loading (cd into a project)
+These messages only appear when entering or leaving the directory containing the `.aliases` file — not when navigating subdirectories within the same project.
+
+### Loading (cd into a project)
 
 The default (`"verbose"`) shows an aligned table:
 
@@ -119,7 +121,7 @@ am: loaded .aliases: b, t
 
 Set to `"off"` to suppress the message entirely.
 
-#### Unloading (cd out of a project)
+### Unloading (cd out of a project)
 
 The default (`"verbose"`) shows a change summary including which aliases were unloaded and which were added back (e.g. a profile alias becoming active after the project alias that was shadowing it is removed):
 
@@ -135,7 +137,7 @@ am: .aliases unloaded
 
 Set to `"off"` to suppress the message entirely.
 
-#### Configuring verbosity <VersionBadge v="0.8.0" />
+### Configuring verbosity
 
 Add a `[logging]` section to `~/.config/amoxide/config.toml`:
 
@@ -146,8 +148,6 @@ project_unloading = "short"     # "off" | "short" | "verbose"
 ```
 
 Both default to `"verbose"` if omitted. See [Config File Reference](/advanced/config-files#config-toml-logging) for the full reference. Introduced in [#109](https://github.com/sassman/amoxide-rs/issues/109).
-
-These messages only appear when entering or leaving the directory containing the `.aliases` file — not when navigating subdirectories within the same project.
 
 ## How It Works
 
