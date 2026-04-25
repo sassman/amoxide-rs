@@ -14,6 +14,7 @@ use crate::sync_outcome::{PathUpdate, ProjectTransition, SyncOutcome};
 use crate::trust::ProjectTrust;
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
+#[derive(Debug)]
 pub struct UpdateResult {
     pub next: Option<Message>,
     pub effects: Vec<Effect>,
@@ -69,6 +70,12 @@ pub enum UpdateError {
 
     #[error("no .aliases file found in directory tree")]
     NoProjectFile,
+
+    #[error("variable '{name}' is not defined in {scope}")]
+    VarNotFound { name: String, scope: String },
+
+    #[error("variable name invalid: {0}")]
+    InvalidVarName(String),
 
     #[error("{0}")]
     Other(String),
@@ -993,6 +1000,138 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Effect::SaveSession,
             ]))
         }
+        Message::SetVar {
+            target,
+            name,
+            value,
+        } => {
+            let parsed = crate::vars::VarName::parse(&name)
+                .map_err(|e| UpdateError::InvalidVarName(format!("{e}")))?;
+            let scope = resolve_target(model, &target)?;
+            match scope {
+                ConcreteScope::Global => {
+                    model.config.set_var(parsed, value);
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+                ConcreteScope::Local => {
+                    Ok(UpdateResult::effect(Effect::AddLocalVar { name, value }))
+                }
+                ConcreteScope::Profile(profile_name) => {
+                    let profile = model
+                        .profile_config_mut()
+                        .get_profile_by_name_mut(&profile_name)
+                        .ok_or(UpdateError::ProfileNotFound {
+                            name: profile_name.clone(),
+                        })?;
+                    profile.set_var(parsed, value);
+                    Ok(UpdateResult::effect(Effect::SaveProfiles))
+                }
+            }
+        }
+        Message::UnsetVar { target, name } => {
+            let parsed = crate::vars::VarName::parse(&name)
+                .map_err(|e| UpdateError::InvalidVarName(format!("{e}")))?;
+            let scope = resolve_target(model, &target)?;
+            match scope {
+                ConcreteScope::Global => {
+                    if model.config.unset_var(&parsed).is_none() {
+                        return Err(UpdateError::VarNotFound {
+                            name,
+                            scope: "global".into(),
+                        });
+                    }
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+                ConcreteScope::Local => {
+                    Ok(UpdateResult::effect(Effect::RemoveLocalVar { name }))
+                }
+                ConcreteScope::Profile(profile_name) => {
+                    let profile = model
+                        .profile_config_mut()
+                        .get_profile_by_name_mut(&profile_name)
+                        .ok_or(UpdateError::ProfileNotFound {
+                            name: profile_name.clone(),
+                        })?;
+                    if profile.unset_var(&parsed).is_none() {
+                        return Err(UpdateError::VarNotFound {
+                            name,
+                            scope: format!("profile '{profile_name}'"),
+                        });
+                    }
+                    Ok(UpdateResult::effect(Effect::SaveProfiles))
+                }
+            }
+        }
+        Message::GetVar { target, name } => {
+            let parsed = crate::vars::VarName::parse(&name)
+                .map_err(|e| UpdateError::InvalidVarName(format!("{e}")))?;
+            let scope = resolve_target(model, &target)?;
+            let value = match scope {
+                ConcreteScope::Global => model.config.vars.get(&parsed).cloned(),
+                ConcreteScope::Local => model
+                    .project_aliases()
+                    .and_then(|p| p.vars.get(&parsed).cloned()),
+                ConcreteScope::Profile(profile_name) => model
+                    .profile_config()
+                    .get_profile_by_name(&profile_name)
+                    .and_then(|p| p.vars.get(&parsed).cloned()),
+            };
+            match value {
+                Some(v) => Ok(UpdateResult::effect(Effect::Print(v))),
+                None => Err(UpdateError::VarNotFound {
+                    name,
+                    scope: "the requested scope".into(),
+                }),
+            }
+        }
+        Message::ListVars { target } => {
+            let mut output = String::new();
+            let render_set = |out: &mut String, label: &str, vs: &crate::vars::VarSet| {
+                if vs.is_empty() {
+                    return;
+                }
+                out.push_str(&format!("\n[{label}]\n"));
+                for (n, v) in vs.iter() {
+                    let display_value = if v.chars().count() > 60 {
+                        let truncated: String = v.chars().take(60).collect();
+                        format!("{truncated}…")
+                    } else {
+                        v.clone()
+                    };
+                    out.push_str(&format!("{n} = {display_value}\n"));
+                }
+            };
+
+            match target {
+                Some(AliasTarget::Global) => {
+                    render_set(&mut output, "global", &model.config.vars);
+                }
+                Some(AliasTarget::Local) => {
+                    if let Some(p) = model.project_aliases() {
+                        render_set(&mut output, "local", &p.vars);
+                    }
+                }
+                Some(AliasTarget::Profile(name)) => {
+                    if let Some(p) = model.profile_config().get_profile_by_name(&name) {
+                        render_set(&mut output, &format!("profile '{name}'"), &p.vars);
+                    }
+                }
+                Some(AliasTarget::ActiveProfile) | None => {
+                    render_set(&mut output, "global", &model.config.vars);
+                    for p in model.profile_config().to_vec() {
+                        render_set(&mut output, &format!("profile '{}'", p.name), &p.vars);
+                    }
+                    if let Some(pa) = model.project_aliases() {
+                        render_set(&mut output, "local", &pa.vars);
+                    }
+                }
+            }
+
+            if output.is_empty() {
+                output = "(no variables)".into();
+            }
+            Ok(UpdateResult::effect(Effect::Print(output.trim().into())))
+        }
     }
 }
 
@@ -1301,6 +1440,134 @@ mod tests {
             resolve_target(&model, &AliasTarget::ActiveProfile).unwrap(),
             ConcreteScope::Profile("alpha".into())
         );
+    }
+
+    #[test]
+    fn set_global_var_writes_config() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        let result = update(
+            &mut model,
+            Message::SetVar {
+                target: AliasTarget::Global,
+                name: "path".into(),
+                value: "/v1".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            model
+                .config
+                .vars
+                .get(&crate::vars::VarName::parse("path").unwrap())
+                .map(String::as_str),
+            Some("/v1")
+        );
+        assert!(matches!(result.effects.first(), Some(Effect::SaveConfig)));
+    }
+
+    #[test]
+    fn set_var_with_invalid_name_errors() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        let err = update(
+            &mut model,
+            Message::SetVar {
+                target: AliasTarget::Global,
+                name: "1bad".into(),
+                value: "x".into(),
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("1bad"), "{err}");
+    }
+
+    #[test]
+    fn unset_existing_global_var_returns_save_effect() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        model
+            .config
+            .set_var(crate::vars::VarName::parse("path").unwrap(), "/v1".into());
+        let result = update(
+            &mut model,
+            Message::UnsetVar {
+                target: AliasTarget::Global,
+                name: "path".into(),
+            },
+        )
+        .unwrap();
+        assert!(model.config.vars.is_empty());
+        assert!(matches!(result.effects.first(), Some(Effect::SaveConfig)));
+    }
+
+    #[test]
+    fn unset_unknown_global_var_errors() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        let err = update(
+            &mut model,
+            Message::UnsetVar {
+                target: AliasTarget::Global,
+                name: "nope".into(),
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("nope"));
+    }
+
+    #[test]
+    fn get_global_var_emits_print_with_value() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        model
+            .config
+            .set_var(crate::vars::VarName::parse("p").unwrap(), "/v1".into());
+        let result = update(
+            &mut model,
+            Message::GetVar {
+                target: AliasTarget::Global,
+                name: "p".into(),
+            },
+        )
+        .unwrap();
+        match result.effects.first() {
+            Some(Effect::Print(s)) => assert_eq!(s, "/v1"),
+            other => panic!("expected Print, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn get_unknown_var_errors() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        let err = update(
+            &mut model,
+            Message::GetVar {
+                target: AliasTarget::Global,
+                name: "nope".into(),
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("nope"));
+    }
+
+    #[test]
+    fn list_vars_global_only() {
+        let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+        model
+            .config
+            .set_var(crate::vars::VarName::parse("a").unwrap(), "1".into());
+        model
+            .config
+            .set_var(crate::vars::VarName::parse("b").unwrap(), "2".into());
+        let result = update(
+            &mut model,
+            Message::ListVars {
+                target: Some(AliasTarget::Global),
+            },
+        )
+        .unwrap();
+        match result.effects.first() {
+            Some(Effect::Print(s)) => {
+                assert!(s.contains("a") && s.contains("1") && s.contains("b") && s.contains("2"));
+            }
+            other => panic!("expected Print, got {other:?}"),
+        }
     }
 
     #[test]

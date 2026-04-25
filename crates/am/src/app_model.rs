@@ -284,6 +284,35 @@ impl AppModel {
         self.save_security()?;
         Ok(())
     }
+
+    pub fn save_project_vars_set(&mut self, name: &str, value: &str) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        let parsed = crate::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+        project.vars.insert(parsed, value.to_string());
+        project.save(&path)?;
+        let hash = compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
+        Ok(())
+    }
+
+    pub fn save_project_vars_unset(&mut self, name: &str) -> crate::Result<()> {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        let parsed = crate::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+        project
+            .vars
+            .remove(&parsed)
+            .ok_or_else(|| anyhow::anyhow!("variable '{name}' not found in .aliases"))?;
+        project.save(&path)?;
+        let hash = compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

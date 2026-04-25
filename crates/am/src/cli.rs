@@ -62,6 +62,13 @@ pub enum Commands {
         action: Option<ProfileAction>,
     },
 
+    /// Manage alias variables — substituted as `{{name}}` in alias commands.
+    #[command(alias = "v")]
+    Var {
+        #[command(subcommand)]
+        action: VarAction,
+    },
+
     /// Print shell init code
     ///
     /// This outputs shell code that loads your profile aliases and installs
@@ -254,6 +261,54 @@ pub struct ShareArgs {
     /// Generate command for paste.rs (curl)
     #[arg(long, conflicts_with = "termbin")]
     pub paste_rs: bool,
+}
+
+/// Variable scope flags (mirrors `Alias` flags).
+#[derive(Args, Debug, Clone)]
+pub struct VarScopeArgs {
+    /// Operate on a specific profile (defaults to active profile)
+    #[arg(short, long, conflicts_with_all = ["local", "global"])]
+    pub profile: Option<String>,
+
+    /// Operate on the project's .aliases file
+    #[arg(short, long, conflicts_with = "global")]
+    pub local: bool,
+
+    /// Operate on global vars
+    #[arg(short, long)]
+    pub global: bool,
+}
+
+#[derive(Subcommand)]
+pub enum VarAction {
+    /// Set a variable's value (upsert)
+    Set {
+        #[command(flatten)]
+        scope: VarScopeArgs,
+        /// Variable name
+        name: String,
+        /// Variable value
+        value: String,
+    },
+    /// Remove a variable
+    Unset {
+        #[command(flatten)]
+        scope: VarScopeArgs,
+        /// Variable name
+        name: String,
+    },
+    /// Print a variable's value
+    Get {
+        #[command(flatten)]
+        scope: VarScopeArgs,
+        /// Variable name
+        name: String,
+    },
+    /// List variables (all scopes if no flag given)
+    List {
+        #[command(flatten)]
+        scope: VarScopeArgs,
+    },
 }
 
 #[derive(Args)]

@@ -30,6 +30,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('ls', 'ls', [CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
+            [CompletionResult]::new('var', 'var', [CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
@@ -163,6 +164,93 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;profile;help;help' {
             break
         }
+        'am;var' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('set', 'set', [CompletionResultType]::ParameterValue, 'Set a variable''s value (upsert)')
+            [CompletionResult]::new('unset', 'unset', [CompletionResultType]::ParameterValue, 'Remove a variable')
+            [CompletionResult]::new('get', 'get', [CompletionResultType]::ParameterValue, 'Print a variable''s value')
+            [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List variables (all scopes if no flag given)')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'am;var;set' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;var;unset' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;var;get' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;var;list' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
+            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('--global', '--global', [CompletionResultType]::ParameterName, 'Operate on global vars')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;var;help' {
+            [CompletionResult]::new('set', 'set', [CompletionResultType]::ParameterValue, 'Set a variable''s value (upsert)')
+            [CompletionResult]::new('unset', 'unset', [CompletionResultType]::ParameterValue, 'Remove a variable')
+            [CompletionResult]::new('get', 'get', [CompletionResultType]::ParameterValue, 'Print a variable''s value')
+            [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List variables (all scopes if no flag given)')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'am;var;help;set' {
+            break
+        }
+        'am;var;help;unset' {
+            break
+        }
+        'am;var;help;get' {
+            break
+        }
+        'am;var;help;list' {
+            break
+        }
+        'am;var;help;help' {
+            break
+        }
         'am;init' {
             [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Force re-initialisation: unload all previously tracked aliases (both alias and function forms) before re-loading. Use after config changes such as toggling `use_abbr`')
             [CompletionResult]::new('--force', '--force', [CompletionResultType]::ParameterName, 'Force re-initialisation: unload all previously tracked aliases (both alias and function forms) before re-loading. Use after config changes such as toggling `use_abbr`')
@@ -283,6 +371,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('ls', 'ls', [CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
+            [CompletionResult]::new('var', 'var', [CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
             [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
@@ -325,6 +414,25 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;profile;list' {
+            break
+        }
+        'am;help;var' {
+            [CompletionResult]::new('set', 'set', [CompletionResultType]::ParameterValue, 'Set a variable''s value (upsert)')
+            [CompletionResult]::new('unset', 'unset', [CompletionResultType]::ParameterValue, 'Remove a variable')
+            [CompletionResult]::new('get', 'get', [CompletionResultType]::ParameterValue, 'Print a variable''s value')
+            [CompletionResult]::new('list', 'list', [CompletionResultType]::ParameterValue, 'List variables (all scopes if no flag given)')
+            break
+        }
+        'am;help;var;set' {
+            break
+        }
+        'am;help;var;unset' {
+            break
+        }
+        'am;help;var;get' {
+            break
+        }
+        'am;help;var;list' {
             break
         }
         'am;help;init' {

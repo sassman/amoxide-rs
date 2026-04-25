@@ -18,6 +18,20 @@ use amoxide::{
     AliasTarget, Echo, Message,
 };
 
+fn var_scope_to_target(scope: &VarScopeArgs) -> AliasTarget {
+    if scope.global {
+        AliasTarget::Global
+    } else if scope.local {
+        AliasTarget::Local
+    } else {
+        scope
+            .profile
+            .as_deref()
+            .map(|p| AliasTarget::Profile(p.to_owned()))
+            .unwrap_or(AliasTarget::ActiveProfile)
+    }
+}
+
 fn setup_logging() {
     let filter_level = if cfg!(debug_assertions) {
         "debug"
@@ -385,6 +399,34 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
         Commands::Sync { shell, quiet } => Message::Sync(shell.clone(), *quiet),
+        Commands::Var { action } => match action {
+            VarAction::Set {
+                scope,
+                name,
+                value,
+            } => Message::SetVar {
+                target: var_scope_to_target(scope),
+                name: name.clone(),
+                value: value.clone(),
+            },
+            VarAction::Unset { scope, name } => Message::UnsetVar {
+                target: var_scope_to_target(scope),
+                name: name.clone(),
+            },
+            VarAction::Get { scope, name } => Message::GetVar {
+                target: var_scope_to_target(scope),
+                name: name.clone(),
+            },
+            VarAction::List { scope } => {
+                let target =
+                    if scope.global || scope.local || scope.profile.is_some() {
+                        Some(var_scope_to_target(scope))
+                    } else {
+                        None
+                    };
+                Message::ListVars { target }
+            }
+        },
     };
 
     let result = update(&mut model, message)?;
@@ -405,6 +447,8 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
                 | Effect::RemoveLocalAlias { .. }
                 | Effect::AddLocalSubcommand { .. }
                 | Effect::RemoveLocalSubcommand { .. }
+                | Effect::AddLocalVar { .. }
+                | Effect::RemoveLocalVar { .. }
         )
     });
 
@@ -420,6 +464,8 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
                 long_subcommands,
             } => add_local_subcommand(&key, &long_subcommands)?,
             Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(&key)?,
+            Effect::AddLocalVar { name, value } => add_local_var(&name, &value)?,
+            Effect::RemoveLocalVar { name } => remove_local_var(&name)?,
             Effect::Print(text) => println!("{text}"),
             Effect::PrintLines(lines) => {
                 let output: String = lines
@@ -562,5 +608,45 @@ fn remove_local_subcommand(key: &str) -> anyhow::Result<()> {
     project.save(&path)?;
     let rel = relative_path(&cwd, &path);
     println!("Removed subcommand alias `{key}` from {}", rel.display());
+    Ok(())
+}
+
+fn add_local_var(name: &str, value: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let local_path = cwd.join(ALIASES_FILE);
+
+    let parsed = amoxide::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let path = if local_path.exists() {
+        local_path
+    } else {
+        // Create new .aliases in CWD if none exists.
+        local_path
+    };
+
+    let mut project = if path.exists() {
+        ProjectAliases::load(&path)?
+    } else {
+        ProjectAliases::default()
+    };
+    project.set_var(parsed, value.to_string());
+    project.save(&path)?;
+    let rel = relative_path(&cwd, &path);
+    println!("Set var `{name}` in {}", rel.display());
+    Ok(())
+}
+
+fn remove_local_var(name: &str) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let path = ProjectAliases::find_local_path()
+        .ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
+    let parsed = amoxide::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let mut project = ProjectAliases::load(&path)?;
+    project
+        .unset_var(&parsed)
+        .ok_or_else(|| anyhow::anyhow!("variable '{name}' not found in {ALIASES_FILE}"))?;
+    project.save(&path)?;
+    let rel = relative_path(&cwd, &path);
+    println!("Unset var `{name}` from {}", rel.display());
     Ok(())
 }
