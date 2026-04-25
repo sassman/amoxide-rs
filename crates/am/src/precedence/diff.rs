@@ -75,7 +75,7 @@ impl PrecedenceDiff {
         )
     }
 
-    /// Like [`change_summary`] but with project-unload prefix and labels.
+    /// Like [`Self::change_summary`] but with project-unload prefix and labels.
     ///
     /// Uses "added" for aliases that gained a new definition (profile/global
     /// taking over) and "unloaded" for aliases that are gone entirely.
