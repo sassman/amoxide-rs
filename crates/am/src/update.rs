@@ -11,6 +11,7 @@ use crate::shell::zsh;
 use crate::shell::Shell;
 use crate::shell::ShellContext;
 use crate::trust::ProjectTrust;
+use crate::sync_outcome::{PathUpdate, ProjectTransition, SyncOutcome};
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
 pub struct UpdateResult {
@@ -719,14 +720,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .resolve();
 
             let transition = if is_fresh_project_load {
-                crate::sync_outcome::ProjectTransition::FreshLoad {
+                ProjectTransition::FreshLoad {
                     aliases: project_aliases,
                     subcommands: project_subs,
                 }
             } else if prev_project_path.is_some() && project_path.is_none() {
-                crate::sync_outcome::ProjectTransition::Unloaded
+                ProjectTransition::Unloaded
             } else {
-                crate::sync_outcome::ProjectTransition::None
+                ProjectTransition::None
             };
 
             let current_path_str =
@@ -734,14 +735,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let path_update =
                 match (prev_project_path.as_deref(), current_path_str.as_deref()) {
                     (Some(prev), Some(cur)) if prev == cur => {
-                        crate::sync_outcome::PathUpdate::Unchanged
+                        PathUpdate::Unchanged
                     }
-                    (_, Some(cur)) => crate::sync_outcome::PathUpdate::Set(cur.to_string()),
-                    (Some(_), None) => crate::sync_outcome::PathUpdate::Unset,
-                    (None, None) => crate::sync_outcome::PathUpdate::Unchanged,
+                    (_, Some(cur)) => PathUpdate::Set(cur.to_string()),
+                    (Some(_), None) => PathUpdate::Unset,
+                    (None, None) => PathUpdate::Unchanged,
                 };
 
-            let mut builder = crate::sync_outcome::SyncOutcome::builder(
+            let mut builder = SyncOutcome::builder(
                 shell,
                 model.config.shell.clone(),
                 quiet,
