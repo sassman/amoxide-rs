@@ -124,8 +124,12 @@ pub fn resolve_target(
                     Ok(ConcreteScope::Global)
                 }
             } else {
+                // Use the most recently activated profile: it has the highest
+                // precedence in the engine merge, and matches the existing
+                // `resolve_profile_mut` behaviour that alias/subcommand
+                // handlers rely on.
                 Ok(ConcreteScope::Profile(
-                    model.session.active_profiles[0].clone(),
+                    model.session.active_profiles.last().cloned().unwrap(),
                 ))
             }
         }
@@ -143,89 +147,52 @@ fn require_project_trust(model: &AppModel) -> Result<(), UpdateError> {
     Ok(())
 }
 
+/// Look up a profile by name, returning a mutable reference.
+/// Used together with `resolve_target` once the scope has been narrowed
+/// to a concrete profile.
+fn get_profile_mut<'a>(
+    model: &'a mut AppModel,
+    name: &str,
+) -> Result<&'a mut Profile, UpdateError> {
+    model
+        .profile_config_mut()
+        .get_profile_by_name_mut(name)
+        .ok_or_else(|| UpdateError::ProfileNotFound {
+            name: name.to_string(),
+        })
+}
+
 pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, UpdateError> {
     match message {
-        Message::AddAlias(name, cmd, target, raw) => match target {
-            AliasTarget::Global => {
+        Message::AddAlias(name, cmd, target, raw) => match resolve_target(model, &target)? {
+            ConcreteScope::Global => {
                 model.config.add_alias(name, cmd, raw);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
-            AliasTarget::Local => {
-                if let Some(trust) = model.project_trust() {
-                    if !trust.is_trusted() {
-                        return Err(UpdateError::ProjectNotTrusted {
-                            path: trust.path().to_path_buf(),
-                        });
-                    }
-                }
-                Ok(UpdateResult::effect(Effect::AddLocalAlias {
-                    name,
-                    cmd,
-                    raw,
-                }))
-            }
-            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
-                if model.project_path().is_some() {
-                    if let Some(trust) = model.project_trust() {
-                        if !trust.is_trusted() {
-                            return Err(UpdateError::ProjectNotTrusted {
-                                path: trust.path().to_path_buf(),
-                            });
-                        }
-                    }
-                    Ok(UpdateResult::effect(Effect::AddLocalAlias {
-                        name,
-                        cmd,
-                        raw,
-                    }))
-                } else {
-                    model.config.add_alias(name, cmd, raw);
-                    Ok(UpdateResult::effect(Effect::SaveConfig))
-                }
-            }
-            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
-                let profile = resolve_profile_mut(model, &target)?;
+            ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalAlias {
+                name,
+                cmd,
+                raw,
+            })),
+            ConcreteScope::Profile(profile_name) => {
+                let profile = get_profile_mut(model, &profile_name)?;
                 profile
                     .add_alias(name, cmd, raw)
                     .map_err(|e| UpdateError::Other(e.to_string()))?;
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
-        Message::RemoveAlias(name, target) => match target {
-            AliasTarget::Global => {
+        Message::RemoveAlias(name, target) => match resolve_target(model, &target)? {
+            ConcreteScope::Global => {
                 model
                     .config
                     .remove_alias(&name)
                     .map_err(|e| UpdateError::Other(e.to_string()))?;
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
-            AliasTarget::Local => {
-                if let Some(trust) = model.project_trust() {
-                    if !trust.is_trusted() {
-                        return Err(UpdateError::ProjectNotTrusted {
-                            path: trust.path().to_path_buf(),
-                        });
-                    }
-                }
-                Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
-            }
-            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
-                if model.project_path().is_some() {
-                    if let Some(trust) = model.project_trust() {
-                        if !trust.is_trusted() {
-                            return Err(UpdateError::ProjectNotTrusted {
-                                path: trust.path().to_path_buf(),
-                            });
-                        }
-                    }
-                    Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name }))
-                } else {
-                    model.config.remove_alias(&name)?;
-                    Ok(UpdateResult::effect(Effect::SaveConfig))
-                }
-            }
-            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
-                let profile = resolve_profile_mut(model, &target)?;
+            ConcreteScope::Local => Ok(UpdateResult::effect(Effect::RemoveLocalAlias { name })),
+            ConcreteScope::Profile(profile_name) => {
+                let profile = get_profile_mut(model, &profile_name)?;
                 profile
                     .remove_alias(&name)
                     .map_err(|e| UpdateError::Other(e.to_string()))?;
@@ -239,8 +206,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             new_command,
             raw,
         } => {
-            match target {
-                AliasTarget::Global => {
+            match resolve_target(model, &target)? {
+                ConcreteScope::Global => {
                     let key = crate::AliasName::from(old_name.as_str());
                     model.config.aliases.remove(&key).ok_or_else(|| {
                         UpdateError::AliasNotFound {
@@ -251,32 +218,23 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     model.config.add_alias(new_name, new_command, raw);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
-                AliasTarget::Local => {
-                    if let Some(trust) = model.project_trust() {
-                        if !trust.is_trusted() {
-                            return Err(UpdateError::ProjectNotTrusted {
-                                path: trust.path().to_path_buf(),
-                            });
-                        }
-                    }
-                    Ok(UpdateResult::with_effects(vec![
-                        Effect::RemoveLocalAlias { name: old_name },
-                        Effect::AddLocalAlias {
-                            name: new_name,
-                            cmd: new_command,
-                            raw,
-                        },
-                    ]))
-                }
-                target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
-                    let profile = resolve_profile_mut(model, &target)?;
+                ConcreteScope::Local => Ok(UpdateResult::with_effects(vec![
+                    Effect::RemoveLocalAlias { name: old_name },
+                    Effect::AddLocalAlias {
+                        name: new_name,
+                        cmd: new_command,
+                        raw,
+                    },
+                ])),
+                ConcreteScope::Profile(profile_name) => {
+                    let profile = get_profile_mut(model, &profile_name)?;
                     let key = crate::AliasName::from(old_name.as_str());
                     profile
                         .aliases
                         .remove(&key)
                         .ok_or_else(|| UpdateError::AliasNotFound {
                             name: old_name.clone(),
-                            target: format!("{target}"),
+                            target: format!("Profile: `{profile_name}`"),
                         })?;
                     profile
                         .add_alias(new_name, new_command, raw)
@@ -285,80 +243,31 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
             }
         }
-        Message::AddSubcommandAlias(key, long_subcommands, target) => match target {
-            AliasTarget::Global => {
-                model.config.add_subcommand(key, long_subcommands);
-                Ok(UpdateResult::effect(Effect::SaveConfig))
-            }
-            AliasTarget::Local => {
-                if let Some(trust) = model.project_trust() {
-                    if !trust.is_trusted() {
-                        return Err(UpdateError::ProjectNotTrusted {
-                            path: trust.path().to_path_buf(),
-                        });
-                    }
-                }
-                Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
-                    key,
-                    long_subcommands,
-                }))
-            }
-            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
-                if model.project_path().is_some() {
-                    if let Some(trust) = model.project_trust() {
-                        if !trust.is_trusted() {
-                            return Err(UpdateError::ProjectNotTrusted {
-                                path: trust.path().to_path_buf(),
-                            });
-                        }
-                    }
-                    Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
-                        key,
-                        long_subcommands,
-                    }))
-                } else {
+        Message::AddSubcommandAlias(key, long_subcommands, target) => {
+            match resolve_target(model, &target)? {
+                ConcreteScope::Global => {
                     model.config.add_subcommand(key, long_subcommands);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
+                ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
+                    key,
+                    long_subcommands,
+                })),
+                ConcreteScope::Profile(profile_name) => {
+                    let profile = get_profile_mut(model, &profile_name)?;
+                    profile.add_subcommand(key, long_subcommands);
+                    Ok(UpdateResult::effect(Effect::SaveProfiles))
+                }
             }
-            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
-                let profile = resolve_profile_mut(model, &target)?;
-                profile.add_subcommand(key, long_subcommands);
-                Ok(UpdateResult::effect(Effect::SaveProfiles))
-            }
-        },
-        Message::RemoveSubcommandAlias(key, target) => match target {
-            AliasTarget::Global => {
+        }
+        Message::RemoveSubcommandAlias(key, target) => match resolve_target(model, &target)? {
+            ConcreteScope::Global => {
                 model.config.remove_subcommand(&key)?;
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
-            AliasTarget::Local => {
-                if let Some(trust) = model.project_trust() {
-                    if !trust.is_trusted() {
-                        return Err(UpdateError::ProjectNotTrusted {
-                            path: trust.path().to_path_buf(),
-                        });
-                    }
-                }
-                Ok(UpdateResult::effect(Effect::RemoveLocalSubcommand { key }))
-            }
-            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
-                if model.project_path().is_some() {
-                    if let Some(trust) = model.project_trust() {
-                        if !trust.is_trusted() {
-                            return Err(UpdateError::ProjectNotTrusted {
-                                path: trust.path().to_path_buf(),
-                            });
-                        }
-                    }
-                    Ok(UpdateResult::effect(Effect::RemoveLocalSubcommand { key }))
-                } else {
-                    model.config.remove_subcommand(&key)?;
-                    Ok(UpdateResult::effect(Effect::SaveConfig))
-                }
-            }
-            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
-                let profile = resolve_profile_mut(model, &target)?;
+            ConcreteScope::Local => Ok(UpdateResult::effect(Effect::RemoveLocalSubcommand { key })),
+            ConcreteScope::Profile(profile_name) => {
+                let profile = get_profile_mut(model, &profile_name)?;
                 profile.remove_subcommand(&key)?;
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
@@ -368,46 +277,18 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             new_key,
             long_subcommands,
             target,
-        } => match target {
-            AliasTarget::Global => {
+        } => match resolve_target(model, &target)? {
+            ConcreteScope::Global => {
                 model.config.subcommands.as_mut().remove(&original_key);
                 model.config.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
-            AliasTarget::ActiveProfile if model.session.active_profiles.is_empty() => {
-                if model.project_path().is_some() {
-                    if let Some(trust) = model.project_trust() {
-                        if !trust.is_trusted() {
-                            return Err(UpdateError::ProjectNotTrusted {
-                                path: trust.path().to_path_buf(),
-                            });
-                        }
-                    }
-                    Ok(UpdateResult::new(
-                        Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
-                        vec![Effect::RemoveLocalSubcommand { key: original_key }],
-                    ))
-                } else {
-                    model.config.subcommands.as_mut().remove(&original_key);
-                    model.config.add_subcommand(new_key, long_subcommands);
-                    Ok(UpdateResult::effect(Effect::SaveConfig))
-                }
-            }
-            AliasTarget::Local => {
-                if let Some(trust) = model.project_trust() {
-                    if !trust.is_trusted() {
-                        return Err(UpdateError::ProjectNotTrusted {
-                            path: trust.path().to_path_buf(),
-                        });
-                    }
-                }
-                Ok(UpdateResult::new(
-                    Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
-                    vec![Effect::RemoveLocalSubcommand { key: original_key }],
-                ))
-            }
-            target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
-                let profile = resolve_profile_mut(model, &target)?;
+            ConcreteScope::Local => Ok(UpdateResult::new(
+                Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
+                vec![Effect::RemoveLocalSubcommand { key: original_key }],
+            )),
+            ConcreteScope::Profile(profile_name) => {
+                let profile = get_profile_mut(model, &profile_name)?;
                 profile.subcommands.as_mut().remove(&original_key);
                 profile.add_subcommand(new_key, long_subcommands);
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
@@ -1017,12 +898,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     Ok(UpdateResult::effect(Effect::AddLocalVar { name, value }))
                 }
                 ConcreteScope::Profile(profile_name) => {
-                    let profile = model
-                        .profile_config_mut()
-                        .get_profile_by_name_mut(&profile_name)
-                        .ok_or(UpdateError::ProfileNotFound {
-                            name: profile_name.clone(),
-                        })?;
+                    let profile = get_profile_mut(model, &profile_name)?;
                     profile.set_var(parsed, value);
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
@@ -1044,12 +920,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
                 ConcreteScope::Local => Ok(UpdateResult::effect(Effect::RemoveLocalVar { name })),
                 ConcreteScope::Profile(profile_name) => {
-                    let profile = model
-                        .profile_config_mut()
-                        .get_profile_by_name_mut(&profile_name)
-                        .ok_or(UpdateError::ProfileNotFound {
-                            name: profile_name.clone(),
-                        })?;
+                    let profile = get_profile_mut(model, &profile_name)?;
                     if profile.unset_var(&parsed).is_none() {
                         return Err(UpdateError::VarNotFound {
                             name,
@@ -1431,12 +1302,12 @@ mod tests {
     }
 
     #[test]
-    fn resolve_target_active_profile_with_session_uses_first() {
+    fn resolve_target_active_profile_with_session_uses_last() {
         let mut model = AppModel::new(Config::default(), ProfileConfig::default());
         model.session.active_profiles = vec!["alpha".into(), "beta".into()];
         assert_eq!(
             resolve_target(&model, &AliasTarget::ActiveProfile).unwrap(),
-            ConcreteScope::Profile("alpha".into())
+            ConcreteScope::Profile("beta".into())
         );
     }
 
