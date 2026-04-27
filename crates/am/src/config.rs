@@ -30,6 +30,28 @@ pub struct Config {
     pub shell: ShellsTomlConfig,
     #[serde(default)]
     pub logging: LoggingConfig,
+    #[serde(default)]
+    pub update: UpdateConfig,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub struct UpdateConfig {
+    /// Whether the listing commands should check crates.io for a newer
+    /// release. Defaults to `true`. Set to `false` to disable entirely.
+    #[serde(default = "default_update_check")]
+    pub check: bool,
+}
+
+impl Default for UpdateConfig {
+    fn default() -> Self {
+        Self {
+            check: default_update_check(),
+        }
+    }
+}
+
+fn default_update_check() -> bool {
+    true
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]

@@ -12,6 +12,7 @@ publish = false
 [workspace.dependencies]
 toml = "1"
 tempfile = "3"
+amoxide = { path = "crates/am", version = "0.8.1" }
 
 # The profile that 'dist' will build with
 [profile.dist]

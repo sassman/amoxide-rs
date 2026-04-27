@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::project::{ProjectAliases, ALIASES_FILE};
 use crate::security::{SecurityConfig, TrustStatus};
 use crate::trust::{compute_file_hash, ProjectTrust};
+use crate::update_check::UpdateCache;
 use crate::{AliasName, AliasSet, Profile, ProfileConfig, Session};
 
 pub struct AppModel {
@@ -14,6 +15,9 @@ pub struct AppModel {
     profile_config: ProfileConfig,
     security_config: SecurityConfig,
     pub(crate) project_trust: Option<ProjectTrust>,
+    /// Snapshot of the update-check cache loaded at boot. Read-only — the
+    /// cache is refreshed by the background `__update-check` subcommand.
+    pub update_cache: Option<UpdateCache>,
 }
 
 fn resolve_project_trust(cwd: &Path, security_config: &mut SecurityConfig) -> Option<ProjectTrust> {
@@ -50,6 +54,8 @@ impl AppModel {
         let mut security_config = SecurityConfig::load_from(&config_dir).unwrap_or_default();
         let cwd = std::env::current_dir().unwrap_or_default();
         let project_trust = resolve_project_trust(&cwd, &mut security_config);
+        let update_cache =
+            crate::update_check::cache_dir().and_then(|d| UpdateCache::load_from(&d));
         Self {
             config,
             session,
@@ -58,6 +64,7 @@ impl AppModel {
             profile_config,
             security_config,
             project_trust,
+            update_cache,
         }
     }
 
@@ -79,6 +86,7 @@ impl AppModel {
             profile_config,
             security_config: SecurityConfig::default(),
             project_trust: None,
+            update_cache: None,
         }
     }
 
@@ -95,6 +103,7 @@ impl AppModel {
             profile_config,
             security_config,
             project_trust: None,
+            update_cache: None,
         }
     }
 

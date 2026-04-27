@@ -103,6 +103,21 @@ project_loading = "off"
 project_unloading = "off"
 ```
 
+## `config.toml` — Update Check
+
+Controls the periodic crates.io update check. See [Update Check](/advanced/update-check) for the full UX.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `check` | bool | `true` | Whether listing commands check crates.io for a newer release |
+
+```toml
+[update]
+check = false
+```
+
+You can also disable the check per-invocation with the `AM_NO_UPDATE_CHECK` environment variable.
+
 ## `profiles.toml` — Profile Definitions
 
 ```toml

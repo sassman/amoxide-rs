@@ -42,6 +42,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('trust', 'trust', [CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
             [CompletionResult]::new('untrust', 'untrust', [CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [CompletionResult]::new('sync', 'sync', [CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
+            [CompletionResult]::new('__update-check', '__update-check', [CompletionResultType]::ParameterValue, 'Internal: refresh the update-check cache from crates.io. Spawned detached by the listing commands; never invoked directly by users')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -373,6 +374,13 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
             break
         }
+        'am;__update-check' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
         'am;help' {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove an alias')
@@ -391,6 +399,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('trust', 'trust', [CompletionResultType]::ParameterValue, 'Review and trust the project .aliases file in the current directory')
             [CompletionResult]::new('untrust', 'untrust', [CompletionResultType]::ParameterValue, 'Remove trust for the project .aliases file in the current directory')
             [CompletionResult]::new('sync', 'sync', [CompletionResultType]::ParameterValue, 'Internal: compute and emit the minimal shell ops to sync the shell with the effective merged alias state (global + profile + project)')
+            [CompletionResult]::new('__update-check', '__update-check', [CompletionResultType]::ParameterValue, 'Internal: refresh the update-check cache from crates.io. Spawned detached by the listing commands; never invoked directly by users')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -475,6 +484,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;sync' {
+            break
+        }
+        'am;help;__update-check' {
             break
         }
         'am;help;help' {

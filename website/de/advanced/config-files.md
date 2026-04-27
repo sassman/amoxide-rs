@@ -66,6 +66,21 @@ Um diese Einstellung zu aktivieren, bearbeite `~/.config/amoxide/config.toml` ma
 am init -f fish | source
 ```
 
+## `config.toml` — Update-Prüfung
+
+Steuert die regelmäßige crates.io-Update-Prüfung. Siehe [Update-Prüfung](/de/advanced/update-check) für die vollständige UX-Beschreibung.
+
+| Schlüssel | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `check` | bool | `true` | Ob Listing-Befehle crates.io auf eine neuere Version prüfen |
+
+```toml
+[update]
+check = false
+```
+
+Du kannst die Prüfung auch pro Aufruf mit der Umgebungsvariable `AM_NO_UPDATE_CHECK` deaktivieren.
+
 ## `profiles.toml` — Profildefinitionen
 
 ```toml

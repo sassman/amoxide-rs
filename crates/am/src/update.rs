@@ -136,6 +136,21 @@ pub fn resolve_target(
     }
 }
 
+/// True if the update check should fire for this invocation.
+///
+/// Honors two opt-outs:
+/// 1. `[update] check = false` in the user's config
+/// 2. `AM_NO_UPDATE_CHECK=…` in the environment (any non-empty value)
+///
+/// The env-var read is impure but consistent with other env reads in this
+/// module (e.g. `AM_ALIASES`, `AM_PROJECT_PATH`).
+fn update_check_enabled(model: &AppModel) -> bool {
+    if !model.config.update.check {
+        return false;
+    }
+    !std::env::var(crate::env_vars::AM_NO_UPDATE_CHECK).is_ok_and(|v| !v.is_empty())
+}
+
 fn require_project_trust(model: &AppModel) -> Result<(), UpdateError> {
     if let Some(trust) = model.project_trust() {
         if !trust.is_trusted() {
@@ -480,8 +495,23 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     }
                 },
             );
-            println!("{output}");
-            Ok(UpdateResult::done())
+            let mut effects = vec![Effect::Print(output)];
+            if update_check_enabled(model) {
+                match crate::update_check::decide_effect(
+                    model.update_cache.as_ref(),
+                    env!("CARGO_PKG_VERSION"),
+                    crate::update_check::now_secs(),
+                ) {
+                    crate::update_check::Decision::Print(msg) => {
+                        effects.push(Effect::PrintUpdateNudge(msg));
+                    }
+                    crate::update_check::Decision::Spawn => {
+                        effects.push(Effect::SpawnUpdateCheck);
+                    }
+                    crate::update_check::Decision::Quiet => {}
+                }
+            }
+            Ok(UpdateResult::with_effects(effects))
         }
         Message::CreateProfile(name) => match model
             .profile_config_mut()
@@ -2413,6 +2443,68 @@ mod tests {
 
             let saved = SecurityConfig::load_from(dir.path()).unwrap();
             assert!(saved.is_tracked(&aliases_path));
+        }
+    }
+
+    mod list_profiles_update_check {
+        use super::*;
+        use crate::update_check::UpdateCache;
+
+        fn dispatch_list() -> Vec<Effect> {
+            let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+            // Pretend the latest crates.io version is far above whatever the
+            // crate currently ships.
+            model.update_cache = Some(UpdateCache {
+                checked_at_secs: u64::MAX / 2,
+                latest_version: "999.999.999".into(),
+            });
+            update(&mut model, Message::ListProfiles { used: false })
+                .unwrap()
+                .effects
+        }
+
+        #[test]
+        fn fresh_cache_with_newer_version_emits_nudge_after_print() {
+            let effects = dispatch_list();
+            assert!(matches!(effects.first(), Some(Effect::Print(_))));
+            assert!(matches!(effects.get(1), Some(Effect::PrintUpdateNudge(_))));
+        }
+
+        #[test]
+        fn no_cache_emits_spawn_after_print() {
+            let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+            model.update_cache = None;
+            let effects = update(&mut model, Message::ListProfiles { used: false })
+                .unwrap()
+                .effects;
+            assert!(matches!(effects.first(), Some(Effect::Print(_))));
+            assert!(matches!(effects.get(1), Some(Effect::SpawnUpdateCheck)));
+        }
+
+        #[test]
+        fn fresh_cache_same_version_is_silent() {
+            let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+            model.update_cache = Some(UpdateCache {
+                checked_at_secs: u64::MAX / 2,
+                latest_version: env!("CARGO_PKG_VERSION").into(),
+            });
+            let effects = update(&mut model, Message::ListProfiles { used: false })
+                .unwrap()
+                .effects;
+            assert_eq!(effects.len(), 1);
+            assert!(matches!(effects.first(), Some(Effect::Print(_))));
+        }
+
+        #[test]
+        fn config_opt_out_suppresses_all_update_effects() {
+            let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+            model.config.update.check = false;
+            model.update_cache = None; // would normally spawn
+            let effects = update(&mut model, Message::ListProfiles { used: false })
+                .unwrap()
+                .effects;
+            assert_eq!(effects.len(), 1);
+            assert!(matches!(effects.first(), Some(Effect::Print(_))));
         }
     }
 }
