@@ -159,6 +159,10 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;profile;use' {
             [System.Management.Automation.CompletionResult]::new('-n', '-n', [System.Management.Automation.CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
             [System.Management.Automation.CompletionResult]::new('--priority', '--priority', [System.Management.Automation.CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [System.Management.Automation.CompletionResult]::new('-e', '-e', [System.Management.Automation.CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [System.Management.Automation.CompletionResult]::new('--enable', '--enable', [System.Management.Automation.CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [System.Management.Automation.CompletionResult]::new('-d', '-d', [System.Management.Automation.CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
+            [System.Management.Automation.CompletionResult]::new('--disable', '--disable', [System.Management.Automation.CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
             [System.Management.Automation.CompletionResult]::new('-i', '-i', [System.Management.Automation.CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [System.Management.Automation.CompletionResult]::new('--inverse', '--inverse', [System.Management.Automation.CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
@@ -227,6 +231,10 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;use' {
             [System.Management.Automation.CompletionResult]::new('-n', '-n', [System.Management.Automation.CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
             [System.Management.Automation.CompletionResult]::new('--priority', '--priority', [System.Management.Automation.CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [System.Management.Automation.CompletionResult]::new('-e', '-e', [System.Management.Automation.CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [System.Management.Automation.CompletionResult]::new('--enable', '--enable', [System.Management.Automation.CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [System.Management.Automation.CompletionResult]::new('-d', '-d', [System.Management.Automation.CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
+            [System.Management.Automation.CompletionResult]::new('--disable', '--disable', [System.Management.Automation.CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
             [System.Management.Automation.CompletionResult]::new('-i', '-i', [System.Management.Automation.CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [System.Management.Automation.CompletionResult]::new('--inverse', '--inverse', [System.Management.Automation.CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')

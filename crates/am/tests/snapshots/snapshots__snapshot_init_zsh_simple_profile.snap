@@ -138,6 +138,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '(-i --inverse)-n+[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
 '(-i --inverse)--priority=[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
+'(-d --disable)-e[Enable given profile(s), does not toggle]' \
+'(-d --disable)--enable[Enable given profile(s), does not toggle]' \
+'(-e --enable)-d[Disable given profile(s), does not toggle]' \
+'(-e --enable)--disable[Disable given profile(s), does not toggle]' \
 '(-n --priority)-i[Reverse the processing order (first listed = highest priority)]' \
 '(-n --priority)--inverse[Reverse the processing order (first listed = highest priority)]' \
 '-h[Print help]' \
@@ -232,6 +236,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '(-i --inverse)-n+[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
 '(-i --inverse)--priority=[Activate at specific priority position (1-based). Repositions if already active]:PRIORITY:_default' \
+'(-d --disable)-e[Enable given profile(s), does not toggle]' \
+'(-d --disable)--enable[Enable given profile(s), does not toggle]' \
+'(-e --enable)-d[Disable given profile(s), does not toggle]' \
+'(-e --enable)--disable[Disable given profile(s), does not toggle]' \
 '(-n --priority)-i[Reverse the processing order (first listed = highest priority)]' \
 '(-n --priority)--inverse[Reverse the processing order (first listed = highest priority)]' \
 '-h[Print help]' \

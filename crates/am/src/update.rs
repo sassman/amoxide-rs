@@ -755,8 +755,11 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::effect(Effect::RenderSync(outcome)))
             }
         }
-        Message::ToggleProfiles(names) => {
-            for name in &names {
+        Message::ToggleProfiles(ref names)
+        | Message::EnableProfiles(ref names)
+        | Message::DeactivateProfiles(ref names) => {
+            // ensues they all exist, so all or nothing
+            for name in names {
                 model
                     .profile_config()
                     .get_profile_by_name(name)
@@ -765,15 +768,33 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             let project_names = project_alias_names(model);
             let mut effects = Vec::new();
             for name in names {
-                let was_active = model.session.is_active(&name);
+                let is_active = model.session.is_active(name);
                 let items = model
                     .profile_config()
-                    .get_profile_by_name(&name)
+                    .get_profile_by_name(name)
                     .map(profile_items)
                     .unwrap_or_default();
-                model.session.toggle_profile(name.clone());
-                let msg = profile_toggle_message(&name, !was_active, None, &items, &project_names);
-                effects.push(Effect::Print(msg));
+                if matches!(message, Message::EnableProfiles(_)) && is_active {
+                    effects.push(Effect::Print(format!(
+                        "am: profile '{name}' is already active"
+                    )));
+                    continue;
+                } else if matches!(message, Message::DeactivateProfiles(_)) && !is_active {
+                    effects.push(Effect::Print(format!(
+                        "am: profile '{name}' was already deactivated"
+                    )));
+                    continue;
+                } else {
+                    // in all other cases, toggle is what we want
+                    model.session.toggle_profile(name.clone());
+                    effects.push(Effect::Print(profile_toggle_message(
+                        name,
+                        !is_active,
+                        None,
+                        &items,
+                        &project_names,
+                    )));
+                }
             }
             effects.push(Effect::SaveSession);
             Ok(UpdateResult::with_effects(effects))
@@ -1454,6 +1475,77 @@ mod tests {
         assert!(matches!(result, Err(UpdateError::ProfileNotFound { name }) if name == "nope"));
         // git should NOT have been toggled since validation failed
         assert!(model.session.active_profiles.is_empty());
+    }
+
+    #[test]
+    fn enable_profile_activates_inactive_profile() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(&mut model, Message::EnableProfiles(vec!["git".into()])).unwrap();
+
+        assert!(model.session.active_profiles.contains(&"git".to_string()));
+        assert!(
+            matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("activated"))
+        );
+    }
+
+    #[test]
+    fn enable_profile_noop_when_already_active() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+        model.session.active_profiles = vec!["git".to_string()];
+
+        let result = update(&mut model, Message::EnableProfiles(vec!["git".into()])).unwrap();
+
+        assert_eq!(model.session.active_profiles, vec!["git".to_string()]);
+        assert!(matches!(&result.effects[0], Effect::Print(s) if s.contains("already active")));
+    }
+
+    #[test]
+    fn deactivate_profile_removes_active_profile() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+        model.session.active_profiles = vec!["git".to_string()];
+
+        let result = update(&mut model, Message::DeactivateProfiles(vec!["git".into()])).unwrap();
+
+        assert!(model.session.active_profiles.is_empty());
+        assert!(
+            matches!(&result.effects[0], Effect::Print(s) if s.contains("git") && s.contains("deactivated"))
+        );
+    }
+
+    #[test]
+    fn deactivate_profile_noop_when_already_inactive() {
+        let config = Config::default();
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"git\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(&mut model, Message::DeactivateProfiles(vec!["git".into()])).unwrap();
+
+        assert!(model.session.active_profiles.is_empty());
+        assert!(
+            matches!(&result.effects[0], Effect::Print(s) if s.contains("already deactivated"))
+        );
+    }
+
+    #[test]
+    fn enable_profile_fails_if_missing() {
+        let config = Config::default();
+        let profile_config = ProfileConfig::default();
+        let mut model = AppModel::new(config, profile_config);
+
+        let result = update(&mut model, Message::EnableProfiles(vec!["nope".into()]));
+
+        assert!(matches!(result, Err(UpdateError::ProfileNotFound { name }) if name == "nope"));
     }
 
     #[test]

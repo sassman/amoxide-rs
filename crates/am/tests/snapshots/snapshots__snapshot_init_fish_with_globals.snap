@@ -115,6 +115,8 @@ complete -c am -n "__fish_am_using_subcommand profile; and not __fish_seen_subco
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from add" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from add" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from use" -s n -l priority -d 'Activate at specific priority position (1-based). Repositions if already active' -r
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from use" -s e -l enable -d 'Enable given profile(s), does not toggle'
+complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from use" -s d -l disable -d 'Disable given profile(s), does not toggle'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from use" -s i -l inverse -d 'Reverse the processing order (first listed = highest priority)'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from use" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand profile; and __fish_seen_subcommand_from use" -s V -l version -d 'Print version'
@@ -135,6 +137,8 @@ complete -c am -n "__fish_am_using_subcommand init" -s V -l version -d 'Print ve
 complete -c am -n "__fish_am_using_subcommand setup" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand setup" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand use" -s n -l priority -d 'Activate at specific priority position (1-based). Repositions if already active' -r
+complete -c am -n "__fish_am_using_subcommand use" -s e -l enable -d 'Enable given profile(s), does not toggle'
+complete -c am -n "__fish_am_using_subcommand use" -s d -l disable -d 'Disable given profile(s), does not toggle'
 complete -c am -n "__fish_am_using_subcommand use" -s i -l inverse -d 'Reverse the processing order (first listed = highest priority)'
 complete -c am -n "__fish_am_using_subcommand use" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand use" -s V -l version -d 'Print version'

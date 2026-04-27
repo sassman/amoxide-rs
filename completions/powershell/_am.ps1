@@ -110,6 +110,10 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;profile;use' {
             [CompletionResult]::new('-n', '-n', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
             [CompletionResult]::new('--priority', '--priority', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [CompletionResult]::new('-e', '-e', [CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [CompletionResult]::new('--enable', '--enable', [CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
+            [CompletionResult]::new('--disable', '--disable', [CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [CompletionResult]::new('--inverse', '--inverse', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
@@ -178,6 +182,10 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;use' {
             [CompletionResult]::new('-n', '-n', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
             [CompletionResult]::new('--priority', '--priority', [CompletionResultType]::ParameterName, 'Activate at specific priority position (1-based). Repositions if already active')
+            [CompletionResult]::new('-e', '-e', [CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [CompletionResult]::new('--enable', '--enable', [CompletionResultType]::ParameterName, 'Enable given profile(s), does not toggle')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
+            [CompletionResult]::new('--disable', '--disable', [CompletionResultType]::ParameterName, 'Disable given profile(s), does not toggle')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [CompletionResult]::new('--inverse', '--inverse', [CompletionResultType]::ParameterName, 'Reverse the processing order (first listed = highest priority)')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')

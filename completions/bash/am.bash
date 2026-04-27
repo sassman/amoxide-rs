@@ -707,7 +707,7 @@ _am() {
             return 0
             ;;
         am__subcmd__profile__subcmd__use)
-            opts="-n -i -h -V --priority --inverse --help --version [NAMES]..."
+            opts="-e -d -n -i -h -V --enable --disable --priority --inverse --help --version [NAMES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -861,7 +861,7 @@ _am() {
             return 0
             ;;
         am__subcmd__use)
-            opts="-n -i -h -V --priority --inverse --help --version [NAMES]..."
+            opts="-e -d -n -i -h -V --enable --disable --priority --inverse --help --version [NAMES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

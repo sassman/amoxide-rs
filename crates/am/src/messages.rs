@@ -38,6 +38,8 @@ pub enum Message {
     Sync(Shell, bool),
 
     ToggleProfiles(Vec<String>),
+    EnableProfiles(Vec<String>),
+    DeactivateProfiles(Vec<String>),
     UseProfilesAt(Vec<String>, usize),
     RemoveProfile(String),
     ListProfiles {

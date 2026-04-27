@@ -91,16 +91,7 @@ pub enum Commands {
 
     /// Shortcut for `am profile use` — toggle one or more profiles
     #[command(alias = "u")]
-    Use {
-        /// Profile names
-        names: Vec<String>,
-        /// Activate at specific priority position (1-based). Repositions if already active.
-        #[arg(short = 'n', long = "priority", conflicts_with = "inverse")]
-        priority: Option<usize>,
-        /// Reverse the processing order (first listed = highest priority)
-        #[arg(short, long, conflicts_with = "priority")]
-        inverse: bool,
-    },
+    Use(ProfileUse),
 
     /// Launch the interactive TUI for managing aliases and profiles
     #[command(alias = "t")]
@@ -139,6 +130,24 @@ pub enum Commands {
     },
 }
 
+#[derive(Args)]
+pub struct ProfileUse {
+    /// Enable given profile(s), does not toggle
+    #[arg(short = 'e', long = "enable", conflicts_with = "disable")]
+    pub enable: bool,
+    /// Disable given profile(s), does not toggle
+    #[arg(short = 'd', long = "disable", conflicts_with = "enable")]
+    pub disable: bool,
+    /// Activate at specific priority position (1-based). Repositions if already active.
+    #[arg(short = 'n', long = "priority", conflicts_with = "inverse")]
+    pub priority: Option<usize>,
+    /// Reverse the processing order (first listed = highest priority)
+    #[arg(short, long, conflicts_with = "priority")]
+    pub inverse: bool,
+    /// Profile names
+    pub names: Vec<String>,
+}
+
 #[derive(Subcommand)]
 pub enum ProfileAction {
     /// Add a new profile
@@ -150,16 +159,7 @@ pub enum ProfileAction {
 
     /// Toggle one or more profiles as active/inactive, optionally at a specific priority
     #[command(alias = "u")]
-    Use {
-        /// Profile names
-        names: Vec<String>,
-        /// Activate at specific priority position (1-based). Repositions if already active.
-        #[arg(short = 'n', long = "priority", conflicts_with = "inverse")]
-        priority: Option<usize>,
-        /// Reverse the processing order (first listed = highest priority)
-        #[arg(short, long, conflicts_with = "priority")]
-        inverse: bool,
-    },
+    Use(ProfileUse),
 
     /// Remove a profile
     #[command(alias = "r")]
