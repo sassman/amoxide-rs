@@ -160,10 +160,22 @@ fn main() -> anyhow::Result<()> {
             println!("{}", amoxide::status::run_status());
             return Ok(());
         }
-        Commands::Use {
-            names,
+        Commands::Use(ProfileUse {
+            enable,
+            disable,
             priority,
             inverse,
+            names,
+        })
+        | Commands::Profile {
+            action:
+                Some(ProfileAction::Use(ProfileUse {
+                    enable,
+                    disable,
+                    priority,
+                    inverse,
+                    names,
+                })),
         } => {
             let ordered: Vec<String> = if *inverse {
                 names.iter().rev().cloned().collect()
@@ -172,7 +184,15 @@ fn main() -> anyhow::Result<()> {
             };
             let msg = match priority {
                 Some(n) => Message::UseProfilesAt(ordered, *n),
-                None => Message::ToggleProfiles(ordered),
+                None => {
+                    if *enable {
+                        Message::EnableProfiles(ordered)
+                    } else if *disable {
+                        Message::DeactivateProfiles(ordered)
+                    } else {
+                        Message::ToggleProfiles(ordered)
+                    }
+                }
             };
             let result = update(&mut model, msg)?;
             execute_effects(&mut model, result.effects)?;
@@ -185,25 +205,6 @@ fn main() -> anyhow::Result<()> {
         {
             ProfileAction::Add { name } => {
                 let result = update(&mut model, Message::CreateProfile(name.clone()))?;
-                execute_effects(&mut model, result.effects)?;
-                model.save_config()?;
-                return Ok(());
-            }
-            ProfileAction::Use {
-                names,
-                priority,
-                inverse,
-            } => {
-                let ordered: Vec<String> = if *inverse {
-                    names.iter().rev().cloned().collect()
-                } else {
-                    names.clone()
-                };
-                let msg = match priority {
-                    Some(n) => Message::UseProfilesAt(ordered, *n),
-                    None => Message::ToggleProfiles(ordered),
-                };
-                let result = update(&mut model, msg)?;
                 execute_effects(&mut model, result.effects)?;
                 model.save_config()?;
                 return Ok(());
@@ -246,6 +247,7 @@ fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             ProfileAction::List { used } => Message::ListProfiles { used: *used },
+            ProfileAction::Use(_) => unreachable!("handled by outer match arm"),
         },
         Commands::Setup { shell } => {
             amoxide::setup::run_setup(shell)?;
