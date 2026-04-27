@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/sassman/amoxide-rs/compare/v0.7.0...v0.8.0) - 2026-04-27
+
+### Bug Fixes
+
+- Apply_import was overwriting the user's real config on every cargo test ([#111](https://github.com/sassman/amoxide-rs/pull/111))
+- Hook reload local aliases when individual aliases changes ([#107](https://github.com/sassman/amoxide-rs/pull/107))
+
+### Features
+
+- Add explicit enable/disable flags to am use ([#115](https://github.com/sassman/amoxide-rs/pull/115))
+- Make shell logging on navigation events configurable ([#113](https://github.com/sassman/amoxide-rs/pull/113))
+- Precedence engine with unified am sync, replaces am hook/reload ([#108](https://github.com/sassman/amoxide-rs/pull/108))
+
+### Miscellaneous Tasks
+
+- Bump clap from 4.6.0 to 4.6.1 ([#104](https://github.com/sassman/amoxide-rs/pull/104))
+
 ## [0.7.0](https://github.com/sassman/amoxide-rs/compare/v0.6.1...v0.7.0) - 2026-04-18
 
 ### Bug Fixes
