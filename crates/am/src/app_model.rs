@@ -204,6 +204,28 @@ impl AppModel {
         self.security_config.save_to(&self.config_dir)
     }
 
+    /// Refresh in-memory + persisted security state after a `.aliases` write.
+    ///
+    /// After the file at `path` has been written with `project`'s contents,
+    /// recompute the hash, mark the file as trusted, persist `security_config`,
+    /// and replace `project_trust` with the freshly trusted entry.
+    ///
+    /// Callers that mutate `.aliases` outside the `save_project_with` path
+    /// (e.g. the binary's interactive helpers in `bin/am.rs`) MUST call this
+    /// — otherwise the security hash goes stale and the next read marks the
+    /// file as tampered.
+    pub fn refresh_project_trust_at(
+        &mut self,
+        project: ProjectAliases,
+        path: PathBuf,
+    ) -> crate::Result<()> {
+        let hash = compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
+        Ok(())
+    }
+
     /// Apply a mutation to the project `.aliases` file and persist it atomically.
     ///
     /// Handles the full save ritual: write file, recompute hash, mark the project
@@ -219,11 +241,7 @@ impl AppModel {
         let mut project = self.project_aliases().cloned().unwrap_or_default();
         mutate(&mut project)?;
         project.save(&path)?;
-        let hash = compute_file_hash(&path)?;
-        self.security_config_mut().trust(&path, &hash);
-        self.project_trust = Some(ProjectTrust::Trusted(project, path));
-        self.save_security()?;
-        Ok(())
+        self.refresh_project_trust_at(project, path)
     }
 
     /// Add an alias to the project .aliases file, saving to disk.
