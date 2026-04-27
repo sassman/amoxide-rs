@@ -470,19 +470,31 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
     Ok(())
 }
 
-fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
+/// Add or update an entry in the local `.aliases` file.
+///
+/// Resolves the target file in this order: existing `.aliases` in CWD;
+/// otherwise prompt to add to a `.aliases` discovered in a parent directory;
+/// otherwise create a new `.aliases` in CWD.
+///
+/// `item_desc` is the human-readable description of what's being added,
+/// e.g. `"alias \`gs\`"` or `"var \`path\`"` — used in the success message.
+fn upsert_local_aliases<F>(item_desc: &str, mutate: F) -> anyhow::Result<()>
+where
+    F: FnOnce(&mut ProjectAliases) -> anyhow::Result<()>,
+{
     let cwd = std::env::current_dir()?;
     let local_path = cwd.join(ALIASES_FILE);
 
+    // Case 1: .aliases in CWD — append.
     if local_path.exists() {
         let mut project = ProjectAliases::load(&local_path)?;
-        project.add_alias(name.to_string(), command.to_string(), raw);
+        mutate(&mut project)?;
         project.save(&local_path)?;
-        println!("Added `{name}` to {ALIASES_FILE}");
+        println!("Added {item_desc} to {ALIASES_FILE}");
         return Ok(());
     }
 
-    // No .aliases in CWD — check if one exists up the tree
+    // Case 2: .aliases in a parent dir — prompt before adding there.
     if let Some(parent) = cwd.parent() {
         if let Some(existing_path) = ProjectAliases::find_path(parent)? {
             let rel = relative_path(&cwd, &existing_path);
@@ -493,9 +505,9 @@ fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
             match ask_user(&question, Answer::No, true, &mut std::io::stdin().lock())? {
                 Answer::Yes => {
                     let mut project = ProjectAliases::load(&existing_path)?;
-                    project.add_alias(name.to_string(), command.to_string(), raw);
+                    mutate(&mut project)?;
                     project.save(&existing_path)?;
-                    println!("Added `{name}` to {}", rel.display());
+                    println!("Added {item_desc} to {}", rel.display());
                     return Ok(());
                 }
                 Answer::No => {} // fall through to create new
@@ -507,115 +519,73 @@ fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
         }
     }
 
-    // Create new .aliases in CWD
+    // Case 3: Create new .aliases in CWD.
     let mut project = ProjectAliases::default();
-    project.add_alias(name.to_string(), command.to_string(), raw);
+    mutate(&mut project)?;
     project.save(&local_path)?;
-    println!("Created {ALIASES_FILE} with alias `{name}`");
+    println!("Created {ALIASES_FILE} with {item_desc}");
     Ok(())
+}
+
+/// Remove an entry from an existing local `.aliases` file (walking up from CWD).
+/// Errors if no `.aliases` is found in the directory tree.
+fn mutate_existing_local<F>(verb: &str, item_desc: &str, mutate: F) -> anyhow::Result<()>
+where
+    F: FnOnce(&mut ProjectAliases) -> anyhow::Result<()>,
+{
+    let cwd = std::env::current_dir()?;
+    let path = ProjectAliases::find_local_path()
+        .ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
+    let mut project = ProjectAliases::load(&path)?;
+    mutate(&mut project)?;
+    project.save(&path)?;
+    let rel = relative_path(&cwd, &path);
+    println!("{verb} {item_desc} from {}", rel.display());
+    Ok(())
+}
+
+fn add_local_alias(name: &str, command: &str, raw: bool) -> anyhow::Result<()> {
+    upsert_local_aliases(&format!("alias `{name}`"), |project| {
+        project.add_alias(name.to_string(), command.to_string(), raw);
+        Ok(())
+    })
 }
 
 fn remove_local_alias(name: &str) -> anyhow::Result<()> {
-    let cwd = std::env::current_dir()?;
-    let path = ProjectAliases::remove_from_local(name)?;
-    let rel = relative_path(&cwd, &path);
-    println!("Removed `{name}` from {}", rel.display());
-    Ok(())
+    mutate_existing_local("Removed", &format!("alias `{name}`"), |project| {
+        project.remove_alias(name)?;
+        Ok(())
+    })
 }
 
 fn add_local_subcommand(key: &str, long_subcommands: &[String]) -> anyhow::Result<()> {
-    let cwd = std::env::current_dir()?;
-    let local_path = cwd.join(ALIASES_FILE);
-
-    if local_path.exists() {
-        let mut project = ProjectAliases::load(&local_path)?;
+    upsert_local_aliases(&format!("subcommand alias `{key}`"), |project| {
         project.add_subcommand(key.to_string(), long_subcommands.to_vec());
-        project.save(&local_path)?;
-        println!("Added subcommand alias `{key}` to {ALIASES_FILE}");
-        return Ok(());
-    }
-
-    // No .aliases in CWD — check if one exists up the tree
-    if let Some(parent) = cwd.parent() {
-        if let Some(existing_path) = ProjectAliases::find_path(parent)? {
-            let rel = relative_path(&cwd, &existing_path);
-            let question = format!(
-                "Found existing {ALIASES_FILE} at {}\nAdd to that file instead?",
-                rel.display()
-            );
-            match ask_user(&question, Answer::No, true, &mut std::io::stdin().lock())? {
-                Answer::Yes => {
-                    let mut project = ProjectAliases::load(&existing_path)?;
-                    project.add_subcommand(key.to_string(), long_subcommands.to_vec());
-                    project.save(&existing_path)?;
-                    println!("Added subcommand alias `{key}` to {}", rel.display());
-                    return Ok(());
-                }
-                Answer::No => {} // fall through to create new
-                Answer::Cancel => {
-                    println!("Cancelled.");
-                    return Ok(());
-                }
-            }
-        }
-    }
-
-    // Create new .aliases in CWD
-    let mut project = ProjectAliases::default();
-    project.add_subcommand(key.to_string(), long_subcommands.to_vec());
-    project.save(&local_path)?;
-    println!("Created {ALIASES_FILE} with subcommand alias `{key}`");
-    Ok(())
+        Ok(())
+    })
 }
 
 fn remove_local_subcommand(key: &str) -> anyhow::Result<()> {
-    let cwd = std::env::current_dir()?;
-    let path = ProjectAliases::find_local_path()
-        .ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
-    let mut project = ProjectAliases::load(&path)?;
-    project.remove_subcommand(key)?;
-    project.save(&path)?;
-    let rel = relative_path(&cwd, &path);
-    println!("Removed subcommand alias `{key}` from {}", rel.display());
-    Ok(())
+    mutate_existing_local("Removed", &format!("subcommand alias `{key}`"), |project| {
+        project.remove_subcommand(key)?;
+        Ok(())
+    })
 }
 
 fn add_local_var(name: &str, value: &str) -> anyhow::Result<()> {
-    let cwd = std::env::current_dir()?;
-    let local_path = cwd.join(ALIASES_FILE);
-
     let parsed = amoxide::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
-
-    let path = if local_path.exists() {
-        local_path
-    } else {
-        // Create new .aliases in CWD if none exists.
-        local_path
-    };
-
-    let mut project = if path.exists() {
-        ProjectAliases::load(&path)?
-    } else {
-        ProjectAliases::default()
-    };
-    project.set_var(parsed, value.to_string());
-    project.save(&path)?;
-    let rel = relative_path(&cwd, &path);
-    println!("Set var `{name}` in {}", rel.display());
-    Ok(())
+    upsert_local_aliases(&format!("var `{name}`"), |project| {
+        project.set_var(parsed, value.to_string());
+        Ok(())
+    })
 }
 
 fn remove_local_var(name: &str) -> anyhow::Result<()> {
-    let cwd = std::env::current_dir()?;
-    let path = ProjectAliases::find_local_path()
-        .ok_or_else(|| anyhow::anyhow!("No {ALIASES_FILE} found"))?;
     let parsed = amoxide::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let mut project = ProjectAliases::load(&path)?;
-    project
-        .unset_var(&parsed)
-        .ok_or_else(|| anyhow::anyhow!("variable '{name}' not found in {ALIASES_FILE}"))?;
-    project.save(&path)?;
-    let rel = relative_path(&cwd, &path);
-    println!("Unset var `{name}` from {}", rel.display());
-    Ok(())
+    mutate_existing_local("Unset", &format!("var `{name}`"), |project| {
+        project
+            .unset_var(&parsed)
+            .ok_or_else(|| anyhow::anyhow!("variable '{name}' not found in {ALIASES_FILE}"))?;
+        Ok(())
+    })
 }
