@@ -53,7 +53,7 @@ jobs:
         with:
           toolchain: stable
           components: clippy, rustfmt
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
       - run: cargo check
 
   lint:
@@ -73,7 +73,7 @@ jobs:
         with:
           toolchain: stable
           components: clippy, rustfmt
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
       - run: cargo ${{ matrix['cargo-cmd'] }}
 
   tests:
@@ -91,7 +91,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
       - name: install zsh (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -y && sudo apt-get install -y zsh
@@ -152,7 +152,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
       - name: audit
         uses: actions-rs/audit-check@v1
         continue-on-error: true
@@ -169,7 +169,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
       - name: publish dry run
         run: |
           cargo publish --dry-run -p amoxide
@@ -187,7 +187,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
       - name: check documentation
         env:
           RUSTDOCFLAGS: -D warnings
