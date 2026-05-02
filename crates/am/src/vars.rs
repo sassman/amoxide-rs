@@ -114,33 +114,37 @@ pub struct SubstitutionResult {
 
 /// Replace `{{name}}` references with values from `vars`.
 /// Names not in `vars` are left literal in `output` and reported in `missing`.
-/// Reuses `shell::substitute_quote_aware_for_vars` so single-quoted regions are handled.
+///
+/// Substitution is a plain text replacement — vars are literal strings and
+/// preserve whatever quoting the user wrote around them. (`'{{x}}'` stays
+/// single-quoted, `"{{x}}"` stays double-quoted, bare `{{x}}` lands unquoted.)
+/// This is intentionally different from positional-arg substitution
+/// (`{{1}}`/`{{@}}`), where the substituted form is a shell variable
+/// reference that must escape single-quoted regions to expand correctly.
 pub fn substitute_vars(cmd: &str, vars: &VarSet) -> SubstitutionResult {
-    use std::cell::RefCell;
-    let missing: RefCell<Vec<VarName>> = RefCell::new(Vec::new());
+    let mut missing: Vec<VarName> = Vec::new();
 
-    let output = crate::shell::substitute_quote_aware_for_vars(cmd, &VAR_TEMPLATE_RE, |name| {
-        // Regex enforces VarName-compatible shape, so parse() always succeeds here.
-        let parsed = match VarName::parse(name) {
-            Ok(n) => n,
-            Err(_) => return format!("{{{{{name}}}}}"),
-        };
-        match vars.get(&parsed) {
-            Some(v) => v.clone(),
-            None => {
-                let mut m = missing.borrow_mut();
-                if !m.iter().any(|x| x == &parsed) {
-                    m.push(parsed);
+    let output = VAR_TEMPLATE_RE
+        .replace_all(cmd, |caps: &regex::Captures| -> String {
+            let name = &caps[1];
+            // Regex enforces VarName-compatible shape, so parse() always succeeds here.
+            let parsed = match VarName::parse(name) {
+                Ok(n) => n,
+                Err(_) => return format!("{{{{{name}}}}}"),
+            };
+            match vars.get(&parsed) {
+                Some(v) => v.clone(),
+                None => {
+                    if !missing.iter().any(|x| x == &parsed) {
+                        missing.push(parsed);
+                    }
+                    format!("{{{{{name}}}}}")
                 }
-                format!("{{{{{name}}}}}")
             }
-        }
-    });
+        })
+        .into_owned();
 
-    SubstitutionResult {
-        output,
-        missing: missing.into_inner(),
-    }
+    SubstitutionResult { output, missing }
 }
 
 #[cfg(test)]
@@ -308,10 +312,24 @@ mod tests {
     }
 
     #[test]
-    fn substitute_vars_inside_single_quotes_breaks_out() {
+    fn substitute_vars_inside_single_quotes_preserves_quotes() {
+        // Vars are literal text, so substitution lands inside the user's
+        // quotes — the value stays a single token even with whitespace.
         let mut vs = VarSet::default();
         vs.insert(VarName::parse("p").unwrap(), "X".into());
         let r = substitute_vars("awk '{{p}}'", &vs);
-        assert_eq!(r.output, "awk ''X''");
+        assert_eq!(r.output, "awk 'X'");
+    }
+
+    #[test]
+    fn substitute_vars_value_with_spaces_inside_single_quotes() {
+        // Real-world case: `RUSTFLAGS='{{opts}}' cargo run` with
+        // opts="-C opt-level=3" must yield a single `RUSTFLAGS=...` token,
+        // not split into separate words. This was the user-reported bug
+        // where `''-C opt-level=3''` made fish parse `-C` as a command.
+        let mut vs = VarSet::default();
+        vs.insert(VarName::parse("opts").unwrap(), "-C opt-level=3".into());
+        let r = substitute_vars("RUSTFLAGS='{{opts}}' cargo run --release", &vs);
+        assert_eq!(r.output, "RUSTFLAGS='-C opt-level=3' cargo run --release");
     }
 }
