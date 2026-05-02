@@ -583,8 +583,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 &profile_layers,
                 &model.config.subcommands,
             ));
-            print!("{output}");
-            Ok(UpdateResult::done())
+            Ok(UpdateResult::effect(Effect::Print(output)))
         }
         Message::Sync(shell, quiet) => {
             let prev_aliases = std::env::var(env_vars::AM_ALIASES).ok();
