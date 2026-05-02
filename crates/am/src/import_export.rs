@@ -236,6 +236,7 @@ fn import_auto_route(
                 name: profile.name.clone(),
                 aliases: AliasSet::default(),
                 subcommands: Default::default(),
+                vars: Default::default(),
             });
         let scope = Scope::Profile(SanitizedName::new(&profile.name));
 
@@ -263,6 +264,7 @@ fn import_auto_route(
                 name: profile.name.clone(),
                 aliases: accepted_aliases,
                 subcommands: accepted_subcommands,
+                vars: Default::default(),
             });
         }
     }
@@ -322,6 +324,7 @@ fn import_with_override(
                 name: name.clone(),
                 aliases: AliasSet::default(),
                 subcommands: Default::default(),
+                vars: Default::default(),
             });
         let scope = Scope::Profile(SanitizedName::new(name));
 
@@ -349,6 +352,7 @@ fn import_with_override(
                 name: name.clone(),
                 aliases: accepted_aliases,
                 subcommands: accepted_subcommands,
+                vars: Default::default(),
             });
         }
     }

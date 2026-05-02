@@ -46,6 +46,10 @@ fn tui_error_message(err: &UpdateError) -> String {
         UpdateError::AliasNotFound { name, .. } => format!("alias '{name}' not found"),
         UpdateError::ProfileNotFound { name } => format!("profile '{name}' not found"),
         UpdateError::NoProjectFile => "no .aliases file in this tree".to_string(),
+        UpdateError::VarNotFound { name, scope } => {
+            format!("var '{name}' not found in {scope}")
+        }
+        UpdateError::InvalidVarName(msg) => format!("invalid var name: {msg}"),
         UpdateError::Other(e) => format!("error: {e}"),
     }
 }

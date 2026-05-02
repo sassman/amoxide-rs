@@ -14,6 +14,8 @@ pub struct ProjectAliases {
     pub aliases: AliasSet,
     #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
     pub subcommands: SubcommandSet,
+    #[serde(default, skip_serializing_if = "crate::vars::VarSet::is_empty")]
+    pub vars: crate::vars::VarSet,
 }
 
 impl ProjectAliases {
@@ -134,6 +136,14 @@ impl ProjectAliases {
         })?;
         Ok(())
     }
+
+    pub fn set_var(&mut self, name: crate::vars::VarName, value: String) {
+        self.vars.insert(name, value);
+    }
+
+    pub fn unset_var(&mut self, name: &crate::vars::VarName) -> Option<String> {
+        self.vars.remove(name)
+    }
 }
 
 #[cfg(test)]
@@ -228,6 +238,41 @@ mod tests {
 
         let loaded = ProjectAliases::load(&path).unwrap();
         assert_eq!(loaded.aliases.iter().count(), 1);
+    }
+
+    #[test]
+    fn project_vars_default_empty_and_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".aliases");
+
+        let mut project = ProjectAliases::default();
+        project.set_var(crate::vars::VarName::parse("path").unwrap(), "/v1".into());
+        project.save(&path).unwrap();
+
+        let loaded = ProjectAliases::load(&path).unwrap();
+        assert_eq!(loaded.vars.len(), 1);
+    }
+
+    #[test]
+    fn project_load_with_vars_section() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(".aliases"),
+            "[vars]\npath = \"/v1\"\n[aliases]\nrun = \"sh {{path}}/run.sh\"\n",
+        )
+        .unwrap();
+
+        let project = ProjectAliases::find(dir.path()).unwrap().unwrap();
+        assert_eq!(project.vars.len(), 1);
+        assert_eq!(project.aliases.iter().count(), 1);
+    }
+
+    #[test]
+    fn project_unset_var_returns_value() {
+        let mut project = ProjectAliases::default();
+        project.set_var(crate::vars::VarName::parse("x").unwrap(), "y".into());
+        let prev = project.unset_var(&crate::vars::VarName::parse("x").unwrap());
+        assert_eq!(prev.as_deref(), Some("y"));
     }
 
     #[test]

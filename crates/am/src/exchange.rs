@@ -574,6 +574,7 @@ mod tests {
                 a
             },
             subcommands: Default::default(),
+            vars: Default::default(),
         });
         export
             .local_aliases
@@ -598,6 +599,7 @@ mod tests {
                 a
             },
             subcommands: Default::default(),
+            vars: Default::default(),
         });
         let toml_str = toml::to_string(&export).unwrap();
         assert!(!toml_str.contains("global_aliases"));
@@ -675,6 +677,7 @@ mod tests {
                 a
             },
             subcommands: Default::default(),
+            vars: Default::default(),
         });
         export
             .local_aliases
@@ -770,6 +773,7 @@ mod tests {
                 name: "evil\x1Bprofile".into(),
                 aliases: AliasSet::default(),
                 subcommands: Default::default(),
+                vars: Default::default(),
             }],
             ..Default::default()
         };
@@ -792,6 +796,7 @@ mod tests {
                     a
                 },
                 subcommands: Default::default(),
+                vars: Default::default(),
             }],
             ..Default::default()
         };
@@ -884,6 +889,7 @@ mod tests {
                 s.as_mut().insert("jj:d".into(), vec!["diff".into()]);
                 s
             },
+            vars: Default::default(),
         });
         export
             .local_subcommands
@@ -1076,6 +1082,7 @@ mod tests {
                         .insert("jj:ab".into(), vec!["aban\x1Bdon".into()]);
                     s
                 },
+                vars: Default::default(),
             }],
             ..Default::default()
         };

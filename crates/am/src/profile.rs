@@ -85,6 +85,26 @@ impl ProfileConfig {
         }
         resolved
     }
+
+    /// Produce `ProfileLayer`s for each active profile in activation order.
+    /// Profiles not present in `self.profiles` are skipped silently.
+    pub fn active_profile_layers(
+        &self,
+        profile_names: &[impl AsRef<str>],
+    ) -> Vec<crate::precedence::ProfileLayer> {
+        profile_names
+            .iter()
+            .filter_map(|name| {
+                let p = self.get_profile_by_name(name.as_ref())?;
+                Some(crate::precedence::ProfileLayer {
+                    name: p.name.clone(),
+                    aliases: p.aliases.clone(),
+                    subcommands: p.subcommands.clone(),
+                    vars: p.vars.clone(),
+                })
+            })
+            .collect()
+    }
 }
 
 pub enum Response {
@@ -191,6 +211,8 @@ pub struct Profile {
     pub aliases: AliasSet,
     #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
     pub subcommands: SubcommandSet,
+    #[serde(default, skip_serializing_if = "crate::vars::VarSet::is_empty")]
+    pub vars: crate::vars::VarSet,
 }
 
 impl Display for Profile {
@@ -225,6 +247,7 @@ impl Profile {
             name,
             aliases: Default::default(),
             subcommands: Default::default(),
+            vars: Default::default(),
         }
     }
 
@@ -261,6 +284,14 @@ impl Profile {
             .remove(key)
             .ok_or_else(|| anyhow::anyhow!("Subcommand alias '{key}' not found"))?;
         Ok(())
+    }
+
+    pub fn set_var(&mut self, name: crate::vars::VarName, value: String) {
+        self.vars.insert(name, value);
+    }
+
+    pub fn unset_var(&mut self, name: &crate::vars::VarName) -> Option<String> {
+        self.vars.remove(name)
     }
 }
 
@@ -545,5 +576,33 @@ mod tests {
     fn alias_collection_short_list_empty_profile() {
         let profile = Profile::new("empty".into());
         assert_eq!(profile.short_list(), "");
+    }
+
+    #[test]
+    fn profile_vars_default_empty_and_roundtrip() {
+        let mut profile = Profile::new("test".into());
+        assert!(profile.vars.is_empty());
+        profile.set_var(crate::vars::VarName::parse("path").unwrap(), "/v1".into());
+
+        let mut wrapper = ProfileConfig::default();
+        wrapper.profiles.push(profile);
+        let toml_str = toml::to_string(&wrapper).unwrap();
+        let parsed: ProfileConfig = toml::from_str(&toml_str).unwrap();
+        let p = parsed.get_profile_by_name("test").unwrap();
+        assert_eq!(p.vars.len(), 1);
+        assert_eq!(
+            p.vars
+                .get(&crate::vars::VarName::parse("path").unwrap())
+                .map(String::as_str),
+            Some("/v1")
+        );
+    }
+
+    #[test]
+    fn profile_unset_var_returns_value() {
+        let mut profile = Profile::new("p".into());
+        profile.set_var(crate::vars::VarName::parse("x").unwrap(), "y".into());
+        let prev = profile.unset_var(&crate::vars::VarName::parse("x").unwrap());
+        assert_eq!(prev.as_deref(), Some("y"));
     }
 }

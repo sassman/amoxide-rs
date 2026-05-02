@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
+use super::shell::TEMPLATE_RE;
 use super::{
     build_wrapper_trie, has_template_args, substitute_powershell, substitute_quote_aware,
     ShellAdapter, WrapperNode,
@@ -9,7 +10,7 @@ use super::{
 /// Substitute `{{N}}` → `$($args[N-1+offset])` and `{{@}}` → `($args | Select-Object -Skip offset)`.
 /// Used in subcommand wrappers where PowerShell doesn't shift args.
 fn substitute_offset(cmd: &str, offset: usize) -> String {
-    substitute_quote_aware(cmd, |n| match n {
+    substitute_quote_aware(cmd, &TEMPLATE_RE, |n| match n {
         "@" => format!("($args | Select-Object -Skip {offset})"),
         n => {
             let idx: usize = n.parse::<usize>().unwrap() - 1 + offset;

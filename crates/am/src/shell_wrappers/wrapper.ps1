@@ -20,6 +20,8 @@ function am {
         & $runSync
     } elseif ($first -in 'use', 'u', 'untrust') {
         & $runSyncQuiet
+    } elseif ($first -in 'var', 'v') {
+        if ($second -in 'set', 'unset') { & $runSync }
     } elseif ($first -in 'profile', 'p') {
         if ($second -in 'use', 'u') {
             & $runSyncQuiet

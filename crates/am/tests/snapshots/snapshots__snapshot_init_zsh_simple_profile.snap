@@ -14,6 +14,10 @@ am() {
       eval "$(command am sync zsh)" ;;
     use|u|untrust)
       eval "$(command am sync --quiet zsh)" ;;
+    var|v)
+      case "$2" in
+        set|unset) eval "$(command am sync zsh)" ;;
+      esac ;;
     profile|p)
       case "$2" in
         use|u) eval "$(command am sync --quiet zsh)" ;;
@@ -59,13 +63,13 @@ _am() {
         case $line[1] in
             (add)
 _arguments "${_arguments_options[@]}" : \
-'(-l --local -g --global)-p+[Profile to add the alias to (defaults to active profile)]:PROFILE:_default' \
-'(-l --local -g --global)--profile=[Profile to add the alias to (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)-p+[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
 '*--sub=[Define a subcommand alias (repeatable\: --sub short long)]:SHORT:_default:SHORT:_default' \
-'(-g --global)-l[Add to the project'\''s .aliases file instead of a profile]' \
-'(-g --global)--local[Add to the project'\''s .aliases file instead of a profile]' \
-'-g[Add as a global alias (always loaded, independent of profile)]' \
-'--global[Add as a global alias (always loaded, independent of profile)]' \
+'(-g --global)-l[Operate on the project'\''s .aliases file]' \
+'(-g --global)--local[Operate on the project'\''s .aliases file]' \
+'-g[Operate on global config]' \
+'--global[Operate on global config]' \
 '--raw[Disable {{N}} template detection (treat command as literal)]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -77,13 +81,13 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (remove)
 _arguments "${_arguments_options[@]}" : \
-'(-l --local -g --global)-p+[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
-'(-l --local -g --global)--profile=[Profile to remove the alias from (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)-p+[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
 '*--sub=[Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj\:b\:l)]:SUB:_default' \
-'(-g --global)-l[Remove from the project'\''s .aliases file instead of a profile]' \
-'(-g --global)--local[Remove from the project'\''s .aliases file instead of a profile]' \
-'-g[Remove a global alias]' \
-'--global[Remove a global alias]' \
+'(-g --global)-l[Operate on the project'\''s .aliases file]' \
+'(-g --global)--local[Operate on the project'\''s .aliases file]' \
+'-g[Operate on global config]' \
+'--global[Operate on global config]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -193,6 +197,122 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (remove)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(var)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_am__subcmd__var_commands" \
+"*::: :->var" \
+&& ret=0
+
+    case $state in
+    (var)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-var-command-$line[1]:"
+        case $line[1] in
+            (set)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global)-p+[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-g --global)-l[Operate on the project'\''s .aliases file]' \
+'(-g --global)--local[Operate on the project'\''s .aliases file]' \
+'-g[Operate on global config]' \
+'--global[Operate on global config]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- Variable name:_default' \
+':value -- Variable value:_default' \
+&& ret=0
+;;
+(unset)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global)-p+[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-g --global)-l[Operate on the project'\''s .aliases file]' \
+'(-g --global)--local[Operate on the project'\''s .aliases file]' \
+'-g[Operate on global config]' \
+'--global[Operate on global config]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- Variable name:_default' \
+&& ret=0
+;;
+(get)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global)-p+[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-g --global)-l[Operate on the project'\''s .aliases file]' \
+'(-g --global)--local[Operate on the project'\''s .aliases file]' \
+'-g[Operate on global config]' \
+'--global[Operate on global config]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+':name -- Variable name:_default' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'(-l --local -g --global)-p+[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-l --local -g --global)--profile=[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'(-g --global)-l[Operate on the project'\''s .aliases file]' \
+'(-g --global)--local[Operate on the project'\''s .aliases file]' \
+'-g[Operate on global config]' \
+'--global[Operate on global config]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_am__subcmd__var__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-var-help-command-$line[1]:"
+        case $line[1] in
+            (set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(unset)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -401,6 +521,38 @@ _arguments "${_arguments_options[@]}" : \
     ;;
 esac
 ;;
+(var)
+_arguments "${_arguments_options[@]}" : \
+":: :_am__subcmd__help__subcmd__var_commands" \
+"*::: :->var" \
+&& ret=0
+
+    case $state in
+    (var)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:am-help-var-command-$line[1]:"
+        case $line[1] in
+            (set)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(unset)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
 (init)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -462,6 +614,7 @@ _am_commands() {
 'ls:List all profiles and project aliases' \
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
+'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
 'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
@@ -494,6 +647,7 @@ _am__subcmd__help_commands() {
 'ls:List all profiles and project aliases' \
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
+'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
 'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
@@ -612,6 +766,36 @@ _am__subcmd__help__subcmd__untrust_commands() {
 _am__subcmd__help__subcmd__use_commands() {
     local commands; commands=()
     _describe -t commands 'am help use commands' commands "$@"
+}
+(( $+functions[_am__subcmd__help__subcmd__var_commands] )) ||
+_am__subcmd__help__subcmd__var_commands() {
+    local commands; commands=(
+'set:Set a variable'\''s value (upsert)' \
+'unset:Remove a variable' \
+'get:Print a variable'\''s value' \
+'list:List variables (all scopes if no flag given)' \
+    )
+    _describe -t commands 'am help var commands' commands "$@"
+}
+(( $+functions[_am__subcmd__help__subcmd__var__subcmd__get_commands] )) ||
+_am__subcmd__help__subcmd__var__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help var get commands' commands "$@"
+}
+(( $+functions[_am__subcmd__help__subcmd__var__subcmd__list_commands] )) ||
+_am__subcmd__help__subcmd__var__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help var list commands' commands "$@"
+}
+(( $+functions[_am__subcmd__help__subcmd__var__subcmd__set_commands] )) ||
+_am__subcmd__help__subcmd__var__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help var set commands' commands "$@"
+}
+(( $+functions[_am__subcmd__help__subcmd__var__subcmd__unset_commands] )) ||
+_am__subcmd__help__subcmd__var__subcmd__unset_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help var unset commands' commands "$@"
 }
 (( $+functions[_am__subcmd__import_commands] )) ||
 _am__subcmd__import_commands() {
@@ -739,6 +923,73 @@ _am__subcmd__untrust_commands() {
 _am__subcmd__use_commands() {
     local commands; commands=()
     _describe -t commands 'am use commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var_commands] )) ||
+_am__subcmd__var_commands() {
+    local commands; commands=(
+'set:Set a variable'\''s value (upsert)' \
+'unset:Remove a variable' \
+'get:Print a variable'\''s value' \
+'list:List variables (all scopes if no flag given)' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am var commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__get_commands] )) ||
+_am__subcmd__var__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var get commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__help_commands] )) ||
+_am__subcmd__var__subcmd__help_commands() {
+    local commands; commands=(
+'set:Set a variable'\''s value (upsert)' \
+'unset:Remove a variable' \
+'get:Print a variable'\''s value' \
+'list:List variables (all scopes if no flag given)' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'am var help commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__help__subcmd__get_commands] )) ||
+_am__subcmd__var__subcmd__help__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var help get commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__help__subcmd__help_commands] )) ||
+_am__subcmd__var__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var help help commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__help__subcmd__list_commands] )) ||
+_am__subcmd__var__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var help list commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__help__subcmd__set_commands] )) ||
+_am__subcmd__var__subcmd__help__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var help set commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__help__subcmd__unset_commands] )) ||
+_am__subcmd__var__subcmd__help__subcmd__unset_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var help unset commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__list_commands] )) ||
+_am__subcmd__var__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var list commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__set_commands] )) ||
+_am__subcmd__var__subcmd__set_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var set commands' commands "$@"
+}
+(( $+functions[_am__subcmd__var__subcmd__unset_commands] )) ||
+_am__subcmd__var__subcmd__unset_commands() {
+    local commands; commands=()
+    _describe -t commands 'am var unset commands' commands "$@"
 }
 
 if [ "$funcstack[1]" = "_am" ]; then

@@ -24,17 +24,8 @@ pub enum Commands {
     /// Remove an alias
     #[command(alias = "r")]
     Remove {
-        /// Profile to remove the alias from (defaults to active profile)
-        #[arg(short, long, conflicts_with_all = ["local", "global"])]
-        profile: Option<String>,
-
-        /// Remove from the project's .aliases file instead of a profile
-        #[arg(short, long, conflicts_with = "global")]
-        local: bool,
-
-        /// Remove a global alias
-        #[arg(short, long)]
-        global: bool,
+        #[command(flatten)]
+        scope: TargetScopeArgs,
 
         /// The alias name to remove
         name: String,
@@ -60,6 +51,13 @@ pub enum Commands {
     Profile {
         #[command(subcommand)]
         action: Option<ProfileAction>,
+    },
+
+    /// Manage alias variables — substituted as `{{name}}` in alias commands.
+    #[command(alias = "v")]
+    Var {
+        #[command(subcommand)]
+        action: VarAction,
     },
 
     /// Print shell init code
@@ -183,17 +181,8 @@ pub enum ProfileAction {
 
 #[derive(Args)]
 pub struct Alias {
-    /// Profile to add the alias to (defaults to active profile)
-    #[arg(short, long, conflicts_with_all = ["local", "global"])]
-    pub profile: Option<String>,
-
-    /// Add to the project's .aliases file instead of a profile
-    #[arg(short, long, conflicts_with = "global")]
-    pub local: bool,
-
-    /// Add as a global alias (always loaded, independent of profile)
-    #[arg(short, long)]
-    pub global: bool,
+    #[command(flatten)]
+    pub scope: TargetScopeArgs,
 
     /// Disable {{N}} template detection (treat command as literal)
     #[arg(long)]
@@ -256,6 +245,57 @@ pub struct ShareArgs {
     pub paste_rs: bool,
 }
 
+/// Scope flags for single-target operations (alias add/remove, var set/unset/get/list).
+/// Distinct from `ScopeArgs`, which is for bulk operations (export/import/share)
+/// and supports `--all` plus repeatable `-p`.
+#[derive(Args, Debug, Clone)]
+pub struct TargetScopeArgs {
+    /// Operate on a specific profile (defaults to active profile)
+    #[arg(short, long, conflicts_with_all = ["local", "global"])]
+    pub profile: Option<String>,
+
+    /// Operate on the project's .aliases file
+    #[arg(short, long, conflicts_with = "global")]
+    pub local: bool,
+
+    /// Operate on global config
+    #[arg(short, long)]
+    pub global: bool,
+}
+
+#[derive(Subcommand)]
+pub enum VarAction {
+    /// Set a variable's value (upsert)
+    Set {
+        #[command(flatten)]
+        scope: TargetScopeArgs,
+        /// Variable name
+        name: String,
+        /// Variable value
+        #[arg(allow_hyphen_values = true)]
+        value: String,
+    },
+    /// Remove a variable
+    Unset {
+        #[command(flatten)]
+        scope: TargetScopeArgs,
+        /// Variable name
+        name: String,
+    },
+    /// Print a variable's value
+    Get {
+        #[command(flatten)]
+        scope: TargetScopeArgs,
+        /// Variable name
+        name: String,
+    },
+    /// List variables (all scopes if no flag given)
+    List {
+        #[command(flatten)]
+        scope: TargetScopeArgs,
+    },
+}
+
 #[derive(Args)]
 pub struct ImportArgs {
     /// URL or file path to import from
@@ -277,4 +317,26 @@ pub struct ImportArgs {
     /// it can carry invisible escape sequences that hide malicious commands.
     #[arg(long, requires = "yes")]
     pub trust: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Var values often contain compiler/tool flags like `-C opt-level=3`.
+    /// Without `allow_hyphen_values` clap rejects them as unknown flags.
+    #[test]
+    fn var_set_accepts_hyphen_leading_value() {
+        let cli = Cli::try_parse_from(["am", "var", "set", "-g", "opt-flags", "-C opt-level=3"])
+            .expect("should parse a hyphen-leading var value");
+        match cli.command {
+            Commands::Var {
+                action: VarAction::Set { name, value, .. },
+            } => {
+                assert_eq!(name, "opt-flags");
+                assert_eq!(value, "-C opt-level=3");
+            }
+            _ => panic!("expected Var::Set, got something else"),
+        }
+    }
 }

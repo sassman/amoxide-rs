@@ -18,13 +18,15 @@ const COMPLETIONS_PS1: &str = include_str!(concat!(env!("OUT_DIR"), "/_am.ps1"))
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
-/// `profile_aliases` — merged alias set from all active profiles.
-/// `subcommands` — merged subcommand aliases (global + active profiles).
+/// `global_vars` — global var set used to substitute `{{name}}` in global aliases.
+/// `profile_layers` — per-profile aliases/subcommands/vars in activation order.
+/// `global_subcommands` — global subcommand aliases (independent of profile).
 pub fn generate_init(
     ctx: &ShellContext,
     global_aliases: &AliasSet,
-    profile_aliases: &AliasSet,
-    subcommands: &SubcommandSet,
+    global_vars: &crate::vars::VarSet,
+    profile_layers: &[crate::precedence::ProfileLayer],
+    global_subcommands: &SubcommandSet,
 ) -> String {
     use crate::precedence::Precedence;
 
@@ -34,16 +36,11 @@ pub fn generate_init(
         ctx.external_aliases.clone(),
     );
 
-    // Split subcommands back into global/profile buckets. Callers today pass
-    // a single merged SubcommandSet — for init, global = config.subcommands
-    // and profile = resolved from active profiles. Since both are already
-    // merged upstream we simply pass the full set as "profile" to keep the
-    // engine's precedence order intact (global vs profile tier is invisible
-    // on init — there is no shell state yet).
-    let diff = Precedence::new()
-        .with_global(global_aliases, &SubcommandSet::new())
-        .with_profiles(profile_aliases, subcommands)
+    let outcome = Precedence::new()
+        .with_global(global_aliases, global_subcommands, global_vars)
+        .with_profiles(profile_layers)
         .resolve();
+    let diff = outcome.diff;
 
     let mut output = diff.render(shell_impl.as_ref());
 
@@ -160,10 +157,33 @@ mod tests {
         aliases
     }
 
+    /// Test adapter mirroring the pre-vars `generate_init` shape: takes a single
+    /// merged profile alias set and a global subcommand set, wraps them in a
+    /// `ProfileLayer` with empty vars.
+    fn init_for_test(
+        ctx: &ShellContext,
+        global_aliases: &AliasSet,
+        profile_aliases: &AliasSet,
+        subs: &SubcommandSet,
+    ) -> String {
+        generate_init(
+            ctx,
+            global_aliases,
+            &crate::vars::VarSet::default(),
+            &[crate::precedence::ProfileLayer {
+                name: "_init".into(),
+                aliases: profile_aliases.clone(),
+                subcommands: subs.clone(),
+                vars: crate::vars::VarSet::default(),
+            }],
+            &SubcommandSet::new(),
+        )
+    }
+
     #[test]
     fn test_fish_init_contains_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
@@ -176,7 +196,7 @@ mod tests {
     #[test]
     fn test_fish_init_tracks_all_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
@@ -188,7 +208,7 @@ mod tests {
     #[test]
     fn test_fish_init_contains_wrapper() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
@@ -201,7 +221,7 @@ mod tests {
     #[test]
     fn test_fish_init_contains_cd_hook() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &aliases,
@@ -214,7 +234,7 @@ mod tests {
     #[test]
     fn test_zsh_init_contains_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Zsh),
             &AliasSet::default(),
             &aliases,
@@ -227,7 +247,7 @@ mod tests {
     #[test]
     fn test_zsh_init_contains_wrapper() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Zsh),
             &AliasSet::default(),
             &aliases,
@@ -240,7 +260,7 @@ mod tests {
     #[test]
     fn test_zsh_init_contains_cd_hook() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Zsh),
             &AliasSet::default(),
             &aliases,
@@ -252,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_init_empty_no_tracking_var() {
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &AliasSet::default(),
@@ -269,7 +289,7 @@ mod tests {
             "ll".into(),
             crate::TomlAlias::Command("ls -lha".to_string()),
         );
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &globals,
             &AliasSet::default(),
@@ -286,7 +306,7 @@ mod tests {
             crate::TomlAlias::Command("global cmd".to_string()),
         );
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &globals,
             &aliases,
@@ -303,7 +323,7 @@ mod tests {
     #[test]
     fn test_bash_init_contains_aliases() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &aliases,
@@ -316,7 +336,7 @@ mod tests {
     #[test]
     fn test_bash_init_contains_wrapper() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &aliases,
@@ -329,7 +349,7 @@ mod tests {
     #[test]
     fn test_bash_init_contains_cd_hook() {
         let aliases = test_aliases();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &aliases,
@@ -344,7 +364,7 @@ mod tests {
     #[test]
     fn test_bash_init_contains_subcommand_wrapper() {
         let subs = test_subcommands();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Bash),
             &AliasSet::default(),
             &AliasSet::default(),
@@ -358,7 +378,7 @@ mod tests {
     #[test]
     fn test_fish_init_contains_subcommand_wrapper() {
         let subs = test_subcommands();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &AliasSet::default(),
@@ -374,7 +394,7 @@ mod tests {
         let mut aliases = AliasSet::default();
         aliases.insert("jj".into(), TomlAlias::Command("just-a-joke".into()));
         let subs = test_subcommands();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Bash),
             &aliases,
             &AliasSet::default(),
@@ -392,7 +412,7 @@ mod tests {
     #[test]
     fn test_init_subcommand_tracked_in_am_aliases() {
         let subs = test_subcommands();
-        let output = generate_init(
+        let output = init_for_test(
             &default_ctx(&Shell::Fish),
             &AliasSet::default(),
             &AliasSet::default(),
@@ -420,7 +440,7 @@ mod tests {
             AliasName::from("gs"),
             crate::TomlAlias::Command("git status".to_string()),
         );
-        let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
+        let output = init_for_test(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
         assert!(output.contains("abbr --add gs \"git status\""));
     }
 
@@ -429,7 +449,7 @@ mod tests {
         // init output must match PrecedenceDiff::render output for the same inputs.
         let aliases = test_aliases();
         let ctx = default_ctx(&Shell::Fish);
-        let output = generate_init(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
+        let output = init_for_test(&ctx, &AliasSet::default(), &aliases, &SubcommandSet::new());
         // Everything should be in _AM_ALIASES with name|hash format (not bare names).
         let gs_hash = crate::trust::compute_short_hash(b"git status");
         assert!(

@@ -204,6 +204,46 @@ impl AppModel {
         self.security_config.save_to(&self.config_dir)
     }
 
+    /// Refresh in-memory + persisted security state after a `.aliases` write.
+    ///
+    /// After the file at `path` has been written with `project`'s contents,
+    /// recompute the hash, mark the file as trusted, persist `security_config`,
+    /// and replace `project_trust` with the freshly trusted entry.
+    ///
+    /// Callers that mutate `.aliases` outside the `save_project_with` path
+    /// (e.g. the binary's interactive helpers in `bin/am.rs`) MUST call this
+    /// — otherwise the security hash goes stale and the next read marks the
+    /// file as tampered.
+    pub fn refresh_project_trust_at(
+        &mut self,
+        project: ProjectAliases,
+        path: PathBuf,
+    ) -> crate::Result<()> {
+        let hash = compute_file_hash(&path)?;
+        self.security_config_mut().trust(&path, &hash);
+        self.project_trust = Some(ProjectTrust::Trusted(project, path));
+        self.save_security()?;
+        Ok(())
+    }
+
+    /// Apply a mutation to the project `.aliases` file and persist it atomically.
+    ///
+    /// Handles the full save ritual: write file, recompute hash, mark the project
+    /// as trusted, persist `security_config`, refresh `project_trust` in-memory.
+    /// Callers must use this rather than calling `project.save()` directly —
+    /// otherwise the security hash goes stale and the next read marks the file
+    /// as tampered.
+    fn save_project_with<F>(&mut self, mutate: F) -> crate::Result<()>
+    where
+        F: FnOnce(&mut ProjectAliases) -> crate::Result<()>,
+    {
+        let path = self.project_path_or_create();
+        let mut project = self.project_aliases().cloned().unwrap_or_default();
+        mutate(&mut project)?;
+        project.save(&path)?;
+        self.refresh_project_trust_at(project, path)
+    }
+
     /// Add an alias to the project .aliases file, saving to disk.
     /// Updates project_trust in-memory to reflect the new content.
     pub fn save_project_aliases_add(
@@ -212,29 +252,18 @@ impl AppModel {
         cmd: &str,
         raw: bool,
     ) -> crate::Result<()> {
-        let path = self.project_path_or_create();
-        let mut project = self.project_aliases().cloned().unwrap_or_default();
-        project.add_alias(name.to_string(), cmd.to_string(), raw);
-        project.save(&path)?;
-        let hash = compute_file_hash(&path)?;
-        self.security_config_mut().trust(&path, &hash);
-        self.project_trust = Some(ProjectTrust::Trusted(project, path));
-        self.save_security()?;
-        Ok(())
+        self.save_project_with(|project| {
+            project.add_alias(name.to_string(), cmd.to_string(), raw);
+            Ok(())
+        })
     }
 
     /// Remove an alias from the project .aliases file, saving to disk.
     pub fn save_project_aliases_remove(&mut self, name: &str) -> crate::Result<()> {
-        let path = self.project_path_or_create();
-        let mut project = self.project_aliases().cloned().unwrap_or_default();
-        let key = AliasName::from(name);
-        project.aliases.remove(&key);
-        project.save(&path)?;
-        let hash = compute_file_hash(&path)?;
-        self.security_config_mut().trust(&path, &hash);
-        self.project_trust = Some(ProjectTrust::Trusted(project, path));
-        self.save_security()?;
-        Ok(())
+        self.save_project_with(|project| {
+            project.aliases.remove(&AliasName::from(name));
+            Ok(())
+        })
     }
 
     /// Add a subcommand alias to the project .aliases file, saving to disk.
@@ -243,15 +272,10 @@ impl AppModel {
         key: &str,
         long_subcommands: &[String],
     ) -> crate::Result<()> {
-        let path = self.project_path_or_create();
-        let mut project = self.project_aliases().cloned().unwrap_or_default();
-        project.add_subcommand(key.to_string(), long_subcommands.to_vec());
-        project.save(&path)?;
-        let hash = compute_file_hash(&path)?;
-        self.security_config_mut().trust(&path, &hash);
-        self.project_trust = Some(ProjectTrust::Trusted(project, path));
-        self.save_security()?;
-        Ok(())
+        self.save_project_with(|project| {
+            project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+            Ok(())
+        })
     }
 
     /// Merge a full SubcommandSet into the project .aliases file, saving to disk.
@@ -259,30 +283,36 @@ impl AppModel {
         &mut self,
         subcommands: crate::subcommand::SubcommandSet,
     ) -> crate::Result<()> {
-        let path = self.project_path_or_create();
-        let mut project = self.project_aliases().cloned().unwrap_or_default();
-        for (key, longs) in subcommands {
-            project.subcommands.as_mut().insert(key, longs);
-        }
-        project.save(&path)?;
-        let hash = compute_file_hash(&path)?;
-        self.security_config_mut().trust(&path, &hash);
-        self.project_trust = Some(ProjectTrust::Trusted(project, path));
-        self.save_security()?;
-        Ok(())
+        self.save_project_with(|project| {
+            for (key, longs) in subcommands {
+                project.subcommands.as_mut().insert(key, longs);
+            }
+            Ok(())
+        })
     }
 
     /// Remove a subcommand alias from the project .aliases file, saving to disk.
     pub fn save_project_subcommand_remove(&mut self, key: &str) -> crate::Result<()> {
-        let path = self.project_path_or_create();
-        let mut project = self.project_aliases().cloned().unwrap_or_default();
-        project.remove_subcommand(key)?;
-        project.save(&path)?;
-        let hash = compute_file_hash(&path)?;
-        self.security_config_mut().trust(&path, &hash);
-        self.project_trust = Some(ProjectTrust::Trusted(project, path));
-        self.save_security()?;
-        Ok(())
+        self.save_project_with(|project| project.remove_subcommand(key))
+    }
+
+    pub fn save_project_vars_set(&mut self, name: &str, value: &str) -> crate::Result<()> {
+        let parsed = crate::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+        self.save_project_with(|project| {
+            project.vars.insert(parsed, value.to_string());
+            Ok(())
+        })
+    }
+
+    pub fn save_project_vars_unset(&mut self, name: &str) -> crate::Result<()> {
+        let parsed = crate::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+        self.save_project_with(|project| {
+            project
+                .vars
+                .remove(&parsed)
+                .ok_or_else(|| anyhow::anyhow!("variable '{name}' not found in .aliases"))?;
+            Ok(())
+        })
     }
 }
 
