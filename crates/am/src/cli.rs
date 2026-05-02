@@ -272,6 +272,7 @@ pub enum VarAction {
         /// Variable name
         name: String,
         /// Variable value
+        #[arg(allow_hyphen_values = true)]
         value: String,
     },
     /// Remove a variable
@@ -316,4 +317,26 @@ pub struct ImportArgs {
     /// it can carry invisible escape sequences that hide malicious commands.
     #[arg(long, requires = "yes")]
     pub trust: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Var values often contain compiler/tool flags like `-C opt-level=3`.
+    /// Without `allow_hyphen_values` clap rejects them as unknown flags.
+    #[test]
+    fn var_set_accepts_hyphen_leading_value() {
+        let cli = Cli::try_parse_from(["am", "var", "set", "-g", "opt-flags", "-C opt-level=3"])
+            .expect("should parse a hyphen-leading var value");
+        match cli.command {
+            Commands::Var {
+                action: VarAction::Set { name, value, .. },
+            } => {
+                assert_eq!(name, "opt-flags");
+                assert_eq!(value, "-C opt-level=3");
+            }
+            _ => panic!("expected Var::Set, got something else"),
+        }
+    }
 }
