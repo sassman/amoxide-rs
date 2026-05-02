@@ -33,6 +33,11 @@ function am --wraps=am
             command am sync fish | source
         case use u untrust
             command am sync --quiet fish | source
+        case var v
+            switch "$argv[2]"
+                case set unset
+                    command am sync fish | source
+            end
         case profile p
             switch "$argv[2]"
                 case use u

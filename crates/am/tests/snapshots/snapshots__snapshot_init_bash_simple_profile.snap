@@ -14,6 +14,10 @@ am() {
       eval "$(command am sync bash)" ;;
     use|u|untrust)
       eval "$(command am sync --quiet bash)" ;;
+    var|v)
+      case "$2" in
+        set|unset) eval "$(command am sync bash)" ;;
+      esac ;;
     profile|p)
       case "$2" in
         use|u) eval "$(command am sync --quiet bash)" ;;
