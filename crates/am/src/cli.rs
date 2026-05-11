@@ -266,6 +266,7 @@ pub struct TargetScopeArgs {
 #[derive(Subcommand)]
 pub enum VarAction {
     /// Set a variable's value (upsert)
+    #[command(alias = "s")]
     Set {
         #[command(flatten)]
         scope: TargetScopeArgs,
@@ -276,6 +277,7 @@ pub enum VarAction {
         value: String,
     },
     /// Remove a variable
+    #[command(alias = "u")]
     Unset {
         #[command(flatten)]
         scope: TargetScopeArgs,
@@ -283,6 +285,7 @@ pub enum VarAction {
         name: String,
     },
     /// Print a variable's value
+    #[command(alias = "g")]
     Get {
         #[command(flatten)]
         scope: TargetScopeArgs,
@@ -290,6 +293,7 @@ pub enum VarAction {
         name: String,
     },
     /// List variables (all scopes if no flag given)
+    #[command(alias = "l")]
     List {
         #[command(flatten)]
         scope: TargetScopeArgs,
