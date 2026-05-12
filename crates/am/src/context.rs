@@ -93,6 +93,125 @@ fn render_chain(chain: &PrecedenceChain) -> String {
         .join(" > ")
 }
 
+use crate::alias::AliasSet;
+use crate::precedence::{EffectiveEntry, EntryKind, ProfileLayer};
+use crate::subcommand::SubcommandSet;
+use crate::vars::VarSet;
+
+/// References to all the layered inputs that fed `Precedence::resolve()`.
+/// Carried as borrows so the renderer can re-lookup origins and (later)
+/// reconstruct shadow chains without re-resolving.
+#[derive(Debug, Clone, Copy)]
+pub struct LayerInputs<'a> {
+    pub global_aliases: &'a AliasSet,
+    pub global_subcommands: &'a SubcommandSet,
+    pub global_vars: &'a VarSet,
+    pub profile_layers: &'a [ProfileLayer],
+    pub project_aliases: &'a AliasSet,
+    pub project_subcommands: &'a SubcommandSet,
+    pub project_vars: &'a VarSet,
+}
+
+/// Find the highest-precedence layer that defines `name`, returning its scope.
+///
+/// Precedence (highest first): project > profile (in slice order) > global.
+fn lookup_origin(name: &str, layers: &LayerInputs) -> Option<OriginScope> {
+    use crate::alias::AliasName;
+    let key = AliasName::from(name);
+    if layers.project_aliases.contains_key(&key) {
+        return Some(OriginScope::Project);
+    }
+    for layer in layers.profile_layers {
+        if layer.aliases.contains_key(&key) {
+            return Some(OriginScope::Profile(layer.name.clone()));
+        }
+    }
+    if layers.global_aliases.contains_key(&key) {
+        return Some(OriginScope::Global);
+    }
+    None
+}
+
+/// Look up the origin of a subcommand entry. Key is the colon-joined
+/// `program:short[:short...]` form used by `SubcommandSet`.
+fn lookup_subcommand_origin(
+    program: &str,
+    short_key: &str,
+    layers: &LayerInputs,
+) -> Option<OriginScope> {
+    let key = format!("{program}:{short_key}");
+    if layers.project_subcommands.as_ref().contains_key(&key) {
+        return Some(OriginScope::Project);
+    }
+    for layer in layers.profile_layers {
+        if layer.subcommands.as_ref().contains_key(&key) {
+            return Some(OriginScope::Profile(layer.name.clone()));
+        }
+    }
+    if layers.global_subcommands.as_ref().contains_key(&key) {
+        return Some(OriginScope::Global);
+    }
+    None
+}
+
+/// Render the `## Aliases` markdown table.
+///
+/// Rows sorted by name. Subcommand wrappers are flattened to one row per
+/// (program, short) pair. Tracking-only `SubcommandKey` entries are skipped.
+pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) -> String {
+    struct Row {
+        name: String,
+        expansion: String,
+        from: String,
+    }
+
+    let mut rows: Vec<Row> = Vec::new();
+    for e in effective {
+        match &e.kind {
+            EntryKind::Alias(alias) => {
+                let expansion = alias.command().to_string();
+                rows.push(Row {
+                    name: e.name.clone(),
+                    expansion,
+                    from: lookup_origin(&e.name, layers)
+                        .map(|s| s.as_from_label())
+                        .unwrap_or_else(|| "?".into()),
+                });
+            }
+            EntryKind::SubcommandWrapper {
+                program, entries, ..
+            } => {
+                for sub in entries {
+                    let name = format!("{program} {}", sub.short_subcommands.join(" "));
+                    let expansion = format!("{program} {}", sub.long_subcommands.join(" "));
+                    let short_key = sub.short_subcommands.join(":");
+                    let from = lookup_subcommand_origin(program, &short_key, layers)
+                        .map(|s| s.as_from_label())
+                        .unwrap_or_else(|| "?".into());
+                    rows.push(Row {
+                        name,
+                        expansion,
+                        from,
+                    });
+                }
+            }
+            EntryKind::SubcommandKey { .. } => {
+                // Tracking-only, never shown
+            }
+        }
+    }
+
+    rows.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut out = String::from("## Aliases\n\n");
+    out.push_str("| name | expands to | from |\n");
+    out.push_str("|------|------------|------|\n");
+    for r in rows {
+        out.push_str(&format!("| {} | {} | {} |\n", r.name, r.expansion, r.from));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,6 +283,147 @@ mod tests {
         assert!(
             out.contains("project > profile(git, prio 2) > profile(rust, prio 1) > global"),
             "got: {out}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod aliases_tests {
+    use super::*;
+    use crate::alias::{AliasName, AliasSet, TomlAlias};
+    use crate::precedence::{EffectiveEntry, EntryKind};
+    use crate::subcommand::SubcommandSet;
+    use crate::vars::VarSet;
+
+    fn aset(pairs: &[(&str, &str)]) -> AliasSet {
+        let mut s = AliasSet::default();
+        for (n, c) in pairs {
+            s.insert(AliasName::from(*n), TomlAlias::Command((*c).into()));
+        }
+        s
+    }
+
+    fn entry(name: &str, cmd: &str) -> EffectiveEntry {
+        EffectiveEntry {
+            name: name.into(),
+            kind: EntryKind::Alias(TomlAlias::Command(cmd.into())),
+            hash: "x".into(),
+        }
+    }
+
+    #[test]
+    fn aliases_table_sorted_by_name_with_origin_from_layers() {
+        let global = aset(&[("ll", "ls -lha")]);
+        let project = aset(&[("f", "cargo fmt")]);
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let effective = vec![entry("ll", "ls -lha"), entry("f", "cargo fmt")];
+        let out = render_aliases_table(&effective, &layers);
+        let f_idx = out.find("| f ").unwrap();
+        let ll_idx = out.find("| ll ").unwrap();
+        assert!(f_idx < ll_idx, "rows must be alphabetical: {out}");
+        assert!(out.contains("| project"), "f's from must be project: {out}");
+        assert!(out.contains("| global"), "ll's from must be global: {out}");
+    }
+
+    #[test]
+    fn aliases_table_skips_subcommand_key_entries() {
+        let global = AliasSet::default();
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project = AliasSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let effective = vec![EffectiveEntry {
+            name: "git:pl".into(),
+            kind: EntryKind::SubcommandKey {
+                longs: vec!["pull".into(), "--rebase".into()],
+            },
+            hash: "x".into(),
+        }];
+        let out = render_aliases_table(&effective, &layers);
+        assert!(
+            !out.contains("git:pl"),
+            "tracking entries must not appear: {out}"
+        );
+        assert!(
+            !out.contains("| pl "),
+            "tracking entries must not appear: {out}"
+        );
+    }
+
+    #[test]
+    fn aliases_table_flattens_subcommand_wrappers() {
+        use crate::subcommand::SubcommandEntry;
+        let global = AliasSet::default();
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project = AliasSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let effective = vec![EffectiveEntry {
+            name: "git".into(),
+            kind: EntryKind::SubcommandWrapper {
+                program: "git".into(),
+                entries: vec![
+                    SubcommandEntry {
+                        program: "git".into(),
+                        short_subcommands: vec!["pl".into()],
+                        long_subcommands: vec!["pull --rebase".into()],
+                    },
+                    SubcommandEntry {
+                        program: "git".into(),
+                        short_subcommands: vec!["psh".into()],
+                        long_subcommands: vec!["push".into()],
+                    },
+                ],
+                base_cmd: None,
+            },
+            hash: "x".into(),
+        }];
+        let out = render_aliases_table(&effective, &layers);
+        assert!(out.contains("| git pl "), "must flatten subcommand: {out}");
+        assert!(
+            out.contains("git pull --rebase"),
+            "expansion must be full surface form: {out}"
+        );
+        assert!(out.contains("| git psh "), "must flatten subcommand: {out}");
+        assert!(
+            out.contains("| git push "),
+            "expansion must be full surface form: {out}"
+        );
+        assert!(
+            !out.contains("| git |"),
+            "the wrapper row itself must not appear"
         );
     }
 }
