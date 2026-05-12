@@ -822,14 +822,92 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::effect(Effect::RenderSync(outcome)))
             }
         }
-        Message::Context {
-            verbose: _,
-            setup: _,
-        } => {
-            // Stub — fleshed out in later tasks
-            Ok(UpdateResult::effect(Effect::Print(
-                "# am context (not yet implemented)\n".to_string(),
-            )))
+        Message::Context { verbose, setup } => {
+            if let Some(assistant) = setup {
+                // Setup-mode path — implemented in Task 16
+                return Ok(UpdateResult::effect(Effect::Print(format!(
+                    "# am context --setup {assistant} (not yet implemented)\n"
+                ))));
+            }
+
+            let cwd = model.cwd.clone();
+
+            let profile_layers = model
+                .profile_config()
+                .active_profile_layers(&model.session.active_profiles);
+
+            let include_project = matches!(
+                model.project_trust(),
+                Some(crate::trust::ProjectTrust::Trusted(..))
+            );
+            let (project_aliases, project_subs) = if include_project {
+                model.project_alias_set_and_subcommands()
+            } else {
+                (
+                    crate::AliasSet::default(),
+                    crate::subcommand::SubcommandSet::new(),
+                )
+            };
+            let project_vars = if include_project {
+                model
+                    .project_aliases()
+                    .map(|p| p.vars.clone())
+                    .unwrap_or_default()
+            } else {
+                crate::vars::VarSet::default()
+            };
+
+            let outcome = crate::precedence::Precedence::new()
+                .with_global(
+                    &model.config.aliases,
+                    &model.config.subcommands,
+                    &model.config.vars,
+                )
+                .with_profiles(&profile_layers)
+                .with_project(&project_aliases, &project_subs, &project_vars)
+                .resolve();
+
+            // Build the precedence-chain description for the preamble.
+            let mut chain_layers = Vec::new();
+            if include_project {
+                chain_layers.push(crate::context::ChainLayer {
+                    scope: crate::precedence::OriginScope::Project,
+                    priority: None,
+                });
+            }
+            for (i, p) in profile_layers.iter().enumerate() {
+                chain_layers.push(crate::context::ChainLayer {
+                    scope: crate::precedence::OriginScope::Profile(p.name.clone()),
+                    priority: Some(i + 1),
+                });
+            }
+            chain_layers.push(crate::context::ChainLayer {
+                scope: crate::precedence::OriginScope::Global,
+                priority: None,
+            });
+            let chain = crate::context::PrecedenceChain {
+                layers: chain_layers,
+            };
+
+            let layer_inputs = crate::context::LayerInputs {
+                global_aliases: &model.config.aliases,
+                global_subcommands: &model.config.subcommands,
+                global_vars: &model.config.vars,
+                profile_layers: &profile_layers,
+                project_aliases: &project_aliases,
+                project_subcommands: &project_subs,
+                project_vars: &project_vars,
+            };
+
+            let rendered = crate::context::render(
+                &cwd,
+                &chain,
+                &outcome,
+                &layer_inputs,
+                crate::context::RenderOptions { verbose },
+            );
+
+            Ok(UpdateResult::effect(Effect::Print(rendered)))
         }
         Message::ToggleProfiles(ref names)
         | Message::EnableProfiles(ref names)
