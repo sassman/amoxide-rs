@@ -119,7 +119,7 @@ fn setup_aborts_on_parse_failure_without_overwriting() {
     let result = run_claude_setup(&path);
     assert!(
         result.is_err(),
-        "should refuse to overwrite unparseable file"
+        "should refuse to overwrite unparsable file"
     );
     let err = result.unwrap_err().to_string();
     assert!(err.contains("could not parse"), "got: {err}");
