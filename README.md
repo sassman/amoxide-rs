@@ -114,4 +114,4 @@ Full documentation — usage guides, profiles, project aliases, parameterized al
 
 **[amoxide.rs](https://amoxide.rs)**
 
-- **AI coding assistants** — `am context` prints your active aliases for tools like Claude Code so the assistant can expand short forms. See [AI Assistants](https://amoxide.io/advanced/ai-assistants/) (or run `am context --setup claude` for the one-line setup).
+- **AI coding assistants** — `am context` prints your active aliases for tools like Claude Code so the assistant can expand short forms. See [AI Assistants](https://amoxide.rs/usage/ai-assistants/) (or run `am context --setup claude` for the one-line setup).
