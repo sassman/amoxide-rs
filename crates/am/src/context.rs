@@ -240,6 +240,81 @@ pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) 
     out
 }
 
+/// Compute every (name, losing-scope, winning-scope) shadow triple from layer inputs.
+///
+/// Walks scopes in precedence order (highest first: project → profile (in slice
+/// order) → global), collecting each scope that defines a given name. For each
+/// name defined in 2+ scopes, the head of the list is the winner and every other
+/// scope is a loser. Returns one triple per (name, loser).
+fn collect_shadows(layers: &LayerInputs) -> Vec<(String, OriginScope, OriginScope)> {
+    use crate::alias::AliasName;
+    use std::collections::BTreeMap;
+
+    let mut defs: BTreeMap<AliasName, Vec<OriginScope>> = BTreeMap::new();
+
+    for (name, _) in layers.project_aliases.iter() {
+        defs.entry(name.clone())
+            .or_default()
+            .push(OriginScope::Project);
+    }
+    for layer in layers.profile_layers {
+        for (name, _) in layer.aliases.iter() {
+            defs.entry(name.clone())
+                .or_default()
+                .push(OriginScope::Profile(layer.name.clone()));
+        }
+    }
+    for (name, _) in layers.global_aliases.iter() {
+        defs.entry(name.clone())
+            .or_default()
+            .push(OriginScope::Global);
+    }
+
+    let mut out = Vec::new();
+    for (name, scopes) in defs {
+        if scopes.len() < 2 {
+            continue;
+        }
+        let winner = scopes[0].clone();
+        for loser in scopes.iter().skip(1) {
+            out.push((name.as_ref().to_string(), loser.clone(), winner.clone()));
+        }
+    }
+    out
+}
+
+/// Render the brief `## Shadowed` section. Empty string if no shadows.
+///
+/// Groups names by (losing-scope, winning-scope) pair, names alphabetised
+/// within each group. Includes a load-bearing pointer to `--verbose`.
+pub fn render_shadow_brief(layers: &LayerInputs) -> String {
+    let shadows = collect_shadows(layers);
+    if shadows.is_empty() {
+        return String::new();
+    }
+
+    use std::collections::BTreeMap;
+    let mut groups: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+    for (name, loser, winner) in shadows {
+        groups
+            .entry((loser.as_from_label(), winner.as_from_label()))
+            .or_default()
+            .push(name);
+    }
+
+    let mut out = String::from("## Shadowed\n");
+    for ((loser, winner), mut names) in groups {
+        names.sort();
+        out.push_str(&format!(
+            "- {} — also defined in {loser}, overridden by {winner}\n",
+            names.join(", ")
+        ));
+    }
+    out.push('\n');
+    out.push_str("(run `am context --verbose` for full definitions, origins, and shadow chains)\n");
+    out
+}
+
 /// Render the `## Variables` section, or empty string if no scope has any var.
 ///
 /// Per-scope subsections (`### project`, `### profile:<name>`, `### global`).
@@ -638,6 +713,115 @@ mod variables_tests {
         assert_eq!(
             unescaped_pipes, 3,
             "data row must have exactly 3 unescaped pipes (2 column boundaries + outer): {data_line}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod shadow_brief_tests {
+    use super::*;
+    use crate::alias::{AliasName, AliasSet, TomlAlias};
+    use crate::precedence::ProfileLayer;
+    use crate::subcommand::SubcommandSet;
+    use crate::vars::VarSet;
+
+    fn aset(pairs: &[(&str, &str)]) -> AliasSet {
+        let mut s = AliasSet::default();
+        for (n, c) in pairs {
+            s.insert(AliasName::from(*n), TomlAlias::Command((*c).into()));
+        }
+        s
+    }
+
+    #[test]
+    fn shadow_brief_empty_when_no_shadows() {
+        let global = AliasSet::default();
+        let project = aset(&[("f", "cargo fmt")]);
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let out = render_shadow_brief(&layers);
+        assert!(out.is_empty(), "no shadows means no section: {out}");
+    }
+
+    #[test]
+    fn shadow_brief_groups_by_loser_winner_pair() {
+        // `f`, `t` both in profile:rust and project. project wins.
+        let global = AliasSet::default();
+        let project = aset(&[("f", "cargo fmt"), ("t", "cargo test")]);
+        let rust = ProfileLayer {
+            name: "rust".into(),
+            aliases: aset(&[("f", "cargo fmt --check"), ("t", "cargo nextest")]),
+            subcommands: SubcommandSet::new(),
+            vars: VarSet::default(),
+        };
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let profile_slice = vec![rust];
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &profile_slice,
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let out = render_shadow_brief(&layers);
+        assert!(out.contains("## Shadowed"), "section header: {out}");
+        assert!(
+            out.contains("f, t — also defined in profile:rust, overridden by project"),
+            "grouped names with loser/winner: {out}"
+        );
+        assert!(
+            out.contains("(run `am context --verbose`"),
+            "must include verbose pointer: {out}"
+        );
+    }
+
+    #[test]
+    fn shadow_brief_multiple_losing_scopes_emit_separate_bullets() {
+        // `x` exists in BOTH global and profile:git. profile:git wins.
+        // Project doesn't define x at all.
+        let global = aset(&[("x", "global-x")]);
+        let git = ProfileLayer {
+            name: "git".into(),
+            aliases: aset(&[("x", "git-x")]),
+            subcommands: SubcommandSet::new(),
+            vars: VarSet::default(),
+        };
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project_aliases = AliasSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let profile_slice = vec![git];
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &profile_slice,
+            project_aliases: &project_aliases,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let out = render_shadow_brief(&layers);
+        // x → loser global, winner profile:git
+        assert!(
+            out.contains("x — also defined in global, overridden by profile:git"),
+            "expected grouping: {out}"
         );
     }
 }
