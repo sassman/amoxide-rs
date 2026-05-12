@@ -40,7 +40,7 @@ pub enum Message {
     Sync(Shell, bool),
     Context {
         verbose: bool,
-        setup: Option<String>,
+        setup: Option<crate::setup::Assistant>,
     },
 
     ToggleProfiles(Vec<String>),

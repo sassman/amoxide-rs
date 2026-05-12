@@ -4,6 +4,24 @@ use std::path::PathBuf;
 use crate::prompt::{ask_user, Answer};
 use crate::shell::Shell;
 
+/// Supported AI coding assistants for `am context --setup <assistant>`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Assistant {
+    Claude,
+}
+
+impl Assistant {
+    /// Parse an assistant name from a CLI flag value.
+    pub fn parse(s: &str) -> anyhow::Result<Self> {
+        match s {
+            "claude" => Ok(Self::Claude),
+            other => Err(anyhow::anyhow!(
+                "unsupported assistant '{other}'. supported: claude"
+            )),
+        }
+    }
+}
+
 /// Ask PowerShell for its $PROFILE path by shelling out.
 /// Works for both PS 5.1 (WindowsPowerShell) and PS 7+ (PowerShell).
 pub fn detect_powershell_profile() -> Option<PathBuf> {
@@ -154,6 +172,28 @@ fn run_setup_inner(
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    fn assistant_parse_accepts_claude() {
+        assert!(matches!(Assistant::parse("claude"), Ok(Assistant::Claude)));
+    }
+
+    #[test]
+    fn assistant_parse_rejects_unknown() {
+        let err = Assistant::parse("openai").unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported assistant"),
+            "got: {err}"
+        );
+        assert!(
+            err.to_string().contains("openai"),
+            "error should mention input: {err}"
+        );
+        assert!(
+            err.to_string().contains("claude"),
+            "error should list supported: {err}"
+        );
+    }
 
     const INIT_LINE: &str = r#"eval "$(am init zsh)""#;
 

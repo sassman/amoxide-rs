@@ -826,7 +826,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             if let Some(assistant) = setup {
                 // Setup-mode path — implemented in Task 16
                 return Ok(UpdateResult::effect(Effect::Print(format!(
-                    "# am context --setup {assistant} (not yet implemented)\n"
+                    "# am context --setup {assistant:?} (not yet implemented)\n"
                 ))));
             }
 
