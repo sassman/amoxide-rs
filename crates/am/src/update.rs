@@ -824,10 +824,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         }
         Message::Context { verbose, setup } => {
             if let Some(assistant) = setup {
-                // Setup-mode path — implemented in Task 16
-                return Ok(UpdateResult::effect(Effect::Print(format!(
-                    "# am context --setup {assistant:?} (not yet implemented)\n"
-                ))));
+                let outcome = crate::setup::run_assistant_setup(assistant)?;
+                return Ok(UpdateResult::effect(Effect::Print(outcome.render())));
             }
 
             let cwd = model.cwd.clone();

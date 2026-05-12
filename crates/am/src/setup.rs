@@ -269,6 +269,75 @@ pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
     false
 }
 
+/// What `run_assistant_setup` did. Returned for the handler to render.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SetupOutcome {
+    Created(std::path::PathBuf),
+    Updated(std::path::PathBuf),
+    AlreadyConfigured(std::path::PathBuf),
+}
+
+impl SetupOutcome {
+    pub fn render(&self) -> String {
+        match self {
+            Self::Created(p) => {
+                format!(
+                    "am: created {} with am context SessionStart hook",
+                    p.display()
+                )
+            }
+            Self::Updated(p) => {
+                format!("am: added am context SessionStart hook to {}", p.display())
+            }
+            Self::AlreadyConfigured(p) => {
+                format!("am: am context already wired into {}", p.display())
+            }
+        }
+    }
+}
+
+/// Resolve the Claude Code settings file path: `~/.claude/settings.json`.
+pub fn claude_settings_path() -> anyhow::Result<std::path::PathBuf> {
+    let home = crate::dirs::home_dir()
+        .ok_or_else(|| anyhow::anyhow!("could not determine HOME directory"))?;
+    Ok(home.join(".claude/settings.json"))
+}
+
+/// Drive the full setup pipeline for the given assistant.
+pub fn run_assistant_setup(assistant: Assistant) -> anyhow::Result<SetupOutcome> {
+    match assistant {
+        Assistant::Claude => run_claude_setup(&claude_settings_path()?),
+    }
+}
+
+/// Underlying impl for Claude — takes the target path for test injectability.
+///
+/// Read+parse failures abort without overwriting. Idempotent: returns
+/// `AlreadyConfigured` when our hook is already present.
+pub fn run_claude_setup(path: &std::path::Path) -> anyhow::Result<SetupOutcome> {
+    let (mut settings, existed) = if path.exists() {
+        let contents = std::fs::read_to_string(path)?;
+        let parsed: serde_json::Value = serde_json::from_str(&contents)
+            .map_err(|e| anyhow::anyhow!("could not parse {}: {}", path.display(), e))?;
+        (parsed, true)
+    } else {
+        (serde_json::json!({}), false)
+    };
+
+    if claude_settings_already_wired(&settings) {
+        return Ok(SetupOutcome::AlreadyConfigured(path.to_path_buf()));
+    }
+
+    merge_claude_hook(&mut settings);
+    write_settings_atomic(path, &settings)?;
+
+    Ok(if existed {
+        SetupOutcome::Updated(path.to_path_buf())
+    } else {
+        SetupOutcome::Created(path.to_path_buf())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
