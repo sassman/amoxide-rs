@@ -822,7 +822,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::effect(Effect::RenderSync(outcome)))
             }
         }
-        Message::Context { verbose: _, setup: _ } => {
+        Message::Context {
+            verbose: _,
+            setup: _,
+        } => {
             // Stub — fleshed out in later tasks
             Ok(UpdateResult::effect(Effect::Print(
                 "# am context (not yet implemented)\n".to_string(),

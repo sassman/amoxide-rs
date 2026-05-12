@@ -33,12 +33,20 @@ pub fn render_preamble(cwd: &Path, chain: &PrecedenceChain) -> String {
     out.push_str("#\n");
     out.push_str("# ## How to use this snapshot\n");
     out.push_str("#\n");
-    out.push_str("# When the user mentions a name from the `Aliases` table below in any context —\n");
-    out.push_str("# running a command, suggesting one, asking what it does — treat the `expands to`\n");
+    out.push_str(
+        "# When the user mentions a name from the `Aliases` table below in any context —\n",
+    );
+    out.push_str(
+        "# running a command, suggesting one, asking what it does — treat the `expands to`\n",
+    );
     out.push_str("# value as the canonical form.\n");
     out.push_str("#\n");
-    out.push_str("# 1. Recognise aliases by name match. If the user's input contains a token that\n");
-    out.push_str("#    matches a `name` from the table — including multi-word names with a space,\n");
+    out.push_str(
+        "# 1. Recognise aliases by name match. If the user's input contains a token that\n",
+    );
+    out.push_str(
+        "#    matches a `name` from the table — including multi-word names with a space,\n",
+    );
     out.push_str("#    like `git pl` — it is an alias. Expand it before running.\n");
     out.push_str("#\n");
     out.push_str("# 2. Subcommand aliases are deceptive. A name like `git pl` looks like a real\n");
@@ -46,17 +54,24 @@ pub fn render_preamble(cwd: &Path, chain: &PrecedenceChain) -> String {
     out.push_str("#    with `git: 'pl' is not a git command`. Always run the value from\n");
     out.push_str("#    `expands to` (`git pull --rebase`), never the alias text.\n");
     out.push_str("#\n");
-    out.push_str("# 3. Recover from `command not found` failures. If a shell command fails because\n");
+    out.push_str(
+        "# 3. Recover from `command not found` failures. If a shell command fails because\n",
+    );
     out.push_str("#    the name is unknown, check this table — the user's shell sees the alias\n");
     out.push_str("#    but your subshell does not.\n");
     out.push_str("#\n");
     out.push_str("# 4. In chat, the user's vocabulary is fine. When suggesting commands in\n");
-    out.push_str("#    conversation, the short form (`git cm \"msg\"`) matches the user's mental\n");
+    out.push_str(
+        "#    conversation, the short form (`git cm \"msg\"`) matches the user's mental\n",
+    );
     out.push_str("#    model. When *running* it in a subshell, use the canonical form.\n");
     out.push_str("#\n");
     out.push_str("# ## Format\n");
     out.push_str("#\n");
-    out.push_str(&format!("# Precedence (highest first): {}\n", render_chain(chain)));
+    out.push_str(&format!(
+        "# Precedence (highest first): {}\n",
+        render_chain(chain)
+    ));
     out.push_str("#\n");
     out.push_str("# Templates: {{N}} is a positional placeholder (1-indexed; `tag v1.0` expands {{1}} → `v1.0`).\n");
     out.push_str("# Variables: {{name}} tokens are already substituted in the table below.\n");
@@ -110,9 +125,18 @@ mod tests {
         }]);
         let out = render_preamble(&cwd, &c);
         assert!(out.contains("1. Recognise aliases by name match"), "rule 1");
-        assert!(out.contains("2. Subcommand aliases are deceptive"), "rule 2");
-        assert!(out.contains("3. Recover from `command not found`"), "rule 3");
-        assert!(out.contains("4. In chat, the user's vocabulary is fine"), "rule 4");
+        assert!(
+            out.contains("2. Subcommand aliases are deceptive"),
+            "rule 2"
+        );
+        assert!(
+            out.contains("3. Recover from `command not found`"),
+            "rule 3"
+        );
+        assert!(
+            out.contains("4. In chat, the user's vocabulary is fine"),
+            "rule 4"
+        );
     }
 
     #[test]

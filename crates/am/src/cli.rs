@@ -384,7 +384,8 @@ mod tests {
 
     #[test]
     fn context_subcommand_parses_with_setup() {
-        let cli = Cli::try_parse_from(["am", "context", "--setup", "claude"]).expect("should parse");
+        let cli =
+            Cli::try_parse_from(["am", "context", "--setup", "claude"]).expect("should parse");
         match cli.command {
             Commands::Context { verbose, setup } => {
                 assert!(!verbose);
@@ -397,7 +398,10 @@ mod tests {
     #[test]
     fn context_subcommand_rejects_verbose_with_setup() {
         let result = Cli::try_parse_from(["am", "context", "--verbose", "--setup", "claude"]);
-        assert!(result.is_err(), "verbose and setup must be mutually exclusive");
+        assert!(
+            result.is_err(),
+            "verbose and setup must be mutually exclusive"
+        );
     }
 
     /// Var values often contain compiler/tool flags like `-C opt-level=3`.
