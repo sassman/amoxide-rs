@@ -95,3 +95,63 @@ fn snapshot_context_brief() {
 
     insta::assert_snapshot!(out);
 }
+
+#[test]
+fn snapshot_context_verbose() {
+    let global = aset(&[("f", "cargo fmt --check")]); // shadowed by rust + project
+    let rust = ProfileLayer {
+        name: "rust".into(),
+        aliases: aset(&[("f", "cargo fmt --all")]), // shadowed by project
+        subcommands: SubcommandSet::new(),
+        vars: VarSet::default(),
+    };
+    let project = aset(&[("f", "cargo fmt")]);
+    let global_subs = SubcommandSet::new();
+    let global_vars = VarSet::default();
+    let project_subs = SubcommandSet::new();
+    let project_vars = VarSet::default();
+
+    let outcome = Precedence::new()
+        .with_global(&global, &global_subs, &global_vars)
+        .with_profiles(std::slice::from_ref(&rust))
+        .with_project(&project, &project_subs, &project_vars)
+        .resolve();
+
+    let profile_layers = vec![rust];
+    let layers = LayerInputs {
+        global_aliases: &global,
+        global_subcommands: &global_subs,
+        global_vars: &global_vars,
+        profile_layers: &profile_layers,
+        project_aliases: &project,
+        project_subcommands: &project_subs,
+        project_vars: &project_vars,
+    };
+
+    let chain = PrecedenceChain {
+        layers: vec![
+            ChainLayer {
+                scope: OriginScope::Project,
+                priority: None,
+            },
+            ChainLayer {
+                scope: OriginScope::Profile("rust".into()),
+                priority: Some(1),
+            },
+            ChainLayer {
+                scope: OriginScope::Global,
+                priority: None,
+            },
+        ],
+    };
+
+    let out = render(
+        &PathBuf::from("/tmp/fixture-cwd"),
+        &chain,
+        &outcome,
+        &layers,
+        RenderOptions { verbose: true },
+    );
+
+    insta::assert_snapshot!(out);
+}
