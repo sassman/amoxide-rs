@@ -91,6 +91,24 @@ pub enum Commands {
     /// Guided setup — adds amoxide to your shell profile
     Setup { shell: Shell },
 
+    /// Print a model-friendly snapshot of the active alias set for AI coding assistants.
+    ///
+    /// Designed to be wired into a session-start hook so the assistant can expand
+    /// short forms (e.g. `git cm`, `gst`) into the canonical commands before running.
+    ///
+    /// Use `--setup claude` to automatically wire this into ~/.claude/settings.json.
+    #[command(verbatim_doc_comment)]
+    Context {
+        /// Expand shadowed-section into a full table and include invalid-alias diagnostics
+        #[arg(short, long, conflicts_with = "setup")]
+        verbose: bool,
+
+        /// Configure the named assistant's session-start hook to call `am context`.
+        /// Supported values: `claude`.
+        #[arg(long, value_name = "ASSISTANT")]
+        setup: Option<String>,
+    },
+
     /// Shortcut for `am profile use` — toggle one or more profiles
     #[command(alias = "u")]
     Use(ProfileUse),
@@ -339,6 +357,48 @@ pub struct ImportArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn context_subcommand_parses_with_no_flags() {
+        let cli = Cli::try_parse_from(["am", "context"]).expect("should parse");
+        match cli.command {
+            Commands::Context { verbose, setup } => {
+                assert!(!verbose);
+                assert!(setup.is_none());
+            }
+            _ => panic!("expected Commands::Context"),
+        }
+    }
+
+    #[test]
+    fn context_subcommand_parses_with_verbose() {
+        let cli = Cli::try_parse_from(["am", "context", "--verbose"]).expect("should parse");
+        match cli.command {
+            Commands::Context { verbose, setup } => {
+                assert!(verbose);
+                assert!(setup.is_none());
+            }
+            _ => panic!("expected Commands::Context"),
+        }
+    }
+
+    #[test]
+    fn context_subcommand_parses_with_setup() {
+        let cli = Cli::try_parse_from(["am", "context", "--setup", "claude"]).expect("should parse");
+        match cli.command {
+            Commands::Context { verbose, setup } => {
+                assert!(!verbose);
+                assert_eq!(setup.as_deref(), Some("claude"));
+            }
+            _ => panic!("expected Commands::Context"),
+        }
+    }
+
+    #[test]
+    fn context_subcommand_rejects_verbose_with_setup() {
+        let result = Cli::try_parse_from(["am", "context", "--verbose", "--setup", "claude"]);
+        assert!(result.is_err(), "verbose and setup must be mutually exclusive");
+    }
 
     /// Var values often contain compiler/tool flags like `-C opt-level=3`.
     /// Without `allow_hyphen_values` clap rejects them as unknown flags.

@@ -38,6 +38,10 @@ pub enum Message {
     },
     InitShell(Shell, bool),
     Sync(Shell, bool),
+    Context {
+        verbose: bool,
+        setup: Option<String>,
+    },
 
     ToggleProfiles(Vec<String>),
     EnableProfiles(Vec<String>),
