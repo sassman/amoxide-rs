@@ -66,11 +66,11 @@ _am() {
             ",$1")
                 cmd="am"
                 ;;
-            am,__update-check)
-                cmd="am__subcmd____update__subcmd__check"
-                ;;
             am,add)
                 cmd="am__subcmd__add"
+                ;;
+            am,context)
+                cmd="am__subcmd__context"
                 ;;
             am,export)
                 cmd="am__subcmd__export"
@@ -123,11 +123,11 @@ _am() {
             am,var)
                 cmd="am__subcmd__var"
                 ;;
-            am__subcmd__help,__update-check)
-                cmd="am__subcmd__help__subcmd____update__subcmd__check"
-                ;;
             am__subcmd__help,add)
                 cmd="am__subcmd__help__subcmd__add"
+                ;;
+            am__subcmd__help,context)
+                cmd="am__subcmd__help__subcmd__context"
                 ;;
             am__subcmd__help,export)
                 cmd="am__subcmd__help__subcmd__export"
@@ -271,22 +271,8 @@ _am() {
 
     case "${cmd}" in
         am)
-            opts="-h -V --help --version add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help"
+            opts="-h -V --help --version add remove ls la status profile var init setup context use tui export import share trust untrust sync help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        am__subcmd____update__subcmd__check)
-            opts="-h -V --help --version"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -332,6 +318,24 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        am__subcmd__context)
+            opts="-v -h -V --verbose --setup --help --version"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --setup)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         am__subcmd__export)
             opts="-l -g -p -b -h -V --local --global --profile --all --base64 --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -355,7 +359,7 @@ _am() {
             return 0
             ;;
         am__subcmd__help)
-            opts="add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help"
+            opts="add remove ls la status profile var init setup context use tui export import share trust untrust sync help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -368,7 +372,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__subcmd__help__subcmd____update__subcmd__check)
+        am__subcmd__help__subcmd__add)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -382,7 +386,7 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        am__subcmd__help__subcmd__add)
+        am__subcmd__help__subcmd__context)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
