@@ -391,8 +391,12 @@ mod aliases_tests {
         use crate::subcommand::SubcommandEntry;
         let global = AliasSet::default();
         let mut global_subs = SubcommandSet::new();
-        global_subs.as_mut().insert("git:pl".into(), Default::default());
-        global_subs.as_mut().insert("git:psh".into(), Default::default());
+        global_subs
+            .as_mut()
+            .insert("git:pl".into(), Default::default());
+        global_subs
+            .as_mut()
+            .insert("git:psh".into(), Default::default());
         let global_vars = VarSet::default();
         let project = AliasSet::default();
         let project_subs = SubcommandSet::new();
