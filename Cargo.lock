@@ -33,6 +33,7 @@ dependencies = [
  "log",
  "regex",
  "serde",
+ "serde_json",
  "tempfile",
  "terminal_size",
  "thiserror",

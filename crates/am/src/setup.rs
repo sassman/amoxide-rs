@@ -168,10 +168,97 @@ fn run_setup_inner(
     Ok(())
 }
 
+/// Returns true if `settings` already contains a `SessionStart` hook entry
+/// whose command contains `am context`. Detects both the v2 schema
+/// (`SessionStart[].hooks[].command`) and the legacy flat shape
+/// (`SessionStart[].command`).
+pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
+    let Some(session_start) = settings
+        .get("hooks")
+        .and_then(|h| h.get("SessionStart"))
+        .and_then(|s| s.as_array())
+    else {
+        return false;
+    };
+
+    for entry in session_start {
+        // Legacy flat shape: { "command": "am context" }
+        if let Some(cmd) = entry.get("command").and_then(|c| c.as_str()) {
+            if cmd.contains("am context") {
+                return true;
+            }
+        }
+        // V2 nested shape: { "matcher": "...", "hooks": [{ "command": "..." }] }
+        if let Some(nested) = entry.get("hooks").and_then(|h| h.as_array()) {
+            for h in nested {
+                if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
+                    if cmd.contains("am context") {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    fn already_wired_returns_true_for_v2_schema_with_am_context() {
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [
+                            { "type": "command", "command": "am context", "async": false }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(claude_settings_already_wired(&json));
+    }
+
+    #[test]
+    fn already_wired_returns_false_when_no_hooks_section() {
+        let json = serde_json::json!({});
+        assert!(!claude_settings_already_wired(&json));
+    }
+
+    #[test]
+    fn already_wired_returns_false_when_session_start_has_other_command() {
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup",
+                        "hooks": [
+                            { "type": "command", "command": "echo hi", "async": false }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(!claude_settings_already_wired(&json));
+    }
+
+    #[test]
+    fn already_wired_handles_legacy_flat_shape() {
+        // Pre-v2 schema: `{ "command": "am context" }` directly in SessionStart.
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    { "command": "am context" }
+                ]
+            }
+        });
+        assert!(claude_settings_already_wired(&json));
+    }
 
     #[test]
     fn assistant_parse_accepts_claude() {
