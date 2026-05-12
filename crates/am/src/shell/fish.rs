@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::sync::LazyLock;
+
+use regex::Regex;
 
 use super::{
     build_wrapper_trie, has_template_args, quote_cmd, substitute_fish, ShellAdapter, WrapperNode,
@@ -8,6 +11,30 @@ use super::{
 use crate::alias::AliasEntry;
 use crate::config::FishConfig;
 use crate::subcommand::SubcommandEntry;
+
+/// Extract the wrappable command word from an alias body — the actual program
+/// name to register `complete --wraps` against.
+///
+/// Skips leading `KEY=value` env-var prefixes (with quote-aware values), then
+/// returns the next bare token. Returns `None` if the body has no resolvable
+/// command word, or if the candidate contains quote characters (which would
+/// produce broken fish if emitted into a `--wraps "..."` line).
+fn first_command_word(cmd: &str) -> Option<&str> {
+    static ENV_PREFIX: LazyLock<Regex> = LazyLock::new(|| {
+        // Identifier `=` then either "..."-, '...'-, or bare-quoted value, then ws.
+        Regex::new(r#"^\s*[A-Za-z_][A-Za-z0-9_]*=("[^"]*"|'[^']*'|\S*)\s+"#).unwrap()
+    });
+    let mut rest = cmd;
+    while let Some(m) = ENV_PREFIX.find(rest) {
+        rest = &rest[m.end()..];
+    }
+    let word = rest.split_whitespace().next()?;
+    if word.is_empty() || word.contains(['"', '\'']) {
+        None
+    } else {
+        Some(word)
+    }
+}
 
 /// Substitute `{{N}}` → `$argv[N+offset]` and `{{@}}` → `$argv[offset+1..]`.
 ///
@@ -137,18 +164,13 @@ impl ShellAdapter for Fish {
         //   - `complete -c NAME --wraps` registers inheritance in the
         //     completion system, which the prelude's `complete -e -c NAME`
         //     wipes before each emission, so no stacking.
-        //   - We wrap the first whitespace-separated token of the command —
-        //     the actual wrapped binary — rather than the full argv, which
-        //     is what fish's completion system expects.
+        //   - We wrap the first real command word — past any leading
+        //     `VAR=value` env prefixes — rather than the full argv.
         let prelude = format!(
             "functions -e {name}\ncomplete -e -c {name}",
             name = entry.name
         );
-        let wrap_target = entry
-            .command
-            .split_whitespace()
-            .next()
-            .filter(|s| !s.is_empty());
+        let wrap_target = first_command_word(entry.command);
         let wraps_line = wrap_target.map(|w| {
             format!(
                 "\ncomplete -c {name} --wraps {cmd}",
@@ -276,14 +298,36 @@ mod tests {
 
     #[test]
     fn test_fish_simple_alias() {
+        // Body starting with a quote → no clean command word, skip --wraps.
         assert_eq!(
             Fish::default().alias(&simple("h", "'echo hello'")),
-            "functions -e h\ncomplete -e -c h\nfunction h\n    'echo hello' $argv\nend\ncomplete -c h --wraps \"'echo\""
+            "functions -e h\ncomplete -e -c h\nfunction h\n    'echo hello' $argv\nend"
         );
         assert_eq!(
             Fish::default().alias(&simple("h", "echo hello")),
             "functions -e h\ncomplete -e -c h\nfunction h\n    echo hello $argv\nend\ncomplete -c h --wraps \"echo\""
         );
+    }
+
+    #[test]
+    fn first_command_word_skips_env_prefix() {
+        // Bare command
+        assert_eq!(first_command_word("cargo run"), Some("cargo"));
+        // Single env-var prefix
+        assert_eq!(first_command_word("FOO=bar cmd a b"), Some("cmd"));
+        // Multiple env-var prefixes
+        assert_eq!(first_command_word("FOO=bar BAZ=qux cmd"), Some("cmd"));
+        // Double-quoted env value containing whitespace — the user-reported case
+        assert_eq!(
+            first_command_word(r#"RUSTFLAGS="-C opt-level=3" cargo run --release --bin am"#),
+            Some("cargo")
+        );
+        // Single-quoted env value containing whitespace
+        assert_eq!(first_command_word("FOO='hello world' cmd"), Some("cmd"));
+        // Body starting with a quote — refuse rather than produce a broken --wraps
+        assert_eq!(first_command_word("'quoted cmd'"), None);
+        // Empty
+        assert_eq!(first_command_word(""), None);
     }
 
     #[test]

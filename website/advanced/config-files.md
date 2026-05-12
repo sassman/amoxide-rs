@@ -24,7 +24,13 @@ ll = "ls -lha"
 [subcommands]
 "jj:ab" = ["abandon"]
 "jj:b:l" = ["branch", "list"]
+
+# Global variables — named placeholders for alias commands
+[vars]
+editor = "hx"
 ```
+
+The `[vars]` table <VersionBadge v="0.9.0" /> holds reusable values referenced as `{{name}}` inside alias commands. See [Variables](/usage/variables) for resolution rules.
 
 ## `config.toml` — Shell Options
 
@@ -115,9 +121,13 @@ name = "rust"
 f = "cargo fmt"
 t = "cargo test --all-features"
 l = "cargo clippy --locked --all-targets -- -D warnings"
+cc = "cargo build {{opt-flags}}"
 
 [profiles.subcommands]
 "cargo:t" = ["test", "--all-features"]
+
+[profiles.vars]
+opt-flags = "-C opt-level=3"
 
 [[profiles]]
 name = "node"
@@ -128,6 +138,8 @@ b = "npm run build"
 ```
 
 Each `[[profiles]]` block defines a named profile with its aliases and optional subcommand aliases. Note that different profiles can use the same alias name (e.g., `t` in both `rust` and `node`) — whichever profile has higher priority in `active_profiles` wins.
+
+The optional `[profiles.vars]` table <VersionBadge v="0.9.0" /> holds variables scoped to that profile, referenced as `{{name}}` inside the profile's aliases. See [Variables](/usage/variables).
 
 ## `session.toml` — Active Profiles <VersionBadge v="0.5.0" />
 
@@ -165,13 +177,19 @@ This file lives in your project root and is loaded automatically when you `cd` i
 i = "cargo install --path crates/am && cargo install --path crates/am-tui"
 l = "cargo clippy --locked --all-targets -- -D warnings"
 t = "cargo test --all-features"
+b = "cargo build {{target}}"
 
 [subcommands]
 "jj:ab" = ["abandon"]
 "jj:b:l" = ["branch", "list"]
+
+[vars]
+target = "--target x86_64-unknown-linux-musl"
 ```
 
 Project aliases override profile aliases with the same name. This lets you customize shortcuts per project without changing your global setup.
+
+The optional `[vars]` table <VersionBadge v="0.9.0" /> holds project-scoped variables, referenced as `{{name}}` inside the project's aliases. See [Variables](/usage/variables).
 
 ## Priority Order
 

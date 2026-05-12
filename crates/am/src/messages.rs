@@ -89,4 +89,21 @@ pub enum Message {
         aliases: Vec<crate::AliasId>,
         to: AliasTarget,
     },
+
+    SetVar {
+        target: AliasTarget,
+        name: String,
+        value: String,
+    },
+    UnsetVar {
+        target: AliasTarget,
+        name: String,
+    },
+    GetVar {
+        target: AliasTarget,
+        name: String,
+    },
+    ListVars {
+        target: Option<AliasTarget>,
+    },
 }

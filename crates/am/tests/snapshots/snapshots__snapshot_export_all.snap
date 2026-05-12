@@ -2,7 +2,10 @@
 source: crates/am/tests/snapshots.rs
 expression: output
 ---
-[global_aliases]
+[meta]
+version = 2
+
+[global.aliases]
 ll = "ls -lha"
 
 [[profiles]]
@@ -11,5 +14,5 @@ name = "git"
 [profiles.aliases]
 gs = "git status"
 
-[local_aliases]
+[local.aliases]
 t = "cargo test"

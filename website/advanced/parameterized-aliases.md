@@ -10,6 +10,7 @@ By default, any arguments you pass to an alias are appended at the end — just 
 |----------|-------------|
 | `{{1}}`, `{{2}}`, ... | Insert a specific positional argument |
 | `{{@}}` | Insert all arguments at a specific position |
+| `{{name}}` | Insert a named [variable](/usage/variables) — set with `am var set` (since 0.9.0) |
 
 ## When You Don't Need Templates
 

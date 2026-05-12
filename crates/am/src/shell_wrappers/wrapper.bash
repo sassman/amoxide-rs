@@ -7,6 +7,10 @@ am() {
       eval "$(command am sync __SHELL__)" ;;
     use|u|untrust)
       eval "$(command am sync --quiet __SHELL__)" ;;
+    var|v)
+      case "$2" in
+        set|unset) eval "$(command am sync __SHELL__)" ;;
+      esac ;;
     profile|p)
       case "$2" in
         use|u) eval "$(command am sync --quiet __SHELL__)" ;;

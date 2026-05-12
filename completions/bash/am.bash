@@ -31,6 +31,9 @@ _am() {
             am,init)
                 cmd="am__subcmd__init"
                 ;;
+            am,la)
+                cmd="am__subcmd__la"
+                ;;
             am,ls)
                 cmd="am__subcmd__ls"
                 ;;
@@ -64,6 +67,9 @@ _am() {
             am,use)
                 cmd="am__subcmd__use"
                 ;;
+            am,var)
+                cmd="am__subcmd__var"
+                ;;
             am__subcmd__help,add)
                 cmd="am__subcmd__help__subcmd__add"
                 ;;
@@ -78,6 +84,9 @@ _am() {
                 ;;
             am__subcmd__help,init)
                 cmd="am__subcmd__help__subcmd__init"
+                ;;
+            am__subcmd__help,la)
+                cmd="am__subcmd__help__subcmd__la"
                 ;;
             am__subcmd__help,ls)
                 cmd="am__subcmd__help__subcmd__ls"
@@ -112,6 +121,9 @@ _am() {
             am__subcmd__help,use)
                 cmd="am__subcmd__help__subcmd__use"
                 ;;
+            am__subcmd__help,var)
+                cmd="am__subcmd__help__subcmd__var"
+                ;;
             am__subcmd__help__subcmd__profile,add)
                 cmd="am__subcmd__help__subcmd__profile__subcmd__add"
                 ;;
@@ -123,6 +135,18 @@ _am() {
                 ;;
             am__subcmd__help__subcmd__profile,use)
                 cmd="am__subcmd__help__subcmd__profile__subcmd__use"
+                ;;
+            am__subcmd__help__subcmd__var,get)
+                cmd="am__subcmd__help__subcmd__var__subcmd__get"
+                ;;
+            am__subcmd__help__subcmd__var,list)
+                cmd="am__subcmd__help__subcmd__var__subcmd__list"
+                ;;
+            am__subcmd__help__subcmd__var,set)
+                cmd="am__subcmd__help__subcmd__var__subcmd__set"
+                ;;
+            am__subcmd__help__subcmd__var,unset)
+                cmd="am__subcmd__help__subcmd__var__subcmd__unset"
                 ;;
             am__subcmd__profile,add)
                 cmd="am__subcmd__profile__subcmd__add"
@@ -154,6 +178,36 @@ _am() {
             am__subcmd__profile__subcmd__help,use)
                 cmd="am__subcmd__profile__subcmd__help__subcmd__use"
                 ;;
+            am__subcmd__var,get)
+                cmd="am__subcmd__var__subcmd__get"
+                ;;
+            am__subcmd__var,help)
+                cmd="am__subcmd__var__subcmd__help"
+                ;;
+            am__subcmd__var,list)
+                cmd="am__subcmd__var__subcmd__list"
+                ;;
+            am__subcmd__var,set)
+                cmd="am__subcmd__var__subcmd__set"
+                ;;
+            am__subcmd__var,unset)
+                cmd="am__subcmd__var__subcmd__unset"
+                ;;
+            am__subcmd__var__subcmd__help,get)
+                cmd="am__subcmd__var__subcmd__help__subcmd__get"
+                ;;
+            am__subcmd__var__subcmd__help,help)
+                cmd="am__subcmd__var__subcmd__help__subcmd__help"
+                ;;
+            am__subcmd__var__subcmd__help,list)
+                cmd="am__subcmd__var__subcmd__help__subcmd__list"
+                ;;
+            am__subcmd__var__subcmd__help,set)
+                cmd="am__subcmd__var__subcmd__help__subcmd__set"
+                ;;
+            am__subcmd__var__subcmd__help,unset)
+                cmd="am__subcmd__var__subcmd__help__subcmd__unset"
+                ;;
             *)
                 ;;
         esac
@@ -161,7 +215,7 @@ _am() {
 
     case "${cmd}" in
         am)
-            opts="-h -V --help --version add remove ls status profile init setup use tui export import share trust untrust sync help"
+            opts="-h -V --help --version add remove ls la status profile var init setup use tui export import share trust untrust sync help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -223,7 +277,7 @@ _am() {
             return 0
             ;;
         am__subcmd__help)
-            opts="add remove ls status profile init setup use tui export import share trust untrust sync help"
+            opts="add remove ls la status profile var init setup use tui export import share trust untrust sync help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -293,6 +347,20 @@ _am() {
             return 0
             ;;
         am__subcmd__help__subcmd__init)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__help__subcmd__la)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -516,6 +584,76 @@ _am() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        am__subcmd__help__subcmd__var)
+            opts="set unset get list"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__help__subcmd__var__subcmd__get)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__help__subcmd__var__subcmd__list)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__help__subcmd__var__subcmd__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__help__subcmd__var__subcmd__unset)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         am__subcmd__import)
             opts="-l -g -p -b -y -h -V --local --global --profile --all --base64 --yes --trust --help --version <SOURCE>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -540,6 +678,20 @@ _am() {
             ;;
         am__subcmd__init)
             opts="-f -h -V --force --help --version bash brush fish powershell zsh"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__la)
+            opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -872,6 +1024,192 @@ _am() {
                     return 0
                     ;;
                 -n)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var)
+            opts="-h -V --help --version set unset get list help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__get)
+            opts="-p -l -g -h -V --profile --local --global --help --version <NAME>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --profile)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__help)
+            opts="set unset get list help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__help__subcmd__get)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__help__subcmd__list)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__help__subcmd__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__help__subcmd__unset)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__list)
+            opts="-p -l -g -h -V --profile --local --global --help --version"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --profile)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__set)
+            opts="-p -l -g -h -V --profile --local --global --help --version <NAME> <VALUE>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --profile)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        am__subcmd__var__subcmd__unset)
+            opts="-p -l -g -h -V --profile --local --global --help --version <NAME>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --profile)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -p)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

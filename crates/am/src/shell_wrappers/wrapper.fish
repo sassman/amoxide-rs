@@ -10,6 +10,11 @@ function am --wraps=am
             command am sync __SHELL__ | source
         case use u untrust
             command am sync --quiet __SHELL__ | source
+        case var v
+            switch "$argv[2]"
+                case set unset
+                    command am sync __SHELL__ | source
+            end
         case profile p
             switch "$argv[2]"
                 case use u

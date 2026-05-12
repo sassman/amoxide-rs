@@ -146,14 +146,18 @@ pub fn has_template_args(cmd: &str) -> bool {
 ///
 /// `make_sub` receives the capture group (e.g. `"1"`, `"@"`) and returns the
 /// shell-specific variable string.
-pub(super) fn substitute_quote_aware(cmd: &str, make_sub: impl Fn(&str) -> String) -> String {
+pub(super) fn substitute_quote_aware(
+    cmd: &str,
+    re: &Regex,
+    make_sub: impl Fn(&str) -> String,
+) -> String {
     let mut result = String::new();
     let mut rest = cmd;
     let mut in_single_quote = false;
 
     while !rest.is_empty() {
         let next_sq = rest.find('\'');
-        let next_tmpl = TEMPLATE_RE.find(rest).map(|m| m.start());
+        let next_tmpl = re.find(rest).map(|m| m.start());
 
         match (next_sq, next_tmpl) {
             (Some(sq), Some(tmpl)) if sq < tmpl => {
@@ -165,8 +169,8 @@ pub(super) fn substitute_quote_aware(cmd: &str, make_sub: impl Fn(&str) -> Strin
             (_, Some(tmpl)) => {
                 // Template is next (possibly inside single quotes).
                 result.push_str(&rest[..tmpl]);
-                let m = TEMPLATE_RE.find(rest).unwrap();
-                let cap = TEMPLATE_RE.captures(rest).unwrap();
+                let m = re.find(rest).unwrap();
+                let cap = re.captures(rest).unwrap();
                 let sub = make_sub(&cap[1]);
                 if in_single_quote {
                     // Break out of single quotes for the substitution, then reopen.
@@ -190,7 +194,7 @@ pub(super) fn substitute_quote_aware(cmd: &str, make_sub: impl Fn(&str) -> Strin
 
 /// Substitute `{{N}}` → `$argv[N]` and `{{@}}` → `$argv` for fish shell.
 pub fn substitute_fish(cmd: &str) -> String {
-    substitute_quote_aware(cmd, |n| match n {
+    substitute_quote_aware(cmd, &TEMPLATE_RE, |n| match n {
         "@" => "$argv".to_string(),
         n => format!("$argv[{n}]"),
     })
@@ -198,7 +202,7 @@ pub fn substitute_fish(cmd: &str) -> String {
 
 /// Substitute `{{N}}` → `$($args[N-1])` and `{{@}}` → `$args` for PowerShell.
 pub fn substitute_powershell(cmd: &str) -> String {
-    substitute_quote_aware(cmd, |n| match n {
+    substitute_quote_aware(cmd, &TEMPLATE_RE, |n| match n {
         "@" => "$args".to_string(),
         n => {
             let idx: usize = n.parse::<usize>().unwrap() - 1;
@@ -209,7 +213,7 @@ pub fn substitute_powershell(cmd: &str) -> String {
 
 /// Substitute `{{N}}` → `"$N"` and `{{@}}` → `"$@"` for bash/zsh.
 pub fn substitute_nix(cmd: &str) -> String {
-    substitute_quote_aware(cmd, |n| match n {
+    substitute_quote_aware(cmd, &TEMPLATE_RE, |n| match n {
         "@" => "\"$@\"".to_string(),
         n => format!("\"${n}\""),
     })
@@ -236,6 +240,17 @@ mod tests {
         assert!(!has_template_args("echo {{0}}"));
         assert!(!has_template_args("echo {{}}"));
         assert!(!has_template_args("echo {{10}}"));
+    }
+
+    #[test]
+    fn substitute_quote_aware_with_explicit_regex_matches_default() {
+        let cmd = "echo {{1}} 'literal {{1}}'";
+        let out = substitute_quote_aware(cmd, &TEMPLATE_RE, |n| format!("ARG{n}"));
+        assert!(out.contains("ARG1"));
+        assert!(
+            out.contains("'literal '"),
+            "single-quoted region must break out for the substitution: {out}"
+        );
     }
 
     #[test]

@@ -2,6 +2,10 @@
 
 Share your aliases with colleagues, teams, or the community. Export to stdout, import from a URL or file.
 
+::: tip Variables in exports <VersionBadge v="0.9.0" />
+Exports include [variables](/usage/variables) at every scope. Exports produced by amoxide releases before 0.9.0 still import — variables would not have been in those files anyway.
+:::
+
 ## Export
 
 Export aliases to stdout as TOML:

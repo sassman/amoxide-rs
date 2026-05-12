@@ -103,6 +103,9 @@ am add -l t cargo test      # project-local alias
 am add -p rust t cargo test  # profile alias
 am add -g ll ls -lha         # global alias
 am add -g jj:ab abandon      # subcommand alias: jj ab → jj abandon
+
+am var set -p rust opt-flags "-C opt-level=3"   # named variable, scope-local
+am add -p rust cc "compile some/file {{opt-flags}}"
 ```
 
 ## Documentation

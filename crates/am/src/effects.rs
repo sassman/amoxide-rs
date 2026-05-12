@@ -51,6 +51,13 @@ pub enum Effect {
     RemoveLocalSubcommand {
         key: String,
     },
+    AddLocalVar {
+        name: String,
+        value: String,
+    },
+    RemoveLocalVar {
+        name: String,
+    },
     Print(String),
     PrintLines(Vec<Echo>),
     RenderSync(SyncOutcome),
@@ -81,6 +88,12 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         }
         Effect::RemoveLocalSubcommand { key } => {
             model.save_project_subcommand_remove(key)?;
+        }
+        Effect::AddLocalVar { name, value } => {
+            model.save_project_vars_set(name, value)?;
+        }
+        Effect::RemoveLocalVar { name } => {
+            model.save_project_vars_unset(name)?;
         }
         Effect::Print(_) => {}      // caller's responsibility
         Effect::PrintLines(_) => {} // caller's responsibility, like Print
