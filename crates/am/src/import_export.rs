@@ -10,9 +10,9 @@ use crate::exchange::{
     scan_suspicious, subcommand_merge_check, var_merge_check, ExportAll, ImportPayload, Meta,
     ParseSource, SanitizedName, Scope, ScopeBundle,
 };
-use crate::vars::VarSet;
 use crate::prompt::{ask_user, Answer};
 use crate::update::{update, AppModel};
+use crate::vars::VarSet;
 use crate::{AliasSet, Message, Profile};
 
 // ═══════════════════════════════════════════════════════════════════════

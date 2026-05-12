@@ -259,7 +259,10 @@ pub fn var_merge_check(current: &VarSet, incoming: &VarSet) -> VarMergeResult {
             }
         }
     }
-    VarMergeResult { new_vars, conflicts }
+    VarMergeResult {
+        new_vars,
+        conflicts,
+    }
 }
 
 /// Compare `current` subcommands against `incoming`, separating new keys from conflicts.
@@ -1032,20 +1035,17 @@ mod tests {
             .global
             .aliases
             .insert("ll".into(), TomlAlias::Command("ls -lha".into()));
-        export.global.vars.insert(
-            crate::vars::VarName::parse("editor").unwrap(),
-            "hx".into(),
-        );
+        export
+            .global
+            .vars
+            .insert(crate::vars::VarName::parse("editor").unwrap(), "hx".into());
         export.profiles.push(Profile {
             name: "k8s".into(),
             aliases: AliasSet::default(),
             subcommands: Default::default(),
             vars: {
                 let mut v = VarSet::default();
-                v.insert(
-                    crate::vars::VarName::parse("ns").unwrap(),
-                    "default".into(),
-                );
+                v.insert(crate::vars::VarName::parse("ns").unwrap(), "default".into());
                 v
             },
         });
