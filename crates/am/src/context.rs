@@ -6,7 +6,10 @@
 
 use std::path::Path;
 
-use crate::precedence::OriginScope;
+use crate::alias::AliasSet;
+use crate::precedence::{EffectiveEntry, EntryKind, OriginScope, ProfileLayer};
+use crate::subcommand::SubcommandSet;
+use crate::vars::VarSet;
 
 /// Describes the active precedence chain for the preamble.
 /// Order: highest precedence first.
@@ -93,11 +96,6 @@ fn render_chain(chain: &PrecedenceChain) -> String {
         .join(" > ")
 }
 
-use crate::alias::AliasSet;
-use crate::precedence::{EffectiveEntry, EntryKind, ProfileLayer};
-use crate::subcommand::SubcommandSet;
-use crate::vars::VarSet;
-
 /// References to all the layered inputs that fed `Precedence::resolve()`.
 /// Carried as borrows so the renderer can re-lookup origins and (later)
 /// reconstruct shadow chains without re-resolving.
@@ -170,12 +168,20 @@ pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) 
         match &e.kind {
             EntryKind::Alias(alias) => {
                 let expansion = alias.command().to_string();
+                let from = lookup_origin(&e.name, layers)
+                    .map(|s| s.as_from_label())
+                    .unwrap_or_else(|| {
+                        debug_assert!(
+                            false,
+                            "alias '{}' in effective set but not present in any layer input",
+                            e.name
+                        );
+                        "[bug: unknown origin]".to_string()
+                    });
                 rows.push(Row {
                     name: e.name.clone(),
                     expansion,
-                    from: lookup_origin(&e.name, layers)
-                        .map(|s| s.as_from_label())
-                        .unwrap_or_else(|| "?".into()),
+                    from,
                 });
             }
             EntryKind::SubcommandWrapper {
@@ -187,7 +193,15 @@ pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) 
                     let short_key = sub.short_subcommands.join(":");
                     let from = lookup_subcommand_origin(program, &short_key, layers)
                         .map(|s| s.as_from_label())
-                        .unwrap_or_else(|| "?".into());
+                        .unwrap_or_else(|| {
+                            debug_assert!(
+                                false,
+                                "subcommand '{} {}' in effective set but not present in any layer input",
+                                program,
+                                sub.short_subcommands.join(" ")
+                            );
+                            "[bug: unknown origin]".to_string()
+                        });
                     rows.push(Row {
                         name,
                         expansion,
@@ -376,7 +390,9 @@ mod aliases_tests {
     fn aliases_table_flattens_subcommand_wrappers() {
         use crate::subcommand::SubcommandEntry;
         let global = AliasSet::default();
-        let global_subs = SubcommandSet::new();
+        let mut global_subs = SubcommandSet::new();
+        global_subs.as_mut().insert("git:pl".into(), Default::default());
+        global_subs.as_mut().insert("git:psh".into(), Default::default());
         let global_vars = VarSet::default();
         let project = AliasSet::default();
         let project_subs = SubcommandSet::new();
