@@ -400,22 +400,10 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
         Commands::Sync { shell, quiet } => Message::Sync(shell.clone(), *quiet),
-        Commands::Context { verbose, setup } => {
-            let setup_assistant = match setup {
-                Some(s) => match amoxide::setup::Assistant::parse(s) {
-                    Ok(a) => Some(a),
-                    Err(e) => {
-                        eprintln!("am: {e}");
-                        std::process::exit(2);
-                    }
-                },
-                None => None,
-            };
-            Message::Context {
-                verbose: *verbose,
-                setup: setup_assistant,
-            }
-        }
+        Commands::Context { verbose, setup } => Message::Context {
+            verbose: *verbose,
+            setup: setup.clone(),
+        },
         Commands::Var { action } => match action {
             VarAction::Set { scope, name, value } => Message::SetVar {
                 target: target_from_scope(scope),
