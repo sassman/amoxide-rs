@@ -168,6 +168,73 @@ fn run_setup_inner(
     Ok(())
 }
 
+/// In-place merge of our v2 hook entry into `settings.hooks.SessionStart`.
+///
+/// Idempotent: if `am context` is already wired (per `claude_settings_already_wired`),
+/// no change is made. Preserves all other top-level keys, hook events, and
+/// existing `SessionStart` entries.
+pub fn merge_claude_hook(settings: &mut serde_json::Value) {
+    if claude_settings_already_wired(settings) {
+        return;
+    }
+
+    if !settings.is_object() {
+        *settings = serde_json::json!({});
+    }
+
+    let hooks = settings
+        .as_object_mut()
+        .unwrap()
+        .entry("hooks".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+
+    if !hooks.is_object() {
+        *hooks = serde_json::json!({});
+    }
+
+    let session_start = hooks
+        .as_object_mut()
+        .unwrap()
+        .entry("SessionStart".to_string())
+        .or_insert_with(|| serde_json::json!([]));
+
+    if !session_start.is_array() {
+        *session_start = serde_json::json!([]);
+    }
+
+    session_start
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "matcher": "startup|clear|compact",
+            "hooks": [
+                { "type": "command", "command": "am context", "async": false }
+            ]
+        }));
+}
+
+/// Write JSON atomically: temp file in same dir + rename.
+/// Pretty-printed for human review. Creates parent dir if needed.
+pub fn write_settings_atomic(
+    path: &std::path::Path,
+    value: &serde_json::Value,
+) -> anyhow::Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("settings path has no parent: {}", path.display()))?;
+    std::fs::create_dir_all(parent)?;
+
+    let serialized = serde_json::to_string_pretty(value)?;
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("settings path has no file name: {}", path.display()))?
+        .to_string_lossy();
+    let tmp = parent.join(format!(".{file_name}.tmp"));
+    std::fs::write(&tmp, &serialized)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
 /// Returns true if `settings` already contains a `SessionStart` hook entry
 /// whose command contains `am context`. Detects both the v2 schema
 /// (`SessionStart[].hooks[].command`) and the legacy flat shape
@@ -354,5 +421,94 @@ mod tests {
             let content = std::fs::read_to_string(&profile).unwrap();
             assert!(!content.contains("am init"), "got: {content}");
         }
+    }
+
+    #[test]
+    fn merge_adds_session_start_when_no_hooks_key() {
+        let mut settings = serde_json::json!({});
+        merge_claude_hook(&mut settings);
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_preserves_existing_top_level_keys() {
+        let mut settings = serde_json::json!({
+            "model": "claude-opus-4",
+            "theme": "dark"
+        });
+        merge_claude_hook(&mut settings);
+        assert_eq!(settings["model"], "claude-opus-4");
+        assert_eq!(settings["theme"], "dark");
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_preserves_existing_hook_events() {
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "PreToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "echo pre" }] }]
+            }
+        });
+        merge_claude_hook(&mut settings);
+        assert_eq!(
+            settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
+            "echo pre"
+        );
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_appends_to_existing_session_start_without_dropping_other_entries() {
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    { "matcher": "startup", "hooks": [{ "type": "command", "command": "echo other" }] }
+                ]
+            }
+        });
+        merge_claude_hook(&mut settings);
+        let session_start = settings["hooks"]["SessionStart"].as_array().unwrap();
+        assert_eq!(session_start.len(), 2, "should append, not replace");
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_is_idempotent_when_already_wired() {
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        let before = settings.clone();
+        merge_claude_hook(&mut settings);
+        assert_eq!(before, settings, "idempotent: no change on second run");
+    }
+
+    #[test]
+    fn write_settings_atomic_creates_parent_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("a/b/c/settings.json");
+        let value = serde_json::json!({"x": 1});
+        write_settings_atomic(&nested, &value).unwrap();
+        let read = std::fs::read_to_string(&nested).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&read).unwrap();
+        assert_eq!(parsed, value);
+    }
+
+    #[test]
+    fn write_settings_atomic_overwrites_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, r#"{"old": true}"#).unwrap();
+        let value = serde_json::json!({"new": true});
+        write_settings_atomic(&path, &value).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(parsed, value);
     }
 }
