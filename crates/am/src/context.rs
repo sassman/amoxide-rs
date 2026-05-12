@@ -11,6 +11,15 @@ use crate::precedence::{EffectiveEntry, EntryKind, OriginScope, ProfileLayer};
 use crate::subcommand::SubcommandSet;
 use crate::vars::VarSet;
 
+/// Escape characters that would break a markdown table cell.
+///
+/// Currently only `|` is escaped (most common in shell command bodies). Other
+/// markdown specials (backticks, asterisks, etc.) are left verbatim — they
+/// render fine inside table cells and the spec calls for verbatim output.
+fn escape_md_cell(s: &str) -> String {
+    s.replace('|', r"\|")
+}
+
 /// Describes the active precedence chain for the preamble.
 /// Order: highest precedence first.
 #[derive(Debug, Clone)]
@@ -221,7 +230,12 @@ pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) 
     out.push_str("| name | expands to | from |\n");
     out.push_str("|------|------------|------|\n");
     for r in rows {
-        out.push_str(&format!("| {} | {} | {} |\n", r.name, r.expansion, r.from));
+        out.push_str(&format!(
+            "| {} | {} | {} |\n",
+            escape_md_cell(&r.name),
+            escape_md_cell(&r.expansion),
+            escape_md_cell(&r.from),
+        ));
     }
     out
 }
@@ -257,7 +271,11 @@ pub fn render_variables(layers: &LayerInputs) -> String {
             out.push_str("| name | value |\n");
             out.push_str("|------|-------|\n");
             for (name, value) in vs.iter() {
-                out.push_str(&format!("| {} | {} |\n", name.as_str(), value));
+                out.push_str(&format!(
+                    "| {} | {} |\n",
+                    escape_md_cell(name.as_str()),
+                    escape_md_cell(value),
+                ));
             }
             out.push('\n');
         }
@@ -485,6 +503,40 @@ mod aliases_tests {
             "the wrapper row itself must not appear"
         );
     }
+
+    #[test]
+    fn aliases_table_escapes_pipe_characters_in_cells() {
+        let global = aset(&[("filter", "rg foo | rg bar")]);
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project = AliasSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let effective = vec![entry("filter", "rg foo | rg bar")];
+        let out = render_aliases_table(&effective, &layers);
+        assert!(
+            out.contains(r"rg foo \| rg bar"),
+            "pipe in expansion must be escaped as \\|: {out}"
+        );
+        // Column count check: every row must still have exactly 3 unescaped pipes (4 columns delimited by 3 separators when counting opens/closes).
+        // Simpler: confirm we don't have 4 unescaped pipes on the row.
+        let data_line = out.lines().find(|l| l.contains("filter")).unwrap();
+        let unescaped_pipes = data_line
+            .chars()
+            .zip(std::iter::once(' ').chain(data_line.chars()))
+            .filter(|(c, prev)| *c == '|' && *prev != '\\')
+            .count();
+        assert_eq!(unescaped_pipes, 4, "data row must have exactly 4 unescaped pipes (3 column boundaries + leading/trailing): {data_line}");
+    }
 }
 
 #[cfg(test)]
@@ -563,5 +615,29 @@ mod variables_tests {
         let out = render_variables(&layers);
         assert!(out.contains("### profile:git"), "profile subsection: {out}");
         assert!(out.contains("(none)"), "(none) for empty scope: {out}");
+    }
+
+    #[test]
+    fn variables_section_escapes_pipe_characters_in_values() {
+        let global = vset(&[("filter_cmd", "rg foo | rg bar")]);
+        let empty_subs = SubcommandSet::new();
+        let empty_aliases = AliasSet::default();
+        let project = VarSet::default();
+        let layers = layers_no_aliases(&global, &[], &project, &empty_aliases, &empty_subs);
+        let out = render_variables(&layers);
+        assert!(
+            out.contains(r"rg foo \| rg bar"),
+            "pipe in value must be escaped as \\|: {out}"
+        );
+        let data_line = out.lines().find(|l| l.contains("filter_cmd")).unwrap();
+        let unescaped_pipes = data_line
+            .chars()
+            .zip(std::iter::once(' ').chain(data_line.chars()))
+            .filter(|(c, prev)| *c == '|' && *prev != '\\')
+            .count();
+        assert_eq!(
+            unescaped_pipes, 3,
+            "data row must have exactly 3 unescaped pipes (2 column boundaries + outer): {data_line}"
+        );
     }
 }
