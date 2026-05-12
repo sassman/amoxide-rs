@@ -38,6 +38,22 @@ pub enum OriginScope {
     Project,
 }
 
+impl OriginScope {
+    /// Canonical from-column label used in `am context` output:
+    /// `global`, `profile:<name>`, or `project`.
+    ///
+    /// Kept separate from `Display` so other consumers can render `OriginScope`
+    /// differently (e.g. for human listings) without breaking the `am context`
+    /// snapshot contract.
+    pub fn as_from_label(&self) -> String {
+        match self {
+            OriginScope::Global => "global".to_string(),
+            OriginScope::Profile(name) => format!("profile:{name}"),
+            OriginScope::Project => "project".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InvalidReason {
     MissingVars(Vec<crate::vars::VarName>),
@@ -339,5 +355,19 @@ mod tests {
         match e.reason {
             InvalidReason::MissingVars(v) => assert_eq!(v[0].as_str(), "opt-flags"),
         }
+    }
+
+    #[test]
+    fn origin_scope_as_from_label_renders_canonical_strings() {
+        assert_eq!(OriginScope::Global.as_from_label(), "global");
+        assert_eq!(OriginScope::Project.as_from_label(), "project");
+        assert_eq!(
+            OriginScope::Profile("git".to_string()).as_from_label(),
+            "profile:git"
+        );
+        assert_eq!(
+            OriginScope::Profile("compile_help".to_string()).as_from_label(),
+            "profile:compile_help"
+        );
     }
 }
