@@ -112,6 +112,13 @@ impl ProjectAliases {
         }
     }
 
+    /// Merge incoming variables into project variables (union/overwrite).
+    pub fn merge_vars(&mut self, incoming: crate::vars::VarSet) {
+        for (name, value) in incoming.iter() {
+            self.vars.insert(name.clone(), value.clone());
+        }
+    }
+
     pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
         let key: AliasName = name.into();
         let alias = if raw {

@@ -791,14 +791,24 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         }
         Message::Import(payload) => {
             let mut effects = Vec::new();
-            if let Some(aliases) = payload.global_aliases {
+            let mut config_dirty = false;
+            if let Some(aliases) = payload.global.aliases {
                 model.config.merge_aliases(aliases);
-                effects.push(Effect::SaveConfig);
+                config_dirty = true;
             }
-            if let Some(subcommands) = payload.global_subcommands {
+            if let Some(subcommands) = payload.global.subcommands {
                 for (key, longs) in subcommands {
                     model.config.subcommands.as_mut().insert(key, longs);
                 }
+                config_dirty = true;
+            }
+            if let Some(vars) = payload.global.vars {
+                for (name, value) in vars.iter() {
+                    model.config.vars.insert(name.clone(), value.clone());
+                }
+                config_dirty = true;
+            }
+            if config_dirty {
                 effects.push(Effect::SaveConfig);
             }
             for profile in payload.profiles {
@@ -807,7 +817,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     effects.push(Effect::SaveProfiles);
                 }
             }
-            // local_aliases and local_subcommands are saved by the CLI layer (needs file path)
+            // local bundle is saved by the CLI layer (needs file path)
             Ok(UpdateResult::with_effects(effects))
         }
         Message::Trust => {

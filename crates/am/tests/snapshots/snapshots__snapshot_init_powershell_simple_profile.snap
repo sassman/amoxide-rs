@@ -79,6 +79,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new alias')
             [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove an alias')
             [System.Management.Automation.CompletionResult]::new('ls', 'ls', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
+            [System.Management.Automation.CompletionResult]::new('la', 'la', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all active profiles and project aliases')
             [System.Management.Automation.CompletionResult]::new('status', 'status', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
             [System.Management.Automation.CompletionResult]::new('profile', 'profile', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [System.Management.Automation.CompletionResult]::new('var', 'var', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
@@ -127,6 +128,13 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;ls' {
             [System.Management.Automation.CompletionResult]::new('-u', '-u', [System.Management.Automation.CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
             [System.Management.Automation.CompletionResult]::new('--used', '--used', [System.Management.Automation.CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
+            [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
+            [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            [System.Management.Automation.CompletionResult]::new('--version', '--version', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;la' {
             [System.Management.Automation.CompletionResult]::new('-h', '-h', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('--help', '--help', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print help')
             [System.Management.Automation.CompletionResult]::new('-V', '-V ', [System.Management.Automation.CompletionResultType]::ParameterName, 'Print version')
@@ -420,6 +428,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [System.Management.Automation.CompletionResult]::new('add', 'add', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Add a new alias')
             [System.Management.Automation.CompletionResult]::new('remove', 'remove', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Remove an alias')
             [System.Management.Automation.CompletionResult]::new('ls', 'ls', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
+            [System.Management.Automation.CompletionResult]::new('la', 'la', [System.Management.Automation.CompletionResultType]::ParameterValue, 'List all active profiles and project aliases')
             [System.Management.Automation.CompletionResult]::new('status', 'status', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
             [System.Management.Automation.CompletionResult]::new('profile', 'profile', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [System.Management.Automation.CompletionResult]::new('var', 'var', [System.Management.Automation.CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
@@ -443,6 +452,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;ls' {
+            break
+        }
+        'am;help;la' {
             break
         }
         'am;help;status' {

@@ -42,7 +42,8 @@ pub enum Commands {
         #[arg(short, long, default_value_t = false)]
         used: bool,
     },
-
+    /// List all active profiles and project aliases
+    La,
     /// Check if the shell is set up correctly
     Status,
 

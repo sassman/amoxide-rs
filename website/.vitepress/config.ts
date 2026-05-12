@@ -204,6 +204,7 @@ export default defineConfig({
                 { text: 'Profiles', link: '/usage/profiles' },
                 { text: 'Project Aliases', link: '/usage/project-aliases' },
                 { text: 'Subcommand Aliases', link: '/usage/subcommand-aliases' },
+                { text: 'Variables', link: '/usage/variables' },
                 { text: 'Sharing', link: '/usage/sharing' },
               ],
             },

@@ -144,6 +144,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Ls { used } => Message::ListProfiles { used: *used },
+        Commands::La => Message::ListProfiles { used: true },
         Commands::Status => {
             println!("{}", amoxide::status::run_status());
             return Ok(());
@@ -291,8 +292,11 @@ fn main() -> anyhow::Result<()> {
 
             // Check for suspicious characters (reuse from exchange)
             let export = ExportAll {
-                local_aliases: project.aliases.clone(),
-                local_subcommands: project.subcommands.clone(),
+                local: amoxide::ScopeBundle {
+                    aliases: project.aliases.clone(),
+                    subcommands: project.subcommands.clone(),
+                    vars: project.vars.clone(),
+                },
                 ..Default::default()
             };
             let findings = scan_suspicious(&export);

@@ -28,6 +28,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove an alias')
             [CompletionResult]::new('ls', 'ls', [CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
+            [CompletionResult]::new('la', 'la', [CompletionResultType]::ParameterValue, 'List all active profiles and project aliases')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [CompletionResult]::new('var', 'var', [CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
@@ -76,6 +77,13 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;ls' {
             [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
             [CompletionResult]::new('--used', '--used', [CompletionResultType]::ParameterName, 'Show only active profiles and loaded project aliases')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
+            break
+        }
+        'am;la' {
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -369,6 +377,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('add', 'add', [CompletionResultType]::ParameterValue, 'Add a new alias')
             [CompletionResult]::new('remove', 'remove', [CompletionResultType]::ParameterValue, 'Remove an alias')
             [CompletionResult]::new('ls', 'ls', [CompletionResultType]::ParameterValue, 'List all profiles and project aliases')
+            [CompletionResult]::new('la', 'la', [CompletionResultType]::ParameterValue, 'List all active profiles and project aliases')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Check if the shell is set up correctly')
             [CompletionResult]::new('profile', 'profile', [CompletionResultType]::ParameterValue, 'Manage profiles (defaults to listing when no subcommand given)')
             [CompletionResult]::new('var', 'var', [CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
@@ -392,6 +401,9 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;help;ls' {
+            break
+        }
+        'am;help;la' {
             break
         }
         'am;help;status' {

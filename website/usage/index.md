@@ -37,4 +37,5 @@ All three layers also support **subcommand aliases** — short forms for program
 - [Profiles](/usage/profiles) — managing named alias groups
 - [Project Aliases](/usage/project-aliases) — directory-scoped `.aliases` files
 - [Subcommand Aliases](/usage/subcommand-aliases) — short forms for subcommand-based tools
+- [Variables](/usage/variables) — named placeholders shared across aliases <VersionBadge v="0.9.0" />
 - [Sharing](/usage/sharing) — export, import, and share with others

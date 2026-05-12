@@ -296,6 +296,15 @@ impl AppModel {
         self.save_project_with(|project| project.remove_subcommand(key))
     }
 
+    /// Merge variables into project vars and save. Bulk-import companion to
+    /// `save_project_aliases`.
+    pub fn save_project_vars(&mut self, vars: crate::vars::VarSet) -> crate::Result<()> {
+        self.save_project_with(|project| {
+            project.merge_vars(vars);
+            Ok(())
+        })
+    }
+
     pub fn save_project_vars_set(&mut self, name: &str, value: &str) -> crate::Result<()> {
         let parsed = crate::vars::VarName::parse(name).map_err(|e| anyhow::anyhow!("{e}"))?;
         self.save_project_with(|project| {

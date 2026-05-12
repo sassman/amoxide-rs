@@ -72,6 +72,14 @@ _arguments "${_arguments_options[@]}" : \
 '--version[Print version]' \
 && ret=0
 ;;
+(la)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+&& ret=0
+;;
 (status)
 _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
@@ -452,6 +460,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(la)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (status)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -579,6 +591,7 @@ _am_commands() {
 'add:Add a new alias' \
 'remove:Remove an alias' \
 'ls:List all profiles and project aliases' \
+'la:List all active profiles and project aliases' \
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
@@ -612,6 +625,7 @@ _am__subcmd__help_commands() {
 'add:Add a new alias' \
 'remove:Remove an alias' \
 'ls:List all profiles and project aliases' \
+'la:List all active profiles and project aliases' \
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
@@ -653,6 +667,11 @@ _am__subcmd__help__subcmd__import_commands() {
 _am__subcmd__help__subcmd__init_commands() {
     local commands; commands=()
     _describe -t commands 'am help init commands' commands "$@"
+}
+(( $+functions[_am__subcmd__help__subcmd__la_commands] )) ||
+_am__subcmd__help__subcmd__la_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help la commands' commands "$@"
 }
 (( $+functions[_am__subcmd__help__subcmd__ls_commands] )) ||
 _am__subcmd__help__subcmd__ls_commands() {
@@ -773,6 +792,11 @@ _am__subcmd__import_commands() {
 _am__subcmd__init_commands() {
     local commands; commands=()
     _describe -t commands 'am init commands' commands "$@"
+}
+(( $+functions[_am__subcmd__la_commands] )) ||
+_am__subcmd__la_commands() {
+    local commands; commands=()
+    _describe -t commands 'am la commands' commands "$@"
 }
 (( $+functions[_am__subcmd__ls_commands] )) ||
 _am__subcmd__ls_commands() {

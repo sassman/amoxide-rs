@@ -141,6 +141,15 @@ impl ProfileConfig {
             for (name, alias) in profile.aliases.iter() {
                 existing.aliases.insert(name.clone(), alias.clone());
             }
+            for (key, longs) in &profile.subcommands {
+                existing
+                    .subcommands
+                    .as_mut()
+                    .insert(key.clone(), longs.clone());
+            }
+            for (name, value) in profile.vars.iter() {
+                existing.vars.insert(name.clone(), value.clone());
+            }
         } else {
             self.profiles.push(profile);
             self.profiles.sort();

@@ -497,15 +497,22 @@ fn snapshot_export_single_profile() {
 
 #[test]
 fn snapshot_export_all() {
+    use amoxide::exchange::ScopeBundle;
     let export = ExportAll {
-        global_aliases: aliases(&[("ll", "ls -lha")]),
+        global: ScopeBundle {
+            aliases: aliases(&[("ll", "ls -lha")]),
+            ..Default::default()
+        },
         profiles: vec![amoxide::Profile {
             name: "git".into(),
             aliases: aliases(&[("gs", "git status")]),
             subcommands: Default::default(),
             vars: Default::default(),
         }],
-        local_aliases: aliases(&[("t", "cargo test")]),
+        local: ScopeBundle {
+            aliases: aliases(&[("t", "cargo test")]),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let output = toml::to_string(&export).unwrap();
@@ -534,40 +541,49 @@ fn test_export_import_roundtrip_profile() {
         .clone()]);
     let exported = toml::to_string(&wrapper).unwrap();
     let parsed = parse_import(&exported).unwrap();
-    assert_eq!(parsed.profiles.len(), 1);
-    assert_eq!(parsed.profiles[0].name, "git");
-    assert_eq!(parsed.profiles[0].aliases.len(), 2);
+    assert_eq!(parsed.export.profiles.len(), 1);
+    assert_eq!(parsed.export.profiles[0].name, "git");
+    assert_eq!(parsed.export.profiles[0].aliases.len(), 2);
 }
 
 #[test]
 fn test_export_import_roundtrip_all() {
-    use amoxide::exchange::{parse_import, ExportAll};
+    use amoxide::exchange::{parse_import, ExportAll, ScopeBundle};
 
     let export = ExportAll {
-        global_aliases: aliases(&[("ll", "ls -lha")]),
+        global: ScopeBundle {
+            aliases: aliases(&[("ll", "ls -lha")]),
+            ..Default::default()
+        },
         profiles: vec![amoxide::Profile {
             name: "git".into(),
             aliases: aliases(&[("gs", "git status")]),
             subcommands: Default::default(),
             vars: Default::default(),
         }],
-        local_aliases: aliases(&[("t", "cargo test")]),
+        local: ScopeBundle {
+            aliases: aliases(&[("t", "cargo test")]),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     let exported = toml::to_string(&export).unwrap();
     let parsed = parse_import(&exported).unwrap();
-    assert_eq!(parsed.global_aliases.len(), 1);
-    assert_eq!(parsed.profiles.len(), 1);
-    assert_eq!(parsed.local_aliases.len(), 1);
+    assert_eq!(parsed.export.global.aliases.len(), 1);
+    assert_eq!(parsed.export.profiles.len(), 1);
+    assert_eq!(parsed.export.local.aliases.len(), 1);
 }
 
 #[test]
 fn test_base64_export_import_roundtrip() {
-    use amoxide::exchange::{base64_decode, base64_encode, parse_import, ExportAll};
+    use amoxide::exchange::{base64_decode, base64_encode, parse_import, ExportAll, ScopeBundle};
 
     let export = ExportAll {
-        global_aliases: aliases(&[("ll", "ls -lha")]),
+        global: ScopeBundle {
+            aliases: aliases(&[("ll", "ls -lha")]),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -575,7 +591,7 @@ fn test_base64_export_import_roundtrip() {
     let encoded = base64_encode(&toml_str);
     let decoded = base64_decode(&encoded).unwrap();
     let parsed = parse_import(&decoded).unwrap();
-    assert_eq!(parsed.global_aliases.len(), 1);
+    assert_eq!(parsed.export.global.aliases.len(), 1);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -585,7 +601,7 @@ fn test_base64_export_import_roundtrip() {
 #[test]
 fn test_import_payload_through_update() {
     use amoxide::config::Config;
-    use amoxide::exchange::ImportPayload;
+    use amoxide::exchange::{ImportPayload, ScopeBundlePayload};
     use amoxide::update::{update, AppModel};
 
     let config = Config::default();
@@ -599,7 +615,10 @@ fn test_import_payload_through_update() {
     let mut model = AppModel::new(config, profile_config);
 
     let payload = ImportPayload {
-        global_aliases: Some(aliases(&[("ll", "ls -lha")])),
+        global: ScopeBundlePayload {
+            aliases: Some(aliases(&[("ll", "ls -lha")])),
+            ..Default::default()
+        },
         profiles: vec![amoxide::Profile {
             name: "git".into(),
             aliases: aliases(&[("gp", "git push")]),
@@ -622,7 +641,7 @@ fn test_import_payload_through_update() {
 fn test_import_payload_global_only_no_save_profiles() {
     use amoxide::config::Config;
     use amoxide::effects::Effect;
-    use amoxide::exchange::ImportPayload;
+    use amoxide::exchange::{ImportPayload, ScopeBundlePayload};
     use amoxide::update::{update, AppModel};
 
     let config = Config::default();
@@ -634,7 +653,10 @@ fn test_import_payload_global_only_no_save_profiles() {
     let mut model = AppModel::new(config, profile_config);
 
     let payload = ImportPayload {
-        global_aliases: Some(aliases(&[("ll", "ls -lha")])),
+        global: ScopeBundlePayload {
+            aliases: Some(aliases(&[("ll", "ls -lha")])),
+            ..Default::default()
+        },
         ..Default::default()
     };
 

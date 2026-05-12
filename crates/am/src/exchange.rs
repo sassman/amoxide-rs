@@ -4,29 +4,63 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
 use crate::subcommand::SubcommandSet;
+use crate::vars::VarSet;
 use crate::{AliasSet, Profile, ProjectAliases};
 
+/// Current export-file format version. Written into `[meta]` by every export.
+pub const EXPORT_FORMAT_VERSION: u32 = 2;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Meta {
+    pub version: u32,
+}
+
+impl Default for Meta {
+    fn default() -> Self {
+        Self {
+            version: EXPORT_FORMAT_VERSION,
+        }
+    }
+}
+
+/// One scope's full content: aliases, subcommand aliases, and variables.
+/// Used at both `[global]` and `[local]` in the export TOML, and as a
+/// granular payload inside [`ImportPayload`].
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ScopeBundle {
+    #[serde(default, skip_serializing_if = "AliasSet::is_empty")]
+    pub aliases: AliasSet,
+    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
+    pub subcommands: SubcommandSet,
+    #[serde(default, skip_serializing_if = "VarSet::is_empty")]
+    pub vars: VarSet,
+}
+
+impl ScopeBundle {
+    pub fn is_empty(&self) -> bool {
+        self.aliases.is_empty() && self.subcommands.is_empty() && self.vars.is_empty()
+    }
+}
+
+/// Canonical export bundle (v2 format).
+///
+/// Serialized as TOML with a `[meta]` block carrying the format version,
+/// followed by `[global.*]`, `[[profiles]]`, and `[local.*]` sections.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ExportAll {
-    #[serde(default, skip_serializing_if = "AliasSet::is_empty")]
-    pub global_aliases: AliasSet,
-    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
-    pub global_subcommands: SubcommandSet,
+    #[serde(default)]
+    pub meta: Meta,
+    #[serde(default, skip_serializing_if = "ScopeBundle::is_empty")]
+    pub global: ScopeBundle,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub profiles: Vec<Profile>,
-    #[serde(default, skip_serializing_if = "AliasSet::is_empty")]
-    pub local_aliases: AliasSet,
-    #[serde(default, skip_serializing_if = "SubcommandSet::is_empty")]
-    pub local_subcommands: SubcommandSet,
+    #[serde(default, skip_serializing_if = "ScopeBundle::is_empty")]
+    pub local: ScopeBundle,
 }
 
 impl ExportAll {
     pub fn is_empty(&self) -> bool {
-        self.global_aliases.is_empty()
-            && self.global_subcommands.is_empty()
-            && self.profiles.is_empty()
-            && self.local_aliases.is_empty()
-            && self.local_subcommands.is_empty()
+        self.global.is_empty() && self.profiles.is_empty() && self.local.is_empty()
     }
 
     /// Flatten all aliases from every scope into one AliasSet.
@@ -34,7 +68,7 @@ impl ExportAll {
     /// Duplicate keys are silently overwritten by higher-priority scopes.
     pub fn flatten(&self) -> AliasSet {
         let mut result = AliasSet::default();
-        for (name, alias) in self.global_aliases.iter() {
+        for (name, alias) in self.global.aliases.iter() {
             result.insert(name.clone(), alias.clone());
         }
         for profile in &self.profiles {
@@ -42,7 +76,7 @@ impl ExportAll {
                 result.insert(name.clone(), alias.clone());
             }
         }
-        for (name, alias) in self.local_aliases.iter() {
+        for (name, alias) in self.local.aliases.iter() {
             result.insert(name.clone(), alias.clone());
         }
         result
@@ -53,7 +87,7 @@ impl ExportAll {
     /// Duplicate keys are silently overwritten by higher-priority scopes.
     pub fn flatten_subcommands(&self) -> SubcommandSet {
         let mut result = SubcommandSet::new();
-        for (k, v) in &self.global_subcommands {
+        for (k, v) in &self.global.subcommands {
             result.as_mut().insert(k.clone(), v.clone());
         }
         for profile in &self.profiles {
@@ -61,20 +95,113 @@ impl ExportAll {
                 result.as_mut().insert(k.clone(), v.clone());
             }
         }
-        for (k, v) in &self.local_subcommands {
+        for (k, v) in &self.local.subcommands {
             result.as_mut().insert(k.clone(), v.clone());
+        }
+        result
+    }
+
+    /// Flatten all variables from every scope into one VarSet.
+    /// Precedence: local > profiles (last profile wins) > global.
+    pub fn flatten_vars(&self) -> VarSet {
+        let mut result = VarSet::default();
+        for (name, value) in self.global.vars.iter() {
+            result.insert(name.clone(), value.clone());
+        }
+        for profile in &self.profiles {
+            for (name, value) in profile.vars.iter() {
+                result.insert(name.clone(), value.clone());
+            }
+        }
+        for (name, value) in self.local.vars.iter() {
+            result.insert(name.clone(), value.clone());
         }
         result
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// Legacy v1 format (amoxide < 0.9.0)
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Legacy export bundle, used by amoxide releases before 0.9.0.
+/// Deserialize only — never written. Variables are not part of this
+/// format at any scope (profile vars were stripped on import in older
+/// releases, so legacy exports cannot carry them either).
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct ExportAllV1 {
+    #[serde(default)]
+    pub global_aliases: AliasSet,
+    #[serde(default)]
+    pub global_subcommands: SubcommandSet,
+    #[serde(default)]
+    pub profiles: Vec<Profile>,
+    #[serde(default)]
+    pub local_aliases: AliasSet,
+    #[serde(default)]
+    pub local_subcommands: SubcommandSet,
+}
+
+impl ExportAllV1 {
+    fn is_empty(&self) -> bool {
+        self.global_aliases.is_empty()
+            && self.global_subcommands.is_empty()
+            && self.profiles.is_empty()
+            && self.local_aliases.is_empty()
+            && self.local_subcommands.is_empty()
+    }
+
+    /// Lift the legacy shape into the canonical v2 representation.
+    ///
+    /// The v1 format had no `vars` table at global or local scope — those are
+    /// emitted as empty. Profile vars are preserved if the input TOML happens
+    /// to carry them (the `Profile` struct itself has always supported the
+    /// field — pre-0.9.0 the import handler just stripped them on the way in).
+    fn into_v2(self) -> ExportAll {
+        ExportAll {
+            meta: Meta::default(),
+            global: ScopeBundle {
+                aliases: self.global_aliases,
+                subcommands: self.global_subcommands,
+                vars: VarSet::default(),
+            },
+            profiles: self.profiles,
+            local: ScopeBundle {
+                aliases: self.local_aliases,
+                subcommands: self.local_subcommands,
+                vars: VarSet::default(),
+            },
+        }
+    }
+}
+
+/// Probe for the presence of `[meta]` to disambiguate v2 from legacy on import.
+#[derive(Default, Deserialize)]
+struct MetaPresenceProbe {
+    #[serde(default)]
+    meta: Option<MetaRaw>,
+}
+
+/// Empty placeholder — only used to detect the `[meta]` table's presence.
+/// The strict `ExportAll` parse validates `meta.version` after dispatch.
+#[derive(Default, Deserialize)]
+struct MetaRaw {}
+
+/// Granular per-scope payload — `None` on any field means "do not write".
+/// Mirrors the merge-decline UX where the user accepts aliases but skips
+/// subcommands (or vice versa) within one scope.
+#[derive(Debug, Default)]
+pub struct ScopeBundlePayload {
+    pub aliases: Option<AliasSet>,
+    pub subcommands: Option<SubcommandSet>,
+    pub vars: Option<VarSet>,
+}
+
 #[derive(Debug, Default)]
 pub struct ImportPayload {
-    pub global_aliases: Option<AliasSet>,
-    pub global_subcommands: Option<SubcommandSet>,
+    pub global: ScopeBundlePayload,
     pub profiles: Vec<Profile>,
-    pub local_aliases: Option<AliasSet>,
-    pub local_subcommands: Option<SubcommandSet>,
+    pub local: ScopeBundlePayload,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -92,6 +219,47 @@ pub struct SubcommandConflict {
     pub key: String,
     pub current: Vec<String>,
     pub incoming: Vec<String>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Var merge
+// ═══════════════════════════════════════════════════════════════════════
+
+#[derive(Debug)]
+pub struct VarMergeResult {
+    pub new_vars: VarSet,
+    pub conflicts: Vec<VarConflict>,
+}
+
+#[derive(Debug)]
+pub struct VarConflict {
+    pub name: crate::vars::VarName,
+    pub current: String,
+    pub incoming: String,
+}
+
+/// Compare `current` vars against `incoming`, separating new names from conflicts.
+/// Identical entries (same name, same value) are silently skipped.
+pub fn var_merge_check(current: &VarSet, incoming: &VarSet) -> VarMergeResult {
+    let mut new_vars = VarSet::default();
+    let mut conflicts = Vec::new();
+    for (name, incoming_value) in incoming.iter() {
+        match current.get(name) {
+            None => {
+                new_vars.insert(name.clone(), incoming_value.clone());
+            }
+            Some(existing_value) => {
+                if existing_value != incoming_value {
+                    conflicts.push(VarConflict {
+                        name: name.clone(),
+                        current: existing_value.clone(),
+                        incoming: incoming_value.clone(),
+                    });
+                }
+            }
+        }
+    }
+    VarMergeResult { new_vars, conflicts }
 }
 
 /// Compare `current` subcommands against `incoming`, separating new keys from conflicts.
@@ -126,19 +294,74 @@ pub fn subcommand_merge_check(
     }
 }
 
-/// Parse TOML input into ExportAll, with fallback for raw `.aliases` files.
-pub fn parse_import(input: &str) -> anyhow::Result<ExportAll> {
-    let export_all: ExportAll = toml::from_str(input)?;
-    if !export_all.is_empty() {
-        return Ok(export_all);
+/// Outcome of parsing — distinguishes the canonical format from legacy
+/// fallbacks so callers can render a one-line note when older exports
+/// flow through.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParseSource {
+    /// Current v2 format (with `[meta] version = 2`).
+    V2,
+    /// Legacy bundle from amoxide < 0.9.0 (no `[meta]` block).
+    LegacyV1,
+    /// Raw `.aliases` file dropped in as the import source.
+    RawAliasesFile,
+}
+
+#[derive(Debug)]
+pub struct ParsedImport {
+    pub export: ExportAll,
+    pub source: ParseSource,
+}
+
+/// Parse TOML input into [`ExportAll`].
+///
+/// Dispatch order:
+/// 1. If `[meta]` is present, require `version = 2` and parse strictly as v2.
+/// 2. Else try the legacy v1 layout (flat `global_aliases`/`local_aliases`
+///    keys). Variables are absent at every scope after the lift.
+/// 3. Else try a raw `.aliases` file (single project-local section).
+pub fn parse_import(input: &str) -> anyhow::Result<ParsedImport> {
+    let probe: MetaPresenceProbe = toml::from_str(input).unwrap_or_default();
+
+    if probe.meta.is_some() {
+        let export: ExportAll =
+            toml::from_str(input).map_err(|e| anyhow::anyhow!("invalid v2 export: {e}"))?;
+        if export.meta.version != EXPORT_FORMAT_VERSION {
+            anyhow::bail!(
+                "unsupported export format version {} (this amoxide supports version {})",
+                export.meta.version,
+                EXPORT_FORMAT_VERSION
+            );
+        }
+        return Ok(ParsedImport {
+            export,
+            source: ParseSource::V2,
+        });
     }
 
-    // Fallback: try raw .aliases format — use if let Ok to avoid propagating TOML errors
+    if let Ok(v1) = toml::from_str::<ExportAllV1>(input) {
+        if !v1.is_empty() {
+            return Ok(ParsedImport {
+                export: v1.into_v2(),
+                source: ParseSource::LegacyV1,
+            });
+        }
+    }
+
+    // Fallback: raw .aliases — use if let Ok to avoid propagating TOML errors
     if let Ok(raw) = toml::from_str::<ProjectAliases>(input) {
-        if !raw.aliases.is_empty() {
-            return Ok(ExportAll {
-                global_aliases: raw.aliases,
-                ..Default::default()
+        if !raw.aliases.is_empty() || !raw.vars.is_empty() || !raw.subcommands.is_empty() {
+            return Ok(ParsedImport {
+                export: ExportAll {
+                    meta: Meta::default(),
+                    local: ScopeBundle {
+                        aliases: raw.aliases,
+                        subcommands: raw.subcommands,
+                        vars: raw.vars,
+                    },
+                    ..Default::default()
+                },
+                source: ParseSource::RawAliasesFile,
             });
         }
     }
@@ -174,6 +397,34 @@ pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
             output.push_str(&format!("\n    {}:\n", conflict.name.as_ref()));
             output.push_str(&format!("      - {}\n", conflict.current.command()));
             output.push_str(&format!("      + {}\n", conflict.incoming.command()));
+        }
+    }
+
+    output
+}
+
+/// Render the import summary for variables in a single scope.
+pub fn render_import_summary_vars(scope_name: &str, result: &VarMergeResult) -> String {
+    let total = result.new_vars.iter().count() + result.conflicts.len();
+    let mut output = format!("Importing variables into \"{scope_name}\" ({total} entries)\n");
+
+    if result.new_vars.iter().count() > 0 {
+        output.push_str("\n  new:\n");
+        for (name, value) in result.new_vars.iter() {
+            output.push_str(&format!("    {} \u{2192} {}\n", name.as_str(), value));
+        }
+    }
+
+    if !result.conflicts.is_empty() {
+        output.push_str(&format!(
+            "\n  {} conflict{}:\n",
+            result.conflicts.len(),
+            if result.conflicts.len() == 1 { "" } else { "s" }
+        ));
+        for conflict in &result.conflicts {
+            output.push_str(&format!("\n    {}:\n", conflict.name.as_str()));
+            output.push_str(&format!("      - {}\n", conflict.current));
+            output.push_str(&format!("      + {}\n", conflict.incoming));
         }
     }
 
@@ -319,6 +570,8 @@ pub enum SuspiciousField {
     ProfileName,
     SubcommandKey,
     SubcommandExpansion,
+    VarName,
+    VarValue,
 }
 
 impl fmt::Display for SuspiciousField {
@@ -329,6 +582,8 @@ impl fmt::Display for SuspiciousField {
             SuspiciousField::ProfileName => write!(f, "profile_name"),
             SuspiciousField::SubcommandKey => write!(f, "subcommand_key"),
             SuspiciousField::SubcommandExpansion => write!(f, "subcommand_expansion"),
+            SuspiciousField::VarName => write!(f, "var_name"),
+            SuspiciousField::VarValue => write!(f, "var_value"),
         }
     }
 }
@@ -423,31 +678,38 @@ impl SuspiciousAlias {
             raw_value: RawValue::new(expansion),
         }
     }
-}
 
-/// Scan a parsed export for suspicious characters in alias names, commands, profile names,
-/// and subcommand keys/expansions.
-pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
-    let mut findings = Vec::new();
-
-    for (name, alias) in parsed.global_aliases.iter() {
-        if has_suspicious_chars(name.as_ref()) {
-            findings.push(SuspiciousAlias::global_name(name.as_ref()));
-        }
-        if has_suspicious_chars(alias.command()) {
-            findings.push(SuspiciousAlias::global_command(
-                name.as_ref(),
-                alias.command(),
-            ));
+    pub fn var_name(scope: Scope, name: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::VarName,
+            raw_value: RawValue::new(name),
         }
     }
 
-    scan_subcommands(&mut findings, Scope::Global, &parsed.global_subcommands);
+    pub fn var_value(scope: Scope, name: &str, value: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::VarValue,
+            raw_value: RawValue::new(value),
+        }
+    }
+}
+
+/// Scan a parsed export for suspicious characters in alias names/commands,
+/// profile names, subcommand keys/expansions, and variable names/values.
+pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
+    let mut findings = Vec::new();
+
+    scan_bundle(&mut findings, Scope::Global, &parsed.global);
 
     for profile in &parsed.profiles {
         if has_suspicious_chars(&profile.name) {
             findings.push(SuspiciousAlias::profile_name(&profile.name));
         }
+        let scope = Scope::Profile(SanitizedName::new(&profile.name));
         for (name, alias) in profile.aliases.iter() {
             if has_suspicious_chars(name.as_ref()) {
                 findings.push(SuspiciousAlias::profile_alias_name(
@@ -463,28 +725,38 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
                 ));
             }
         }
-        scan_subcommands(
-            &mut findings,
-            Scope::Profile(SanitizedName::new(&profile.name)),
-            &profile.subcommands,
-        );
+        scan_subcommands(&mut findings, scope.clone(), &profile.subcommands);
+        scan_vars(&mut findings, scope, &profile.vars);
     }
 
-    for (name, alias) in parsed.local_aliases.iter() {
-        if has_suspicious_chars(name.as_ref()) {
-            findings.push(SuspiciousAlias::local_name(name.as_ref()));
-        }
-        if has_suspicious_chars(alias.command()) {
-            findings.push(SuspiciousAlias::local_command(
-                name.as_ref(),
-                alias.command(),
-            ));
-        }
-    }
-
-    scan_subcommands(&mut findings, Scope::Local, &parsed.local_subcommands);
+    scan_bundle(&mut findings, Scope::Local, &parsed.local);
 
     findings
+}
+
+fn scan_bundle(findings: &mut Vec<SuspiciousAlias>, scope: Scope, bundle: &ScopeBundle) {
+    let alias_finding_factory = match scope {
+        Scope::Global => (
+            SuspiciousAlias::global_name as fn(&str) -> SuspiciousAlias,
+            SuspiciousAlias::global_command as fn(&str, &str) -> SuspiciousAlias,
+        ),
+        Scope::Local => (
+            SuspiciousAlias::local_name as fn(&str) -> SuspiciousAlias,
+            SuspiciousAlias::local_command as fn(&str, &str) -> SuspiciousAlias,
+        ),
+        Scope::Profile(_) => unreachable!("profile bundles scanned via the profile loop"),
+    };
+    let (mk_name, mk_command) = alias_finding_factory;
+    for (name, alias) in bundle.aliases.iter() {
+        if has_suspicious_chars(name.as_ref()) {
+            findings.push(mk_name(name.as_ref()));
+        }
+        if has_suspicious_chars(alias.command()) {
+            findings.push(mk_command(name.as_ref(), alias.command()));
+        }
+    }
+    scan_subcommands(findings, scope.clone(), &bundle.subcommands);
+    scan_vars(findings, scope, &bundle.vars);
 }
 
 fn scan_subcommands(
@@ -504,6 +776,18 @@ fn scan_subcommands(
                     expansion,
                 ));
             }
+        }
+    }
+}
+
+fn scan_vars(findings: &mut Vec<SuspiciousAlias>, scope: Scope, vars: &VarSet) {
+    for (name, value) in vars.iter() {
+        let name_str = name.as_str();
+        if has_suspicious_chars(name_str) {
+            findings.push(SuspiciousAlias::var_name(scope.clone(), name_str));
+        }
+        if has_suspicious_chars(value) {
+            findings.push(SuspiciousAlias::var_value(scope.clone(), name_str, value));
         }
     }
 }
@@ -564,7 +848,8 @@ mod tests {
     fn test_export_all_roundtrip() {
         let mut export = ExportAll::default();
         export
-            .global_aliases
+            .global
+            .aliases
             .insert("ll".into(), TomlAlias::Command("ls -lha".into()));
         export.profiles.push(Profile {
             name: "git".into(),
@@ -577,15 +862,16 @@ mod tests {
             vars: Default::default(),
         });
         export
-            .local_aliases
+            .local
+            .aliases
             .insert("t".into(), TomlAlias::Command("cargo test".into()));
 
         let toml_str = toml::to_string(&export).unwrap();
         let parsed: ExportAll = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.global_aliases.len(), 1);
+        assert_eq!(parsed.global.aliases.len(), 1);
         assert_eq!(parsed.profiles.len(), 1);
         assert_eq!(parsed.profiles[0].name, "git");
-        assert_eq!(parsed.local_aliases.len(), 1);
+        assert_eq!(parsed.local.aliases.len(), 1);
     }
 
     #[test]
@@ -602,13 +888,16 @@ mod tests {
             vars: Default::default(),
         });
         let toml_str = toml::to_string(&export).unwrap();
-        assert!(!toml_str.contains("global_aliases"));
-        assert!(!toml_str.contains("local_aliases"));
+        assert!(!toml_str.contains("[global"));
+        assert!(!toml_str.contains("[local"));
+        assert!(toml_str.contains("[meta]"));
         assert!(toml_str.contains("[[profiles]]"));
     }
 
     #[test]
-    fn test_parse_import_export_all_format() {
+    fn test_parse_import_legacy_v1_format() {
+        // Legacy amoxide < 0.9.0 export: flat global_aliases/local_aliases
+        // without a [meta] block. Must still import.
         let input = indoc! {r#"
             [global_aliases]
             ll = "ls -lha"
@@ -619,8 +908,13 @@ mod tests {
             gs = "git status"
         "#};
         let result = parse_import(input).unwrap();
-        assert_eq!(result.global_aliases.len(), 1);
-        assert_eq!(result.profiles.len(), 1);
+        assert_eq!(result.source, ParseSource::LegacyV1);
+        assert_eq!(result.export.global.aliases.len(), 1);
+        assert_eq!(result.export.profiles.len(), 1);
+        // Vars are not part of the v1 format — empty at every scope.
+        assert!(result.export.global.vars.is_empty());
+        assert!(result.export.local.vars.is_empty());
+        assert!(result.export.profiles[0].vars.is_empty());
     }
 
     #[test]
@@ -631,12 +925,30 @@ mod tests {
             b = "cargo build"
         "#};
         let result = parse_import(input).unwrap();
-        assert_eq!(result.global_aliases.len(), 2);
-        assert!(result.profiles.is_empty());
+        assert_eq!(result.source, ParseSource::RawAliasesFile);
+        // Raw .aliases is project-local content — routed to the local scope.
+        assert_eq!(result.export.local.aliases.len(), 2);
+        assert!(result.export.profiles.is_empty());
+    }
+
+    #[test]
+    fn test_parse_import_raw_aliases_file_with_vars() {
+        let input = indoc! {r#"
+            [vars]
+            path = "/v1"
+
+            [aliases]
+            t = "cargo test"
+        "#};
+        let result = parse_import(input).unwrap();
+        assert_eq!(result.source, ParseSource::RawAliasesFile);
+        assert_eq!(result.export.local.aliases.len(), 1);
+        assert_eq!(result.export.local.vars.iter().count(), 1);
     }
 
     #[test]
     fn test_parse_import_single_profile() {
+        // No [meta] block → legacy fallback handles `[[profiles]]`-only input.
         let input = indoc! {r#"
             [[profiles]]
             name = "docker"
@@ -645,9 +957,112 @@ mod tests {
             dcu = "docker compose up -d"
         "#};
         let result = parse_import(input).unwrap();
-        assert!(result.global_aliases.is_empty());
-        assert_eq!(result.profiles.len(), 1);
-        assert_eq!(result.profiles[0].aliases.len(), 2);
+        assert!(result.export.global.aliases.is_empty());
+        assert_eq!(result.export.profiles.len(), 1);
+        assert_eq!(result.export.profiles[0].aliases.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_import_v2_with_meta() {
+        let input = indoc! {r#"
+            [meta]
+            version = 2
+
+            [global.aliases]
+            ll = "ls -lha"
+
+            [global.vars]
+            editor = "hx"
+
+            [[profiles]]
+            name = "k8s"
+
+            [profiles.aliases]
+            klogs = "kubectl -n {{ns}} logs -f {{1}}"
+
+            [profiles.vars]
+            ns = "default"
+
+            [local.aliases]
+            t = "cargo test"
+
+            [local.vars]
+            target = "x86_64-unknown-linux-musl"
+        "#};
+        let result = parse_import(input).unwrap();
+        assert_eq!(result.source, ParseSource::V2);
+        assert_eq!(result.export.meta.version, 2);
+        assert_eq!(result.export.global.aliases.len(), 1);
+        assert_eq!(result.export.global.vars.iter().count(), 1);
+        assert_eq!(result.export.profiles.len(), 1);
+        assert_eq!(result.export.profiles[0].vars.iter().count(), 1);
+        assert_eq!(result.export.local.aliases.len(), 1);
+        assert_eq!(result.export.local.vars.iter().count(), 1);
+    }
+
+    #[test]
+    fn test_parse_import_v2_unsupported_version() {
+        let input = indoc! {r#"
+            [meta]
+            version = 99
+
+            [global.aliases]
+            ll = "ls -lha"
+        "#};
+        let err = parse_import(input).unwrap_err().to_string();
+        assert!(err.contains("unsupported export format version"));
+        assert!(err.contains("99"));
+    }
+
+    #[test]
+    fn test_parse_import_v2_malformed_meta_is_error() {
+        // [meta] present but malformed should error, not fall through to v1.
+        let input = indoc! {r#"
+            [meta]
+            version = "not a number"
+        "#};
+        let result = parse_import(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_export_v2_round_trip_with_vars() {
+        let mut export = ExportAll::default();
+        export
+            .global
+            .aliases
+            .insert("ll".into(), TomlAlias::Command("ls -lha".into()));
+        export.global.vars.insert(
+            crate::vars::VarName::parse("editor").unwrap(),
+            "hx".into(),
+        );
+        export.profiles.push(Profile {
+            name: "k8s".into(),
+            aliases: AliasSet::default(),
+            subcommands: Default::default(),
+            vars: {
+                let mut v = VarSet::default();
+                v.insert(
+                    crate::vars::VarName::parse("ns").unwrap(),
+                    "default".into(),
+                );
+                v
+            },
+        });
+        export.local.vars.insert(
+            crate::vars::VarName::parse("target").unwrap(),
+            "x86_64-unknown-linux-musl".into(),
+        );
+
+        let toml_str = toml::to_string(&export).unwrap();
+        assert!(toml_str.contains("[meta]"));
+        assert!(toml_str.contains("version = 2"));
+
+        let parsed = parse_import(&toml_str).unwrap();
+        assert_eq!(parsed.source, ParseSource::V2);
+        assert_eq!(parsed.export.global.vars.iter().count(), 1);
+        assert_eq!(parsed.export.profiles[0].vars.iter().count(), 1);
+        assert_eq!(parsed.export.local.vars.iter().count(), 1);
     }
 
     #[test]
@@ -667,7 +1082,8 @@ mod tests {
     fn test_flatten_merges_all_sections() {
         let mut export = ExportAll::default();
         export
-            .global_aliases
+            .global
+            .aliases
             .insert("ll".into(), TomlAlias::Command("ls -lha".into()));
         export.profiles.push(Profile {
             name: "git".into(),
@@ -680,7 +1096,8 @@ mod tests {
             vars: Default::default(),
         });
         export
-            .local_aliases
+            .local
+            .aliases
             .insert("t".into(), TomlAlias::Command("cargo test".into()));
         let flat = export.flatten();
         assert_eq!(flat.len(), 3);
@@ -736,7 +1153,8 @@ mod tests {
     fn test_scan_suspicious_clean_export() {
         let mut export = ExportAll::default();
         export
-            .global_aliases
+            .global
+            .aliases
             .insert("ll".into(), TomlAlias::Command("ls -lha".into()));
         assert!(scan_suspicious(&export).is_empty());
     }
@@ -744,7 +1162,7 @@ mod tests {
     #[test]
     fn test_scan_suspicious_detects_command_escape() {
         let mut export = ExportAll::default();
-        export.global_aliases.insert(
+        export.global.aliases.insert(
             "evil".into(),
             TomlAlias::Command("echo \x1B[31mhacked\x1B[0m".into()),
         );
@@ -759,7 +1177,8 @@ mod tests {
     fn test_scan_suspicious_detects_name_escape() {
         let mut export = ExportAll::default();
         export
-            .global_aliases
+            .global
+            .aliases
             .insert("foo\x07bar".into(), TomlAlias::Command("ls".into()));
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
@@ -810,7 +1229,8 @@ mod tests {
     fn test_scan_suspicious_local_aliases() {
         let mut export = ExportAll::default();
         export
-            .local_aliases
+            .local
+            .aliases
             .insert("test".into(), TomlAlias::Command("rm -rf / \x07".into()));
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
@@ -878,7 +1298,8 @@ mod tests {
     fn test_flatten_subcommands_merges_all_scopes() {
         let mut export = ExportAll::default();
         export
-            .global_subcommands
+            .global
+            .subcommands
             .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         export.profiles.push(Profile {
@@ -892,7 +1313,8 @@ mod tests {
             vars: Default::default(),
         });
         export
-            .local_subcommands
+            .local
+            .subcommands
             .as_mut()
             .insert("git:psh".into(), vec!["push".into()]);
 
@@ -907,10 +1329,11 @@ mod tests {
     fn test_flatten_subcommands_local_wins_over_global() {
         let mut export = ExportAll::default();
         export
-            .global_subcommands
+            .global
+            .subcommands
             .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
-        export.local_subcommands.as_mut().insert(
+        export.local.subcommands.as_mut().insert(
             "jj:ab".into(),
             vec!["abandon", "!"].into_iter().map(String::from).collect(),
         );
@@ -1048,7 +1471,8 @@ mod tests {
     fn test_scan_suspicious_subcommand_key() {
         let mut export = ExportAll::default();
         export
-            .global_subcommands
+            .global
+            .subcommands
             .as_mut()
             .insert("jj:\x1Bab".into(), vec!["abandon".into()]);
         let findings = scan_suspicious(&export);
@@ -1061,7 +1485,8 @@ mod tests {
     fn test_scan_suspicious_subcommand_expansion() {
         let mut export = ExportAll::default();
         export
-            .local_subcommands
+            .local
+            .subcommands
             .as_mut()
             .insert("jj:ab".into(), vec!["aban\x07don".into()]);
         let findings = scan_suspicious(&export);
@@ -1098,7 +1523,8 @@ mod tests {
     fn test_export_all_is_empty_false_with_global_subcommands() {
         let mut export = ExportAll::default();
         export
-            .global_subcommands
+            .global
+            .subcommands
             .as_mut()
             .insert("jj:ab".into(), vec!["abandon".into()]);
         assert!(!export.is_empty());
@@ -1108,7 +1534,8 @@ mod tests {
     fn test_export_all_is_empty_false_with_local_subcommands() {
         let mut export = ExportAll::default();
         export
-            .local_subcommands
+            .local
+            .subcommands
             .as_mut()
             .insert("git:psh".into(), vec!["push".into()]);
         assert!(!export.is_empty());
