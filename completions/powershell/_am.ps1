@@ -34,7 +34,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('var', 'var', [CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
-            [CompletionResult]::new('context', 'context', [CompletionResultType]::ParameterValue, 'Print a model-friendly snapshot of the active alias set for AI coding assistants.')
+            [CompletionResult]::new('context', 'context', [CompletionResultType]::ParameterValue, 'Print a model-friendly snapshot of the active alias set for AI coding agents.')
             [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
             [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')
@@ -282,7 +282,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             break
         }
         'am;context' {
-            [CompletionResult]::new('--setup', '--setup', [CompletionResultType]::ParameterName, 'Configure the named assistant''s session-start hook to call `am context`. Supported values: `claude`')
+            [CompletionResult]::new('--setup', '--setup', [CompletionResultType]::ParameterName, 'Configure the named agent''s session-start hook to call `am context`. Supported values: `claude`')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Expand shadowed-section into a full table and include invalid-alias diagnostics')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Expand shadowed-section into a full table and include invalid-alias diagnostics')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
@@ -406,7 +406,7 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
             [CompletionResult]::new('var', 'var', [CompletionResultType]::ParameterValue, 'Manage alias variables — substituted as `{{name}}` in alias commands')
             [CompletionResult]::new('init', 'init', [CompletionResultType]::ParameterValue, 'Print shell init code')
             [CompletionResult]::new('setup', 'setup', [CompletionResultType]::ParameterValue, 'Guided setup — adds amoxide to your shell profile')
-            [CompletionResult]::new('context', 'context', [CompletionResultType]::ParameterValue, 'Print a model-friendly snapshot of the active alias set for AI coding assistants.')
+            [CompletionResult]::new('context', 'context', [CompletionResultType]::ParameterValue, 'Print a model-friendly snapshot of the active alias set for AI coding agents.')
             [CompletionResult]::new('use', 'use', [CompletionResultType]::ParameterValue, 'Shortcut for `am profile use` — toggle one or more profiles')
             [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI for managing aliases and profiles')
             [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export aliases to stdout as TOML')

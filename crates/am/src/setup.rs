@@ -4,19 +4,19 @@ use std::path::PathBuf;
 use crate::prompt::{ask_user, Answer};
 use crate::shell::Shell;
 
-/// Supported AI coding assistants for `am context --setup <assistant>`.
+/// Supported AI coding agents for `am context --setup <agent>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Assistant {
     Claude,
 }
 
 impl Assistant {
-    /// Parse an assistant name from a CLI flag value.
+    /// Parse an agent name from a CLI flag value.
     pub fn parse(s: &str) -> anyhow::Result<Self> {
         match s {
             "claude" => Ok(Self::Claude),
             other => Err(anyhow::anyhow!(
-                "unsupported assistant '{other}'. supported: claude"
+                "unsupported agent '{other}'. supported: claude"
             )),
         }
     }
@@ -404,10 +404,7 @@ mod tests {
     #[test]
     fn assistant_parse_rejects_unknown() {
         let err = Assistant::parse("openai").unwrap_err();
-        assert!(
-            err.to_string().contains("unsupported assistant"),
-            "got: {err}"
-        );
+        assert!(err.to_string().contains("unsupported agent"), "got: {err}");
         assert!(
             err.to_string().contains("openai"),
             "error should mention input: {err}"

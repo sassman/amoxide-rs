@@ -91,9 +91,9 @@ pub enum Commands {
     /// Guided setup — adds amoxide to your shell profile
     Setup { shell: Shell },
 
-    /// Print a model-friendly snapshot of the active alias set for AI coding assistants.
+    /// Print a model-friendly snapshot of the active alias set for AI coding agents.
     ///
-    /// Designed to be wired into a session-start hook so the assistant can expand
+    /// Designed to be wired into a session-start hook so the agent can expand
     /// short forms (e.g. `git cm`, `gst`) into the canonical commands before running.
     ///
     /// Use `--setup claude` to automatically wire this into ~/.claude/settings.json.
@@ -103,9 +103,9 @@ pub enum Commands {
         #[arg(short, long, conflicts_with = "setup")]
         verbose: bool,
 
-        /// Configure the named assistant's session-start hook to call `am context`.
+        /// Configure the named agent's session-start hook to call `am context`.
         /// Supported values: `claude`.
-        #[arg(long, value_name = "ASSISTANT")]
+        #[arg(long, value_name = "AGENT")]
         setup: Option<String>,
     },
 

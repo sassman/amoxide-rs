@@ -90,7 +90,7 @@ complete -c am -n "__fish_am_needs_command" -f -a "profile" -d 'Manage profiles 
 complete -c am -n "__fish_am_needs_command" -f -a "var" -d 'Manage alias variables — substituted as `{{name}}` in alias commands'
 complete -c am -n "__fish_am_needs_command" -f -a "init" -d 'Print shell init code'
 complete -c am -n "__fish_am_needs_command" -f -a "setup" -d 'Guided setup — adds amoxide to your shell profile'
-complete -c am -n "__fish_am_needs_command" -f -a "context" -d 'Print a model-friendly snapshot of the active alias set for AI coding assistants.'
+complete -c am -n "__fish_am_needs_command" -f -a "context" -d 'Print a model-friendly snapshot of the active alias set for AI coding agents.'
 complete -c am -n "__fish_am_needs_command" -f -a "use" -d 'Shortcut for `am profile use` — toggle one or more profiles'
 complete -c am -n "__fish_am_needs_command" -f -a "tui" -d 'Launch the interactive TUI for managing aliases and profiles'
 complete -c am -n "__fish_am_needs_command" -f -a "export" -d 'Export aliases to stdout as TOML'
@@ -183,7 +183,7 @@ complete -c am -n "__fish_am_using_subcommand init" -s h -l help -d 'Print help 
 complete -c am -n "__fish_am_using_subcommand init" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand setup" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand setup" -s V -l version -d 'Print version'
-complete -c am -n "__fish_am_using_subcommand context" -l setup -d 'Configure the named assistant\'s session-start hook to call `am context`. Supported values: `claude`' -r
+complete -c am -n "__fish_am_using_subcommand context" -l setup -d 'Configure the named agent\'s session-start hook to call `am context`. Supported values: `claude`' -r
 complete -c am -n "__fish_am_using_subcommand context" -s v -l verbose -d 'Expand shadowed-section into a full table and include invalid-alias diagnostics'
 complete -c am -n "__fish_am_using_subcommand context" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c am -n "__fish_am_using_subcommand context" -s V -l version -d 'Print version'
@@ -236,7 +236,7 @@ complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcomma
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "var" -d 'Manage alias variables — substituted as `{{name}}` in alias commands'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "init" -d 'Print shell init code'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "setup" -d 'Guided setup — adds amoxide to your shell profile'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "context" -d 'Print a model-friendly snapshot of the active alias set for AI coding assistants.'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "context" -d 'Print a model-friendly snapshot of the active alias set for AI coding agents.'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "use" -d 'Shortcut for `am profile use` — toggle one or more profiles'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "tui" -d 'Launch the interactive TUI for managing aliases and profiles'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup context use tui export import share trust untrust sync help" -f -a "export" -d 'Export aliases to stdout as TOML'

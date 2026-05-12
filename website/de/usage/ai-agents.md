@@ -1,15 +1,15 @@
-# KI-Assistenten
+# KI-Agenten
 
-Deine Aliase leben in Deiner interaktiven Shell. KI-Coding-Assistenten —
+Deine Aliase leben in Deiner interaktiven Shell. KI-Coding-Agenten —
 Claude Code, Codex, Cursor — führen Kommandos in nicht-interaktiven
 Subshells aus, die Dein Shell-Init nicht laden. Wenn Du also `ct = cargo
-test` in einem `rust`-Profil definiert hast und den Assistenten bittest
+test` in einem `rust`-Profil definiert hast und den Agenten bittest
 „lass die Tests laufen", probiert er `ct` und bekommt `command not
 found`.
 
 `am context` gibt Dein aktives Alias-Set als Markdown aus, das der
-Assistent beim Sitzungsstart einlesen kann. Einmal verdrahtet,
-expandiert der Assistent `ct` zu `cargo test`, bevor er es ausführt.
+Agent beim Sitzungsstart einlesen kann. Einmal verdrahtet,
+expandiert der Agent `ct` zu `cargo test`, bevor er es ausführt.
 
 ## Installation
 
@@ -21,21 +21,21 @@ Idempotent. Legt `~/.claude/settings.json` an, falls nicht vorhanden,
 oder fügt sich in eine vorhandene Datei ein, ohne andere Schlüssel
 anzutasten. Mehrfach ausführen ist sicher.
 
-Für andere Assistenten `am context` manuell aus deren
+Für andere Agenten `am context` manuell aus deren
 Session-Start-Hook aufrufen — siehe die jeweilige Hook-Dokumentation.
 
 ## Was Du in einer Claude-Code-Sitzung siehst
 
 Öffne eine neue Claude-Code-Sitzung in Deinem Projektverzeichnis. Der
-Assistent hat jetzt Deine aktiven Aliase — `ll`, `gs`, `ct`, alles aus
+Agent hat jetzt Deine aktiven Aliase — `ll`, `gs`, `ct`, alles aus
 aktiven Profilen, alles aus einer vertrauten `.aliases`-Datei im
 Projekt.
 
-Probier: „lass die Tests laufen". Der Assistent führt `cargo test` aus
+Probier: „lass die Tests laufen". Der Agent führt `cargo test` aus
 (die kanonische Form), nicht `ct`. Genauso bei `git pl` → `git pull
 --rebase`, `gst` → `git status`.
 
-Subcommand-Aliase funktionieren auch. Der Assistent weiß, dass `git pl`
+Subcommand-Aliase funktionieren auch. Der Agent weiß, dass `git pl`
 wie ein Subcommand aussieht, aber keiner ist, und führt die Expansion
 aus.
 
@@ -43,7 +43,7 @@ aus.
 
 In einer frischen Sitzung fragen: **„welche Aliase habe ich?"**
 
-Der Assistent sollte sie direkt aus der Momentaufnahme auflisten, ohne
+Der Agent sollte sie direkt aus der Momentaufnahme auflisten, ohne
 ein Kommando auszuführen. Wenn nicht, ist der Hook nicht gefeuert —
 prüf `~/.claude/settings.json`.
 
@@ -67,7 +67,7 @@ Wenn Du das JSON lieber selbst editierst:
 ```
 
 Der Matcher `"startup|clear|compact"` ist wichtig — ohne ihn wird die
-Momentaufnahme nur beim Kaltstart injiziert, und der Assistent verliert
+Momentaufnahme nur beim Kaltstart injiziert, und der Agent verliert
 Deine Aliase beim ersten `/clear` oder `/compact`.
 
 ## Hinweise

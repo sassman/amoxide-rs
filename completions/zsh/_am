@@ -333,7 +333,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (context)
 _arguments "${_arguments_options[@]}" : \
-'--setup=[Configure the named assistant'\''s session-start hook to call \`am context\`. Supported values\: \`claude\`]:ASSISTANT:_default' \
+'--setup=[Configure the named agent'\''s session-start hook to call \`am context\`. Supported values\: \`claude\`]:AGENT:_default' \
 '(--setup)-v[Expand shadowed-section into a full table and include invalid-alias diagnostics]' \
 '(--setup)--verbose[Expand shadowed-section into a full table and include invalid-alias diagnostics]' \
 '-h[Print help (see more with '\''--help'\'')]' \
@@ -628,7 +628,7 @@ _am_commands() {
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
-'context:Print a model-friendly snapshot of the active alias set for AI coding assistants.' \
+'context:Print a model-friendly snapshot of the active alias set for AI coding agents.' \
 'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
@@ -674,7 +674,7 @@ _am__subcmd__help_commands() {
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
 'init:Print shell init code' \
 'setup:Guided setup — adds amoxide to your shell profile' \
-'context:Print a model-friendly snapshot of the active alias set for AI coding assistants.' \
+'context:Print a model-friendly snapshot of the active alias set for AI coding agents.' \
 'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
