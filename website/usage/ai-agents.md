@@ -1,4 +1,4 @@
-# AI Agents
+# AI Agents <VersionBadge v="0.9.0" />
 
 Your aliases live in your interactive shell. AI coding agents like Claude
 Code, Codex, and Cursor run commands in non-interactive subshells that

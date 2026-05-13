@@ -1,4 +1,4 @@
-# KI-Agenten
+# KI-Agenten <VersionBadge v="0.9.0" />
 
 Deine Aliase leben in Deiner interaktiven Shell. KI-Coding-Agenten wie
 Claude Code, Codex oder Cursor führen Kommandos in nicht-interaktiven
