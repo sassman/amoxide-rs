@@ -4,10 +4,14 @@ Du hast eine eigene Vorstellung, wie Tests in diesem Projekt laufen.
 Eine Vorliebe, welche Clippy-Flags Du aus Deinem Profil willst. Eigene
 Kurzformen für die Projekte und Tools, mit denen Du täglich arbeitest.
 
-Der Agent weiß nichts davon. Bis Du es ihm beibringst — in jeder
-Sitzung, in jedem Gespräch — sind „lass die Tests laufen" und „prüf
-die Lints" ein Rätselraten. Jeder Fehlversuch kostet Dich eine
-Korrektur.
+Davon erfährt der Agent nichts. Er startet eine nicht-interaktive
+Subshell, um Kommandos auszuführen; Dein Shell-Init läuft dort nie,
+also sind die Aliase, die `am init` in Deine interaktive Shell legt,
+für ihn unsichtbar.
+
+Bis Du es ihm beibringst, in jeder Sitzung, in jedem Gespräch, sind
+„lass die Tests laufen" und „prüf die Lints" ein Rätselraten. Jeder
+Fehlversuch kostet Dich eine Korrektur.
 
 `am context` bringt dem Agenten Deine aktiven Aliase beim Sitzungsstart
 bei. Einmal verdrahtet, läuft bei „lass die Tests laufen" *Dein* `cargo

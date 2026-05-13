@@ -4,9 +4,13 @@ You have a flavor for how tests run in this project. A taste for which
 clippy flags you want from your profile. Different shorthand for the
 projects and tools you use every day.
 
-The agent doesn't know any of that. Until you teach it — every session,
-every conversation — "run the tests" and "check the lints" are guesses.
-And every wrong guess costs you a correction.
+None of that reaches the agent. It spawns a non-interactive subshell to
+run commands; your shell init never runs there, so the aliases `am init`
+sets up in your interactive shell are invisible to it.
+
+Until you teach it, every session, every conversation, "run the tests"
+and "check the lints" are guesses. Every wrong guess costs you a
+correction.
 
 `am context` teaches the agent your active aliases at session start.
 Once wired up, "run the tests" runs *your* `cargo test`, in this
