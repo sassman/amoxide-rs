@@ -54,10 +54,10 @@ configurability.
 Open a new session in your project directory. The agent now sees your
 active aliases, including active profiles and trusted project aliases (`.aliases` files).
 
-For example: you have a project alias like `t → cargo test --all-features --verbose`
-Ask claude to "run the tests". Claude Code sees `t` in the context, expands it to `cargo test --all-features --verbose`, and runs that. So it knows the flavor of `cargo test` you prefer in this very project or even from a active profile, and doesn't have to guess which flags you prefer.
+For example: you have a project alias like `t → cargo test --all-features --verbose`.
+Ask Claude to "run the tests". Claude Code sees `t` in the context, expands it to `cargo test --all-features --verbose`, and runs that. So it knows the flavor of `cargo test` you prefer in this very project or even from an active profile, and doesn't have to guess which flags you prefer.
 
-Subcommand aliases work too. For example given a git profile like this:
+Subcommand aliases work too. For example, given a git profile like this:
 ```
 ├─● git (active: 2)
 │   ├─ tag → git tag {{1}} && git push o {{1}}
