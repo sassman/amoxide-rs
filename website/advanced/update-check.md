@@ -1,33 +1,33 @@
 # Update Check <VersionBadge v="0.9.0" />
 
-amoxide checks crates.io periodically for a newer release and prints a one-line nudge when one exists. The check is **non-blocking**, **cached for 24 hours**, and **fully opt-out**.
+When a newer version of amoxide lands on crates.io, `am ls` tells you the next time you list. The nudge goes to stderr, the check runs in the background, and you can turn it off.
 
 ## What you see
 
-When a newer version is available, the listing commands (`am ls`, `am la`, `am profile list`) print a single line to **stderr** after the listing:
+If you're behind, the listing commands (`am ls`, `am la`, `am profile list`) print one line on stderr after the listing:
 
 ```text
 am: 💡 a new version is available: v0.9.0 -> visit https://github.com/sassman/amoxide-rs/releases
 ```
 
-When you are already on the latest version, nothing is printed.
+If you're up to date, you see nothing.
 
 ## How it works
 
-- The first time you run a listing command, amoxide spawns a detached background process that calls crates.io. The current `am ls` output prints immediately — you wait for nothing.
-- The result is written to a local cache file under `~/.cache/amoxide/update-check.toml`.
-- Subsequent listing calls read that cache. If it's older than 24 hours, a fresh background check is kicked off and the cached result (if any) is shown in the meantime.
-- All errors (offline, DNS failure, timeout, malformed response) are swallowed silently. The listing command never fails because of the update check.
+- First time you run a listing command, amoxide spawns a detached child that hits crates.io. The listing prints right away — you don't wait for the network.
+- The result lands in `~/.cache/amoxide/update-check.toml`.
+- Next time you list, amoxide reads that file. If it's older than 24 hours, a fresh background check kicks off and the previous result (if there is one) is shown in the meantime.
+- Network errors are silent. Offline, DNS broken, crates.io down — the listing still works, the nudge just doesn't appear.
 
-Because the nudge goes to stderr, scripts that pipe `am ls` continue to work unchanged:
+The nudge is on stderr, so pipes are unaffected:
 
 ```bash
-am ls | grep my-alias    # unaffected by the nudge
+am ls | grep my-alias    # nudge stays out of the pipe
 ```
 
 ## Disabling the check
 
-You can disable the update check via **config** (once-and-done) or **environment variable** (per-invocation, ideal for CI).
+Two ways: a config flag (persistent) or an env var (one-shot, for CI).
 
 ### Config: `~/.config/amoxide/config.toml`
 
@@ -36,7 +36,7 @@ You can disable the update check via **config** (once-and-done) or **environment
 check = false
 ```
 
-When `check = false`, neither the cache read nor the background spawn happens. No network call is ever made, and no cache file is created.
+With `check = false`, no cache read, no spawn, no network call. The cache file is never created.
 
 ### Environment: `AM_NO_UPDATE_CHECK`
 
@@ -44,11 +44,11 @@ When `check = false`, neither the cache read nor the background spawn happens. N
 AM_NO_UPDATE_CHECK=1 am ls
 ```
 
-Set this to any non-empty value to skip the check for one invocation. Useful for CI environments where you neither want a network call nor a config edit.
+Any non-empty value skips the check for that one call. Handy in CI where you don't want network traffic and don't want to maintain a config.
 
 ## Privacy
 
-The check sends one HTTPS request to `https://crates.io/api/v1/crates/amoxide`. The only data leaving your machine is the crate name and the User-Agent that ureq sets. No telemetry, no identifiers, no version of your local binary is reported.
+One HTTPS GET to `https://crates.io/api/v1/crates/amoxide`. That's the whole call — crate name plus ureq's default User-Agent. Nothing identifies you, nothing tracks usage.
 
 ## See also
 

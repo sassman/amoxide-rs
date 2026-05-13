@@ -68,7 +68,7 @@ am init -f fish | source
 
 ## `config.toml` — Update-Prüfung <VersionBadge v="0.9.0" />
 
-Steuert die regelmäßige crates.io-Update-Prüfung. Siehe [Update-Prüfung](/de/advanced/update-check) für die vollständige UX-Beschreibung.
+Steuert die crates.io-Update-Prüfung. Siehe [Update-Prüfung](/de/advanced/update-check) für Details.
 
 | Schlüssel | Typ | Standard | Beschreibung |
 |-----------|-----|---------|-------------|
