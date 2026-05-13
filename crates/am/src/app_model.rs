@@ -17,7 +17,7 @@ pub struct AppModel {
     pub(crate) project_trust: Option<ProjectTrust>,
     /// Snapshot of the update-check cache loaded at boot. Read-only — the
     /// cache is refreshed by the background `__update-check` subcommand.
-    pub update_cache: Option<UpdateCache>,
+    pub(crate) update_cache: Option<UpdateCache>,
 }
 
 fn resolve_project_trust(cwd: &Path, security_config: &mut SecurityConfig) -> Option<ProjectTrust> {
