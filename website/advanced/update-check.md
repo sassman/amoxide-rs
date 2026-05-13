@@ -1,4 +1,4 @@
-# Update Check
+# Update Check <VersionBadge v="0.9.0" />
 
 amoxide checks crates.io periodically for a newer release and prints a one-line nudge when one exists. The check is **non-blocking**, **cached for 24 hours**, and **fully opt-out**.
 

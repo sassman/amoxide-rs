@@ -66,7 +66,7 @@ Um diese Einstellung zu aktivieren, bearbeite `~/.config/amoxide/config.toml` ma
 am init -f fish | source
 ```
 
-## `config.toml` — Update-Prüfung
+## `config.toml` — Update-Prüfung <VersionBadge v="0.9.0" />
 
 Steuert die regelmäßige crates.io-Update-Prüfung. Siehe [Update-Prüfung](/de/advanced/update-check) für die vollständige UX-Beschreibung.
 

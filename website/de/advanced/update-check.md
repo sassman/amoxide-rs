@@ -1,4 +1,4 @@
-# Update-Prüfung
+# Update-Prüfung <VersionBadge v="0.9.0" />
 
 amoxide prüft crates.io regelmäßig auf eine neuere Version und gibt einen einzeiligen Hinweis aus, wenn eine verfügbar ist. Die Prüfung ist **nicht blockierend**, **24 Stunden im Cache** und **vollständig abschaltbar**.
 

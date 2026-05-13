@@ -103,7 +103,7 @@ project_loading = "off"
 project_unloading = "off"
 ```
 
-## `config.toml` — Update Check
+## `config.toml` — Update Check <VersionBadge v="0.9.0" />
 
 Controls the periodic crates.io update check. See [Update Check](/advanced/update-check) for the full UX.
 

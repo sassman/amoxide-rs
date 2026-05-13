@@ -99,11 +99,12 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::RemoveLocalVar { name } => {
             model.save_project_vars_unset(name)?;
         }
-        Effect::Print(_) => {}            // caller's responsibility
-        Effect::PrintLines(_) => {}       // caller's responsibility, like Print
-        Effect::RenderSync(_) => {}       // caller's responsibility
-        Effect::PrintUpdateNudge(_) => {} // caller's responsibility (stderr)
-        Effect::SpawnUpdateCheck => {}    // caller spawns the child
+        // Rendering and process-spawning effects are the caller's responsibility.
+        Effect::Print(_)
+        | Effect::PrintLines(_)
+        | Effect::RenderSync(_)
+        | Effect::PrintUpdateNudge(_)
+        | Effect::SpawnUpdateCheck => {}
     }
     Ok(())
 }
