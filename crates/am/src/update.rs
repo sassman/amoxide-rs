@@ -2,7 +2,6 @@ pub use crate::app_model::AppModel;
 
 use crate::display::render_listing;
 use crate::effects::Effect;
-use crate::env_vars;
 use crate::init::generate_init;
 use crate::precedence::{format_change_summary, Precedence};
 use crate::project::ProjectAliases;
@@ -12,6 +11,7 @@ use crate::shell::Shell;
 use crate::shell::ShellContext;
 use crate::sync_outcome::{PathUpdate, ProjectTransition, SyncOutcome};
 use crate::trust::ProjectTrust;
+use crate::{env_vars, update_check};
 use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
 #[derive(Debug)]
@@ -497,18 +497,20 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             );
             let mut effects = vec![Effect::Print(output)];
             if update_check_enabled(model) {
-                match crate::update_check::decide_effect(
+                use crate::update_check::Decision::*;
+
+                match update_check::decide_effect(
                     model.update_cache.as_ref(),
                     env!("CARGO_PKG_VERSION"),
-                    crate::update_check::now_secs(),
+                    update_check::now_secs(),
                 ) {
-                    crate::update_check::Decision::Print(msg) => {
+                    Print(msg) => {
                         effects.push(Effect::PrintUpdateNudge(msg));
                     }
-                    crate::update_check::Decision::Spawn => {
+                    Spawn => {
                         effects.push(Effect::SpawnUpdateCheck);
                     }
-                    crate::update_check::Decision::Quiet => {}
+                    Quiet => {}
                 }
             }
             Ok(UpdateResult::with_effects(effects))
