@@ -52,21 +52,34 @@ configurability.
 ## What to expect in a Claude Code session
 
 Open a new session in your project directory. The agent now sees your
-active aliases: `ll`, `gs`, `ct`, anything in active profiles, anything
-from a trusted `.aliases` file.
+active aliases, including active profiles and trusted project aliases (`.aliases` files).
 
-Ask it to "run the tests". It runs `cargo test`, not `ct`. Same for
-`git pl` → `git pull --rebase`, `gst` → `git status`.
+For example: you have a project alias like `t → cargo test --all-features --verbose`
+Ask claude to "run the tests". Claude Code sees `t` in the context, expands it to `cargo test --all-features --verbose`, and runs that. So it knows the flavor of `cargo test` you prefer in this very project or even from a active profile, and doesn't have to guess which flags you prefer.
 
-Subcommand aliases work too. The agent knows `git pl` looks like a real
-git subcommand but isn't, and runs the expansion instead.
+Subcommand aliases work too. For example given a git profile like this:
+```
+├─● git (active: 2)
+│   ├─ tag → git tag {{1}} && git push o {{1}}
+│   ╰─◆ git (subcommands)
+│     ├─ cm → commit -S --signoff -m
+│     ├─ pl → pull --rebase
+│     ├─ psh → push
+│     ╰─ st → status --short
+```
+
+When you ask Claude Code to "pull the latest changes", it sees `pl` in the context, and expands it to `git pull --rebase` before running. Same for "commit the changes", it will use the expanded `git cm` alias. So you get the same experience as if you were typing in your terminal, but with the agent understanding your shorthand.
 
 ## Verify
 
 In a fresh session, ask: **"what aliases do I have?"**
 
 The agent should list them straight from the snapshot, without running a
-command. If it doesn't, the hook didn't fire. Check
+command. 
+
+Or ask it to "what would you run to test the code?" and it should respond with the expansion of your `t` alias.
+
+If it doesn't, the hook didn't fire. Check
 `~/.claude/settings.json`.
 
 ## Notes
