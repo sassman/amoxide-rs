@@ -62,6 +62,10 @@ pub enum Effect {
     PrintLines(Vec<Echo>),
     RenderSync(SyncOutcome),
     SaveSecurity,
+    /// One-line update-available nudge. Rendered to stderr by the binary.
+    PrintUpdateNudge(String),
+    /// Fire-and-forget background update check (detached child process).
+    SpawnUpdateCheck,
 }
 
 use crate::update::AppModel;
@@ -95,9 +99,12 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::RemoveLocalVar { name } => {
             model.save_project_vars_unset(name)?;
         }
-        Effect::Print(_) => {}      // caller's responsibility
-        Effect::PrintLines(_) => {} // caller's responsibility, like Print
-        Effect::RenderSync(_) => {} // caller's responsibility
+        // Rendering and process-spawning effects are the caller's responsibility.
+        Effect::Print(_)
+        | Effect::PrintLines(_)
+        | Effect::RenderSync(_)
+        | Effect::PrintUpdateNudge(_)
+        | Effect::SpawnUpdateCheck => {}
     }
     Ok(())
 }

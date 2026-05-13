@@ -24,6 +24,7 @@ pub mod subcommand;
 pub mod sync_outcome;
 pub mod trust;
 pub mod update;
+pub mod update_check;
 pub mod vars;
 
 pub use alias::*;

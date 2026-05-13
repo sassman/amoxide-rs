@@ -57,6 +57,14 @@ fn main() -> anyhow::Result<()> {
     }
 
     let cli = Cli::parse();
+
+    // Hidden background subcommand: spawned detached by listing commands to
+    // refresh the update-check cache. Runs before any model load and exits.
+    if matches!(&cli.command, Commands::UpdateCheck) {
+        let _ = amoxide::update_check::perform_check(env!("CARGO_PKG_NAME"));
+        return Ok(());
+    }
+
     let mut model = AppModel::default();
 
     // Don't log for commands whose stdout is eval'd by the shell
@@ -400,6 +408,7 @@ fn main() -> anyhow::Result<()> {
                 Message::ListVars { target }
             }
         },
+        Commands::UpdateCheck => unreachable!("__update-check is handled above"),
     };
 
     let result = update(&mut model, message)?;
@@ -458,6 +467,8 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
                 execute_effects(model, vec![Effect::PrintLines(echo_lines)])?;
             }
             Effect::SaveSecurity => model.save_security()?,
+            Effect::PrintUpdateNudge(text) => eprintln!("{text}"),
+            Effect::SpawnUpdateCheck => spawn_update_check(),
         }
     }
 
@@ -625,4 +636,30 @@ fn remove_local_var(model: &mut AppModel, name: &str) -> anyhow::Result<()> {
             .ok_or_else(|| anyhow::anyhow!("variable '{name}' not found in {ALIASES_FILE}"))?;
         Ok(())
     })
+}
+
+/// Fire-and-forget: spawn a detached child to refresh the update cache.
+///
+/// Uses our own binary with the hidden `__update-check` subcommand so the
+/// HTTP call and cache write happen out-of-band. All stdio is redirected to
+/// `/dev/null` (or platform equivalent) — the parent (this process) drops
+/// the `Child` and returns immediately, no waiting on exit.
+fn spawn_update_check() {
+    use std::process::{Command, Stdio};
+
+    let Some(cache_dir) = amoxide::update_check::cache_dir() else {
+        return;
+    };
+    if !amoxide::update_check::should_spawn(&cache_dir) {
+        return;
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let _ = Command::new(exe)
+        .arg("__update-check")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
 }

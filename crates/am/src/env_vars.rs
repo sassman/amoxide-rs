@@ -13,3 +13,7 @@ pub const AM_PROJECT_PATH: &str = "_AM_PROJECT_PATH";
 
 /// Set during shell-scanning to prevent recursive am invocation.
 pub const AM_DETECTING_ALIASES: &str = "_AM_DETECTING_ALIASES";
+
+/// When set to any non-empty value, the update check is skipped entirely:
+/// no cache read, no background spawn, no network call.
+pub const AM_NO_UPDATE_CHECK: &str = "AM_NO_UPDATE_CHECK";

@@ -127,6 +127,11 @@ pub enum Commands {
         quiet: bool,
         shell: Shell,
     },
+
+    /// Internal: refresh the update-check cache from crates.io. Spawned
+    /// detached by the listing commands; never invoked directly by users.
+    #[command(name = "__update-check", hide = true)]
+    UpdateCheck,
 }
 
 #[derive(Args)]
