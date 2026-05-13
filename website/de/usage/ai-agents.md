@@ -54,28 +54,51 @@ volle Konfigurationsreferenz.
 ## Was Du in einer Claude-Code-Sitzung siehst
 
 Öffne eine neue Sitzung in Deinem Projektverzeichnis. Der Agent sieht
-jetzt Deine aktiven Aliase: `ll`, `gs`, `ct`, alles aus aktiven
-Profilen, alles aus einer vertrauten `.aliases`-Datei.
+jetzt Deine aktiven Aliase, auch die aus aktiven Profilen und aus einer
+vertrauten `.aliases`-Datei im Projekt.
 
-Bitte ihn „lass die Tests laufen". Er führt `cargo test` aus, nicht
-`ct`. Genauso bei `git pl` → `git pull --rebase`, `gst` → `git status`.
+Beispiel: Du hast einen Projekt-Alias `t → cargo test --all-features
+--verbose`. Bitte Claude „lass die Tests laufen". Claude Code sieht `t`
+im Kontext, expandiert ihn zu `cargo test --all-features --verbose` und
+führt das aus. Der Agent kennt also die Variante von `cargo test`, die
+Du in genau diesem Projekt (oder aus einem aktiven Profil) bevorzugst,
+und muss nicht raten, welche Flags Du willst.
 
-Subcommand-Aliase funktionieren auch. Der Agent weiß, dass `git pl` wie
-ein echter Git-Subcommand aussieht, aber keiner ist, und führt
-stattdessen die Expansion aus.
+Subcommand-Aliase funktionieren auch. Etwa mit einem Git-Profil wie:
+
+```
+├─● git (active: 2)
+│   ├─ tag → git tag {{1}} && git push o {{1}}
+│   ╰─◆ git (subcommands)
+│     ├─ cm → commit -S --signoff -m
+│     ├─ pl → pull --rebase
+│     ├─ psh → push
+│     ╰─ st → status --short
+```
+
+Bittest Du Claude Code „zieh die neuesten Änderungen", sieht es `pl` im
+Kontext und expandiert das zu `git pull --rebase`, bevor es läuft. Bei
+„commite die Änderungen" entsprechend zur Expansion von `git cm`. Im
+Terminal tippst Du die Kurzform, im Chat redest Du natürlich. Claude
+Code übernimmt die Expansion.
 
 ## Überprüfung
 
 In einer frischen Sitzung fragen: **„welche Aliase habe ich?"**
 
 Der Agent sollte sie direkt aus der Momentaufnahme auflisten, ohne ein
-Kommando auszuführen. Wenn nicht, ist der Hook nicht gefeuert. Prüf
+Kommando auszuführen.
+
+Oder frag „was würdest Du ausführen, um den Code zu testen?". Er sollte
+mit der Expansion Deines `t`-Alias antworten.
+
+Wenn nicht, ist der Hook nicht gefeuert. Prüf
 `~/.claude/settings.json`.
 
 ## Hinweise
 
 - Die Markdown-Form von `am context` ist für ein Modell geschrieben.
-  Die Form kann sich ändern, wenn die Modelle besser werden — schreib
+  Die Form kann sich ändern, wenn die Modelle besser werden. Schreib
   also keine Skripte dagegen.
 - `am context --verbose` ergänzt die volle Shadow-Kette und etwaige
   Diagnosen zu ungültigen Aliasen.
