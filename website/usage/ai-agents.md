@@ -1,14 +1,16 @@
 # AI Agents <VersionBadge v="0.9.0" />
 
-Your aliases live in your interactive shell. AI coding agents like Claude
-Code, Codex, and Cursor run commands in non-interactive subshells that
-don't load your shell init. So if you've defined `ct = cargo test` in a
-`rust` profile and ask the agent to "run the tests", it tries `ct` and
-gets `command not found`.
+You have a flavor for how tests run in this project. A taste for which
+clippy flags you want from your profile. Different shorthand for the
+projects and tools you use every day.
 
-`am context` prints your active alias set as markdown that the agent can
-read at session start. Once wired up, the agent expands `ct` to `cargo
-test` before running.
+The agent doesn't know any of that. Until you teach it — every session,
+every conversation — "run the tests" and "check the lints" are guesses.
+And every wrong guess costs you a correction.
+
+`am context` teaches the agent your active aliases at session start.
+Once wired up, "run the tests" runs *your* `cargo test`, in this
+project, with your flags. No teaching, no guessing.
 
 ## Setup
 

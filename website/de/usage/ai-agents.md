@@ -1,15 +1,17 @@
 # KI-Agenten <VersionBadge v="0.9.0" />
 
-Deine Aliase leben in Deiner interaktiven Shell. KI-Coding-Agenten wie
-Claude Code, Codex oder Cursor führen Kommandos in nicht-interaktiven
-Subshells aus, die Dein Shell-Init nicht laden. Wenn Du also `ct = cargo
-test` in einem `rust`-Profil definiert hast und den Agenten bittest
-„lass die Tests laufen", probiert er `ct` und bekommt `command not
-found`.
+Du hast eine eigene Vorstellung, wie Tests in diesem Projekt laufen.
+Eine Vorliebe, welche Clippy-Flags Du aus Deinem Profil willst. Eigene
+Kurzformen für die Projekte und Tools, mit denen Du täglich arbeitest.
 
-`am context` gibt Dein aktives Alias-Set als Markdown aus, das der Agent
-beim Sitzungsstart einlesen kann. Einmal verdrahtet, expandiert der
-Agent `ct` zu `cargo test`, bevor er es ausführt.
+Der Agent weiß nichts davon. Bis Du es ihm beibringst — in jeder
+Sitzung, in jedem Gespräch — sind „lass die Tests laufen" und „prüf
+die Lints" ein Rätselraten. Jeder Fehlversuch kostet Dich eine
+Korrektur.
+
+`am context` bringt dem Agenten Deine aktiven Aliase beim Sitzungsstart
+bei. Einmal verdrahtet, läuft bei „lass die Tests laufen" *Dein* `cargo
+test`: dieses Projekt, Deine Flags. Kein Beibringen, kein Raten.
 
 ## Einrichtung
 
