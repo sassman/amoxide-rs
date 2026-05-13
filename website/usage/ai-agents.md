@@ -1,47 +1,26 @@
 # AI Agents
 
-Your aliases live in your interactive shell. AI coding agents — Claude
-Code, Codex, Cursor — run commands in non-interactive subshells that don't
-source your shell init. So if you've defined `ct = cargo test` in a `rust`
-profile and ask the agent to "run the tests", it tries `ct` and gets
-`command not found`.
+Your aliases live in your interactive shell. AI coding agents like Claude
+Code, Codex, and Cursor run commands in non-interactive subshells that
+don't load your shell init. So if you've defined `ct = cargo test` in a
+`rust` profile and ask the agent to "run the tests", it tries `ct` and
+gets `command not found`.
 
-`am context` prints your active alias set as markdown that the agent
-can ingest at session start. Once wired up, the agent expands `ct`
-into `cargo test` before running it.
+`am context` prints your active alias set as markdown that the agent can
+read at session start. Once wired up, the agent expands `ct` to `cargo
+test` before running.
 
-## Install
+## Setup
 
 ```sh
 am context --setup claude
 ```
 
-Idempotent. Creates `~/.claude/settings.json` if absent, or merges into
-it without touching other keys. Re-run safely.
+This creates `~/.claude/settings.json` if it's missing, or merges into it
+without touching any other keys. Idempotent: re-running it does nothing.
 
 For other agents, run `am context` from their session-start hook
-manually — see the agent's hook docs.
-
-## What to expect in a Claude Code session
-
-Open a new Claude Code session in your project directory. The agent
-now has your active aliases — `ll`, `gs`, `ct`, anything in active
-profiles, anything from a trusted `.aliases` file in scope.
-
-Try: ask "run the tests". The agent runs `cargo test` (the canonical
-form), not `ct`. Same for `git pl` → `git pull --rebase`,
-`gst` → `git status`, etc.
-
-Subcommand aliases work too. The agent knows `git pl` looks like a
-subcommand but isn't, and runs the expansion.
-
-## Verify
-
-In a fresh session, ask: **"what aliases do I have?"**
-
-The agent should list them straight from the snapshot, no command
-run. If it doesn't, the hook didn't fire — check
-`~/.claude/settings.json`.
+yourself. Check the agent's hook docs.
 
 ## Manual setup
 
@@ -62,13 +41,37 @@ If you'd rather edit the JSON yourself:
 }
 ```
 
-The `"startup|clear|compact"` matcher matters — without it the snapshot
-only injects on cold start, and the agent loses your aliases the
-first time you `/clear` or `/compact`.
+The `"startup|clear|compact"` matcher is what re-injects the snapshot
+after `/clear` and `/compact`. Drop it and the agent loses your aliases
+the first time you clear the conversation.
+
+Verified with Claude Code 2.1.126. See [Anthropic's hooks
+docs](https://code.claude.com/docs/en/hooks) for the full reference of
+configurability.
+
+## What to expect in a Claude Code session
+
+Open a new session in your project directory. The agent now sees your
+active aliases: `ll`, `gs`, `ct`, anything in active profiles, anything
+from a trusted `.aliases` file.
+
+Ask it to "run the tests". It runs `cargo test`, not `ct`. Same for
+`git pl` → `git pull --rebase`, `gst` → `git status`.
+
+Subcommand aliases work too. The agent knows `git pl` looks like a real
+git subcommand but isn't, and runs the expansion instead.
+
+## Verify
+
+In a fresh session, ask: **"what aliases do I have?"**
+
+The agent should list them straight from the snapshot, without running a
+command. If it doesn't, the hook didn't fire. Check
+`~/.claude/settings.json`.
 
 ## Notes
 
-- The markdown shape of `am context` may evolve for model-comprehension
-  reasons. Don't script against it.
+- `am context` output is markdown written for a model to read. The
+  shape may change as models improve, so don't script against it.
 - `am context --verbose` adds the full shadow chain and any
   invalid-alias diagnostics.
