@@ -27,6 +27,14 @@ expression: out
 #    conversation, the short form (`git cm "msg"`) matches the user's mental
 #    model. When *running* it in a subshell, use the canonical form.
 #
+# 5. Aliases reveal user preference — match them by intent, not just by name.
+#    - If the user describes an action in plain language ("test the code",
+#      "format", "install") rather than typing an alias name, scan the
+#      `expands to` column for a command that covers the intent and run
+#      *that* exact form. The flags are deliberate (`cargo test
+#      --all-features --verbose`, not bare `cargo test`); reaching for a
+#      vanilla command throws away the user's choices.
+#
 # ## Format
 #
 # Precedence (highest first): project > profile(rust, prio 1) > global

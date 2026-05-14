@@ -40,7 +40,11 @@ pub struct ChainLayer {
 }
 
 /// Render the preamble. Leads with usage rules; format notes second.
-pub fn render_preamble(cwd: &Path, chain: &PrecedenceChain) -> String {
+pub fn render_preamble(
+    cwd: &Path,
+    chain: &PrecedenceChain,
+    project_trust_notice: Option<&ProjectTrustNotice>,
+) -> String {
     let mut out = String::new();
     out.push_str(&format!(
         "# amoxide aliases (active set, cwd: {})\n",
@@ -81,6 +85,21 @@ pub fn render_preamble(cwd: &Path, chain: &PrecedenceChain) -> String {
         "#    conversation, the short form (`git cm \"msg\"`) matches the user's mental\n",
     );
     out.push_str("#    model. When *running* it in a subshell, use the canonical form.\n");
+    out.push_str("#\n");
+    out.push_str("# 5. Aliases reveal user preference — match them by intent, not just by name.\n");
+    out.push_str("#    - If the user describes an action in plain language (\"test the code\",\n");
+    out.push_str("#      \"format\", \"install\") rather than typing an alias name, scan the\n");
+    out.push_str("#      `expands to` column for a command that covers the intent and run\n");
+    out.push_str("#      *that* exact form. The flags are deliberate (`cargo test\n");
+    out.push_str("#      --all-features --verbose`, not bare `cargo test`); reaching for a\n");
+    out.push_str("#      vanilla command throws away the user's choices.\n");
+    if project_trust_notice.is_some() {
+        out.push_str("#    - A project `.aliases` file in scope but untrusted (see\n");
+        out.push_str("#      `## Project aliases (not loaded)` below) is the same signal — the\n");
+        out.push_str("#      user has even more refined preferences for this directory, you\n");
+        out.push_str("#      just can't see them yet. Treat that as added weight on the\n");
+        out.push_str("#      `am trust` ask.\n");
+    }
     out.push_str("#\n");
     out.push_str("# ## Format\n");
     out.push_str("#\n");
@@ -499,19 +518,23 @@ pub fn render_project_trust_notice(
     formatdoc! {r#"
         ## Project aliases (not loaded)
 
-        A project `.aliases` file at `{path}` is in scope but not loaded ({reason}). Its entries are **NOT** in the alias table below, and they shadow every alias of the same name at priority 0 — above all profiles and globals.
+        > [!WARNING]
+        > Your view of aliases here is incomplete. The table below is missing the project file's entries, any of which can shadow what you see.
 
-        That means any of these names — and any others the project file may add — could resolve to a different command here:
+        A project `.aliases` file at `{path}` is in scope but not loaded ({reason}). Its entries shadow every alias of the same name at priority 0 — above all profiles and globals — so any of these table names, plus any the project file may add, could resolve to a different command here:
+
         {name_list}
 
-        **At session start, ask the user once:**
+        **At session start, ask the user once** — unless they have already declined trust in this session, in which case skip this whole section:
+
         > "A project `.aliases` file here isn't trusted yet. Run `am trust` in your shell — it'll show you the contents and ask for your confirmation."
 
-        Then wait for their answer before acting on any alias from the table. If the user declines, drop the topic for the rest of the session.
+        Then wait for their answer before acting on any alias.
 
-        **Don't read the `.aliases` file yourself.** `am trust` is the review surface; reading it shortcuts the interactive flow.
+        **Hand-off rules**
 
-        **Don't run `am trust` in a subshell.** It's interactive and will hang on the prompt. Hand off to the user's terminal.
+        - Don't read `.aliases` yourself — `am trust` is the review surface; reading it shortcuts the interactive flow.
+        - Don't run `am trust` in a subshell — it's interactive and hangs on the prompt. Run it in the user's terminal.
     "#,
         path = notice.path.display(),
         reason = notice.reason.label(),
@@ -543,7 +566,7 @@ pub fn render(
     opts: RenderOptions,
 ) -> String {
     let mut out = String::new();
-    out.push_str(&render_preamble(cwd, chain));
+    out.push_str(&render_preamble(cwd, chain, project_trust_notice));
     out.push('\n');
 
     // Effective set for `am context` is added ∪ unchanged
@@ -625,7 +648,7 @@ mod tests {
             scope: OriginScope::Global,
             priority: None,
         }]);
-        let out = render_preamble(&cwd, &c);
+        let out = render_preamble(&cwd, &c, None);
         assert!(
             out.starts_with("# amoxide aliases (active set, cwd: /tmp/project)\n"),
             "got: {out}"
@@ -633,13 +656,13 @@ mod tests {
     }
 
     #[test]
-    fn preamble_contains_all_four_usage_rules() {
+    fn preamble_contains_all_five_usage_rules() {
         let cwd = PathBuf::from("/x");
         let c = chain(vec![ChainLayer {
             scope: OriginScope::Global,
             priority: None,
         }]);
-        let out = render_preamble(&cwd, &c);
+        let out = render_preamble(&cwd, &c, None);
         assert!(out.contains("1. Recognise aliases by name match"), "rule 1");
         assert!(
             out.contains("2. Subcommand aliases are deceptive"),
@@ -652,6 +675,50 @@ mod tests {
         assert!(
             out.contains("4. In chat, the user's vocabulary is fine"),
             "rule 4"
+        );
+        assert!(
+            out.contains("5. Aliases reveal user preference"),
+            "rule 5"
+        );
+        assert!(
+            out.contains("describes an action in plain language"),
+            "rule 5 first bullet (intent-match)"
+        );
+    }
+
+    #[test]
+    fn preamble_omits_rule_5_trust_bullet_when_no_notice() {
+        let cwd = PathBuf::from("/x");
+        let c = chain(vec![ChainLayer {
+            scope: OriginScope::Global,
+            priority: None,
+        }]);
+        let out = render_preamble(&cwd, &c, None);
+        assert!(
+            !out.contains("`am trust` ask"),
+            "rule 5 trust bullet should be absent when no untrusted project notice: {out}"
+        );
+    }
+
+    #[test]
+    fn preamble_emits_rule_5_trust_bullet_when_notice_present() {
+        let cwd = PathBuf::from("/x");
+        let c = chain(vec![ChainLayer {
+            scope: OriginScope::Global,
+            priority: None,
+        }]);
+        let notice = ProjectTrustNotice {
+            path: "/x/.aliases".into(),
+            reason: ProjectTrustReason::Untrusted,
+        };
+        let out = render_preamble(&cwd, &c, Some(&notice));
+        assert!(
+            out.contains("`am trust` ask"),
+            "rule 5 trust bullet should appear when notice present: {out}"
+        );
+        assert!(
+            out.contains("`## Project aliases (not loaded)` below"),
+            "rule 5 trust bullet points forward to the trust-notice section: {out}"
         );
     }
 
@@ -676,7 +743,7 @@ mod tests {
                 priority: None,
             },
         ]);
-        let out = render_preamble(&cwd, &c);
+        let out = render_preamble(&cwd, &c, None);
         assert!(
             out.contains("project > profile(git, prio 2) > profile(rust, prio 1) > global"),
             "got: {out}"
@@ -1193,11 +1260,23 @@ mod project_trust_notice_tests {
             out.contains("## Project aliases (not loaded)"),
             "header: {out}"
         );
+        assert!(
+            out.contains("> [!WARNING]"),
+            "leads with a markdown-native warning admonition: {out}"
+        );
+        assert!(
+            out.contains("Your view of aliases here is incomplete"),
+            "warning body names the failure mode: {out}"
+        );
         assert!(out.contains("/x/.aliases"), "path: {out}");
         assert!(out.contains("previously untrusted"), "reason label: {out}");
         assert!(
             out.contains("At session start, ask the user once"),
             "asks once at session start (not action-gated): {out}"
+        );
+        assert!(
+            out.contains("already declined trust in this session"),
+            "respects a prior decline inline with the ask: {out}"
         );
         assert!(
             out.contains("Run `am trust` in your shell"),
@@ -1208,16 +1287,16 @@ mod project_trust_notice_tests {
             "every passed alias name appears verbatim: {out}"
         );
         assert!(
-            out.contains("Don't read the `.aliases` file yourself"),
+            out.contains("**Hand-off rules**"),
+            "groups the don'ts under a labelled bullet block: {out}"
+        );
+        assert!(
+            out.contains("Don't read `.aliases` yourself"),
             "forbids reading the file ourselves: {out}"
         );
         assert!(
             out.contains("Don't run `am trust` in a subshell"),
             "forbids subshell execution: {out}"
-        );
-        assert!(
-            out.contains("drop the topic for the rest of the session"),
-            "one-decline-stays-quiet rule: {out}"
         );
     }
 
