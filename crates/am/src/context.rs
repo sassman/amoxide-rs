@@ -471,36 +471,51 @@ impl ProjectTrustReason {
 /// such file in scope or the file is trusted (its aliases are already in
 /// the main table).
 ///
-/// The body asks the *agent* to prompt the *user* before running `am trust`.
-/// `am trust` itself is the interactive review tool: it shows the file
-/// contents and asks for confirmation. The agent's only job here is to
-/// surface the choice to the user.
-pub fn render_project_trust_notice(notice: Option<&ProjectTrustNotice>) -> String {
+/// The body tells the *agent* to ask the *user* once at session start to
+/// run `am trust`. `am trust` itself is the interactive review tool: it
+/// shows the file contents and asks for confirmation. The agent's only job
+/// here is to surface the choice to the user — once — before acting on the
+/// alias table, which is partial while the project file is untrusted.
+///
+/// `alias_names` is every name currently in the effective alias table,
+/// listed verbatim in the notice so the agent sees concretely which entries
+/// the untrusted project file could override.
+pub fn render_project_trust_notice(
+    notice: Option<&ProjectTrustNotice>,
+    alias_names: &[&str],
+) -> String {
     let Some(notice) = notice else {
         return String::new();
+    };
+    let name_list = if alias_names.is_empty() {
+        String::from("(the table is currently empty)")
+    } else {
+        alias_names
+            .iter()
+            .map(|n| format!("`{n}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
     };
     formatdoc! {r#"
         ## Project aliases (not loaded)
 
-        An `.aliases` file at `{path}` is in scope but not loaded ({reason}).
-        Its aliases are **not** in the table above; commands using them will fail.
+        A project `.aliases` file at `{path}` is in scope but not loaded ({reason}). Its entries are **NOT** in the alias table below, and they shadow every alias of the same name at priority 0 — above all profiles and globals.
 
-        **When to surface this:** not at session start, and not out of the blue. Wait for a moment when the project aliases could plausibly affect what you're about to do —
-        - the user invokes a short name that looks like an alias (`i`, `t`, `docs`, …),
-        - you're about to suggest or run a workspace-scoped command (cargo, npm, build/test/install),
-        - or a subshell fails with `command not found`.
+        That means any of these names — and any others the project file may add — could resolve to a different command here:
+        {name_list}
 
-        At that point, pause **before** acting and say something like:
-        > "There's a project `.aliases` file here that isn't trusted yet. Run `am trust` in your shell — it'll show you the contents and ask for your confirmation."
+        **At session start, ask the user once:**
+        > "A project `.aliases` file here isn't trusted yet. Run `am trust` in your shell — it'll show you the contents and ask for your confirmation."
 
-        **Don't read the `.aliases` file yourself.** `am trust` is the review surface; reading it duplicates the work and shortcuts the interactive flow.
+        Then wait for their answer before acting on any alias from the table. If the user declines, drop the topic for the rest of the session.
+
+        **Don't read the `.aliases` file yourself.** `am trust` is the review surface; reading it shortcuts the interactive flow.
 
         **Don't run `am trust` in a subshell.** It's interactive and will hang on the prompt. Hand off to the user's terminal.
-
-        If the user declines, don't ask again this session.
     "#,
         path = notice.path.display(),
         reason = notice.reason.label(),
+        name_list = name_list,
     }
 }
 
@@ -512,11 +527,13 @@ pub struct RenderOptions {
 /// Top-level orchestrator for the `am context` snapshot.
 ///
 /// Wires every section into one markdown blob:
-///   preamble → aliases → project-trust-notice → variables → shadowed → invalid
+///   preamble → project-trust-notice → aliases → variables → shadowed → invalid
 ///
 /// All sections except preamble and aliases are conditional. Invalid is
 /// verbose-only. The project-trust-notice appears when an `.aliases` file
-/// exists in scope but is not loaded.
+/// exists in scope but is not loaded, and is emitted *before* the alias
+/// table so the agent reads the gating rule before treating the table as
+/// authoritative.
 pub fn render(
     cwd: &Path,
     chain: &PrecedenceChain,
@@ -537,14 +554,33 @@ pub fn render(
         .chain(outcome.diff.unchanged.iter())
         .cloned()
         .collect();
-    out.push_str(&render_aliases_table(&effective, layers));
-    out.push('\n');
 
-    let trust_notice = render_project_trust_notice(project_trust_notice);
+    let mut alias_names: Vec<String> = Vec::new();
+    for e in &effective {
+        match &e.kind {
+            EntryKind::Alias(_) => alias_names.push(e.name.clone()),
+            EntryKind::SubcommandWrapper {
+                program, entries, ..
+            } => {
+                for sub in entries {
+                    alias_names.push(format!("{program} {}", sub.short_subcommands.join(" ")));
+                }
+            }
+            EntryKind::SubcommandKey { .. } => {
+                // Tracking-only, not user-facing.
+            }
+        }
+    }
+    alias_names.sort();
+    let name_refs: Vec<&str> = alias_names.iter().map(String::as_str).collect();
+    let trust_notice = render_project_trust_notice(project_trust_notice, &name_refs);
     if !trust_notice.is_empty() {
         out.push_str(&trust_notice);
         out.push('\n');
     }
+
+    out.push_str(&render_aliases_table(&effective, layers));
+    out.push('\n');
 
     let vars = render_variables(layers);
     if !vars.is_empty() {
@@ -1142,17 +1178,17 @@ mod project_trust_notice_tests {
 
     #[test]
     fn no_notice_when_none() {
-        let out = render_project_trust_notice(None);
+        let out = render_project_trust_notice(None, &[]);
         assert!(out.is_empty(), "expected empty: {out}");
     }
 
     #[test]
-    fn notice_names_path_reason_and_user_prompt() {
+    fn notice_names_path_reason_session_start_ask_and_alias_list() {
         let notice = ProjectTrustNotice {
             path: "/x/.aliases".into(),
             reason: ProjectTrustReason::Untrusted,
         };
-        let out = render_project_trust_notice(Some(&notice));
+        let out = render_project_trust_notice(Some(&notice), &["i", "t", "git cm"]);
         assert!(
             out.contains("## Project aliases (not loaded)"),
             "header: {out}"
@@ -1160,16 +1196,16 @@ mod project_trust_notice_tests {
         assert!(out.contains("/x/.aliases"), "path: {out}");
         assert!(out.contains("previously untrusted"), "reason label: {out}");
         assert!(
-            out.contains("not at session start"),
-            "gates surfacing on an action trigger: {out}"
-        );
-        assert!(
-            out.contains("command not found"),
-            "names a concrete trigger event: {out}"
+            out.contains("At session start, ask the user once"),
+            "asks once at session start (not action-gated): {out}"
         );
         assert!(
             out.contains("Run `am trust` in your shell"),
             "natural prompt hands off to user terminal: {out}"
+        );
+        assert!(
+            out.contains("`i`") && out.contains("`t`") && out.contains("`git cm`"),
+            "every passed alias name appears verbatim: {out}"
         );
         assert!(
             out.contains("Don't read the `.aliases` file yourself"),
@@ -1180,8 +1216,21 @@ mod project_trust_notice_tests {
             "forbids subshell execution: {out}"
         );
         assert!(
-            out.contains("don't ask again this session"),
+            out.contains("drop the topic for the rest of the session"),
             "one-decline-stays-quiet rule: {out}"
+        );
+    }
+
+    #[test]
+    fn notice_handles_empty_alias_list_gracefully() {
+        let notice = ProjectTrustNotice {
+            path: "/x/.aliases".into(),
+            reason: ProjectTrustReason::Unknown,
+        };
+        let out = render_project_trust_notice(Some(&notice), &[]);
+        assert!(
+            out.contains("the table is currently empty"),
+            "fallback phrasing when no aliases in scope: {out}"
         );
     }
 
@@ -1196,7 +1245,7 @@ mod project_trust_notice_tests {
                 path: "/p/.aliases".into(),
                 reason,
             };
-            let out = render_project_trust_notice(Some(&notice));
+            let out = render_project_trust_notice(Some(&notice), &[]);
             assert!(
                 out.contains(label),
                 "label '{label}' missing for {reason:?}: {out}"
