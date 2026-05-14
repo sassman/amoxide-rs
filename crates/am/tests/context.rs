@@ -90,6 +90,7 @@ fn snapshot_context_brief() {
         &chain,
         &outcome,
         &layers,
+        None,
         RenderOptions { verbose: false },
     );
 
@@ -150,6 +151,7 @@ fn snapshot_context_verbose() {
         &chain,
         &outcome,
         &layers,
+        None,
         RenderOptions { verbose: true },
     );
 

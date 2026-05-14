@@ -6,6 +6,8 @@
 
 use std::path::Path;
 
+use indoc::formatdoc;
+
 use crate::alias::AliasSet;
 use crate::precedence::{
     Diagnostic, EffectiveEntry, EntryKind, OriginScope, ProfileLayer, ResolveOutcome,
@@ -436,6 +438,72 @@ pub fn render_variables(layers: &LayerInputs) -> String {
     out
 }
 
+/// A discovered `.aliases` file that is not currently loaded due to its
+/// trust state. Carried into the snapshot so the agent can prompt the user
+/// to review the file instead of silently working from an incomplete picture.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectTrustNotice {
+    pub path: std::path::PathBuf,
+    pub reason: ProjectTrustReason,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectTrustReason {
+    /// File exists but has never been reviewed by the user.
+    Unknown,
+    /// User previously declined to trust this file.
+    Untrusted,
+    /// File contents changed since the user last trusted it.
+    Tampered,
+}
+
+impl ProjectTrustReason {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Unknown => "not yet reviewed",
+            Self::Untrusted => "previously untrusted",
+            Self::Tampered => "modified since last trusted",
+        }
+    }
+}
+
+/// Render the `## Project aliases` section. Empty string when there is no
+/// such file in scope or the file is trusted (its aliases are already in
+/// the main table).
+///
+/// The body asks the *agent* to prompt the *user* before running `am trust`.
+/// `am trust` itself is the interactive review tool: it shows the file
+/// contents and asks for confirmation. The agent's only job here is to
+/// surface the choice to the user.
+pub fn render_project_trust_notice(notice: Option<&ProjectTrustNotice>) -> String {
+    let Some(notice) = notice else {
+        return String::new();
+    };
+    formatdoc! {r#"
+        ## Project aliases (not loaded)
+
+        An `.aliases` file at `{path}` is in scope but not loaded ({reason}).
+        Its aliases are **not** in the table above; commands using them will fail.
+
+        **When to surface this:** not at session start, and not out of the blue. Wait for a moment when the project aliases could plausibly affect what you're about to do —
+        - the user invokes a short name that looks like an alias (`i`, `t`, `docs`, …),
+        - you're about to suggest or run a workspace-scoped command (cargo, npm, build/test/install),
+        - or a subshell fails with `command not found`.
+
+        At that point, pause **before** acting and say something like:
+        > "There's a project `.aliases` file here that isn't trusted yet. Run `am trust` in your shell — it'll show you the contents and ask for your confirmation."
+
+        **Don't read the `.aliases` file yourself.** `am trust` is the review surface; reading it duplicates the work and shortcuts the interactive flow.
+
+        **Don't run `am trust` in a subshell.** It's interactive and will hang on the prompt. Hand off to the user's terminal.
+
+        If the user declines, don't ask again this session.
+    "#,
+        path = notice.path.display(),
+        reason = notice.reason.label(),
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct RenderOptions {
     pub verbose: bool,
@@ -444,14 +512,17 @@ pub struct RenderOptions {
 /// Top-level orchestrator for the `am context` snapshot.
 ///
 /// Wires every section into one markdown blob:
-///   preamble → aliases → variables → shadowed → invalid
+///   preamble → aliases → project-trust-notice → variables → shadowed → invalid
 ///
-/// Variables and shadowed sections are omitted when empty. Invalid is verbose-only.
+/// All sections except preamble and aliases are conditional. Invalid is
+/// verbose-only. The project-trust-notice appears when an `.aliases` file
+/// exists in scope but is not loaded.
 pub fn render(
     cwd: &Path,
     chain: &PrecedenceChain,
     outcome: &ResolveOutcome,
     layers: &LayerInputs,
+    project_trust_notice: Option<&ProjectTrustNotice>,
     opts: RenderOptions,
 ) -> String {
     let mut out = String::new();
@@ -468,6 +539,12 @@ pub fn render(
         .collect();
     out.push_str(&render_aliases_table(&effective, layers));
     out.push('\n');
+
+    let trust_notice = render_project_trust_notice(project_trust_notice);
+    if !trust_notice.is_empty() {
+        out.push_str(&trust_notice);
+        out.push('\n');
+    }
 
     let vars = render_variables(layers);
     if !vars.is_empty() {
@@ -1060,6 +1137,75 @@ mod shadow_verbose_tests {
 }
 
 #[cfg(test)]
+mod project_trust_notice_tests {
+    use super::*;
+
+    #[test]
+    fn no_notice_when_none() {
+        let out = render_project_trust_notice(None);
+        assert!(out.is_empty(), "expected empty: {out}");
+    }
+
+    #[test]
+    fn notice_names_path_reason_and_user_prompt() {
+        let notice = ProjectTrustNotice {
+            path: "/x/.aliases".into(),
+            reason: ProjectTrustReason::Untrusted,
+        };
+        let out = render_project_trust_notice(Some(&notice));
+        assert!(
+            out.contains("## Project aliases (not loaded)"),
+            "header: {out}"
+        );
+        assert!(out.contains("/x/.aliases"), "path: {out}");
+        assert!(out.contains("previously untrusted"), "reason label: {out}");
+        assert!(
+            out.contains("not at session start"),
+            "gates surfacing on an action trigger: {out}"
+        );
+        assert!(
+            out.contains("command not found"),
+            "names a concrete trigger event: {out}"
+        );
+        assert!(
+            out.contains("Run `am trust` in your shell"),
+            "natural prompt hands off to user terminal: {out}"
+        );
+        assert!(
+            out.contains("Don't read the `.aliases` file yourself"),
+            "forbids reading the file ourselves: {out}"
+        );
+        assert!(
+            out.contains("Don't run `am trust` in a subshell"),
+            "forbids subshell execution: {out}"
+        );
+        assert!(
+            out.contains("don't ask again this session"),
+            "one-decline-stays-quiet rule: {out}"
+        );
+    }
+
+    #[test]
+    fn notice_reason_labels_per_trust_state() {
+        for (reason, label) in [
+            (ProjectTrustReason::Unknown, "not yet reviewed"),
+            (ProjectTrustReason::Untrusted, "previously untrusted"),
+            (ProjectTrustReason::Tampered, "modified since last trusted"),
+        ] {
+            let notice = ProjectTrustNotice {
+                path: "/p/.aliases".into(),
+                reason,
+            };
+            let out = render_project_trust_notice(Some(&notice));
+            assert!(
+                out.contains(label),
+                "label '{label}' missing for {reason:?}: {out}"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
 mod invalid_tests {
     use super::*;
 
@@ -1180,6 +1326,7 @@ mod render_tests {
             &chain,
             &outcome,
             &layers,
+            None,
             RenderOptions { verbose: false },
         );
 
@@ -1238,6 +1385,7 @@ mod render_tests {
             &chain,
             &outcome,
             &layers,
+            None,
             RenderOptions { verbose: false },
         );
         let verbose = render(
@@ -1245,6 +1393,7 @@ mod render_tests {
             &chain,
             &outcome,
             &layers,
+            None,
             RenderOptions { verbose: true },
         );
         assert!(

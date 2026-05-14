@@ -94,3 +94,7 @@ If it doesn't, the hook didn't fire. Check
   shape may change as models improve, so don't script against it.
 - `am context --verbose` adds the full shadow chain and any
   invalid-alias diagnostics.
+- If a project `.aliases` file is in scope but not trusted, the
+  snapshot says so and asks the agent to suggest running `am trust`.
+  `am trust` is interactive — it shows the file and asks for your
+  confirmation — but the agent won't start it without your go-ahead.

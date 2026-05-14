@@ -108,3 +108,8 @@ Wenn nicht, ist der Hook nicht gefeuert. Prüf
   also keine Skripte dagegen.
 - `am context --verbose` ergänzt die volle Shadow-Kette und etwaige
   Diagnosen zu ungültigen Aliasen.
+- Wenn eine `.aliases`-Datei im Projekt erkannt, aber nicht vertraut
+  ist, weist die Momentaufnahme darauf hin und bittet den Agenten,
+  Dir `am trust` vorzuschlagen. `am trust` ist interaktiv — es zeigt
+  Dir den Inhalt und fragt nach Deiner Bestätigung — aber der Agent
+  startet es nicht ohne Dein OK.

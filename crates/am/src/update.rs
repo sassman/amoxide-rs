@@ -839,6 +839,27 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 model.project_trust(),
                 Some(crate::trust::ProjectTrust::Trusted(..))
             );
+            let project_trust_notice = match model.project_trust() {
+                Some(crate::trust::ProjectTrust::Unknown(p)) => {
+                    Some(crate::context::ProjectTrustNotice {
+                        path: p.to_path_buf(),
+                        reason: crate::context::ProjectTrustReason::Unknown,
+                    })
+                }
+                Some(crate::trust::ProjectTrust::Untrusted(p)) => {
+                    Some(crate::context::ProjectTrustNotice {
+                        path: p.to_path_buf(),
+                        reason: crate::context::ProjectTrustReason::Untrusted,
+                    })
+                }
+                Some(crate::trust::ProjectTrust::Tampered(p)) => {
+                    Some(crate::context::ProjectTrustNotice {
+                        path: p.to_path_buf(),
+                        reason: crate::context::ProjectTrustReason::Tampered,
+                    })
+                }
+                Some(crate::trust::ProjectTrust::Trusted(..)) | None => None,
+            };
             let (project_aliases, project_subs) = if include_project {
                 model.project_alias_set_and_subcommands()
             } else {
@@ -903,6 +924,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 &chain,
                 &outcome,
                 &layer_inputs,
+                project_trust_notice.as_ref(),
                 crate::context::RenderOptions { verbose },
             );
 
