@@ -1,4 +1,4 @@
-# AI Agents <VersionBadge v="0.9.0" />
+# AI Agents <VersionBadge v="0.10.0" />
 
 You have a flavor for how tests run in this project. A taste for which
 clippy flags you want from your profile. Different shorthand for the

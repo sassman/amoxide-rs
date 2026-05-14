@@ -1,4 +1,4 @@
-# KI-Agenten <VersionBadge v="0.9.0" />
+# KI-Agenten <VersionBadge v="0.10.0" />
 
 Du hast eine eigene Vorstellung, wie Tests in diesem Projekt laufen.
 Eine Vorliebe, welche Clippy-Flags Du aus Deinem Profil willst. Eigene
