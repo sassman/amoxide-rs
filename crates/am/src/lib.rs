@@ -2,6 +2,7 @@ pub mod alias;
 pub mod alias_id;
 pub mod app_model;
 pub mod cli;
+pub mod completion;
 pub mod config;
 pub mod dirs;
 pub mod display;

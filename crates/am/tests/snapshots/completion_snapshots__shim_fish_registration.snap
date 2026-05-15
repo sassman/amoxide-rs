@@ -1,0 +1,5 @@
+---
+source: crates/am/tests/completion_snapshots.rs
+expression: "registration_shim(\"fish\")"
+---
+complete --keep-order --exclusive --command am --arguments "(COMPLETE=fish <AM_BIN> -- (commandline --current-process --tokenize --cut-at-cursor) (commandline --current-token))"

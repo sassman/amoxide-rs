@@ -1,9 +1,14 @@
 use std::path::PathBuf;
 
-/// Returns the path to the config directory
+/// Returns the path to the config directory.
 ///
-/// Located at `$HOME/.config/amoxide`
+/// Honors `AMOXIDE_CONFIG_DIR` if set — used by completion fixture tests and
+/// for ad-hoc local experimentation without touching the user's real config.
+/// Otherwise located at `$HOME/.config/amoxide`.
 pub fn config_dir() -> PathBuf {
+    if let Some(override_path) = std::env::var_os("AMOXIDE_CONFIG_DIR") {
+        return PathBuf::from(override_path);
+    }
     dirs_lite::config_dir().unwrap().join("amoxide")
 }
 

@@ -10,11 +10,6 @@ const HOOK_BASH: &str = include_str!("shell_wrappers/hook.bash");
 const HOOK_FISH: &str = include_str!("shell_wrappers/hook.fish");
 const HOOK_ZSH: &str = include_str!("shell_wrappers/hook.zsh");
 const HOOK_PS1: &str = include_str!("shell_wrappers/hook.ps1");
-const COMPLETIONS_FISH: &str = include_str!(concat!(env!("OUT_DIR"), "/am.fish"));
-const COMPLETIONS_ZSH: &str = include_str!(concat!(env!("OUT_DIR"), "/_am"));
-// PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
-// We strip `using namespace` lines and expand type names at runtime for Invoke-Expression compat.
-const COMPLETIONS_PS1: &str = include_str!(concat!(env!("OUT_DIR"), "/_am.ps1"));
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
@@ -79,41 +74,20 @@ fn cd_hook_setup(shell: &Shell) -> String {
     }
 }
 
+/// Env-activated dynamic completion registration.
+///
+/// The line gets sourced as part of `am init <shell>`, which makes the shell
+/// invoke `am` with `COMPLETE=<shell>` set at completion time. `clap_complete`'s
+/// `CompleteEnv` (called first in `main`) detects the env var, emits the
+/// shell-specific completion shim, and exits.
 fn completions(shell: &Shell) -> String {
     match shell {
-        Shell::Bash | Shell::Brush => {
-            include_str!(concat!(env!("OUT_DIR"), "/am.bash")).to_string()
-        }
-        Shell::Fish => COMPLETIONS_FISH.to_string(),
-        Shell::Powershell => powershell_completions(),
-        Shell::Zsh => COMPLETIONS_ZSH.to_string(),
+        // Brush is bash-compatible; the bash shim works under brush.
+        Shell::Bash | Shell::Brush => "source <(COMPLETE=bash am)\n".to_string(),
+        Shell::Fish => "COMPLETE=fish am | source\n".to_string(),
+        Shell::Powershell => "$env:COMPLETE = \"powershell\"; am | Out-String | Invoke-Expression; Remove-Item Env:\\COMPLETE\n".to_string(),
+        Shell::Zsh => "source <(COMPLETE=zsh am)\n".to_string(),
     }
-}
-
-/// PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
-/// We strip those lines and replace short type names with fully qualified ones.
-fn powershell_completions() -> String {
-    COMPLETIONS_PS1
-        .lines()
-        .filter(|line| !line.starts_with("using namespace"))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .replace(
-            "[CompletionResult]",
-            "[System.Management.Automation.CompletionResult]",
-        )
-        .replace(
-            "[CompletionResultType]",
-            "[System.Management.Automation.CompletionResultType]",
-        )
-        .replace(
-            "[StringConstantExpressionAst]",
-            "[System.Management.Automation.Language.StringConstantExpressionAst]",
-        )
-        .replace(
-            "[StringConstantType]",
-            "[System.Management.Automation.Language.StringConstantType]",
-        )
 }
 
 #[cfg(test)]

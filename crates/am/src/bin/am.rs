@@ -46,6 +46,12 @@ fn setup_logging() {
 }
 
 fn main() -> anyhow::Result<()> {
+    // Tab completion handler: when invoked with `COMPLETE=<shell>` in env,
+    // emits the shell-specific completion shim (or candidate list) and exits.
+    // Must run before any stdout write and before `Cli::parse` to avoid clap
+    // complaining about the unparsed completion request.
+    clap_complete::CompleteEnv::with_factory(Cli::command).complete();
+
     // Guard against recursive invocation during alias scanning.
     // When `zsh -i -c alias` is spawned to enumerate existing shell aliases it
     // sources the user's startup files, which call `am sync` (or `am init`).

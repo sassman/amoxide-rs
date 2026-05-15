@@ -65,10 +65,11 @@ eval "$(am init brush)"
 
 ## Was das Init macht
 
-Der `am init`-Befehl macht zwei Dinge:
+Der `am init`-Befehl macht drei Dinge:
 
 1. **Lädt Aliase** aus deinen aktiven Profilen in die aktuelle Shell
 2. **Installiert einen cd-Hook**, der automatisch Projekt-Aliase (aus `.aliases`-Dateien) lädt und entlädt, wenn du das Verzeichnis wechselst
+3. **Registriert Tab-Vervollständigung** für Profil-, Alias-, Subcommand-Alias- und Variablennamen <VersionBadge v="0.10.0" /> — siehe [Shell-Vervollständigung](/de/advanced/shell-completion)
 
 ## Neu initialisieren ohne Neustart
 
