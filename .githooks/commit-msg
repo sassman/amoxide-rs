@@ -1,0 +1,26 @@
+#!/bin/sh
+# Conventional-commit prefix check on the commit subject (first line).
+# Allowed types match the Angular / commitlint default set.
+
+commit_msg=$(head -n 1 "$1")
+pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?!?: .{1,72}$'
+
+# Pass through merge / fixup / squash commits
+case "$commit_msg" in
+  Merge\ *|fixup!\ *|squash!\ *)
+    exit 0
+    ;;
+esac
+
+if ! printf '%s' "$commit_msg" | grep -qE "$pattern"; then
+  cat >&2 <<EOF
+Error: commit subject doesn't match conventional commit format.
+
+  Expected: <type>[(scope)][!]: <subject>
+  Types:    build chore ci docs feat fix perf refactor revert style test
+  Got:      $commit_msg
+
+See https://www.conventionalcommits.org/en/v1.0.0/#summary
+EOF
+  exit 1
+fi
