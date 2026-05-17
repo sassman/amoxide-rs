@@ -249,7 +249,12 @@ pub(crate) fn sub_segments_with_ctx(prefix: &str, ctx: &CompletionCtx) -> Vec<Co
 
 fn load_global_alias_names() -> Vec<String> {
     Config::load()
-        .map(|c| c.aliases.iter().map(|(n, _)| n.as_ref().to_string()).collect())
+        .map(|c| {
+            c.aliases
+                .iter()
+                .map(|(n, _)| n.as_ref().to_string())
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -260,7 +265,12 @@ fn load_local_alias_names() -> Vec<String> {
     ProjectAliases::find(&cwd)
         .ok()
         .flatten()
-        .map(|p| p.aliases.iter().map(|(n, _)| n.as_ref().to_string()).collect())
+        .map(|p| {
+            p.aliases
+                .iter()
+                .map(|(n, _)| n.as_ref().to_string())
+                .collect()
+        })
         .unwrap_or_default()
 }
 

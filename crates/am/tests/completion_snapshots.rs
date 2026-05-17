@@ -14,12 +14,21 @@
 
 use std::path::Path;
 use std::process::Command;
+use std::sync::LazyLock;
 
+use regex::Regex;
 use tempfile::TempDir;
 
 const AM: &str = env!("CARGO_BIN_EXE_am");
 
 // ---------------- Registration shim snapshots ----------------
+
+/// Matches any filesystem path the shim might embed for the binary:
+/// `/Users/.../am`, `D:\a\…\am.exe`, `\\?\D:\…\am.exe`. Both separators
+/// + optional `.exe` so snapshots stay portable across Unix and Windows.
+static AM_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?:\\\\\?\\)?(?:[A-Za-z]:)?[\\/](?:[^\s"'`]+[\\/])+am(?:\.exe)?"#).unwrap()
+});
 
 fn registration_shim(shell: &str) -> String {
     let output = Command::new(AM).env("COMPLETE", shell).output().unwrap();
@@ -29,9 +38,7 @@ fn registration_shim(shell: &str) -> String {
         String::from_utf8_lossy(&output.stderr),
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // The absolute binary path is machine-specific; mask it so snapshots
-    // are portable across hosts and CI.
-    stdout.replace(AM, "<AM_BIN>")
+    AM_PATH_RE.replace_all(&stdout, "<AM_BIN>").into_owned()
 }
 
 #[test]
