@@ -21,7 +21,7 @@ _clap_complete_am() {
         _CLAP_COMPLETE_COMP_TYPE="$_CLAP_COMPLETE_COMP_TYPE" \
         _CLAP_COMPLETE_SPACE="$_CLAP_COMPLETE_SPACE" \
         COMPLETE="bash" \
-        "<AM_BIN>" -- "${words[@]}" \
+        <AM_BIN> -- "${words[@]}" \
     ) )
     if [[ $? != 0 ]]; then
         unset COMPREPLY

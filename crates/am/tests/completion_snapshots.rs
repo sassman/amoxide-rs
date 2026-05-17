@@ -30,6 +30,12 @@ static AM_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?:\\\\\?\\)?(?:[A-Za-z]:)?[\\/](?:[^\s"'`]+[\\/])+am(?:\.exe)?"#).unwrap()
 });
 
+/// clap_complete shell-quotes Windows paths (they can contain `:`, spaces,
+/// backslashes); Unix paths come through bare. Strip adjacent quote chars
+/// so the snapshot reads the same on both.
+static AM_BIN_QUOTES_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"['"]*<AM_BIN>['"]*"#).unwrap());
+
 fn registration_shim(shell: &str) -> String {
     let output = Command::new(AM).env("COMPLETE", shell).output().unwrap();
     assert!(
@@ -38,7 +44,10 @@ fn registration_shim(shell: &str) -> String {
         String::from_utf8_lossy(&output.stderr),
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    AM_PATH_RE.replace_all(&stdout, "<AM_BIN>").into_owned()
+    let masked_path = AM_PATH_RE.replace_all(&stdout, "<AM_BIN>");
+    AM_BIN_QUOTES_RE
+        .replace_all(&masked_path, "<AM_BIN>")
+        .into_owned()
 }
 
 #[test]
