@@ -18,9 +18,9 @@ amoxide completes profile names, alias names, subcommand-alias segments, and var
 
 ## How it works
 
-`am init <shell>` includes a one-line registration that wires amoxide into your shell's completion system. When you hit tab, the shell calls back into `am` to ask what's valid in the current spot. Because the lookup runs against the live config, completions stay accurate without any cache to invalidate.
+`am init <shell>` includes a one-line registration that wires amoxide into your shell's completion system. When you hit tab, the shell calls back into `am` to ask what's valid in the current spot. The lookup runs against your live config, so completions stay accurate without any cache to invalidate.
 
-Nothing extra to install or source — if you've already run `am setup`, completion turns on the next time you open a new shell.
+Nothing extra to install or source. If you've already run `am setup`, completion turns on the next time you open a shell.
 
 ## Supported shells
 
@@ -30,10 +30,14 @@ Nothing extra to install or source — if you've already run `am setup`, complet
 - **PowerShell** (5.1 + 7)
 - **Brush** — rides the bash shim
 
-Nushell is not yet supported — upstream tracking is in [`clap-rs/clap#5841`](https://github.com/clap-rs/clap/pull/5841).
+Nushell isn't supported yet; upstream tracking is in [`clap-rs/clap#5841`](https://github.com/clap-rs/clap/pull/5841).
 
 ## Troubleshooting
 
-**Completion isn't working after upgrade.** Open a new shell, or re-run `eval "$(am init <shell>)"` in your current session. The `am init` output is what carries the completion registration.
+### Completion stopped working after upgrade
 
-**`am init` shows the registration line but completion still does nothing.** Confirm your shell has a recent enough version (bash ≥ 3.2, zsh, fish, powershell 5.1+). For bash, also check that the `bash-completion` package is installed if you rely on it elsewhere — amoxide's registration doesn't need it, but a broken `complete -F` setup can shadow it.
+Open a new shell, or re-run `eval "$(am init <shell>)"` in your current session. The `am init` output carries the completion registration; old shells won't have it until they re-evaluate it.
+
+### Registration is there but tab does nothing
+
+Check your shell version (bash ≥ 3.2, zsh, fish, powershell 5.1+). For bash, make sure no stray `complete -F` from another tool overrides amoxide's. The `bash-completion` package isn't required.
