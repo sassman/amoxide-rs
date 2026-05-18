@@ -32,7 +32,7 @@ impl Session {
     }
 
     pub fn load() -> crate::Result<Self> {
-        Self::load_from(&crate::dirs::config_dir())
+        Self::load_from(&crate::dirs::config_dir()?)
     }
 
     pub fn toggle_profile(&mut self, name: String) {

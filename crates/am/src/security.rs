@@ -61,7 +61,7 @@ impl SecurityConfig {
     }
 
     pub fn load() -> crate::Result<Self> {
-        Self::load_from(&crate::dirs::config_dir())
+        Self::load_from(&crate::dirs::config_dir()?)
     }
 
     /// Check trust status for a given path and current file hash.

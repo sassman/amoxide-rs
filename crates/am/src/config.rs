@@ -93,7 +93,7 @@ impl Config {
     }
 
     pub fn load() -> crate::Result<Self> {
-        Self::load_from(&crate::dirs::config_dir())
+        Self::load_from(&crate::dirs::config_dir()?)
     }
 
     pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
