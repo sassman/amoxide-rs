@@ -2,10 +2,13 @@ use std::path::PathBuf;
 
 /// Returns the path to the config directory.
 ///
-/// Honors `AMOXIDE_CONFIG_DIR` if set — used by completion fixture tests and
-/// for ad-hoc local experimentation without touching the user's real config.
-/// Otherwise located at `$HOME/.config/amoxide`.
+/// Located at `$HOME/.config/amoxide`.
+///
+/// Under the `test-util` feature, `AMOXIDE_CONFIG_DIR` can override this so
+/// completion fixture tests can point at a tempdir without touching the
+/// user's real config. The override is not compiled into release builds.
 pub fn config_dir() -> PathBuf {
+    #[cfg(feature = "test-util")]
     if let Some(override_path) = std::env::var_os("AMOXIDE_CONFIG_DIR") {
         return PathBuf::from(override_path);
     }

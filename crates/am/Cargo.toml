@@ -33,6 +33,10 @@ blake3 = "1"
 [features]
 test-util = []
 
+[[test]]
+name = "completion_snapshots"
+required-features = ["test-util"]
+
 [dev-dependencies]
 tempfile = { workspace = true }
 indoc = "2.0"
