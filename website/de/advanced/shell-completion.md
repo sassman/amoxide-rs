@@ -12,7 +12,9 @@ amoxide vervollständigt Profilnamen, Aliasnamen, Subcommand-Alias-Segmente und 
 | `am remove -p rust <TAB>` | nur Aliase aus dem Profil `rust` |
 | `am remove -g <TAB>` | nur globale Aliase |
 | `am remove -l <TAB>` | nur Projekt-Aliase (lokal) |
-| `am remove jj --sub <TAB>` | das nächste Segment einer Subcommand-Alias-Kette (z. B. `b`, `ab`) |
+| `am remove jj<TAB>` | Subcommand-Alias-Schlüssel, die mit `jj` beginnen (z. B. `jj:ab`, `jj:b:l`) |
+| `am remove jj:b<TAB>` | per Doppelpunkt eingegrenzt: Schlüssel unter `jj:b:*` (z. B. `jj:b:l`, `jj:b:n`) — funktioniert in fish/zsh; bash braucht `:` entfernt aus `COMP_WORDBREAKS` |
+| `am remove jj --sub <TAB>` | das nächste Segment einer Subcommand-Alias-Kette (z. B. `b`, `ab`) — gleiche Ziele, Langform |
 | `am var get <TAB>`, `am var unset <TAB>` | Variablennamen aus dem aktuellen Kontext, durch `-p` / `-l` / `-g` eingeschränkt |
 | `am export -p <TAB>`, `am import -p <TAB>`, `am share -p <TAB>` | Profilnamen |
 

@@ -211,6 +211,41 @@ fn completes_var_names_scoped_to_profile() {
 }
 
 #[test]
+fn completes_alias_names_includes_subcommand_keys_in_scope() {
+    let dir = fixture();
+    // `am remove -p git ""` — under the git profile, both the regular
+    // alias `gs` and the subcommand-alias keys `jj:*` are valid removal
+    // targets.
+    let got = complete(&["am", "remove", "-p", "git", ""], 4, dir.path());
+    assert!(got.contains(&"gs".to_string()), "got: {got:?}");
+    assert!(got.contains(&"jj:ab".to_string()), "got: {got:?}");
+    assert!(got.contains(&"jj:b:l".to_string()), "got: {got:?}");
+}
+
+#[test]
+fn completes_subcommand_keys_by_bare_prefix() {
+    let dir = fixture();
+    // `am remove -p git jj<TAB>` — no colon yet; subcommand-alias keys
+    // starting with `jj` should surface.
+    let got = complete(&["am", "remove", "-p", "git", "jj"], 4, dir.path());
+    assert!(got.contains(&"jj:ab".to_string()), "got: {got:?}");
+    assert!(got.contains(&"jj:b:l".to_string()), "got: {got:?}");
+}
+
+#[test]
+fn completes_subcommand_keys_by_colon_prefix() {
+    let dir = fixture();
+    // `am remove -p git jj:b<TAB>` — colon shorthand for narrowing to a
+    // subcommand chain. Works engine-side when bash hands the token
+    // through whole (fish/zsh always do; bash needs `:` out of
+    // COMP_WORDBREAKS).
+    let got = complete(&["am", "remove", "-p", "git", "jj:b"], 4, dir.path());
+    assert!(got.contains(&"jj:b:l".to_string()), "got: {got:?}");
+    assert!(got.contains(&"jj:b:n".to_string()), "got: {got:?}");
+    assert!(!got.contains(&"jj:ab".to_string()), "got: {got:?}");
+}
+
+#[test]
 fn completes_sub_segments_first_level() {
     let dir = fixture();
     // `am remove jj --sub <TAB>` — first segment under "jj".

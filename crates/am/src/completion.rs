@@ -134,15 +134,21 @@ pub(crate) fn alias_names_with_ctx(prefix: &str, ctx: &CompletionCtx) -> Vec<Com
 
     if ctx.global {
         names.extend(load_global_alias_names());
+        names.extend(load_subcommand_keys_global());
     } else if ctx.local {
         names.extend(load_local_alias_names());
+        names.extend(load_subcommand_keys_local());
     } else if !ctx.profiles.is_empty() {
         names.extend(load_profile_alias_names(&ctx.profiles));
+        names.extend(load_subcommand_keys_profiles(&ctx.profiles));
     } else {
         // No scope flag: union of global + active profiles + local.
         names.extend(load_global_alias_names());
         names.extend(load_active_profile_alias_names());
         names.extend(load_local_alias_names());
+        names.extend(load_subcommand_keys_global());
+        names.extend(load_subcommand_keys_active_profiles());
+        names.extend(load_subcommand_keys_local());
     }
 
     names.sort();

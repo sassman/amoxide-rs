@@ -12,7 +12,9 @@ amoxide completes profile names, alias names, subcommand-alias segments, and var
 | `am remove -p rust <TAB>` | aliases from the `rust` profile only |
 | `am remove -g <TAB>` | global aliases only |
 | `am remove -l <TAB>` | project (local) aliases only |
-| `am remove jj --sub <TAB>` | the next segment of a subcommand-alias chain (e.g. `b`, `ab`) |
+| `am remove jj<TAB>` | subcommand-alias keys starting with `jj` (e.g. `jj:ab`, `jj:b:l`) |
+| `am remove jj:b<TAB>` | colon-narrowed: keys under `jj:b:*` (e.g. `jj:b:l`, `jj:b:n`) — works in fish/zsh; bash needs `:` out of `COMP_WORDBREAKS` |
+| `am remove jj --sub <TAB>` | the next segment of a subcommand-alias chain (e.g. `b`, `ab`) — same target, longhand |
 | `am var get <TAB>`, `am var unset <TAB>` | variable names from the current context, scoped by `-p` / `-l` / `-g` |
 | `am export -p <TAB>`, `am import -p <TAB>`, `am share -p <TAB>` | profile names |
 
