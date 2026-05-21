@@ -26,11 +26,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 """
 body = """
 ## [{{ version }}]{%- if release_link -%}({{ release_link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% set breaking = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking | length > 0 %}
+### ⚠ Breaking changes
+{% for commit in breaking %}
+- **{{ commit.message | upper_first }}**{%- if commit.remote.pr_number %} by @{{ commit.remote.username }} in [#{{ commit.remote.pr_number }}](https://github.com/sassman/amoxide-rs/pull/{{ commit.remote.pr_number }}){%- endif %}
+{%- if commit.body %}
+
+{{ commit.body | trim | indent(prefix="  ", first=true) }}
+{%- endif %}
+{% endfor %}
+{% endif %}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | upper_first }}
 {% for commit in commits %}
-- {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}
-{%- endfor %}
+- {{ commit.message | upper_first }}{% if commit.breaking %} [breaking]{% endif %}{%- if commit.remote.pr_number %} by @{{ commit.remote.username }} in [#{{ commit.remote.pr_number }}](https://github.com/sassman/amoxide-rs/pull/{{ commit.remote.pr_number }}){%- endif %}
+{%- if commit.body %}
+
+{{ commit.body | trim | indent(prefix="  ", first=true) }}
+{%- endif %}
+{% endfor %}
 {% endfor %}
 """
 trim = true
@@ -38,14 +53,19 @@ protect_breaking_commits = false
 sort_commits = "newest"
 
 commit_parsers = [
+    # Drop release-plz/amoxide's own release commits and dependency bumps
+    { message = "^chore: release v[0-9]", skip = true },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore\\(deps.*\\)", skip = true },
+    { message = "^chore\\(pr\\)", skip = true },
+    { message = "^chore\\(pull\\)", skip = true },
+    # Group everything else
     { message = "^feat", group = "Features" },
     { message = "^fix", group = "Bug Fixes" },
     { message = "^doc", group = "Documentation" },
     { message = "^perf", group = "Performance" },
     { message = "^refactor", group = "Refactor" },
-    { message = "^style", group = "Styling" },
     { message = "^test", group = "Testing" },
-    { message = "^chore\\(release\\): prepare for", skip = true },
     { message = "^chore", group = "Miscellaneous Tasks" },
     { body = ".*security", group = "Security" },
 ]
