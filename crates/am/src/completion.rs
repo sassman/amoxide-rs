@@ -41,16 +41,26 @@ pub struct CompletionCtx {
     pub positionals: Vec<String>,
     /// Values already given for `--sub` on the current invocation.
     pub subs: Vec<String>,
+    /// `COMP_LINE` up to `COMP_POINT`, forwarded by the bash registration
+    /// wrapper. `None` for shells that don't (need to) forward it.
+    pub comp_line_prefix: Option<String>,
 }
 
 impl CompletionCtx {
-    /// Build a context from `std::env::args_os()`.
-    ///
-    /// The shim invokes `am` at completion time with the user's partial
-    /// command line as argv. We do a one-pass scan: capture `-p VALUE`,
-    /// `-l`/`-g`, `--sub VALUE`, and any positionals.
+    /// Build a context from `std::env::args_os()` and, if forwarded by
+    /// the shell shim, `_AM_COMP_LINE` / `_AM_COMP_POINT` (bash only).
     pub fn from_env() -> Self {
-        Self::from_args(std::env::args_os())
+        let mut ctx = Self::from_args(std::env::args_os());
+        if let (Ok(line), Ok(point)) = (
+            std::env::var("_AM_COMP_LINE"),
+            std::env::var("_AM_COMP_POINT"),
+        ) {
+            if let Ok(point) = point.parse::<usize>() {
+                let prefix: String = line.chars().take(point).collect();
+                ctx.comp_line_prefix = Some(prefix);
+            }
+        }
+        ctx
     }
 
     fn from_args<I, S>(args: I) -> Self
@@ -130,6 +140,27 @@ pub fn alias_names(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
 }
 
 pub(crate) fn alias_names_with_ctx(prefix: &str, ctx: &CompletionCtx) -> Vec<CompletionCandidate> {
+    // Bash (3.2 and 4+ alike) treats `:` as a `COMP_WORDBREAKS` boundary
+    // and replaces only the partial *after* the last `:` in the cursor
+    // word — so candidates must be the stripped suffix. Returning the
+    // full `program:key` would insert at the cursor (right after the
+    // colon the user already typed), producing `program:program:key`.
+    //
+    // We recognise "this is bash" by the presence of `_AM_COMP_LINE`,
+    // which our bash registration wrapper exports. Other shells (fish,
+    // zsh) don't forward it; their completion API replaces the entire
+    // cursor token with the candidate, so full keys are correct there.
+    if ctx.comp_line_prefix.is_some() {
+        if let Some((strip, partial)) = colon_context_from_comp_line(ctx) {
+            return subcommand_keys_under(&strip, &partial, ctx);
+        }
+        // bash 3.2 keeps `prog:partial` as one COMP_WORDS element, so
+        // `prefix` itself contains the colon — fall back to it.
+        if let Some((strip, partial)) = colon_split_in_prefix(prefix) {
+            return subcommand_keys_under(&strip, &partial, ctx);
+        }
+    }
+
     let mut names: Vec<String> = Vec::new();
 
     if ctx.global {
@@ -158,6 +189,64 @@ pub(crate) fn alias_names_with_ctx(prefix: &str, ctx: &CompletionCtx) -> Vec<Com
         .filter(|n| matches(n, prefix))
         .map(CompletionCandidate::new)
         .collect()
+}
+
+/// Reads `_AM_COMP_LINE` (forwarded by bash's registration wrapper) to
+/// figure out the colon-shorthand context bash 4+ would otherwise hide.
+/// Returns `(strip, partial)`:
+///
+/// * `strip` — everything up to and including the last `:` in the cursor
+///   token (e.g. `"git:"` for `git:` or `git:p`, `"jj:b:"` for `jj:b:` or
+///   `jj:b:l`). Candidates need this prefix removed so bash's insertion
+///   at the cursor doesn't double up.
+/// * `partial` — the segment after the last `:`, used to narrow the list.
+///
+/// Returns `None` for shells that don't forward `COMP_LINE` (fish, zsh,
+/// bash 3.2 — `prefix` already contains the full cursor token there).
+pub(crate) fn colon_context_from_comp_line(ctx: &CompletionCtx) -> Option<(String, String)> {
+    let line = ctx.comp_line_prefix.as_deref()?;
+    let cursor_token = line.rsplit(|c: char| c.is_whitespace()).next()?;
+    colon_split_in_prefix(cursor_token)
+}
+
+/// `prog:partial` → `Some(("prog:", "partial"))`. Returns None when there's
+/// no `:` or the program is empty.
+fn colon_split_in_prefix(s: &str) -> Option<(String, String)> {
+    let last_colon = s.rfind(':')?;
+    let strip = s[..=last_colon].to_string();
+    let partial = s[last_colon + 1..].to_string();
+    if strip.starts_with(':') {
+        return None;
+    }
+    Some((strip, partial))
+}
+
+fn subcommand_keys_under(
+    strip: &str,
+    partial: &str,
+    ctx: &CompletionCtx,
+) -> Vec<CompletionCandidate> {
+    let mut keys: Vec<String> = Vec::new();
+    if ctx.global {
+        keys.extend(load_subcommand_keys_global());
+    } else if ctx.local {
+        keys.extend(load_subcommand_keys_local());
+    } else if !ctx.profiles.is_empty() {
+        keys.extend(load_subcommand_keys_profiles(&ctx.profiles));
+    } else {
+        keys.extend(load_subcommand_keys_global());
+        keys.extend(load_subcommand_keys_active_profiles());
+        keys.extend(load_subcommand_keys_local());
+    }
+
+    let mut tails: Vec<String> = keys
+        .into_iter()
+        .filter_map(|k| k.strip_prefix(strip).map(str::to_owned))
+        .filter(|seg| matches(seg, partial))
+        .collect();
+    tails.sort();
+    tails.dedup();
+    tails.into_iter().map(CompletionCandidate::new).collect()
 }
 
 /// Variable names from the scope inferred by `CompletionCtx`. Used for
@@ -418,5 +507,58 @@ mod tests {
         assert_eq!(c.profiles, vec!["rust"]);
         assert_eq!(c.subs, vec!["b", "l"]);
         assert_eq!(c.positionals, vec!["am", "remove", "jj"]);
+    }
+
+    fn ctx_with_line(line: &str) -> CompletionCtx {
+        CompletionCtx {
+            comp_line_prefix: Some(line.to_string()),
+            ..CompletionCtx::default()
+        }
+    }
+
+    #[test]
+    fn colon_context_extracts_strip_and_partial_from_comp_line() {
+        // bash 4+ strips the `:` from the cursor word — we recover the
+        // colon-shorthand context from COMP_LINE.
+        assert_eq!(
+            colon_context_from_comp_line(&ctx_with_line("am r -p git git:")),
+            Some(("git:".into(), "".into()))
+        );
+        assert_eq!(
+            colon_context_from_comp_line(&ctx_with_line("am r -p git git:p")),
+            Some(("git:".into(), "p".into()))
+        );
+        assert_eq!(
+            colon_context_from_comp_line(&ctx_with_line("am r jj:b:")),
+            Some(("jj:b:".into(), "".into()))
+        );
+        assert_eq!(
+            colon_context_from_comp_line(&ctx_with_line("am r jj:b:l")),
+            Some(("jj:b:".into(), "l".into()))
+        );
+    }
+
+    #[test]
+    fn colon_context_returns_none_without_comp_line_or_colon() {
+        // No COMP_LINE forwarded — fish/zsh/bash 3.2 path, fall back to
+        // prefix-matching the full cursor token in the regular code path.
+        assert_eq!(
+            colon_context_from_comp_line(&CompletionCtx::default()),
+            None
+        );
+        // COMP_LINE but no `:` — regular completion, not colon-shorthand.
+        assert_eq!(
+            colon_context_from_comp_line(&ctx_with_line("am r git")),
+            None
+        );
+    }
+
+    #[test]
+    fn colon_context_rejects_leading_colon() {
+        // `:foo` has no program — not a subcommand-alias chain.
+        assert_eq!(
+            colon_context_from_comp_line(&ctx_with_line("am r :foo")),
+            None
+        );
     }
 }

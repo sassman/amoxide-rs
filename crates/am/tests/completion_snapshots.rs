@@ -119,20 +119,33 @@ fn fixture() -> TempDir {
 /// `_CLAP_*` env vars, and `["--", "am", <partial words...>]` as argv.
 /// `cursor_index` is the 0-based index within `[am, <partial words...>]`
 /// of the word the user is completing.
-fn complete(args: &[&str], cursor_index: usize, config_dir: &Path) -> Vec<String> {
+///
+/// `comp_line` simulates what our bash registration wrapper forwards from
+/// `COMP_LINE` (the original command-line buffer up to the cursor) — bash
+/// 4+ strips the `:` from the cursor token, so without `_AM_COMP_LINE`
+/// the completer can't tell apart `am r foo<TAB>` from `am r foo:<TAB>`.
+fn complete_with_line(
+    args: &[&str],
+    cursor_index: usize,
+    comp_line: Option<&str>,
+    config_dir: &Path,
+) -> Vec<String> {
     let mut argv: Vec<String> = vec!["--".to_string()];
     argv.extend(args.iter().map(|s| (*s).to_string()));
 
-    let output = Command::new(AM)
-        .args(&argv)
+    let mut cmd = Command::new(AM);
+    cmd.args(&argv)
         .env("COMPLETE", "bash")
         .env("_CLAP_IFS", "\x0b")
         .env("_CLAP_COMPLETE_INDEX", cursor_index.to_string())
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
-        .env("AMOXIDE_CONFIG_DIR", config_dir)
-        .output()
-        .unwrap();
+        .env("AMOXIDE_CONFIG_DIR", config_dir);
+    if let Some(line) = comp_line {
+        cmd.env("_AM_COMP_LINE", line)
+            .env("_AM_COMP_POINT", line.len().to_string());
+    }
+    let output = cmd.output().unwrap();
 
     assert!(
         output.status.success(),
@@ -146,6 +159,10 @@ fn complete(args: &[&str], cursor_index: usize, config_dir: &Path) -> Vec<String
         .filter(|s| !s.is_empty())
         .map(String::from)
         .collect()
+}
+
+fn complete(args: &[&str], cursor_index: usize, config_dir: &Path) -> Vec<String> {
+    complete_with_line(args, cursor_index, None, config_dir)
 }
 
 #[test]
@@ -230,6 +247,48 @@ fn completes_subcommand_keys_by_bare_prefix() {
     let got = complete(&["am", "remove", "-p", "git", "jj"], 4, dir.path());
     assert!(got.contains(&"jj:ab".to_string()), "got: {got:?}");
     assert!(got.contains(&"jj:b:l".to_string()), "got: {got:?}");
+}
+
+#[test]
+fn completes_subcommand_keys_in_bash_colon_split_form() {
+    let dir = fixture();
+    // Bash 4+: shim replaces `words[CWORD]` with `$2=""` so the `:` from
+    // the cursor word is stripped. The engine sees an empty cursor token,
+    // but our registration wrapper forwards `COMP_LINE` so the completer
+    // can still detect the colon-shorthand context.
+    let got = complete_with_line(
+        &["am", "remove", "-p", "git", "jj", ""],
+        5,
+        Some("am remove -p git jj:"),
+        dir.path(),
+    );
+    assert!(got.contains(&"ab".to_string()), "got: {got:?}");
+    assert!(got.contains(&"b:l".to_string()), "got: {got:?}");
+    assert!(got.contains(&"b:n".to_string()), "got: {got:?}");
+    // None of the candidates should still carry the `jj:` program prefix —
+    // bash inserts the candidate at the cursor (after the `:` the user
+    // already typed), so a full key would produce `jj:jj:ab`.
+    assert!(
+        !got.iter().any(|s| s.starts_with("jj:")),
+        "candidates still carry the program prefix: {got:?}"
+    );
+}
+
+#[test]
+fn completes_subcommand_keys_in_bash_colon_split_form_narrowed() {
+    let dir = fixture();
+    // `am r -p git jj:b<TAB>` in bash 4+: cursor word is `b`, COMP_LINE
+    // ends with `jj:b`. After stripping the `jj:` prefix, only `b:l` and
+    // `b:n` start with the partial `b`.
+    let got = complete_with_line(
+        &["am", "remove", "-p", "git", "jj", "b"],
+        5,
+        Some("am remove -p git jj:b"),
+        dir.path(),
+    );
+    assert!(got.contains(&"b:l".to_string()), "got: {got:?}");
+    assert!(got.contains(&"b:n".to_string()), "got: {got:?}");
+    assert!(!got.contains(&"ab".to_string()), "got: {got:?}");
 }
 
 #[test]

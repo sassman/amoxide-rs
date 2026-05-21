@@ -80,15 +80,42 @@ fn cd_hook_setup(shell: &Shell) -> String {
 /// invoke `am` with `COMPLETE=<shell>` set at completion time. `clap_complete`'s
 /// `CompleteEnv` (called first in `main`) detects the env var, emits the
 /// shell-specific completion shim, and exits.
+///
+/// **Bash/Brush** uses command substitution (`eval "$(...)"`) rather than
+/// process substitution (`source <(...)`): bash 3.2 (still on macOS) races the
+/// `<()` pipe close, producing a stray `Broken pipe`. `command am` also
+/// bypasses the wrapper function defined just above.
+///
+/// We then rewrap the registered `_clap_complete_am` so it exports
+/// `COMP_LINE` / `COMP_POINT` to the binary as `_AM_COMP_LINE` /
+/// `_AM_COMP_POINT`. clap_complete's bash 4+ shim replaces `words[CWORD]`
+/// with `$2`, which is empty when the cursor sits on a `COMP_WORDBREAKS`
+/// boundary (`:`) — so without `COMP_LINE` the completer can't tell apart
+/// `am r foo<TAB>` from `am r foo:<TAB>`. With the original line in env,
+/// the completer can detect the colon-shorthand context and strip the
+/// `program:` prefix from candidates.
 fn completions(shell: &Shell) -> String {
     match shell {
-        // Brush is bash-compatible; the bash shim works under brush.
-        Shell::Bash | Shell::Brush => "source <(COMPLETE=bash am)\n".to_string(),
+        Shell::Bash | Shell::Brush => BASH_REGISTRATION.to_string(),
         Shell::Fish => "COMPLETE=fish am | source\n".to_string(),
         Shell::Powershell => "$env:COMPLETE = \"powershell\"; am | Out-String | Invoke-Expression; Remove-Item Env:\\COMPLETE\n".to_string(),
         Shell::Zsh => "source <(COMPLETE=zsh am)\n".to_string(),
     }
 }
+
+const BASH_REGISTRATION: &str = r#"eval "$(COMPLETE=bash command am)"
+if declare -F _clap_complete_am > /dev/null; then
+    eval "_clap_complete_am_orig() $(declare -f _clap_complete_am | tail -n +2)"
+    _clap_complete_am() {
+        export _AM_COMP_LINE="${COMP_LINE-}"
+        export _AM_COMP_POINT="${COMP_POINT-0}"
+        _clap_complete_am_orig "$@"
+        local rc=$?
+        unset _AM_COMP_LINE _AM_COMP_POINT
+        return $rc
+    }
+fi
+"#;
 
 #[cfg(test)]
 mod tests {

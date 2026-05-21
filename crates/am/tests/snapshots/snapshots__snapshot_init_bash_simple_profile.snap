@@ -48,4 +48,15 @@ else
 fi
 __am_hook
 
-source <(COMPLETE=bash am)
+eval "$(COMPLETE=bash command am)"
+if declare -F _clap_complete_am > /dev/null; then
+    eval "_clap_complete_am_orig() $(declare -f _clap_complete_am | tail -n +2)"
+    _clap_complete_am() {
+        export _AM_COMP_LINE="${COMP_LINE-}"
+        export _AM_COMP_POINT="${COMP_POINT-0}"
+        _clap_complete_am_orig "$@"
+        local rc=$?
+        unset _AM_COMP_LINE _AM_COMP_POINT
+        return $rc
+    }
+fi
