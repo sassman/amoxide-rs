@@ -154,8 +154,14 @@ fn main() -> anyhow::Result<()> {
                 Message::RemoveAlias(name.clone(), target)
             }
         }
-        Commands::Ls { used } => Message::ListProfiles { used: *used },
-        Commands::La => Message::ListProfiles { used: true },
+        Commands::Ls { used, descriptions } => Message::ListProfiles {
+            used: *used,
+            descriptions: *descriptions,
+        },
+        Commands::La => Message::ListProfiles {
+            used: true,
+            descriptions: true,
+        },
         Commands::Status => {
             println!("{}", amoxide::status::run_status());
             return Ok(());
@@ -246,7 +252,10 @@ fn main() -> anyhow::Result<()> {
                 model.save_config()?;
                 return Ok(());
             }
-            ProfileAction::List { used } => Message::ListProfiles { used: *used },
+            ProfileAction::List { used } => Message::ListProfiles {
+                used: *used,
+                descriptions: false,
+            },
             ProfileAction::Use(_) => unreachable!("handled by outer match arm"),
         },
         Commands::Setup { shell } => {

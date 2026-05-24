@@ -68,6 +68,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-u[Show only active profiles and loaded project aliases]' \
 '--used[Show only active profiles and loaded project aliases]' \
+'-d[Show descriptions next to aliases (when present)]' \
+'--descriptions[Show descriptions next to aliases (when present)]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -605,7 +607,7 @@ _am_commands() {
 'add:Add a new alias' \
 'remove:Remove an alias' \
 'ls:List all profiles and project aliases' \
-'la:List all active profiles and project aliases' \
+'la:List all active profiles and project aliases (always shows descriptions)' \
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
@@ -645,7 +647,7 @@ _am__subcmd__help_commands() {
 'add:Add a new alias' \
 'remove:Remove an alias' \
 'ls:List all profiles and project aliases' \
-'la:List all active profiles and project aliases' \
+'la:List all active profiles and project aliases (always shows descriptions)' \
 'status:Check if the shell is set up correctly' \
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \

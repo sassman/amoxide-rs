@@ -141,3 +141,43 @@ fn normalize_description_keeps_non_empty() {
         Some("git status short".to_string())
     );
 }
+
+// ── am ls -d / --descriptions flag parses correctly ──────────────────────────
+
+#[test]
+fn am_ls_accepts_descriptions_flag() {
+    use amoxide::cli::{Cli, Commands};
+    use clap::Parser;
+
+    let cli = Cli::try_parse_from(["am", "ls", "-d"]).expect("parse");
+    match cli.command {
+        Commands::Ls { used, descriptions } => {
+            assert!(!used);
+            assert!(descriptions);
+        }
+        _ => panic!("expected Ls"),
+    }
+}
+
+#[test]
+fn am_ls_accepts_descriptions_long_flag() {
+    use amoxide::cli::{Cli, Commands};
+    use clap::Parser;
+
+    let cli = Cli::try_parse_from(["am", "ls", "--descriptions"]).expect("parse");
+    match cli.command {
+        Commands::Ls { descriptions, .. } => {
+            assert!(descriptions);
+        }
+        _ => panic!("expected Ls"),
+    }
+}
+
+#[test]
+fn am_la_is_unit_variant() {
+    use amoxide::cli::{Cli, Commands};
+    use clap::Parser;
+
+    let cli = Cli::try_parse_from(["am", "la"]).expect("parse");
+    assert!(matches!(cli.command, Commands::La));
+}

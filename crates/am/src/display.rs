@@ -92,6 +92,7 @@ pub fn render_listing(
     active_profiles: &[String],
     project: Option<&ProjectTrust>,
     filter: Option<AliasDisplayFilter>,
+    _descriptions: bool,
 ) -> String {
     let mut output = String::new();
 
@@ -398,6 +399,7 @@ mod tests {
             &["rust".to_string()],
             None,
             None,
+            false,
         );
         // Global with trunk
         assert!(output.contains("🌐 global"));
@@ -433,6 +435,7 @@ mod tests {
             &["git".to_string(), "rust".to_string()],
             Some(&trust),
             None,
+            false,
         );
         assert!(output.contains("├─● git (active: 1)"));
         assert!(output.contains("├─● rust (active: 2)"));
@@ -456,6 +459,7 @@ mod tests {
             &["rust".to_string()],
             None,
             None,
+            false,
         );
         assert!(output.contains("╰─● rust (active: 1)"));
     }
@@ -481,6 +485,7 @@ mod tests {
             &["rust".to_string()],
             None,
             None,
+            false,
         );
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
@@ -498,6 +503,7 @@ mod tests {
             &[],
             None,
             None,
+            false,
         );
         assert!(output.contains("🌐 global"));
         // No trunk when global stands alone
@@ -526,6 +532,7 @@ mod tests {
             &["default".to_string()],
             Some(&trust),
             None,
+            false,
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(output.contains("📁 project"));
@@ -546,6 +553,7 @@ mod tests {
             &["default".to_string()],
             None,
             None,
+            false,
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(!output.contains("📁"));
@@ -572,6 +580,7 @@ mod tests {
             &["active".to_string()],
             None,
             Some(AliasDisplayFilter::Used),
+            false,
         );
 
         assert!(
@@ -601,7 +610,7 @@ mod tests {
             TomlSubcommand::Expansion(vec!["branch".into(), "list".into()]),
         );
 
-        let output = render_listing(&AliasSet::default(), &subs, &config, &[], None, None);
+        let output = render_listing(&AliasSet::default(), &subs, &config, &[], None, None, false);
         assert!(output.contains("jj (subcommands)"));
         assert!(output.contains("ab → abandon"));
         assert!(output.contains("b l → branch list"));

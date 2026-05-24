@@ -826,7 +826,7 @@ _am() {
             return 0
             ;;
         am__subcmd__ls)
-            opts="-u -h -V --used --help --version"
+            opts="-u -d -h -V --used --descriptions --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

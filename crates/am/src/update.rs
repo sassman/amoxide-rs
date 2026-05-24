@@ -485,7 +485,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
             }
         }
-        Message::ListProfiles { used } => {
+        Message::ListProfiles { used, descriptions } => {
             let output = render_listing(
                 &model.config.aliases,
                 &model.config.subcommands,
@@ -499,6 +499,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         None
                     }
                 },
+                descriptions,
             );
             let mut effects = vec![Effect::Print(output)];
             if update_check_enabled(model) {
@@ -1574,7 +1575,7 @@ mod tests {
 
     #[test]
     fn update_result_message_has_message_and_no_effects() {
-        let r = UpdateResult::message(Message::ListProfiles { used: false });
+        let r = UpdateResult::message(Message::ListProfiles { used: false, descriptions: false });
         assert!(r.next.is_some());
         assert!(r.effects.is_empty());
     }
@@ -1589,7 +1590,7 @@ mod tests {
     #[test]
     fn update_result_new_has_message_and_effects() {
         let r = UpdateResult::new(
-            Message::ListProfiles { used: false },
+            Message::ListProfiles { used: false, descriptions: false },
             vec![Effect::SaveConfig, Effect::SaveProfiles],
         );
         assert!(r.next.is_some());
@@ -2475,7 +2476,7 @@ mod tests {
                 checked_at_secs: u64::MAX / 2,
                 latest_version: "999.999.999".into(),
             });
-            update(&mut model, Message::ListProfiles { used: false })
+            update(&mut model, Message::ListProfiles { used: false, descriptions: false })
                 .unwrap()
                 .effects
         }
@@ -2491,7 +2492,7 @@ mod tests {
         fn no_cache_emits_spawn_after_print() {
             let mut model = AppModel::new(Config::default(), ProfileConfig::default());
             model.update_cache = None;
-            let effects = update(&mut model, Message::ListProfiles { used: false })
+            let effects = update(&mut model, Message::ListProfiles { used: false, descriptions: false })
                 .unwrap()
                 .effects;
             assert!(matches!(effects.first(), Some(Effect::Print(_))));
@@ -2505,7 +2506,7 @@ mod tests {
                 checked_at_secs: u64::MAX / 2,
                 latest_version: env!("CARGO_PKG_VERSION").into(),
             });
-            let effects = update(&mut model, Message::ListProfiles { used: false })
+            let effects = update(&mut model, Message::ListProfiles { used: false, descriptions: false })
                 .unwrap()
                 .effects;
             assert_eq!(effects.len(), 1);
@@ -2517,7 +2518,7 @@ mod tests {
             let mut model = AppModel::new(Config::default(), ProfileConfig::default());
             model.config.update.check = false;
             model.update_cache = None; // would normally spawn
-            let effects = update(&mut model, Message::ListProfiles { used: false })
+            let effects = update(&mut model, Message::ListProfiles { used: false, descriptions: false })
                 .unwrap()
                 .effects;
             assert_eq!(effects.len(), 1);

@@ -41,8 +41,11 @@ pub enum Commands {
         /// Show only active profiles and loaded project aliases
         #[arg(short, long, default_value_t = false)]
         used: bool,
+        /// Show descriptions next to aliases (when present)
+        #[arg(short = 'd', long = "descriptions", default_value_t = false)]
+        descriptions: bool,
     },
-    /// List all active profiles and project aliases
+    /// List all active profiles and project aliases (always shows descriptions)
     La,
     /// Check if the shell is set up correctly
     Status,
