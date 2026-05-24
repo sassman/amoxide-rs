@@ -25,6 +25,15 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
 
     let has_status = model.status_line.is_some();
     let in_editor = matches!(model.mode, Mode::TextInput(_));
+    // Modes that show a description row need 2 editor lines instead of 1.
+    let editor_rows: u16 = match &model.mode {
+        Mode::TextInput(
+            TextInputState::NewAlias { .. }
+            | TextInputState::EditAlias { .. }
+            | TextInputState::SubcommandInput { .. },
+        ) => 2,
+        _ => 1,
+    };
 
     // Build vertical layout dynamically:
     //   - status line only appears when there is a message
@@ -36,9 +45,9 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
     ];
     if in_editor && has_status {
         constraints.push(Constraint::Length(1)); // status above editor
-        constraints.push(Constraint::Length(1)); // editor
+        constraints.push(Constraint::Length(editor_rows)); // editor
     } else if in_editor || has_status {
-        constraints.push(Constraint::Length(1)); // editor or status (one row)
+        constraints.push(Constraint::Length(if in_editor { editor_rows } else { 1 })); // editor or status
     }
 
     let chunks = Layout::default()
@@ -225,19 +234,23 @@ fn render_right_column(frame: &mut Frame, model: &TuiModel, area: Rect) {
 
 fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
     let input_area = area;
-    let prompt = match state {
-        TextInputState::NewProfile(text) => Line::from(vec![
-            Span::styled("  New profile: ", Style::default().fg(GOLD)),
-            Span::styled(text.as_str(), Style::default().fg(TEXT_PRIMARY)),
-            Span::styled("_", Style::default().fg(TEXT_PRIMARY)),
-        ]),
+    let mut lines: Vec<Line<'static>> = Vec::new();
+
+    match state {
+        TextInputState::NewProfile(text) => {
+            lines.push(Line::from(vec![
+                Span::styled("  New profile: ", Style::default().fg(GOLD)),
+                Span::styled(text.clone(), Style::default().fg(TEXT_PRIMARY)),
+                Span::styled("_", Style::default().fg(TEXT_PRIMARY)),
+            ]));
+        }
         TextInputState::NewAlias {
             name,
             command,
+            description,
             active_field,
             cursor,
             target,
-            ..
         } => {
             let target_label = match target {
                 AliasTarget::Global => "global",
@@ -246,6 +259,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             };
             let name_active = *active_field == AliasField::Name;
             let cmd_active = *active_field == AliasField::Command;
+            let desc_active = *active_field == AliasField::Description;
             let name_style = if name_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
@@ -258,8 +272,10 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             };
             let pos = (*cursor).min(if name_active {
                 name.len()
-            } else {
+            } else if cmd_active {
                 command.len()
+            } else {
+                description.len()
             });
             // Show a placeholder hint when the name field is still empty so users
             // discover the "prog: → Tab" subcommand shortcut on first use.
@@ -280,7 +296,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
                 spans.push(Span::styled(name[pos..].to_string(), name_style));
             } else {
-                spans.push(Span::styled(name.as_str(), name_style));
+                spans.push(Span::styled(name.clone(), name_style));
             }
             spans.push(Span::styled(" = ", Style::default().fg(TEXT_MUTED)));
             if cmd_active {
@@ -288,32 +304,53 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
                 spans.push(Span::styled(command[pos..].to_string(), cmd_style));
             } else {
-                spans.push(Span::styled(command.as_str(), cmd_style));
+                spans.push(Span::styled(command.clone(), cmd_style));
             }
             spans.push(hint);
-            Line::from(spans)
+            lines.push(Line::from(spans));
+
+            // Description row (line 2)
+            let desc_marker = if desc_active { "▸ " } else { "  " };
+            let desc_style = if desc_active {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let mut desc_spans = vec![
+                Span::styled(format!("{desc_marker}description: "), Style::default().fg(TEXT_MUTED)),
+            ];
+            if desc_active {
+                let dpos = pos.min(description.len());
+                desc_spans.push(Span::styled(description[..dpos].to_string(), desc_style));
+                desc_spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                desc_spans.push(Span::styled(description[dpos..].to_string(), desc_style));
+            } else {
+                desc_spans.push(Span::styled(description.clone(), desc_style));
+            }
+            lines.push(Line::from(desc_spans));
         }
         TextInputState::EditProfile { name, error, .. } => {
             let err_span = error
                 .as_ref()
                 .map(|e| Span::styled(format!("  ({e})"), Style::default().fg(ERROR_RED)))
                 .unwrap_or_else(|| Span::raw(""));
-            Line::from(vec![
+            lines.push(Line::from(vec![
                 Span::styled("  Rename profile: ", Style::default().fg(GOLD)),
-                Span::styled(name.as_str(), Style::default().fg(TEXT_PRIMARY)),
+                Span::styled(name.clone(), Style::default().fg(TEXT_PRIMARY)),
                 Span::styled("_", Style::default().fg(TEXT_PRIMARY)),
                 err_span,
-            ])
+            ]));
         }
         TextInputState::SubcommandInput {
             program,
             pairs,
+            description,
             active_pair,
             active_field,
             cursor,
             ..
         } => {
-            let mut spans: Vec<Span<'_>> = vec![Span::styled(
+            let mut spans: Vec<Span<'static>> = vec![Span::styled(
                 format!("  {program}: "),
                 Style::default().fg(GOLD),
             )];
@@ -357,20 +394,37 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                     spans.push(Span::styled(long.clone(), long_style));
                 }
             }
-            spans.push(Span::styled(
-                "   (Tab: next, Shift+Tab: back, ↵: confirm, Esc: cancel)",
-                Style::default().fg(TEXT_MUTED),
-            ));
-            Line::from(spans)
+            lines.push(Line::from(spans));
+
+            // Description row (line 2)
+            let desc_active = *active_field == SubcommandField::Description;
+            let desc_marker = if desc_active { "▸ " } else { "  " };
+            let desc_style = if desc_active {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let mut desc_spans = vec![
+                Span::styled(format!("{desc_marker}description: "), Style::default().fg(TEXT_MUTED)),
+            ];
+            if desc_active {
+                let pos = (*cursor).min(description.len());
+                desc_spans.push(Span::styled(description[..pos].to_string(), desc_style));
+                desc_spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                desc_spans.push(Span::styled(description[pos..].to_string(), desc_style));
+            } else {
+                desc_spans.push(Span::styled(description.clone(), desc_style));
+            }
+            lines.push(Line::from(desc_spans));
         }
         TextInputState::EditAlias {
             alias_id,
             name,
             command,
+            description,
             active_field,
             cursor,
             error,
-            ..
         } => {
             let scope_label = match alias_id {
                 AliasId::Global { .. } => "global",
@@ -380,6 +434,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             };
             let name_active = *active_field == AliasField::Name;
             let cmd_active = *active_field == AliasField::Command;
+            let desc_active = *active_field == AliasField::Description;
             let name_style = if name_active {
                 Style::default().fg(TEXT_PRIMARY)
             } else {
@@ -392,8 +447,10 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             };
             let pos = (*cursor).min(if name_active {
                 name.len()
-            } else {
+            } else if cmd_active {
                 command.len()
+            } else {
+                description.len()
             });
             let err_span = error
                 .as_ref()
@@ -408,7 +465,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
                 spans.push(Span::styled(name[pos..].to_string(), name_style));
             } else {
-                spans.push(Span::styled(name.as_str(), name_style));
+                spans.push(Span::styled(name.clone(), name_style));
             }
             spans.push(Span::styled(" = ", Style::default().fg(TEXT_MUTED)));
             if cmd_active {
@@ -416,14 +473,35 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
                 spans.push(Span::styled(command[pos..].to_string(), cmd_style));
             } else {
-                spans.push(Span::styled(command.as_str(), cmd_style));
+                spans.push(Span::styled(command.clone(), cmd_style));
             }
             spans.push(err_span);
-            Line::from(spans)
+            lines.push(Line::from(spans));
+
+            // Description row (line 2)
+            let desc_marker = if desc_active { "▸ " } else { "  " };
+            let desc_style = if desc_active {
+                Style::default().fg(TEXT_PRIMARY)
+            } else {
+                Style::default().fg(TEXT_MUTED)
+            };
+            let mut desc_spans = vec![
+                Span::styled(format!("{desc_marker}description: "), Style::default().fg(TEXT_MUTED)),
+            ];
+            if desc_active {
+                let dpos = pos.min(description.len());
+                desc_spans.push(Span::styled(description[..dpos].to_string(), desc_style));
+                desc_spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+                desc_spans.push(Span::styled(description[dpos..].to_string(), desc_style));
+            } else {
+                desc_spans.push(Span::styled(description.clone(), desc_style));
+            }
+            lines.push(Line::from(desc_spans));
         }
-    };
+    }
+
     frame.render_widget(ratatui::widgets::Clear, input_area);
-    frame.render_widget(Paragraph::new(prompt), input_area);
+    frame.render_widget(Paragraph::new(Text::from(lines)), input_area);
 }
 
 fn render_confirm(frame: &mut Frame, action: &ConfirmAction, area: Rect) {
@@ -616,13 +694,22 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                             Span::raw(""),
                         )
                     };
-                lines.push(Line::from(vec![
+                let mut row_spans = vec![
                     Span::styled(node.prefix.clone(), Style::default().fg(conn)),
                     Span::styled(marker.to_string(), marker_style),
                     key_span,
                     arrow_span,
                     exp_span,
-                ]));
+                ];
+                if model.descriptions_visible {
+                    if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty()) {
+                        row_spans.push(Span::styled(
+                            format!(" # {desc}"),
+                            Style::default().fg(TEXT_MUTED),
+                        ));
+                    }
+                }
+                lines.push(Line::from(row_spans));
 
                 // Breathing room between sections: when the last subcommand item in a group
                 // is immediately followed by a section header, emit a blank separator line.
@@ -685,7 +772,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Style::default().fg(conn)
                 };
 
-                // Single line: prefix arm marker name -> command
+                // Single line: prefix arm marker name -> command [# desc]
                 let cmd_text = node.alias_command.as_deref().unwrap_or("");
                 let cmd_style = if is_cursor {
                     Style::default().fg(HEADER_DEFAULT)
@@ -694,7 +781,7 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 } else {
                     Style::default().fg(TEXT_MUTED)
                 };
-                lines.push(Line::from(vec![
+                let mut alias_spans = vec![
                     Span::styled(
                         format!("{}{arm}", node.content_prefix),
                         Style::default().fg(conn),
@@ -703,7 +790,16 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Span::styled(node.label.clone(), name_style),
                     Span::styled(" -> ", Style::default().fg(TEXT_MUTED)),
                     Span::styled(cmd_text.to_string(), cmd_style),
-                ]));
+                ];
+                if model.descriptions_visible {
+                    if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty()) {
+                        alias_spans.push(Span::styled(
+                            format!(" # {desc}"),
+                            Style::default().fg(TEXT_MUTED),
+                        ));
+                    }
+                }
+                lines.push(Line::from(alias_spans));
 
                 // Breathing room between sections
                 if is_last_alias {
@@ -855,6 +951,73 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::styled("n", Style::default().fg(GOLD)),
             Span::styled(" cancel", Style::default().fg(TEXT_MUTED)),
         ]),
+    }
+}
+
+#[cfg(test)]
+mod description_render {
+    use super::*;
+    use crate::model::TuiModel;
+    use amoxide::{Config, ProfileConfig};
+
+    fn make_model_with_described_alias() -> TuiModel {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false, Some("long listing".to_string()));
+        let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
+        let mut model = TuiModel::new().unwrap();
+        model.app_model = app;
+        model.rebuild_tree();
+        model
+    }
+
+    #[test]
+    fn alias_description_hidden_by_default() {
+        let model = make_model_with_described_alias();
+        assert!(!model.descriptions_visible);
+        let lines = render_tree_lines(&model);
+        let rendered: String = lines
+            .iter()
+            .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
+            .collect();
+        assert!(!rendered.contains("# long listing"), "description should be hidden by default");
+    }
+
+    #[test]
+    fn alias_description_shown_when_visible() {
+        let mut model = make_model_with_described_alias();
+        model.descriptions_visible = true;
+        let lines = render_tree_lines(&model);
+        let rendered: String = lines
+            .iter()
+            .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
+            .collect();
+        assert!(rendered.contains("# long listing"), "description should appear when descriptions_visible");
+    }
+
+    #[test]
+    fn described_subcommand_shown_when_visible() {
+        use amoxide::TomlSubcommand;
+        use amoxide::subcommand::SubcommandDetail;
+        let mut config = Config::default();
+        config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("abandon a change".to_string()),
+            }),
+        );
+        let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
+        let mut model = TuiModel::new().unwrap();
+        model.app_model = app;
+        model.rebuild_tree();
+        model.descriptions_visible = true;
+
+        let lines = render_tree_lines(&model);
+        let rendered: String = lines
+            .iter()
+            .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
+            .collect();
+        assert!(rendered.contains("# abandon a change"), "subcommand description should appear");
     }
 }
 

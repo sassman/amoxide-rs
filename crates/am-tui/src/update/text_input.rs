@@ -2,6 +2,7 @@ use crate::model::{
     AliasField, AliasId, AliasTarget, Mode, NodeKind, SubcommandField, TextInputState, TuiMessage,
     TuiModel,
 };
+use amoxide::Described;
 
 /// Move a byte-offset cursor one char to the left within `s`.
 fn cursor_left(s: &str, cursor: usize) -> usize {
@@ -143,12 +144,40 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     if let (Some(id), Some(cmd)) =
                         (node.alias_id.clone(), node.alias_command.clone())
                     {
+                        // Pre-populate description from the existing alias.
+                        let existing_desc = match &id {
+                            AliasId::Global { alias_name } => {
+                                let key = amoxide::AliasName::from(alias_name.as_str());
+                                model.app_model.config.aliases.get(&key)
+                                    .and_then(|a| a.description())
+                                    .unwrap_or("")
+                                    .to_string()
+                            }
+                            AliasId::Profile { profile_name, alias_name } => {
+                                let key = amoxide::AliasName::from(alias_name.as_str());
+                                model.app_model.profile_config()
+                                    .get_profile_by_name(profile_name)
+                                    .and_then(|p| p.aliases.get(&key))
+                                    .and_then(|a| a.description())
+                                    .unwrap_or("")
+                                    .to_string()
+                            }
+                            AliasId::Project { alias_name } => {
+                                let key = amoxide::AliasName::from(alias_name.as_str());
+                                model.app_model.project_aliases()
+                                    .and_then(|p| p.aliases.get(&key))
+                                    .and_then(|a| a.description())
+                                    .unwrap_or("")
+                                    .to_string()
+                            }
+                            AliasId::Subcommand { .. } => String::new(),
+                        };
                         model.mode = Mode::TextInput(TextInputState::EditAlias {
                             alias_id: id,
                             cursor: node.label.len(),
                             name: node.label.clone(),
                             command: cmd,
-                            description: String::new(),
+                            description: existing_desc,
                             active_field: AliasField::Name,
                             error: None,
                         });
@@ -161,6 +190,30 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             amoxide::SubcommandScope::Profile(n) => AliasTarget::Profile(n.clone()),
                             amoxide::SubcommandScope::Project => AliasTarget::Project,
                         };
+                        // Pre-populate description from the existing subcommand.
+                        let existing_desc = match scope {
+                            amoxide::SubcommandScope::Global => {
+                                model.app_model.config.subcommands.as_ref().get(key.as_str())
+                                    .and_then(|s| s.description())
+                                    .unwrap_or("")
+                                    .to_string()
+                            }
+                            amoxide::SubcommandScope::Profile(pname) => {
+                                model.app_model.profile_config()
+                                    .get_profile_by_name(pname)
+                                    .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
+                                    .and_then(|s| s.description())
+                                    .unwrap_or("")
+                                    .to_string()
+                            }
+                            amoxide::SubcommandScope::Project => {
+                                model.app_model.project_aliases()
+                                    .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
+                                    .and_then(|s| s.description())
+                                    .unwrap_or("")
+                                    .to_string()
+                            }
+                        };
                         let pairs = collect_pairs_to_cursor(model);
                         let program = key.split(':').next().unwrap_or("").to_string();
                         let active_pair = pairs.len().saturating_sub(1);
@@ -168,7 +221,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
                             program,
                             pairs,
-                            description: String::new(),
+                            description: existing_desc,
                             active_pair,
                             active_field: SubcommandField::Short,
                             cursor,
@@ -1143,6 +1196,34 @@ mod description_field_tests {
                 assert_eq!(*active_pair, 0);
             }
             _ => panic!("expected SubcommandInput on Short field"),
+        }
+    }
+
+    #[test]
+    fn edit_item_pre_populates_alias_description() {
+        let mut model = empty_model();
+        // Add a global alias with a description.
+        model.app_model.config.add_alias(
+            "gs".into(),
+            "git status".into(),
+            false,
+            Some("show git status".to_string()),
+        );
+        model.rebuild_tree();
+        // Move cursor to the alias node.
+        let alias_idx = model
+            .tree
+            .iter()
+            .position(|n| n.kind == NodeKind::AliasItem && n.label == "gs")
+            .expect("alias 'gs' must appear in tree");
+        model.cursor = alias_idx;
+        // Trigger EditItem.
+        handle(&mut model, TuiMessage::EditItem);
+        match &model.mode {
+            Mode::TextInput(TextInputState::EditAlias { description, .. }) => {
+                assert_eq!(description, "show git status", "EditItem should pre-populate description");
+            }
+            _ => panic!("expected EditAlias mode"),
         }
     }
 }

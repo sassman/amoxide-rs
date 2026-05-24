@@ -1,6 +1,6 @@
 use crate::model::{AliasId, NodeKind, TreeNode, TREE_BRANCH, TREE_LAST, TREE_SPACE, TREE_TRUNK};
 use amoxide::update::AppModel;
-use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
+use amoxide::{AliasSet, Described, ProfileConfig, ProjectAliases};
 
 // ---------------------------------------------------------------------------
 // Subcommand trie types and helpers
@@ -11,6 +11,8 @@ use amoxide::{AliasSet, ProfileConfig, ProjectAliases};
 struct SubcmdTrieNode {
     /// If this is a leaf, the long form for this level.
     leaf_long: Option<String>,
+    /// Description carried from the `TomlSubcommand` (leaf nodes only).
+    leaf_description: Option<String>,
     children: std::collections::BTreeMap<String, SubcmdTrieNode>,
 }
 
@@ -33,6 +35,7 @@ fn build_subcmd_trie(subcommands: &amoxide::SubcommandSet, program: &str) -> Sub
             let child = node.children.entry(seg.to_string()).or_default();
             if i == segments.len() - 1 {
                 child.leaf_long = Some(longs[i].clone());
+                child.leaf_description = subcmd.description().map(str::to_owned);
             }
             node = child;
         }
@@ -53,6 +56,7 @@ fn emit_subcommand_nodes(
         kind: NodeKind::SubcommandProgramHeader,
         alias_id: None,
         alias_command: None,
+        alias_description: None,
         is_active: false,
         label: format!("{program} (subcommands)"),
         prefix: header_prefix,
@@ -100,6 +104,7 @@ fn emit_trie_children(
                     key: full_key,
                 }),
                 alias_command: None,
+                alias_description: child.leaf_description.clone(),
                 is_active: false,
                 label: format!("{short} \u{2192} {long}"),
                 prefix: format!("{parent_content_prefix}{arm}"),
@@ -111,6 +116,7 @@ fn emit_trie_children(
                 kind: NodeKind::SubcommandGroupNode,
                 alias_id: None,
                 alias_command: None,
+                alias_description: None,
                 is_active: false,
                 label: short.clone(),
                 prefix: format!("{parent_content_prefix}{arm}"),
@@ -236,6 +242,7 @@ pub fn build_tree_from_parts(
         kind: NodeKind::GlobalHeader,
         alias_id: None,
         alias_command: None,
+        alias_description: None,
         is_active: false,
         label: "global".to_string(),
         prefix: String::new(),
@@ -253,6 +260,7 @@ pub fn build_tree_from_parts(
                 alias_name: name.to_string(),
             }),
             alias_command: Some(alias.command().to_string()),
+            alias_description: alias.description().map(str::to_owned),
             is_active: false,
             label: name.to_string(),
             prefix: String::new(),
@@ -304,6 +312,7 @@ pub fn build_tree_from_parts(
             kind: NodeKind::ProfileHeader,
             alias_id: None,
             alias_command: None,
+            alias_description: None,
             is_active: true,
             label: profile_name.to_string(),
             prefix: connector.to_string(),
@@ -320,6 +329,7 @@ pub fn build_tree_from_parts(
                         alias_name: name.to_string(),
                     }),
                     alias_command: Some(alias.command().to_string()),
+                    alias_description: alias.description().map(str::to_owned),
                     is_active: false,
                     label: name.to_string(),
                     prefix: String::new(),
@@ -368,6 +378,7 @@ pub fn build_tree_from_parts(
             kind: NodeKind::ProjectHeader,
             alias_id: None,
             alias_command: None,
+            alias_description: None,
             is_active: false,
             label: project_label,
             prefix: connector.to_string(),
@@ -383,6 +394,7 @@ pub fn build_tree_from_parts(
                         alias_name: name.to_string(),
                     }),
                     alias_command: Some(alias.command().to_string()),
+                    alias_description: alias.description().map(str::to_owned),
                     is_active: false,
                     label: name.to_string(),
                     prefix: String::new(),
@@ -414,6 +426,7 @@ pub fn build_tree_from_parts(
             kind: NodeKind::ProfileHeader,
             alias_id: None,
             alias_command: None,
+            alias_description: None,
             is_active: false,
             label: profile_name.to_string(),
             prefix: String::new(),
@@ -430,6 +443,7 @@ pub fn build_tree_from_parts(
                         alias_name: name.to_string(),
                     }),
                     alias_command: Some(alias.command().to_string()),
+                    alias_description: alias.description().map(str::to_owned),
                     is_active: false,
                     label: name.to_string(),
                     prefix: String::new(),
@@ -487,6 +501,7 @@ pub fn build_dest_tree_from_parts(
         kind: NodeKind::GlobalHeader,
         alias_id: None,
         alias_command: None,
+        alias_description: None,
         is_active: false,
         label: "global".to_string(),
         prefix: String::new(),
@@ -505,6 +520,7 @@ pub fn build_dest_tree_from_parts(
             kind: NodeKind::ProfileHeader,
             alias_id: None,
             alias_command: None,
+            alias_description: None,
             is_active: true,
             label: profile_name.to_string(),
             prefix: connector.to_string(),
@@ -519,6 +535,7 @@ pub fn build_dest_tree_from_parts(
             kind: NodeKind::ProjectHeader,
             alias_id: None,
             alias_command: None,
+            alias_description: None,
             is_active: false,
             label: "project (.aliases)".to_string(),
             prefix: TREE_LAST.to_string(),
@@ -533,6 +550,7 @@ pub fn build_dest_tree_from_parts(
             kind: NodeKind::ProfileHeader,
             alias_id: None,
             alias_command: None,
+            alias_description: None,
             is_active: false,
             label: profile_name.to_string(),
             prefix: String::new(),

@@ -35,6 +35,7 @@ pub struct TreeNode {
     pub kind: NodeKind,
     pub alias_id: Option<AliasId>,
     pub alias_command: Option<String>,
+    pub alias_description: Option<String>,
     pub is_active: bool,
     pub label: String,
     /// Prefix string for tree connectors (e.g. "│ ", "  ", "├─", "╰─")
