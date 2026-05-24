@@ -38,3 +38,5 @@ Alle drei Ebenen unterstützen auch **Subcommand-Aliase** — Kurzformen für Pr
 - [Projekt-Aliase](/de/usage/project-aliases) — verzeichnisbezogene `.aliases`-Dateien
 - [Subcommand-Aliase](/de/usage/subcommand-aliases) — Kurzformen für subcommandbasierte Tools
 - [Teilen](/de/usage/sharing) — Aliase exportieren, importieren und teilen
+- `am ls -d` zeigt die Beschreibungsspalte, wenn Beschreibungen vorhanden sind <VersionBadge v="0.10.0" />
+- `am la` zeigt immer Beschreibungen für den aktiven Bereich <VersionBadge v="0.10.0" />

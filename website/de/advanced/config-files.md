@@ -26,6 +26,26 @@ ll = "ls -lha"
 "jj:b:l" = ["branch", "list"]
 ```
 
+Aliase können in kompakter oder detaillierter Form geschrieben werden:
+
+```toml
+[aliases]
+ll = "ls -lha"                                            # kompakt
+gs = { command = "git status", description = "status" }   # detailliert
+```
+
+<VersionBadge v="0.10.0" /> Die detaillierte Form ermöglicht es, eine Beschreibung anzuhängen.
+
+Subcommand-Aliase unterstützen ebenfalls die detaillierte Form für Beschreibungen:
+
+```toml
+[subcommands]
+"jj:ab"  = ["abandon"]                                                            # kompakt
+"jj:b:l" = { expansions = ["branch", "list"], description = "list branches" }     # detailliert
+```
+
+<VersionBadge v="0.10.0" />
+
 ## Shell-spezifische Konfiguration
 
 Shell-spezifische Renderoptionen können im Abschnitt `[shell.<name>]` gesetzt werden.

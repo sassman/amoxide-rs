@@ -11,6 +11,14 @@ am add -g ll "ls -lha"
 
 Das `-g` (oder `--global`) Flag fügt den Alias global hinzu, unabhängig von jedem Profil.
 
+Du kannst eine optionale Beschreibung angeben, die in `am ls -d` und der TUI angezeigt wird:
+
+```bash
+am add -g gs "git status" -d "short git status"
+```
+
+<VersionBadge v="0.10.0" /> Beschreibungen werden zusammen mit dem Alias gespeichert und beim Export/Import vollständig erhalten.
+
 ::: tip
 Kurzform: `am a -g gs git status`
 :::

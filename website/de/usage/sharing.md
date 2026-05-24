@@ -2,6 +2,12 @@
 
 Teile deine Aliase mit Kollegen, Teams oder der Community. Exportiere auf stdout, importiere von einer URL oder Datei.
 
+::: tip Beschreibungen bleiben erhalten <VersionBadge v="0.10.0" />
+`am export` bewahrt Alias- und Subcommand-Beschreibungen; `am import` übernimmt sie.
+Ein rein beschreibungsbezogener Unterschied bei einem vorhandenen Alias wird als Konflikt
+gemeldet, damit du die Änderung gezielt prüfen und übernehmen kannst.
+:::
+
 ## Export
 
 Exportiere Aliase als TOML auf stdout:
