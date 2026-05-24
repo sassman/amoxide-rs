@@ -32,6 +32,14 @@ am add -g jj:b:l branch list
 Even Shorter form: `am a -g jj:ab abandon`
 :::
 
+Subcommand aliases also accept `-d/--description`:
+
+```bash
+am add -g jj --sub b branch --sub l list -d "list all branches"
+```
+
+<VersionBadge v="0.10.0" />
+
 The scope flags work exactly like regular aliases:
 
 | Flag | Scope |

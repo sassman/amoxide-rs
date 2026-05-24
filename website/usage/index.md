@@ -39,3 +39,5 @@ All three layers also support **subcommand aliases** — short forms for program
 - [Subcommand Aliases](/usage/subcommand-aliases) — short forms for subcommand-based tools
 - [Variables](/usage/variables) — named placeholders shared across aliases <VersionBadge v="0.9.0" />
 - [Sharing](/usage/sharing) — export, import, and share with others
+- `am ls -d` shows the description column when descriptions are present <VersionBadge v="0.10.0" />
+- `am la` always shows descriptions for the active set <VersionBadge v="0.10.0" />

@@ -6,6 +6,12 @@ Share your aliases with colleagues, teams, or the community. Export to stdout, i
 Exports include [variables](/usage/variables) at every scope. Exports produced by amoxide releases before 0.9.0 still import — variables would not have been in those files anyway.
 :::
 
+::: tip Descriptions round-trip <VersionBadge v="0.10.0" />
+`am export` preserves alias and subcommand descriptions; `am import` brings them in.
+A description-only difference on an existing alias is flagged as a conflict so you
+can review and accept the change deliberately.
+:::
+
 ## Export
 
 Export aliases to stdout as TOML:
