@@ -43,6 +43,7 @@ fn map_normal_key(key: &KeyEvent, _mode: &Mode) -> Option<TuiMessage> {
             c as usize - '0' as usize,
         )),
         KeyCode::Char('t') => Some(TuiMessage::ToggleTrust),
+        KeyCode::Char('d') => Some(TuiMessage::ToggleDescriptions),
         KeyCode::Char('q') => Some(TuiMessage::Quit),
         _ => None,
     }

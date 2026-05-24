@@ -50,7 +50,6 @@ pub struct TreeNode {
 pub enum AliasField {
     Name,
     Command,
-    #[expect(dead_code, reason = "wired in Task 11")]
     Description,
 }
 
@@ -58,7 +57,6 @@ pub enum AliasField {
 pub enum SubcommandField {
     Short,
     Long,
-    #[expect(dead_code, reason = "wired in Task 11")]
     Description,
 }
 
@@ -175,7 +173,6 @@ pub enum TuiMessage {
     ConfirmYes,
     ConfirmNo,
     ToggleTrust,
-    #[expect(dead_code, reason = "wired in Task 11")]
     ToggleDescriptions,
     Quit,
     Resize(u16, u16),

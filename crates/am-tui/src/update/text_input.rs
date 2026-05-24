@@ -232,16 +232,25 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         active_pair,
                         active_field,
                         cursor,
+                        description,
                         ..
                     } => {
-                        if let Some((short, long)) = pairs.get_mut(*active_pair) {
-                            let field = match active_field {
-                                SubcommandField::Short => short,
-                                SubcommandField::Long => long,
-                                SubcommandField::Description => return,
-                            };
-                            field.insert(*cursor, c);
-                            *cursor += c.len_utf8();
+                        match active_field {
+                            SubcommandField::Description => {
+                                description.insert(*cursor, c);
+                                *cursor += c.len_utf8();
+                            }
+                            SubcommandField::Short | SubcommandField::Long => {
+                                if let Some((short, long)) = pairs.get_mut(*active_pair) {
+                                    let field = match active_field {
+                                        SubcommandField::Short => short,
+                                        SubcommandField::Long => long,
+                                        SubcommandField::Description => unreachable!(),
+                                    };
+                                    field.insert(*cursor, c);
+                                    *cursor += c.len_utf8();
+                                }
+                            }
                         }
                     }
                 }
@@ -302,18 +311,30 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         active_pair,
                         active_field,
                         cursor,
+                        description,
                         ..
                     } => {
-                        if let Some((short, long)) = pairs.get_mut(*active_pair) {
-                            let field = match active_field {
-                                SubcommandField::Short => short,
-                                SubcommandField::Long => long,
-                                SubcommandField::Description => return,
-                            };
-                            if *cursor > 0 {
-                                let prev = cursor_left(field, *cursor);
-                                field.remove(prev);
-                                *cursor = prev;
+                        match active_field {
+                            SubcommandField::Description => {
+                                if *cursor > 0 {
+                                    let prev = cursor_left(description, *cursor);
+                                    description.remove(prev);
+                                    *cursor = prev;
+                                }
+                            }
+                            SubcommandField::Short | SubcommandField::Long => {
+                                if let Some((short, long)) = pairs.get_mut(*active_pair) {
+                                    let field = match active_field {
+                                        SubcommandField::Short => short,
+                                        SubcommandField::Long => long,
+                                        SubcommandField::Description => unreachable!(),
+                                    };
+                                    if *cursor > 0 {
+                                        let prev = cursor_left(field, *cursor);
+                                        field.remove(prev);
+                                        *cursor = prev;
+                                    }
+                                }
                             }
                         }
                     }
@@ -356,6 +377,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     cursor,
                     name,
                     command,
+                    description,
                     ..
                 })
                 | Mode::TextInput(TextInputState::EditAlias {
@@ -363,17 +385,18 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     cursor,
                     name,
                     command,
+                    description,
                     ..
                 }) => {
                     *active_field = match active_field {
                         AliasField::Name => AliasField::Command,
-                        AliasField::Command => AliasField::Name,
+                        AliasField::Command => AliasField::Description,
                         AliasField::Description => AliasField::Name,
                     };
                     *cursor = match active_field {
                         AliasField::Name => name.len(),
                         AliasField::Command => command.len(),
-                        AliasField::Description => 0,
+                        AliasField::Description => description.len(),
                     };
                 }
                 Mode::TextInput(TextInputState::SubcommandInput {
@@ -381,6 +404,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     active_pair,
                     active_field,
                     cursor,
+                    description,
                     ..
                 }) => match active_field {
                     SubcommandField::Short => {
@@ -395,7 +419,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             *cursor =
                                 active_field_len(pairs, *active_pair, &SubcommandField::Short);
                         } else {
-                            // Last pair: add a new one only if current pair is complete
+                            // Last pair: add a new pair if complete, otherwise go to Description
                             let pair_complete = pairs
                                 .get(*active_pair)
                                 .is_some_and(|(s, l)| !s.is_empty() && !l.is_empty());
@@ -404,11 +428,19 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                                 *active_pair = pairs.len() - 1;
                                 *active_field = SubcommandField::Short;
                                 *cursor = 0;
+                            } else {
+                                // Incomplete last pair: move to Description field
+                                *active_field = SubcommandField::Description;
+                                *cursor = description.len();
                             }
-                            // If pair is incomplete, do nothing (keep focus on Long)
                         }
                     }
-                    SubcommandField::Description => {}
+                    SubcommandField::Description => {
+                        // Wrap back to Short of pair 0
+                        *active_pair = 0;
+                        *active_field = SubcommandField::Short;
+                        *cursor = active_field_len(pairs, 0, &SubcommandField::Short);
+                    }
                 },
                 _ => {}
             }
@@ -438,6 +470,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 TextInputState::NewAlias {
                     name,
                     command,
+                    description,
                     target,
                     ..
                 } => {
@@ -451,9 +484,10 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         AliasTarget::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
                         AliasTarget::Project => amoxide::AliasTarget::Local,
                     };
+                    let normalized_desc = amoxide::normalize_description(&description);
                     let _ = super::delegation::dispatch(
                         model,
-                        amoxide::Message::AddAlias(name, command, lib_target, false, None),
+                        amoxide::Message::AddAlias(name, command, lib_target, false, normalized_desc),
                     );
                     model.mode = Mode::Normal;
                 }
@@ -589,6 +623,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 TextInputState::SubcommandInput {
                     program,
                     pairs,
+                    description,
                     target,
                     original_key,
                     ..
@@ -613,6 +648,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         AliasTarget::Profile(n) => amoxide::AliasTarget::Profile(n.clone()),
                         AliasTarget::Project => amoxide::AliasTarget::Local,
                     };
+                    let normalized_desc = amoxide::normalize_description(&description);
                     let msg = if let Some(orig) = original_key.clone() {
                         amoxide::Message::UpdateSubcommandAlias {
                             original_key: orig,
@@ -621,7 +657,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             target: lib_target,
                         }
                     } else {
-                        amoxide::Message::AddSubcommandAlias(key, long_subcommands, lib_target, None)
+                        amoxide::Message::AddSubcommandAlias(key, long_subcommands, lib_target, normalized_desc)
                     };
                     let _ = super::delegation::dispatch(model, msg);
                     model.mode = Mode::Normal;
@@ -659,6 +695,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 cursor,
                 name,
                 command,
+                description,
                 ..
             })
             | Mode::TextInput(TextInputState::EditAlias {
@@ -666,17 +703,18 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 cursor,
                 name,
                 command,
+                description,
                 ..
             }) => {
                 *active_field = match active_field {
                     AliasField::Command => AliasField::Name,
-                    AliasField::Name => AliasField::Command,
+                    AliasField::Name => AliasField::Description,
                     AliasField::Description => AliasField::Command,
                 };
                 *cursor = match active_field {
                     AliasField::Name => name.len(),
                     AliasField::Command => command.len(),
-                    AliasField::Description => 0,
+                    AliasField::Description => description.len(),
                 };
             }
             Mode::TextInput(TextInputState::SubcommandInput {
@@ -684,6 +722,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 active_pair,
                 active_field,
                 cursor,
+                description,
                 ..
             }) => match active_field {
                 SubcommandField::Long => {
@@ -695,9 +734,19 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         *active_pair -= 1;
                         *active_field = SubcommandField::Long;
                         *cursor = active_field_len(pairs, *active_pair, &SubcommandField::Long);
+                    } else {
+                        // Wrap back to Description from Short of pair 0
+                        *active_field = SubcommandField::Description;
+                        *cursor = description.len();
                     }
                 }
-                SubcommandField::Description => {}
+                SubcommandField::Description => {
+                    // Go to Long of last pair
+                    let last = pairs.len().saturating_sub(1);
+                    *active_pair = last;
+                    *active_field = SubcommandField::Long;
+                    *cursor = active_field_len(pairs, last, &SubcommandField::Long);
+                }
             },
             _ => {}
         },
@@ -730,15 +779,23 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 active_pair,
                 active_field,
                 cursor,
+                description,
                 ..
             }) => {
-                if let Some((short, long)) = pairs.get(*active_pair) {
-                    let field = match active_field {
-                        SubcommandField::Short => short.as_str(),
-                        SubcommandField::Long => long.as_str(),
-                        SubcommandField::Description => return,
-                    };
-                    *cursor = cursor_left(field, *cursor);
+                match active_field {
+                    SubcommandField::Description => {
+                        *cursor = cursor_left(description.as_str(), *cursor);
+                    }
+                    SubcommandField::Short | SubcommandField::Long => {
+                        if let Some((short, long)) = pairs.get(*active_pair) {
+                            let field = match active_field {
+                                SubcommandField::Short => short.as_str(),
+                                SubcommandField::Long => long.as_str(),
+                                SubcommandField::Description => unreachable!(),
+                            };
+                            *cursor = cursor_left(field, *cursor);
+                        }
+                    }
                 }
             }
             _ => {}
@@ -772,15 +829,23 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 active_pair,
                 active_field,
                 cursor,
+                description,
                 ..
             }) => {
-                if let Some((short, long)) = pairs.get(*active_pair) {
-                    let field = match active_field {
-                        SubcommandField::Short => short.as_str(),
-                        SubcommandField::Long => long.as_str(),
-                        SubcommandField::Description => return,
-                    };
-                    *cursor = cursor_right(field, *cursor);
+                match active_field {
+                    SubcommandField::Description => {
+                        *cursor = cursor_right(description.as_str(), *cursor);
+                    }
+                    SubcommandField::Short | SubcommandField::Long => {
+                        if let Some((short, long)) = pairs.get(*active_pair) {
+                            let field = match active_field {
+                                SubcommandField::Short => short.as_str(),
+                                SubcommandField::Long => long.as_str(),
+                                SubcommandField::Description => unreachable!(),
+                            };
+                            *cursor = cursor_right(field, *cursor);
+                        }
+                    }
                 }
             }
             _ => {}
@@ -887,4 +952,163 @@ fn collect_pairs_to_cursor(model: &TuiModel) -> Vec<(String, String)> {
         path.push(("".into(), "".into()));
     }
     path
+}
+
+#[cfg(test)]
+mod description_field_tests {
+    use super::*;
+    use crate::model::{
+        AliasField, AliasTarget, Column, Mode, SubcommandField, TextInputState, TuiMessage,
+        TuiModel,
+    };
+    use crate::tree::{build_dest_tree_from_parts, build_tree_from_parts};
+    use amoxide::update::AppModel;
+    use amoxide::{Config, ProfileConfig};
+    use std::collections::BTreeSet;
+
+    fn empty_model() -> TuiModel {
+        let config = Config::default();
+        let profiles = ProfileConfig::default();
+        let app_model = AppModel::new(config, profiles);
+        let tree = build_tree_from_parts(
+            &app_model.config.aliases,
+            &app_model.config.subcommands,
+            app_model.profile_config(),
+            &app_model.session.active_profiles,
+            None,
+            None,
+        );
+        let dest_tree = build_dest_tree_from_parts(
+            &app_model.config.aliases,
+            app_model.profile_config(),
+            &app_model.session.active_profiles,
+            false,
+        );
+        TuiModel {
+            app_model,
+            tree,
+            cursor: 0,
+            selected: BTreeSet::new(),
+            mode: Mode::Normal,
+            dest_tree,
+            dest_cursor: 0,
+            active_column: Column::Left,
+            scroll_offset: 0,
+            status_line: None,
+            descriptions_visible: false,
+        }
+    }
+
+    fn empty_model_with_new_alias() -> TuiModel {
+        let mut model = empty_model();
+        model.mode = Mode::TextInput(TextInputState::NewAlias {
+            name: "gs".into(),
+            command: "git status".into(),
+            description: String::new(),
+            active_field: AliasField::Name,
+            cursor: 0,
+            target: AliasTarget::Global,
+        });
+        model
+    }
+
+    #[test]
+    fn switch_field_cycles_through_description() {
+        let mut model = empty_model_with_new_alias();
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Name → Command
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Command → Description
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(*active_field, AliasField::Description);
+            }
+            _ => panic!("expected NewAlias on Description field"),
+        }
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Description → Name (wrap)
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(*active_field, AliasField::Name);
+            }
+            _ => panic!("expected NewAlias on Name field"),
+        }
+    }
+
+    #[test]
+    fn description_chars_accumulate_into_state() {
+        let mut model = empty_model_with_new_alias();
+        // Switch twice to Description
+        handle(&mut model, TuiMessage::TextInputSwitchField); // → Command
+        handle(&mut model, TuiMessage::TextInputSwitchField); // → Description
+        handle(&mut model, TuiMessage::TextInputChar('h'));
+        handle(&mut model, TuiMessage::TextInputChar('i'));
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { description, .. }) => {
+                assert_eq!(description, "hi");
+            }
+            _ => panic!("expected NewAlias"),
+        }
+    }
+
+    #[test]
+    fn toggle_descriptions_flips_model_flag() {
+        let mut model = empty_model();
+        assert!(!model.descriptions_visible);
+        super::super::update(&mut model, TuiMessage::ToggleDescriptions);
+        assert!(model.descriptions_visible);
+        super::super::update(&mut model, TuiMessage::ToggleDescriptions);
+        assert!(!model.descriptions_visible);
+    }
+
+    #[test]
+    fn shift_tab_cycles_reverse_through_description() {
+        let mut model = empty_model_with_new_alias();
+        // From Name, Shift+Tab should go to Description (reverse wrap)
+        handle(&mut model, TuiMessage::TextInputSwitchFieldBack); // Name → Description
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(*active_field, AliasField::Description);
+            }
+            _ => panic!("expected NewAlias on Description field"),
+        }
+        handle(&mut model, TuiMessage::TextInputSwitchFieldBack); // Description → Command
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(*active_field, AliasField::Command);
+            }
+            _ => panic!("expected NewAlias on Command field"),
+        }
+    }
+
+    #[test]
+    fn subcmd_tab_on_incomplete_long_goes_to_description() {
+        let mut model = empty_model();
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "".into())],
+            description: String::new(),
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            cursor: 0,
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Long (incomplete) → Description
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput { active_field, .. }) => {
+                assert_eq!(*active_field, SubcommandField::Description);
+            }
+            _ => panic!("expected SubcommandInput on Description field"),
+        }
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Description → Short₀
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput {
+                active_field,
+                active_pair,
+                ..
+            }) => {
+                assert_eq!(*active_field, SubcommandField::Short);
+                assert_eq!(*active_pair, 0);
+            }
+            _ => panic!("expected SubcommandInput on Short field"),
+        }
+    }
 }
