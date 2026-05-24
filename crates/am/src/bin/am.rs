@@ -157,10 +157,12 @@ fn main() -> anyhow::Result<()> {
         Commands::Ls { used, descriptions } => Message::ListProfiles {
             used: *used,
             descriptions: *descriptions,
+            term_width: terminal_size::terminal_size().map(|(w, _)| w.0 as usize),
         },
         Commands::La => Message::ListProfiles {
             used: true,
             descriptions: true,
+            term_width: terminal_size::terminal_size().map(|(w, _)| w.0 as usize),
         },
         Commands::Status => {
             println!("{}", amoxide::status::run_status());
@@ -255,6 +257,7 @@ fn main() -> anyhow::Result<()> {
             ProfileAction::List { used } => Message::ListProfiles {
                 used: *used,
                 descriptions: false,
+                term_width: terminal_size::terminal_size().map(|(w, _)| w.0 as usize),
             },
             ProfileAction::Use(_) => unreachable!("handled by outer match arm"),
         },

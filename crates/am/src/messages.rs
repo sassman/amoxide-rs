@@ -45,6 +45,7 @@ pub enum Message {
     ListProfiles {
         used: bool,
         descriptions: bool,
+        term_width: Option<usize>,
     },
     CreateProfile(String),
     /// Rename a profile, preserving its aliases and activation state.
