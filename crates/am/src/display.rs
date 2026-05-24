@@ -156,9 +156,12 @@ fn render_items(
             };
             let shorts = entry.short_subcommands.join(" ");
             let longs = entry.long_subcommands.join(" ");
-            items.push(OutputItem::Header(format!(
-                "\n{inner}{entry_conn} {shorts} \u{2192} {longs}"
-            )));
+            items.push(OutputItem::Header("\n".to_string()));
+            items.push(OutputItem::Row(Row {
+                prefix: format!("{inner}{entry_conn} "),
+                body: format!("{shorts} \u{2192} {longs}"),
+                description: entry.description.clone(),
+            }));
         }
     }
 }
@@ -831,6 +834,57 @@ mod tests {
             single_space_before_hash,
             "expected inline form on narrow terminal:\n{output}"
         );
+    }
+
+    #[test]
+    fn listing_subcommand_descriptions_align_with_alias_descriptions() {
+        use crate::subcommand::{SubcommandDetail, SubcommandSet, TomlSubcommand};
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "ll".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "ls -lha".into(),
+                description: Some("long listing".into()),
+                raw: false,
+            }),
+        );
+
+        let mut subs = SubcommandSet::new();
+        subs.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("toss the change".into()),
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &subs,
+            &ProfileConfig::default(),
+            &[],
+            None,
+            None,
+            /* descriptions */ true,
+            /* term_width */ Some(120),
+        );
+
+        // Find the two lines that carry `#` (the alias and the subcommand entry)
+        let described_lines: Vec<&str> = output.lines().filter(|l| l.contains('#')).collect();
+        assert_eq!(
+            described_lines.len(),
+            2,
+            "expected 2 described lines, got {}:\n{output}",
+            described_lines.len()
+        );
+        let hash_cols: Vec<usize> =
+            described_lines.iter().map(|l| l.find('#').unwrap()).collect();
+        assert_eq!(
+            hash_cols[0], hash_cols[1],
+            "subcommand and alias descriptions not aligned: {hash_cols:?}\n{output}"
+        );
+        assert!(output.contains("toss the change"));
+        assert!(output.contains("long listing"));
     }
 
     #[test]
