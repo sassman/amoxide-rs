@@ -597,28 +597,30 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         | AliasId::Project { alias_name } => alias_name.clone(),
                         AliasId::Subcommand { key, .. } => key.clone(),
                     };
-                    // No change — just exit
+                    // No change — just exit. Compare name, command AND description.
+                    let normalized_desc = amoxide::normalize_description(&description);
                     if new_name == original_name {
                         let key = AliasName::from(original_name.as_str());
-                        let original_command = match &alias_id {
-                            AliasId::Global { .. } => model
-                                .app_model
-                                .config
-                                .aliases
-                                .get(&key)
-                                .map(|a| a.command().to_string()),
+                        let original_alias = match &alias_id {
+                            AliasId::Global { .. } => model.app_model.config.aliases.get(&key),
                             AliasId::Profile { profile_name, .. } => model
                                 .app_model
                                 .profile_config()
                                 .get_profile_by_name(profile_name)
-                                .and_then(|p| p.aliases.get(&key).map(|a| a.command().to_string())),
+                                .and_then(|p| p.aliases.get(&key)),
                             AliasId::Project { .. } => model
                                 .app_model
                                 .project_aliases()
-                                .and_then(|p| p.aliases.get(&key).map(|a| a.command().to_string())),
+                                .and_then(|p| p.aliases.get(&key)),
                             AliasId::Subcommand { .. } => None,
                         };
-                        if original_command.as_deref() == Some(new_command.as_str()) {
+                        let same_command = original_alias
+                            .map(|a| a.command() == new_command.as_str())
+                            .unwrap_or(false);
+                        let same_description = original_alias
+                            .map(|a| a.description().map(str::to_string) == normalized_desc)
+                            .unwrap_or(false);
+                        if same_command && same_description {
                             model.mode = Mode::Normal;
                             return;
                         }
@@ -662,7 +664,6 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         AliasId::Project { .. } => amoxide::AliasTarget::Local,
                         AliasId::Subcommand { .. } => return, // handled by SubcommandInput arm
                     };
-                    let normalized_desc = amoxide::normalize_description(&description);
                     let _ = super::delegation::dispatch(
                         model,
                         amoxide::Message::UpdateAlias {
@@ -1197,6 +1198,39 @@ mod description_field_tests {
             }
             _ => panic!("expected SubcommandInput on Short field"),
         }
+    }
+
+    #[test]
+    fn edit_alias_description_only_change_is_saved() {
+        use amoxide::{AliasId, AliasName, Described};
+        let mut model = empty_model();
+        // Pre-populate the alias with the SAME command we'll confirm with —
+        // only the description changes. This exercises the no-change guard.
+        model.app_model.config.add_alias("gs".into(), "git status".into(), false, None);
+        model.mode = Mode::TextInput(TextInputState::EditAlias {
+            alias_id: AliasId::Global {
+                alias_name: "gs".into(),
+            },
+            name: "gs".into(),
+            command: "git status".into(),
+            description: "short git status".into(),
+            active_field: AliasField::Description,
+            cursor: "short git status".len(),
+            error: None,
+        });
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(model.mode, Mode::Normal);
+        let alias = model
+            .app_model
+            .config
+            .aliases
+            .get(&AliasName::from("gs"))
+            .expect("alias gs must exist");
+        assert_eq!(
+            alias.description(),
+            Some("short git status"),
+            "description-only edit must be persisted"
+        );
     }
 
     #[test]
