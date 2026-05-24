@@ -221,6 +221,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             new_name,
             new_command,
             raw,
+            description,
         } => {
             match resolve_target(model, &target)? {
                 ConcreteScope::Global => {
@@ -231,7 +232,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             target: "global".to_string(),
                         }
                     })?;
-                    model.config.add_alias(new_name, new_command, raw, None);
+                    model.config.add_alias(new_name, new_command, raw, description);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
                 ConcreteScope::Local => Ok(UpdateResult::with_effects(vec![
@@ -240,7 +241,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         name: new_name,
                         cmd: new_command,
                         raw,
-                        description: None,
+                        description,
                     },
                 ])),
                 ConcreteScope::Profile(profile_name) => {
@@ -254,7 +255,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             target: format!("Profile: `{profile_name}`"),
                         })?;
                     profile
-                        .add_alias(new_name, new_command, raw, None)
+                        .add_alias(new_name, new_command, raw, description)
                         .map_err(|e| UpdateError::Other(e.to_string()))?;
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
@@ -295,20 +296,21 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             new_key,
             long_subcommands,
             target,
+            description,
         } => match resolve_target(model, &target)? {
             ConcreteScope::Global => {
                 model.config.subcommands.as_mut().remove(&original_key);
-                model.config.add_subcommand(new_key, long_subcommands, None);
+                model.config.add_subcommand(new_key, long_subcommands, description);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
             ConcreteScope::Local => Ok(UpdateResult::new(
-                Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local, None),
+                Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local, description),
                 vec![Effect::RemoveLocalSubcommand { key: original_key }],
             )),
             ConcreteScope::Profile(profile_name) => {
                 let profile = get_profile_mut(model, &profile_name)?;
                 profile.subcommands.as_mut().remove(&original_key);
-                profile.add_subcommand(new_key, long_subcommands, None);
+                profile.add_subcommand(new_key, long_subcommands, description);
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
@@ -1507,6 +1509,7 @@ mod tests {
                 new_key: "jj:a".into(),
                 long_subcommands: vec!["abandon".into()],
                 target: AliasTarget::Global,
+                description: None,
             },
         )
         .unwrap();
@@ -2225,6 +2228,7 @@ mod tests {
                 new_name: "la".into(),
                 new_command: "ls -lha".into(),
                 raw: false,
+                description: None,
             },
         )
         .unwrap();
@@ -2250,6 +2254,7 @@ mod tests {
                 new_name: "ll".into(),
                 new_command: "ls -la".into(),
                 raw: false,
+                description: None,
             },
         )
         .unwrap();
@@ -2271,6 +2276,7 @@ mod tests {
                 new_name: "nope".into(),
                 new_command: "cmd".into(),
                 raw: false,
+                description: None,
             },
         );
         assert!(matches!(result, Err(UpdateError::AliasNotFound { .. })));

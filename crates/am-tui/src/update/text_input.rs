@@ -530,6 +530,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     alias_id,
                     name,
                     command,
+                    description,
                     ..
                 } => {
                     let new_name = name.trim().to_string();
@@ -608,6 +609,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         AliasId::Project { .. } => amoxide::AliasTarget::Local,
                         AliasId::Subcommand { .. } => return, // handled by SubcommandInput arm
                     };
+                    let normalized_desc = amoxide::normalize_description(&description);
                     let _ = super::delegation::dispatch(
                         model,
                         amoxide::Message::UpdateAlias {
@@ -616,6 +618,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             new_name,
                             new_command,
                             raw: false,
+                            description: normalized_desc,
                         },
                     );
                     model.mode = Mode::Normal;
@@ -655,6 +658,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             new_key: key,
                             long_subcommands,
                             target: lib_target,
+                            description: normalized_desc,
                         }
                     } else {
                         amoxide::Message::AddSubcommandAlias(key, long_subcommands, lib_target, normalized_desc)
@@ -1076,6 +1080,36 @@ mod description_field_tests {
             }
             _ => panic!("expected NewAlias on Command field"),
         }
+    }
+
+    #[test]
+    fn edit_alias_confirm_with_description_sends_through() {
+        use amoxide::{AliasId, AliasName, Described};
+        let mut model = empty_model();
+        // Pre-populate the alias so the handler can look it up during the no-change check.
+        // Use a different initial command so the confirm is not short-circuited by the
+        // "nothing changed" early-exit path.
+        model.app_model.config.add_alias("gs".into(), "git status --short".into(), false, None);
+        // Set up EditAlias mode with a description typed in and the updated command
+        model.mode = Mode::TextInput(TextInputState::EditAlias {
+            alias_id: AliasId::Global {
+                alias_name: "gs".into(),
+            },
+            name: "gs".into(),
+            command: "git status".into(),
+            description: "short git status".into(),
+            active_field: AliasField::Name,
+            cursor: "gs".len(),
+            error: None,
+        });
+        // Confirm — should dispatch UpdateAlias with description: Some("short git status")
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        // Mode returns to Normal on success
+        assert_eq!(model.mode, Mode::Normal);
+        // The alias should now carry the description
+        let key = AliasName::from("gs");
+        let alias = model.app_model.config.aliases.get(&key).expect("alias gs must exist");
+        assert_eq!(alias.description(), Some("short git status"));
     }
 
     #[test]

@@ -33,6 +33,7 @@ pub enum Message {
         new_name: String,
         new_command: String,
         raw: bool,
+        description: Option<String>,
     },
     InitShell(Shell, bool),
     Sync(Shell, bool),
@@ -63,6 +64,7 @@ pub enum Message {
         new_key: String,
         long_subcommands: Vec<String>,
         target: AliasTarget,
+        description: Option<String>,
     },
     CopySubcommandAliases {
         keys: Vec<String>,
