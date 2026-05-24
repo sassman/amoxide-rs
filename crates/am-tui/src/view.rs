@@ -851,7 +851,16 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
                 Span::styled("x", Style::default().fg(GOLD)),
                 Span::styled(" delete  ", Style::default().fg(TEXT_MUTED)),
                 Span::styled("e", Style::default().fg(GOLD)),
-                Span::styled(" edit", Style::default().fg(TEXT_MUTED)),
+                Span::styled(" edit  ", Style::default().fg(TEXT_MUTED)),
+                Span::styled("d", Style::default().fg(GOLD)),
+                Span::styled(
+                    if model.descriptions_visible {
+                        " hide desc"
+                    } else {
+                        " show desc"
+                    },
+                    Style::default().fg(TEXT_MUTED),
+                ),
             ];
             if on_profile {
                 let use_label = if profile_is_active { " unuse" } else { " use" };
