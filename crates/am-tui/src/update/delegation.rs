@@ -77,6 +77,7 @@ mod tests {
             active_column: Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         }
     }
 
@@ -116,6 +117,7 @@ mod tests {
             active_column: Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         };
 
         dispatch(

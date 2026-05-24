@@ -46,6 +46,10 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 
         TuiMessage::ToggleTrust => trust::handle(model),
 
+        TuiMessage::ToggleDescriptions => {
+            model.descriptions_visible = !model.descriptions_visible;
+        }
+
         TuiMessage::Quit | TuiMessage::Resize(_, _) => {} // handled at app layer
     }
 }
@@ -91,6 +95,7 @@ mod tests {
             active_column: crate::model::Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         }
     }
 
@@ -852,6 +857,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::NewAlias {
             name: "git:".into(),
             command: String::new(),
+            description: String::new(),
             active_field: AliasField::Name,
             cursor: 4,
             target: AliasTarget::Global,
@@ -873,6 +879,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::NewAlias {
             name: "git:co".into(),
             command: String::new(),
+            description: String::new(),
             active_field: AliasField::Name,
             cursor: 6,
             target: AliasTarget::Global,
@@ -899,6 +906,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::NewAlias {
             name: "ll".into(),
             command: String::new(),
+            description: String::new(),
             active_field: AliasField::Name,
             cursor: 2,
             target: AliasTarget::Global,
@@ -919,6 +927,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into())],
+            description: String::new(),
             active_pair: 0,
             active_field: SubcommandField::Long,
             cursor: "abandon".len(),
@@ -948,6 +957,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "".into())],
+            description: String::new(),
             active_pair: 0,
             active_field: SubcommandField::Long,
             cursor: 0,
@@ -973,6 +983,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into()), ("".into(), "".into())],
+            description: String::new(),
             active_pair: 1,
             active_field: SubcommandField::Short,
             cursor: 0,
@@ -1000,6 +1011,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into())],
+            description: String::new(),
             active_pair: 0,
             active_field: SubcommandField::Long,
             cursor: "abandon".len(),
@@ -1050,6 +1062,7 @@ mod tests {
             active_column: crate::model::Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         }
     }
 

@@ -237,6 +237,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             active_field,
             cursor,
             target,
+            ..
         } => {
             let target_label = match target {
                 AliasTarget::Global => "global",
@@ -369,6 +370,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             active_field,
             cursor,
             error,
+            ..
         } => {
             let scope_label = match alias_id {
                 AliasId::Global { .. } => "global",

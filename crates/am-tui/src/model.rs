@@ -50,12 +50,16 @@ pub struct TreeNode {
 pub enum AliasField {
     Name,
     Command,
+    #[expect(dead_code, reason = "wired in Task 11")]
+    Description,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SubcommandField {
     Short,
     Long,
+    #[expect(dead_code, reason = "wired in Task 11")]
+    Description,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,6 +81,7 @@ pub enum TextInputState {
     NewAlias {
         name: String,
         command: String,
+        description: String,
         active_field: AliasField,
         /// Byte offset of the cursor within the active field's string.
         cursor: usize,
@@ -91,6 +96,7 @@ pub enum TextInputState {
         alias_id: AliasId,
         name: String,
         command: String,
+        description: String,
         active_field: AliasField,
         /// Byte offset of the cursor within the active field's string.
         cursor: usize,
@@ -99,6 +105,7 @@ pub enum TextInputState {
     SubcommandInput {
         program: String,
         pairs: Vec<(String, String)>,
+        description: String,
         active_pair: usize,
         active_field: SubcommandField,
         /// Byte offset of the cursor within the currently active field's string.
@@ -168,6 +175,8 @@ pub enum TuiMessage {
     ConfirmYes,
     ConfirmNo,
     ToggleTrust,
+    #[expect(dead_code, reason = "wired in Task 11")]
+    ToggleDescriptions,
     Quit,
     Resize(u16, u16),
 }
@@ -204,6 +213,7 @@ pub struct TuiModel {
     pub active_column: Column,
     pub scroll_offset: usize,
     pub status_line: Option<String>,
+    pub descriptions_visible: bool,
 }
 
 impl TuiModel {
@@ -220,6 +230,7 @@ impl TuiModel {
             active_column: Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         };
         model.rebuild_tree();
         Ok(model)
@@ -321,6 +332,7 @@ mod new_types_exist {
         let _ = TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into())],
+            description: String::new(),
             active_pair: 0,
             active_field: SubcommandField::Long,
             cursor: 0,
