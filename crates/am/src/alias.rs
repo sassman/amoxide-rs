@@ -140,6 +140,15 @@ impl TomlAlias {
     }
 }
 
+impl crate::Described for TomlAlias {
+    fn description(&self) -> Option<&str> {
+        match self {
+            TomlAlias::Command(_) => None,
+            TomlAlias::Detailed(d) => d.description.as_deref(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct MergeResult {
     pub new_aliases: AliasSet,
@@ -301,5 +310,29 @@ fancy = { command = "echo hi", description = "A fancy alias" }
         let result = existing.merge_check(&AliasSet::default());
         assert!(result.new_aliases.is_empty());
         assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn test_described_trait_for_toml_alias() {
+        use crate::Described;
+        assert_eq!(TomlAlias::Command("ls".into()).description(), None);
+        assert_eq!(
+            TomlAlias::Detailed(AliasDetail {
+                command: "ls".into(),
+                description: None,
+                raw: false,
+            })
+            .description(),
+            None
+        );
+        assert_eq!(
+            TomlAlias::Detailed(AliasDetail {
+                command: "ls".into(),
+                description: Some("list".into()),
+                raw: false,
+            })
+            .description(),
+            Some("list")
+        );
     }
 }

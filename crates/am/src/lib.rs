@@ -1,5 +1,6 @@
 pub mod alias;
 pub mod alias_id;
+pub mod described;
 pub mod app_model;
 pub mod cli;
 pub mod config;
@@ -29,6 +30,7 @@ pub mod vars;
 
 pub use alias::*;
 pub use alias_id::*;
+pub use described::{normalize_description, Described};
 pub use config::*;
 pub use effects::*;
 pub use exchange::*;
