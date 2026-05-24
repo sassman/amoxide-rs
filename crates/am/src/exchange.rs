@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::subcommand::{SubcommandSet, TomlSubcommand};
 use crate::vars::VarSet;
-use crate::{AliasSet, Profile, ProjectAliases};
+use crate::{AliasSet, Described, Profile, ProjectAliases};
 
 /// Current export-file format version. Written into `[meta]` by every export.
 pub const EXPORT_FORMAT_VERSION: u32 = 2;
@@ -280,11 +280,13 @@ pub fn subcommand_merge_check(
                     .as_mut()
                     .insert(key.clone(), incoming_longs.clone());
             }
-            Some(existing_longs) => {
-                if existing_longs != incoming_longs {
+            Some(existing) => {
+                let same = existing.expansions() == incoming_longs.expansions()
+                    && Described::description(existing) == Described::description(incoming_longs);
+                if !same {
                     conflicts.push(SubcommandConflict {
                         key: key.clone(),
-                        current: existing_longs.clone(),
+                        current: existing.clone(),
                         incoming: incoming_longs.clone(),
                     });
                 }
@@ -400,6 +402,18 @@ pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
             output.push_str(&format!("\n    {}:\n", conflict.name.as_ref()));
             output.push_str(&format!("      - {}\n", conflict.current.command()));
             output.push_str(&format!("      + {}\n", conflict.incoming.command()));
+            let cur_desc = conflict.current.description();
+            let inc_desc = conflict.incoming.description();
+            if cur_desc != inc_desc {
+                output.push_str(&format!(
+                    "      - # {}\n",
+                    cur_desc.unwrap_or("(none)")
+                ));
+                output.push_str(&format!(
+                    "      + # {}\n",
+                    inc_desc.unwrap_or("(none)")
+                ));
+            }
         }
     }
 
@@ -459,6 +473,18 @@ pub fn render_import_summary_subcommands(
             output.push_str(&format!("\n    {}:\n", conflict.key));
             output.push_str(&format!("      - {}\n", conflict.current.expansions().join(" ")));
             output.push_str(&format!("      + {}\n", conflict.incoming.expansions().join(" ")));
+            let cur_desc = Described::description(&conflict.current);
+            let inc_desc = Described::description(&conflict.incoming);
+            if cur_desc != inc_desc {
+                output.push_str(&format!(
+                    "      - # {}\n",
+                    cur_desc.unwrap_or("(none)")
+                ));
+                output.push_str(&format!(
+                    "      + # {}\n",
+                    inc_desc.unwrap_or("(none)")
+                ));
+            }
         }
     }
 
@@ -1397,6 +1423,30 @@ mod tests {
         let result = subcommand_merge_check(&current, &incoming);
         assert!(result.new_subcommands.is_empty());
         assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn subcommand_merge_check_description_change_is_conflict() {
+        use crate::subcommand::SubcommandDetail;
+        let mut current = SubcommandSet::new();
+        current.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("old".into()),
+            }),
+        );
+        let mut incoming = SubcommandSet::new();
+        incoming.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("new".into()),
+            }),
+        );
+        let result = subcommand_merge_check(&current, &incoming);
+        assert!(result.new_subcommands.is_empty());
+        assert_eq!(result.conflicts.len(), 1);
     }
 
     // ─── render_import_summary ───────────────────────────────────────────

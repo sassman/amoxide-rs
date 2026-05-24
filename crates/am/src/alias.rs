@@ -2,6 +2,8 @@ use std::{collections::BTreeMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
+use crate::Described;
+
 #[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct AliasName<T: AsRef<str> = String>(T);
 
@@ -83,7 +85,9 @@ impl AliasSet {
                     new_aliases.insert(name.clone(), incoming_alias.clone());
                 }
                 Some(existing_alias) => {
-                    if existing_alias.command() != incoming_alias.command() {
+                    let same = existing_alias.command() == incoming_alias.command()
+                        && existing_alias.description() == incoming_alias.description();
+                    if !same {
                         conflicts.push(AliasConflict {
                             name: name.clone(),
                             current: existing_alias.clone(),
@@ -310,6 +314,49 @@ fancy = { command = "echo hi", description = "A fancy alias" }
         let result = existing.merge_check(&AliasSet::default());
         assert!(result.new_aliases.is_empty());
         assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn merge_check_description_change_is_conflict() {
+        use crate::AliasDetail;
+        let mut existing = AliasSet::default();
+        existing.insert(
+            "gs".into(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("old".into()),
+                raw: false,
+            }),
+        );
+        let mut incoming = AliasSet::default();
+        incoming.insert(
+            "gs".into(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("new".into()),
+                raw: false,
+            }),
+        );
+        let result = existing.merge_check(&incoming);
+        assert!(result.new_aliases.is_empty());
+        assert_eq!(result.conflicts.len(), 1);
+    }
+
+    #[test]
+    fn merge_check_added_description_is_conflict() {
+        let mut existing = AliasSet::default();
+        existing.insert("gs".into(), TomlAlias::Command("git status".into()));
+        let mut incoming = AliasSet::default();
+        incoming.insert(
+            "gs".into(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("new".into()),
+                raw: false,
+            }),
+        );
+        let result = existing.merge_check(&incoming);
+        assert_eq!(result.conflicts.len(), 1);
     }
 
     #[test]
