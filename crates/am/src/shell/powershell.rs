@@ -207,6 +207,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon --rev {{1}}".into()],
+            description: None,
         }];
         let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
         // offset=1: {{1}} → $($args[1])
@@ -220,6 +221,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["l".into()],
             long_subcommands: vec!["log {{@}}".into()],
+            description: None,
         }];
         let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
         // offset=1: {{@}} → ($args | Select-Object -Skip 1)
@@ -232,6 +234,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon".into()],
+            description: None,
         }];
         let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("function global:jj {"));
@@ -247,6 +250,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["b".into(), "l".into()],
             long_subcommands: vec!["branch".into(), "list".into()],
+            description: None,
         }];
         let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(
@@ -278,6 +282,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["b".into(), "l".into()],
             long_subcommands: vec!["branch".into(), "list --limit {{1}}".into()],
+            description: None,
         }];
         let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);
         // offset=2: {{1}} → $($args[2])
@@ -299,11 +304,13 @@ mod tests {
                 program: "jj".into(),
                 short_subcommands: vec!["ab".into()],
                 long_subcommands: vec!["abandon".into()],
+                description: None,
             },
             SubcommandEntry {
                 program: "jj".into(),
                 short_subcommands: vec!["b".into(), "l".into()],
                 long_subcommands: vec!["branch".into(), "list".into()],
+                description: None,
             },
         ];
         let output = PowerShell.subcommand_wrapper("jj", "command jj", &entries);

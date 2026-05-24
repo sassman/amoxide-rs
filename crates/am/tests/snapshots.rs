@@ -7,7 +7,7 @@ use amoxide::exchange::{
 use amoxide::init::generate_init;
 use amoxide::project::ProjectAliases;
 use amoxide::shell::{Shell, ShellContext};
-use amoxide::subcommand::SubcommandSet;
+use amoxide::subcommand::{SubcommandSet, TomlSubcommand};
 use amoxide::{AliasName, AliasSet, ProfileConfig, TomlAlias};
 
 static DEFAULT_CFG: std::sync::LazyLock<ShellsTomlConfig> =
@@ -233,10 +233,10 @@ fn snapshot_init_fish_with_simple_subcommands() {
     let mut subcommands = SubcommandSet::new();
     subcommands
         .as_mut()
-        .insert("jj:ab".into(), vec!["abandon".into()]);
+        .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
     subcommands
         .as_mut()
-        .insert("jj:new".into(), vec!["new --no-edit".into()]);
+        .insert("jj:new".into(), TomlSubcommand::Expansion(vec!["new --no-edit".into()]));
     let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &globals,
@@ -249,23 +249,26 @@ fn snapshot_init_fish_with_simple_subcommands() {
 #[test]
 fn snapshot_init_bash_with_kubectl_subcommands() {
     let mut subcommands = SubcommandSet::new();
-    subcommands
-        .as_mut()
-        .insert("kubectl:get:po".into(), vec!["get".into(), "pods".into()]);
+    subcommands.as_mut().insert(
+        "kubectl:get:po".into(),
+        TomlSubcommand::Expansion(vec!["get".into(), "pods".into()]),
+    );
     subcommands.as_mut().insert(
         "kubectl:get:svc".into(),
-        vec!["get".into(), "services".into()],
+        TomlSubcommand::Expansion(vec!["get".into(), "services".into()]),
     );
-    subcommands
-        .as_mut()
-        .insert("kubectl:apply:f".into(), vec!["apply".into(), "-f".into()]);
+    subcommands.as_mut().insert(
+        "kubectl:apply:f".into(),
+        TomlSubcommand::Expansion(vec!["apply".into(), "-f".into()]),
+    );
     subcommands.as_mut().insert(
         "kubectl:rollout:status".into(),
-        vec!["rollout".into(), "status".into()],
+        TomlSubcommand::Expansion(vec!["rollout".into(), "status".into()]),
     );
-    subcommands
-        .as_mut()
-        .insert("kubectl:logs:f".into(), vec!["logs".into(), "-f".into()]);
+    subcommands.as_mut().insert(
+        "kubectl:logs:f".into(),
+        TomlSubcommand::Expansion(vec!["logs".into(), "-f".into()]),
+    );
     let output = init_for_test(
         &default_ctx(&Shell::Bash),
         &AliasSet::default(),
@@ -947,7 +950,8 @@ fn snapshot_sync_fish_incremental_one_alias_updated() {
 fn snapshot_sync_bash_subcommand_wrapper_fresh_load() {
     use amoxide::precedence::Precedence;
     let mut subs = SubcommandSet::new();
-    subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
+    subs.as_mut()
+        .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
     let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
         .with_project(

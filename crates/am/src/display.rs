@@ -590,13 +590,16 @@ mod tests {
 
     #[test]
     fn test_listing_global_subcommands() {
-        use crate::subcommand::SubcommandSet;
+        use crate::subcommand::{SubcommandSet, TomlSubcommand};
 
         let config: ProfileConfig = ProfileConfig::default();
         let mut subs = SubcommandSet::new();
-        subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
         subs.as_mut()
-            .insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        subs.as_mut().insert(
+            "jj:b:l".into(),
+            TomlSubcommand::Expansion(vec!["branch".into(), "list".into()]),
+        );
 
         let output = render_listing(&AliasSet::default(), &subs, &config, &[], None, None);
         assert!(output.contains("jj (subcommands)"));

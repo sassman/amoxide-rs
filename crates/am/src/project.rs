@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::dirs::home_dir;
-use crate::subcommand::SubcommandSet;
+use crate::subcommand::{SubcommandSet, TomlSubcommand};
 use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 pub const ALIASES_FILE: &str = ".aliases";
@@ -134,7 +134,9 @@ impl ProjectAliases {
     }
 
     pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands.as_mut().insert(key, long_subcommands);
+        self.subcommands
+            .as_mut()
+            .insert(key, TomlSubcommand::Expansion(long_subcommands));
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
@@ -291,11 +293,14 @@ mod tests {
         project
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         project.save(&path).unwrap();
 
         let loaded = ProjectAliases::load(&path).unwrap();
         assert_eq!(loaded.subcommands.as_ref().len(), 1);
-        assert_eq!(loaded.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
+        assert_eq!(
+            loaded.subcommands.as_ref()["jj:ab"],
+            TomlSubcommand::Expansion(vec!["abandon".to_string()])
+        );
     }
 }

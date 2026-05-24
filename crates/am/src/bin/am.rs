@@ -115,6 +115,7 @@ fn main() -> anyhow::Result<()> {
                 let _entry = amoxide::subcommand::SubcommandEntry::parse_key(
                     &key,
                     long_subcommands.clone(),
+                    None,
                 )?;
 
                 info!("Adding subcommand alias `{key}` to {target}");

@@ -367,6 +367,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon".into()],
+            description: None,
         }];
         let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("function jj --wraps=jj"));
@@ -382,6 +383,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon --rev {{1}}".into()],
+            description: None,
         }];
         let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // offset=1: {{1}} → $argv[2]
@@ -398,6 +400,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["echo".into()],
             long_subcommands: vec!["rebase -s 'mega()' -d 'toggle({{1}})'".into()],
+            description: None,
         }];
         let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // The expansion should break the single-quoted token at the template boundary
@@ -419,6 +422,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["l".into()],
             long_subcommands: vec!["log --template {{@}}".into()],
+            description: None,
         }];
         let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // offset=1: {{@}} → $argv[2..]
@@ -431,6 +435,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["b".into(), "l".into()],
             long_subcommands: vec!["branch".into(), "list --limit {{1}}".into()],
+            description: None,
         }];
         let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         // offset=2: {{1}} → $argv[3]
@@ -444,11 +449,13 @@ mod tests {
                 program: "jj".into(),
                 short_subcommands: vec!["ab".into()],
                 long_subcommands: vec!["abandon".into()],
+                description: None,
             },
             SubcommandEntry {
                 program: "jj".into(),
                 short_subcommands: vec!["b".into(), "l".into()],
                 long_subcommands: vec!["branch".into(), "list".into()],
+                description: None,
             },
         ];
         let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
@@ -465,6 +472,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["b".into(), "l".into(), "x".into()],
             long_subcommands: vec!["branch".into(), "list".into(), "extra".into()],
+            description: None,
         }];
         let output = Fish::default().subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("switch $argv[2]"), "depth-2 switch missing");

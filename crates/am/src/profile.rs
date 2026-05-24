@@ -4,7 +4,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::dirs::config_dir;
-use crate::subcommand::SubcommandSet;
+use crate::subcommand::{SubcommandSet, TomlSubcommand};
 use crate::{AliasDetail, AliasName, AliasSet, Result, TomlAlias};
 
 /// A collection of aliases (regular and/or subcommand) that can report its
@@ -284,7 +284,9 @@ impl Profile {
     }
 
     pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands.as_mut().insert(key, long_subcommands);
+        self.subcommands
+            .as_mut()
+            .insert(key, TomlSubcommand::Expansion(long_subcommands));
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> Result<()> {

@@ -310,7 +310,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             }
         },
         Message::CopySubcommandAliases { keys, from, to } => {
-            let pairs: Vec<(String, Vec<String>)> = {
+            let pairs: Vec<(String, crate::subcommand::TomlSubcommand)> = {
                 let src_subcommands = match &from {
                     AliasTarget::Global => Some(&model.config.subcommands),
                     AliasTarget::Local => model.project_aliases().map(|p| &p.subcommands),
@@ -340,16 +340,16 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match to {
                 AliasTarget::Global => {
                     for (key, longs) in pairs {
-                        model.config.add_subcommand(key, longs);
+                        model.config.add_subcommand(key, longs.expansions().to_vec());
                     }
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
                 AliasTarget::Local => {
                     let effects: Vec<Effect> = pairs
                         .into_iter()
-                        .map(|(key, long_subcommands)| Effect::AddLocalSubcommand {
+                        .map(|(key, longs)| Effect::AddLocalSubcommand {
                             key,
-                            long_subcommands,
+                            long_subcommands: longs.expansions().to_vec(),
                         })
                         .collect();
                     Ok(UpdateResult::with_effects(effects))
@@ -357,14 +357,14 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
                     for (key, longs) in pairs {
-                        profile.add_subcommand(key, longs);
+                        profile.add_subcommand(key, longs.expansions().to_vec());
                     }
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
         }
         Message::MoveSubcommandAliases { keys, from, to } => {
-            let pairs: Vec<(String, Vec<String>)> = {
+            let pairs: Vec<(String, crate::subcommand::TomlSubcommand)> = {
                 let src_subcommands = match &from {
                     AliasTarget::Global => Some(&model.config.subcommands),
                     AliasTarget::Local => model.project_aliases().map(|p| &p.subcommands),
@@ -437,7 +437,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match to {
                 AliasTarget::Global => {
                     for (key, longs) in pairs {
-                        model.config.add_subcommand(key, longs);
+                        model.config.add_subcommand(key, longs.expansions().to_vec());
                     }
                     let needs_profiles =
                         matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile);
@@ -452,9 +452,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 AliasTarget::Local => {
                     let mut effects: Vec<Effect> = pairs
                         .into_iter()
-                        .map(|(key, long_subcommands)| Effect::AddLocalSubcommand {
+                        .map(|(key, longs)| Effect::AddLocalSubcommand {
                             key,
-                            long_subcommands,
+                            long_subcommands: longs.expansions().to_vec(),
                         })
                         .collect();
                     if matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile) {
@@ -467,7 +467,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
                     for (key, longs) in pairs {
-                        profile.add_subcommand(key, longs);
+                        profile.add_subcommand(key, longs.expansions().to_vec());
                     }
                     let needs_config = matches!(from, AliasTarget::Global);
                     let mut effects = remove_local_effects;
@@ -1319,6 +1319,7 @@ mod tests {
     use crate::config::Config;
     use crate::effects::Effect;
     use crate::security::SecurityConfig;
+    use crate::subcommand::TomlSubcommand;
     use crate::ProfileConfig;
 
     #[test]
@@ -1487,7 +1488,7 @@ mod tests {
             .config
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         let result = update(
             &mut model,
             Message::UpdateSubcommandAlias {
@@ -1501,7 +1502,7 @@ mod tests {
         assert!(!model.config.subcommands.as_ref().contains_key("jj:ab"));
         assert_eq!(
             model.config.subcommands.as_ref().get("jj:a"),
-            Some(&vec!["abandon".to_string()])
+            Some(&TomlSubcommand::Expansion(vec!["abandon".to_string()]))
         );
         assert!(result
             .effects
@@ -1516,7 +1517,7 @@ mod tests {
             .config
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
             &mut model,
@@ -1530,7 +1531,7 @@ mod tests {
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
         assert_eq!(
             profile.subcommands.as_ref().get("jj:ab"),
-            Some(&vec!["abandon".to_string()])
+            Some(&TomlSubcommand::Expansion(vec!["abandon".to_string()]))
         );
         // Source preserved
         assert!(model.config.subcommands.as_ref().contains_key("jj:ab"));
@@ -1543,7 +1544,7 @@ mod tests {
             .config
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
             &mut model,
@@ -2063,7 +2064,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(model.config.subcommands.as_ref().len(), 1);
-        assert_eq!(model.config.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
+        assert_eq!(
+            model.config.subcommands.as_ref()["jj:ab"],
+            TomlSubcommand::Expansion(vec!["abandon".to_string()])
+        );
         assert_eq!(result.effects, vec![Effect::SaveConfig]);
     }
 

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::subcommand::SubcommandSet;
+use crate::subcommand::{SubcommandSet, TomlSubcommand};
 use crate::{AliasDetail, AliasName, AliasSet, TomlAlias};
 
 const CONFIG_FILE: &str = "config.toml";
@@ -125,7 +125,9 @@ impl Config {
     }
 
     pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands.as_mut().insert(key, long_subcommands);
+        self.subcommands
+            .as_mut()
+            .insert(key, TomlSubcommand::Expansion(long_subcommands));
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
@@ -213,12 +215,15 @@ mod tests {
         config
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         config.save_to(dir.path()).unwrap();
 
         let loaded = Config::load_from(dir.path()).unwrap();
         assert_eq!(loaded.subcommands.as_ref().len(), 1);
-        assert_eq!(loaded.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
+        assert_eq!(
+            loaded.subcommands.as_ref()["jj:ab"],
+            TomlSubcommand::Expansion(vec!["abandon".to_string()])
+        );
     }
 
     #[test]

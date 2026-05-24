@@ -3,7 +3,7 @@ use std::fmt;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
-use crate::subcommand::SubcommandSet;
+use crate::subcommand::{SubcommandSet, TomlSubcommand};
 use crate::vars::VarSet;
 use crate::{AliasSet, Profile, ProjectAliases};
 
@@ -217,8 +217,8 @@ pub struct SubcommandMergeResult {
 #[derive(Debug)]
 pub struct SubcommandConflict {
     pub key: String,
-    pub current: Vec<String>,
-    pub incoming: Vec<String>,
+    pub current: TomlSubcommand,
+    pub incoming: TomlSubcommand,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -445,7 +445,7 @@ pub fn render_import_summary_subcommands(
     if !result.new_subcommands.is_empty() {
         output.push_str("\n  new:\n");
         for (key, longs) in &result.new_subcommands {
-            output.push_str(&format!("    {} \u{2192} {}\n", key, longs.join(" ")));
+            output.push_str(&format!("    {} \u{2192} {}\n", key, longs.expansions().join(" ")));
         }
     }
 
@@ -457,8 +457,8 @@ pub fn render_import_summary_subcommands(
         ));
         for conflict in &result.conflicts {
             output.push_str(&format!("\n    {}:\n", conflict.key));
-            output.push_str(&format!("      - {}\n", conflict.current.join(" ")));
-            output.push_str(&format!("      + {}\n", conflict.incoming.join(" ")));
+            output.push_str(&format!("      - {}\n", conflict.current.expansions().join(" ")));
+            output.push_str(&format!("      + {}\n", conflict.incoming.expansions().join(" ")));
         }
     }
 
@@ -771,7 +771,7 @@ fn scan_subcommands(
         if has_suspicious_chars(key) {
             findings.push(SuspiciousAlias::subcommand_key(scope.clone(), key));
         }
-        for expansion in longs {
+        for expansion in longs.expansions() {
             if has_suspicious_chars(expansion) {
                 findings.push(SuspiciousAlias::subcommand_expansion(
                     scope.clone(),
@@ -1301,13 +1301,13 @@ mod tests {
             .global
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         export.profiles.push(Profile {
             name: "vcs".into(),
             aliases: AliasSet::default(),
             subcommands: {
                 let mut s = SubcommandSet::new();
-                s.as_mut().insert("jj:d".into(), vec!["diff".into()]);
+                s.as_mut().insert("jj:d".into(), TomlSubcommand::Expansion(vec!["diff".into()]));
                 s
             },
             vars: Default::default(),
@@ -1316,7 +1316,7 @@ mod tests {
             .local
             .subcommands
             .as_mut()
-            .insert("git:psh".into(), vec!["push".into()]);
+            .insert("git:psh".into(), TomlSubcommand::Expansion(vec!["push".into()]));
 
         let flat = export.flatten_subcommands();
         assert_eq!(flat.as_ref().len(), 3);
@@ -1332,14 +1332,17 @@ mod tests {
             .global
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         export.local.subcommands.as_mut().insert(
             "jj:ab".into(),
-            vec!["abandon", "!"].into_iter().map(String::from).collect(),
+            TomlSubcommand::Expansion(vec!["abandon", "!"].into_iter().map(String::from).collect()),
         );
 
         let flat = export.flatten_subcommands();
-        assert_eq!(flat.as_ref()["jj:ab"], vec!["abandon", "!"]);
+        assert_eq!(
+            flat.as_ref()["jj:ab"],
+            TomlSubcommand::Expansion(vec!["abandon".to_string(), "!".to_string()])
+        );
     }
 
     // ─── subcommand_merge_check ──────────────────────────────────────────
@@ -1350,7 +1353,7 @@ mod tests {
         let mut incoming = SubcommandSet::new();
         incoming
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
 
         let result = subcommand_merge_check(&current, &incoming);
         assert_eq!(result.new_subcommands.as_ref().len(), 1);
@@ -1362,14 +1365,16 @@ mod tests {
         let mut current = SubcommandSet::new();
         current
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         let mut incoming = SubcommandSet::new();
         incoming.as_mut().insert(
             "jj:ab".into(),
-            vec!["abandon", "--detach"]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            TomlSubcommand::Expansion(
+                vec!["abandon", "--detach"]
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
+            ),
         );
 
         let result = subcommand_merge_check(&current, &incoming);
@@ -1383,11 +1388,11 @@ mod tests {
         let mut current = SubcommandSet::new();
         current
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         let mut incoming = SubcommandSet::new();
         incoming
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
 
         let result = subcommand_merge_check(&current, &incoming);
         assert!(result.new_subcommands.is_empty());
@@ -1437,7 +1442,7 @@ mod tests {
         let mut new_subcommands = SubcommandSet::new();
         new_subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         let result = SubcommandMergeResult {
             new_subcommands,
             conflicts: vec![],
@@ -1455,8 +1460,8 @@ mod tests {
             new_subcommands: SubcommandSet::new(),
             conflicts: vec![SubcommandConflict {
                 key: "jj:ab".into(),
-                current: vec!["abandon".into()],
-                incoming: vec!["abandon".into(), "--detach".into()],
+                current: TomlSubcommand::Expansion(vec!["abandon".into()]),
+                incoming: TomlSubcommand::Expansion(vec!["abandon".into(), "--detach".into()]),
             }],
         };
         let output = render_import_summary_subcommands("global", &result);
@@ -1474,7 +1479,7 @@ mod tests {
             .global
             .subcommands
             .as_mut()
-            .insert("jj:\x1Bab".into(), vec!["abandon".into()]);
+            .insert("jj:\x1Bab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].field.to_string(), "subcommand_key");
@@ -1488,7 +1493,7 @@ mod tests {
             .local
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["aban\x07don".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["aban\x07don".into()]));
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].field.to_string(), "subcommand_expansion");
@@ -1504,7 +1509,7 @@ mod tests {
                 subcommands: {
                     let mut s = SubcommandSet::new();
                     s.as_mut()
-                        .insert("jj:ab".into(), vec!["aban\x1Bdon".into()]);
+                        .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["aban\x1Bdon".into()]));
                     s
                 },
                 vars: Default::default(),
@@ -1526,7 +1531,7 @@ mod tests {
             .global
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
         assert!(!export.is_empty());
     }
 
@@ -1537,7 +1542,7 @@ mod tests {
             .local
             .subcommands
             .as_mut()
-            .insert("git:psh".into(), vec!["push".into()]);
+            .insert("git:psh".into(), TomlSubcommand::Expansion(vec!["push".into()]));
         assert!(!export.is_empty());
     }
 
