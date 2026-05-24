@@ -109,17 +109,9 @@ pub struct SubcommandDetail {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_normalized_description"
+        deserialize_with = "crate::described::deserialize_normalized_description"
     )]
     pub description: Option<String>,
-}
-
-fn deserialize_normalized_description<'de, D>(d: D) -> Result<Option<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let raw: Option<String> = Option::deserialize(d)?;
-    Ok(raw.and_then(|s| crate::normalize_description(&s)))
 }
 
 impl TomlSubcommand {

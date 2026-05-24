@@ -1219,7 +1219,7 @@ fn transfer_aliases(
 
     for id in aliases {
         // Read alias from source
-        let (cmd, raw) =
+        let (cmd, raw, description) =
             read_alias_from_model(model, id).ok_or_else(|| UpdateError::AliasNotFound {
                 name: id.name().to_string(),
                 target: format!("{}", id.target()),
@@ -1262,16 +1262,16 @@ fn transfer_aliases(
         let name = id.name().to_string();
         match to {
             AliasTarget::Global => {
-                model.config.add_alias(name, cmd, raw, None);
+                model.config.add_alias(name, cmd, raw, description);
                 needs_save_config = true;
             }
             AliasTarget::Local => {
-                effects.push(Effect::AddLocalAlias { name, cmd, raw, description: None });
+                effects.push(Effect::AddLocalAlias { name, cmd, raw, description });
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                 let profile = resolve_profile_mut(model, target)?;
                 profile
-                    .add_alias(name, cmd, raw, None)
+                    .add_alias(name, cmd, raw, description)
                     .map_err(|e| UpdateError::Other(e.to_string()))?;
                 needs_save_profiles = true;
             }
@@ -1288,14 +1288,18 @@ fn transfer_aliases(
     Ok(UpdateResult::with_effects(effects))
 }
 
-fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(String, bool)> {
-    use crate::AliasId;
+fn read_alias_from_model(
+    model: &AppModel,
+    id: &crate::AliasId,
+) -> Option<(String, bool, Option<String>)> {
+    use crate::{AliasId, Described};
     match id {
         AliasId::Global { alias_name } => {
             let key = crate::AliasName::from(alias_name.as_str());
             model.config.aliases.get(&key).map(|a| {
                 let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
-                (a.command().to_string(), raw)
+                let description = a.description().map(str::to_string);
+                (a.command().to_string(), raw, description)
             })
         }
         AliasId::Profile {
@@ -1309,7 +1313,8 @@ fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(Strin
                 .and_then(|p| p.aliases.get(&key))
                 .map(|a| {
                     let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
-                    (a.command().to_string(), raw)
+                    let description = a.description().map(str::to_string);
+                    (a.command().to_string(), raw, description)
                 })
         }
         AliasId::Project { alias_name } => {
@@ -1319,7 +1324,8 @@ fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(Strin
                 .and_then(|p| p.aliases.get(&key))
                 .map(|a| {
                     let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
-                    (a.command().to_string(), raw)
+                    let description = a.description().map(str::to_string);
+                    (a.command().to_string(), raw, description)
                 })
         }
         AliasId::Subcommand { .. } => None,
@@ -2332,6 +2338,69 @@ mod tests {
         assert!(model.config.aliases.contains_key(&key));
         let profile = model.profile_config().get_profile_by_name("nav").unwrap();
         assert!(profile.aliases.contains_key(&key));
+    }
+
+    #[test]
+    fn copy_aliases_preserves_description() {
+        let mut config = Config::default();
+        config.add_alias(
+            "ll".into(),
+            "ls -lha".into(),
+            false,
+            Some("long listing".into()),
+        );
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        update(
+            &mut model,
+            Message::CopyAliases {
+                aliases: vec![crate::AliasId::Global {
+                    alias_name: "ll".into(),
+                }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        let alias = profile.aliases.get(&key).expect("alias should exist in profile");
+        assert_eq!(alias.description(), Some("long listing"));
+    }
+
+    #[test]
+    fn move_aliases_preserves_description() {
+        let mut config = Config::default();
+        config.add_alias(
+            "ll".into(),
+            "ls -lha".into(),
+            false,
+            Some("long listing".into()),
+        );
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        update(
+            &mut model,
+            Message::MoveAliases {
+                aliases: vec![crate::AliasId::Global {
+                    alias_name: "ll".into(),
+                }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        // Source should be gone
+        assert!(!model.config.aliases.contains_key(&key));
+        // Destination should have the description
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        let alias = profile.aliases.get(&key).expect("alias should exist in profile");
+        assert_eq!(alias.description(), Some("long listing"));
     }
 
     #[test]

@@ -19,6 +19,22 @@ pub fn normalize_description(s: &str) -> Option<String> {
     }
 }
 
+/// Serde deserializer helper: deserialise an `Option<String>` description
+/// and normalise it (trim + empty→None) in one step.
+/// Used by [`SubcommandDetail`] and [`AliasDetail`].
+pub(crate) fn deserialize_normalized_description<'de, D>(
+    d: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw: Option<String> = Option::deserialize(d)?;
+    Ok(raw.and_then(|s| normalize_description(&s)))
+}
+
+// Bring `Deserialize` into scope only for the helper above.
+use serde::Deserialize;
+
 #[cfg(test)]
 mod tests {
     use super::*;

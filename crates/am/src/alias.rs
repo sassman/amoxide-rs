@@ -115,6 +115,11 @@ pub enum TomlAlias {
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct AliasDetail {
     pub command: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::described::deserialize_normalized_description"
+    )]
     pub description: Option<String>,
     #[serde(default)]
     pub raw: bool,
@@ -357,6 +362,23 @@ fancy = { command = "echo hi", description = "A fancy alias" }
         );
         let result = existing.merge_check(&incoming);
         assert_eq!(result.conflicts.len(), 1);
+    }
+
+    #[test]
+    fn alias_serde_empty_description_field_normalises_to_none() {
+        #[derive(Debug, serde::Deserialize)]
+        struct Wrapper {
+            aliases: std::collections::BTreeMap<AliasName, TomlAlias>,
+        }
+        let toml_str = r#"
+[aliases]
+fancy = { command = "echo hi", description = "" }
+"#;
+        let parsed: Wrapper = toml::from_str(toml_str).unwrap();
+        match &parsed.aliases[&AliasName::from("fancy")] {
+            TomlAlias::Detailed(d) => assert_eq!(d.description, None),
+            _ => panic!("expected Detailed"),
+        }
     }
 
     #[test]
