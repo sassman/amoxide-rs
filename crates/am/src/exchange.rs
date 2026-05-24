@@ -400,8 +400,10 @@ pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
         ));
         for conflict in &result.conflicts {
             output.push_str(&format!("\n    {}:\n", conflict.name.as_ref()));
-            output.push_str(&format!("      - {}\n", conflict.current.command()));
-            output.push_str(&format!("      + {}\n", conflict.incoming.command()));
+            if conflict.current.command() != conflict.incoming.command() {
+                output.push_str(&format!("      - {}\n", conflict.current.command()));
+                output.push_str(&format!("      + {}\n", conflict.incoming.command()));
+            }
             let cur_desc = conflict.current.description();
             let inc_desc = conflict.incoming.description();
             if cur_desc != inc_desc {
@@ -471,8 +473,10 @@ pub fn render_import_summary_subcommands(
         ));
         for conflict in &result.conflicts {
             output.push_str(&format!("\n    {}:\n", conflict.key));
-            output.push_str(&format!("      - {}\n", conflict.current.expansions().join(" ")));
-            output.push_str(&format!("      + {}\n", conflict.incoming.expansions().join(" ")));
+            if conflict.current.expansions() != conflict.incoming.expansions() {
+                output.push_str(&format!("      - {}\n", conflict.current.expansions().join(" ")));
+                output.push_str(&format!("      + {}\n", conflict.incoming.expansions().join(" ")));
+            }
             let cur_desc = Described::description(&conflict.current);
             let inc_desc = Described::description(&conflict.incoming);
             if cur_desc != inc_desc {
@@ -1602,5 +1606,72 @@ mod tests {
     fn test_base64_decode_invalid_input() {
         let result = base64_decode("not-valid-base64!!!");
         assert!(result.is_err());
+    }
+
+    // ─── description-only conflict suppresses command/expansion lines ─────
+
+    #[test]
+    fn render_import_summary_description_only_conflict_omits_command_lines() {
+        use crate::alias::{AliasConflict, MergeResult};
+        use crate::{AliasDetail, AliasName};
+        let result = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts: vec![AliasConflict {
+                name: AliasName::from("gs"),
+                current: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("short".into()),
+                    raw: false,
+                }),
+                incoming: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("detailed status".into()),
+                    raw: false,
+                }),
+            }],
+        };
+        let output = render_import_summary("global", &result);
+        // Command lines suppressed because both sides are identical
+        let command_lines: Vec<&str> = output
+            .lines()
+            .filter(|l| l.trim_start().starts_with("- git") || l.trim_start().starts_with("+ git"))
+            .collect();
+        assert!(
+            command_lines.is_empty(),
+            "expected no command lines for description-only conflict, got:\n{output}"
+        );
+        // Description diff still appears
+        assert!(output.contains("short"));
+        assert!(output.contains("detailed status"));
+    }
+
+    #[test]
+    fn render_import_summary_subcommands_expansion_only_conflict_omits_expansion_lines() {
+        use crate::subcommand::{SubcommandDetail, TomlSubcommand};
+        let result = SubcommandMergeResult {
+            new_subcommands: SubcommandSet::new(),
+            conflicts: vec![SubcommandConflict {
+                key: "jj:ab".into(),
+                current: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("old".into()),
+                }),
+                incoming: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("new".into()),
+                }),
+            }],
+        };
+        let output = render_import_summary_subcommands("global", &result);
+        let expansion_lines: Vec<&str> = output
+            .lines()
+            .filter(|l| {
+                l.trim_start().starts_with("- abandon") || l.trim_start().starts_with("+ abandon")
+            })
+            .collect();
+        assert!(
+            expansion_lines.is_empty(),
+            "expected no expansion lines for description-only conflict, got:\n{output}"
+        );
     }
 }
