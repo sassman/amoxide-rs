@@ -119,13 +119,13 @@ impl ProjectAliases {
         }
     }
 
-    pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
+    pub fn add_alias(&mut self, name: String, command: String, raw: bool, description: Option<String>) {
         let key: AliasName = name.into();
-        let alias = if raw {
+        let alias = if description.is_some() || raw {
             TomlAlias::Detailed(AliasDetail {
                 command,
-                description: None,
-                raw: true,
+                description,
+                raw,
             })
         } else {
             TomlAlias::Command(command)
@@ -133,10 +133,15 @@ impl ProjectAliases {
         self.aliases.insert(key, alias);
     }
 
-    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands
-            .as_mut()
-            .insert(key, TomlSubcommand::Expansion(long_subcommands));
+    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>, description: Option<String>) {
+        let value = match description {
+            Some(d) => TomlSubcommand::Detailed(crate::subcommand::SubcommandDetail {
+                expansions: long_subcommands,
+                description: Some(d),
+            }),
+            None => TomlSubcommand::Expansion(long_subcommands),
+        };
+        self.subcommands.as_mut().insert(key, value);
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
@@ -164,7 +169,7 @@ mod tests {
     #[test]
     fn test_merge_aliases_into_project() {
         let mut project = ProjectAliases::default();
-        project.add_alias("t".into(), "cargo test".into(), false);
+        project.add_alias("t".into(), "cargo test".into(), false, None);
         let mut incoming = AliasSet::default();
         incoming.insert("b".into(), TomlAlias::Command("cargo build".into()));
         project.merge_aliases(incoming);
@@ -242,7 +247,7 @@ mod tests {
         let path = dir.path().join(".aliases");
 
         let mut project = ProjectAliases::default();
-        project.add_alias("t".to_string(), "cargo test".to_string(), false);
+        project.add_alias("t".to_string(), "cargo test".to_string(), false, None);
         project.save(&path).unwrap();
 
         let loaded = ProjectAliases::load(&path).unwrap();

@@ -979,7 +979,7 @@ mod tests {
     #[test]
     fn test_export_global_aliases() {
         let mut config = crate::config::Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config = crate::profile::ProfileConfig::default();
         let model = AppModel::new(config, profile_config);
 
@@ -1001,7 +1001,7 @@ mod tests {
     #[test]
     fn test_export_base64() {
         let mut config = crate::config::Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config = crate::profile::ProfileConfig::default();
         let model = AppModel::new(config, profile_config);
 

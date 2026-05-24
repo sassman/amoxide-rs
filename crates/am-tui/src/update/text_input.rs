@@ -432,7 +432,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     };
                     let _ = super::delegation::dispatch(
                         model,
-                        amoxide::Message::AddAlias(name, command, lib_target, false),
+                        amoxide::Message::AddAlias(name, command, lib_target, false, None),
                     );
                     model.mode = Mode::Normal;
                 }
@@ -600,7 +600,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             target: lib_target,
                         }
                     } else {
-                        amoxide::Message::AddSubcommandAlias(key, long_subcommands, lib_target)
+                        amoxide::Message::AddSubcommandAlias(key, long_subcommands, lib_target, None)
                     };
                     let _ = super::delegation::dispatch(model, msg);
                     model.mode = Mode::Normal;

@@ -96,13 +96,13 @@ impl Config {
         Self::load_from(&crate::dirs::config_dir())
     }
 
-    pub fn add_alias(&mut self, name: String, command: String, raw: bool) {
+    pub fn add_alias(&mut self, name: String, command: String, raw: bool, description: Option<String>) {
         let key: AliasName = name.into();
-        let alias = if raw {
+        let alias = if description.is_some() || raw {
             TomlAlias::Detailed(AliasDetail {
                 command,
-                description: None,
-                raw: true,
+                description,
+                raw,
             })
         } else {
             TomlAlias::Command(command)
@@ -124,10 +124,15 @@ impl Config {
         Ok(())
     }
 
-    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands
-            .as_mut()
-            .insert(key, TomlSubcommand::Expansion(long_subcommands));
+    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>, description: Option<String>) {
+        let value = match description {
+            Some(d) => TomlSubcommand::Detailed(crate::subcommand::SubcommandDetail {
+                expansions: long_subcommands,
+                description: Some(d),
+            }),
+            None => TomlSubcommand::Expansion(long_subcommands),
+        };
+        self.subcommands.as_mut().insert(key, value);
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> crate::Result<()> {
@@ -165,7 +170,7 @@ mod tests {
             aliases: AliasSet::default(),
             ..Default::default()
         };
-        config.add_alias("ll".to_string(), "ls -lha".to_string(), false);
+        config.add_alias("ll".to_string(), "ls -lha".to_string(), false, None);
         config.save_to(dir.path()).unwrap();
 
         let loaded = Config::load_from(dir.path()).unwrap();
@@ -175,7 +180,7 @@ mod tests {
     #[test]
     fn test_add_and_remove_global_alias() {
         let mut config = Config::default();
-        config.add_alias("ll".to_string(), "ls -lha".to_string(), false);
+        config.add_alias("ll".to_string(), "ls -lha".to_string(), false, None);
         assert_eq!(config.aliases.iter().count(), 1);
 
         config.remove_alias("ll").unwrap();
@@ -192,7 +197,7 @@ mod tests {
     #[test]
     fn test_merge_aliases_into_global() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let mut incoming = AliasSet::default();
         incoming.insert("gs".into(), TomlAlias::Command("git status".into()));
         incoming.insert("ll".into(), TomlAlias::Command("ls -la".into()));
@@ -229,7 +234,7 @@ mod tests {
     #[test]
     fn test_add_and_remove_subcommand() {
         let mut config = Config::default();
-        config.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        config.add_subcommand("jj:ab".into(), vec!["abandon".into()], None);
         assert_eq!(config.subcommands.as_ref().len(), 1);
 
         config.remove_subcommand("jj:ab").unwrap();
@@ -329,5 +334,59 @@ project_unloading = "off"
         let mut config = Config::default();
         let prev = config.unset_var(&crate::vars::VarName::parse("nope").unwrap());
         assert!(prev.is_none());
+    }
+
+    #[test]
+    fn add_alias_with_description_stores_detailed_form() {
+        let mut config = Config::default();
+        config.add_alias(
+            "gs".into(),
+            "git status".into(),
+            false,
+            Some("git status short".into()),
+        );
+        let stored = config.aliases.get(&"gs".into()).unwrap();
+        match stored {
+            TomlAlias::Detailed(d) => {
+                assert_eq!(d.description.as_deref(), Some("git status short"));
+                assert_eq!(d.command, "git status");
+            }
+            _ => panic!("expected Detailed"),
+        }
+    }
+
+    #[test]
+    fn add_alias_without_description_stores_simple_form() {
+        let mut config = Config::default();
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
+        let stored = config.aliases.get(&"ll".into()).unwrap();
+        assert!(matches!(stored, TomlAlias::Command(_)));
+    }
+
+    #[test]
+    fn add_subcommand_with_description_stores_detailed_form() {
+        let mut config = Config::default();
+        config.add_subcommand(
+            "jj:b:l".into(),
+            vec!["branch".into(), "list".into()],
+            Some("list branches".into()),
+        );
+        match config.subcommands.as_ref().get("jj:b:l").unwrap() {
+            crate::subcommand::TomlSubcommand::Detailed(d) => {
+                assert_eq!(d.description.as_deref(), Some("list branches"));
+                assert_eq!(d.expansions, vec!["branch", "list"]);
+            }
+            _ => panic!("expected Detailed"),
+        }
+    }
+
+    #[test]
+    fn add_subcommand_without_description_stores_simple_form() {
+        let mut config = Config::default();
+        config.add_subcommand("jj:ab".into(), vec!["abandon".into()], None);
+        assert!(matches!(
+            config.subcommands.as_ref().get("jj:ab").unwrap(),
+            crate::subcommand::TomlSubcommand::Expansion(_)
+        ));
     }
 }

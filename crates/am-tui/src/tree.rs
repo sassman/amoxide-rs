@@ -574,7 +574,7 @@ mod tests {
         }
 
         fn global_alias(mut self, name: &str, cmd: &str) -> Self {
-            self.config.add_alias(name.into(), cmd.into(), false);
+            self.config.add_alias(name.into(), cmd.into(), false, None);
             self
         }
 
@@ -606,7 +606,7 @@ mod tests {
         fn project_alias(mut self, name: &str, cmd: &str) -> Self {
             self.project
                 .get_or_insert_with(ProjectAliases::default)
-                .add_alias(name.into(), cmd.into(), false);
+                .add_alias(name.into(), cmd.into(), false, None);
             self
         }
 

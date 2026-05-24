@@ -24,7 +24,7 @@ impl Display for AliasTarget {
 
 #[derive(Debug)]
 pub enum Message {
-    AddAlias(String, String, AliasTarget, bool),
+    AddAlias(String, String, AliasTarget, bool, Option<String>),
     RemoveAlias(String, AliasTarget),
     /// Update an alias in place — renames, changes command, or both.
     UpdateAlias {
@@ -54,7 +54,7 @@ pub enum Message {
 
     Import(ImportPayload),
 
-    AddSubcommandAlias(String, Vec<String>, AliasTarget),
+    AddSubcommandAlias(String, Vec<String>, AliasTarget, Option<String>),
     RemoveSubcommandAlias(String, AliasTarget),
     UpdateSubcommandAlias {
         original_key: String,

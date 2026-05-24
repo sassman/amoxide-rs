@@ -12,7 +12,7 @@ use crate::shell::ShellContext;
 use crate::sync_outcome::{PathUpdate, ProjectTransition, SyncOutcome};
 use crate::trust::ProjectTrust;
 use crate::{env_vars, update_check};
-use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
+use crate::{described::Described, profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
 #[derive(Debug)]
 pub struct UpdateResult {
@@ -179,20 +179,21 @@ fn get_profile_mut<'a>(
 
 pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, UpdateError> {
     match message {
-        Message::AddAlias(name, cmd, target, raw) => match resolve_target(model, &target)? {
+        Message::AddAlias(name, cmd, target, raw, description) => match resolve_target(model, &target)? {
             ConcreteScope::Global => {
-                model.config.add_alias(name, cmd, raw);
+                model.config.add_alias(name, cmd, raw, description);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
             ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalAlias {
                 name,
                 cmd,
                 raw,
+                description,
             })),
             ConcreteScope::Profile(profile_name) => {
                 let profile = get_profile_mut(model, &profile_name)?;
                 profile
-                    .add_alias(name, cmd, raw)
+                    .add_alias(name, cmd, raw, description)
                     .map_err(|e| UpdateError::Other(e.to_string()))?;
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
@@ -230,7 +231,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             target: "global".to_string(),
                         }
                     })?;
-                    model.config.add_alias(new_name, new_command, raw);
+                    model.config.add_alias(new_name, new_command, raw, None);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
                 ConcreteScope::Local => Ok(UpdateResult::with_effects(vec![
@@ -239,6 +240,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         name: new_name,
                         cmd: new_command,
                         raw,
+                        description: None,
                     },
                 ])),
                 ConcreteScope::Profile(profile_name) => {
@@ -252,25 +254,26 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             target: format!("Profile: `{profile_name}`"),
                         })?;
                     profile
-                        .add_alias(new_name, new_command, raw)
+                        .add_alias(new_name, new_command, raw, None)
                         .map_err(|e| UpdateError::Other(e.to_string()))?;
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
         }
-        Message::AddSubcommandAlias(key, long_subcommands, target) => {
+        Message::AddSubcommandAlias(key, long_subcommands, target, description) => {
             match resolve_target(model, &target)? {
                 ConcreteScope::Global => {
-                    model.config.add_subcommand(key, long_subcommands);
+                    model.config.add_subcommand(key, long_subcommands, description);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
                 ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
                     key,
                     long_subcommands,
+                    description,
                 })),
                 ConcreteScope::Profile(profile_name) => {
                     let profile = get_profile_mut(model, &profile_name)?;
-                    profile.add_subcommand(key, long_subcommands);
+                    profile.add_subcommand(key, long_subcommands, description);
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
@@ -295,17 +298,17 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         } => match resolve_target(model, &target)? {
             ConcreteScope::Global => {
                 model.config.subcommands.as_mut().remove(&original_key);
-                model.config.add_subcommand(new_key, long_subcommands);
+                model.config.add_subcommand(new_key, long_subcommands, None);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
             ConcreteScope::Local => Ok(UpdateResult::new(
-                Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
+                Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local, None),
                 vec![Effect::RemoveLocalSubcommand { key: original_key }],
             )),
             ConcreteScope::Profile(profile_name) => {
                 let profile = get_profile_mut(model, &profile_name)?;
                 profile.subcommands.as_mut().remove(&original_key);
-                profile.add_subcommand(new_key, long_subcommands);
+                profile.add_subcommand(new_key, long_subcommands, None);
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
@@ -340,7 +343,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match to {
                 AliasTarget::Global => {
                     for (key, longs) in pairs {
-                        model.config.add_subcommand(key, longs.expansions().to_vec());
+                        model.config.add_subcommand(key, longs.expansions().to_vec(), longs.description().map(str::to_string));
                     }
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
@@ -349,6 +352,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         .into_iter()
                         .map(|(key, longs)| Effect::AddLocalSubcommand {
                             key,
+                            description: longs.description().map(str::to_string),
                             long_subcommands: longs.expansions().to_vec(),
                         })
                         .collect();
@@ -357,7 +361,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
                     for (key, longs) in pairs {
-                        profile.add_subcommand(key, longs.expansions().to_vec());
+                        profile.add_subcommand(key, longs.expansions().to_vec(), longs.description().map(str::to_string));
                     }
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
@@ -437,7 +441,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match to {
                 AliasTarget::Global => {
                     for (key, longs) in pairs {
-                        model.config.add_subcommand(key, longs.expansions().to_vec());
+                        model.config.add_subcommand(key, longs.expansions().to_vec(), longs.description().map(str::to_string));
                     }
                     let needs_profiles =
                         matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile);
@@ -454,6 +458,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         .into_iter()
                         .map(|(key, longs)| Effect::AddLocalSubcommand {
                             key,
+                            description: longs.description().map(str::to_string),
                             long_subcommands: longs.expansions().to_vec(),
                         })
                         .collect();
@@ -467,7 +472,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
                     for (key, longs) in pairs {
-                        profile.add_subcommand(key, longs.expansions().to_vec());
+                        profile.add_subcommand(key, longs.expansions().to_vec(), longs.description().map(str::to_string));
                     }
                     let needs_config = matches!(from, AliasTarget::Global);
                     let mut effects = remove_local_effects;
@@ -1249,16 +1254,16 @@ fn transfer_aliases(
         let name = id.name().to_string();
         match to {
             AliasTarget::Global => {
-                model.config.add_alias(name, cmd, raw);
+                model.config.add_alias(name, cmd, raw, None);
                 needs_save_config = true;
             }
             AliasTarget::Local => {
-                effects.push(Effect::AddLocalAlias { name, cmd, raw });
+                effects.push(Effect::AddLocalAlias { name, cmd, raw, description: None });
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                 let profile = resolve_profile_mut(model, target)?;
                 profile
-                    .add_alias(name, cmd, raw)
+                    .add_alias(name, cmd, raw, None)
                     .map_err(|e| UpdateError::Other(e.to_string()))?;
                 needs_save_profiles = true;
             }
@@ -1606,7 +1611,7 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("ll".into(), "ls -lha".into(), AliasTarget::Global, false),
+            Message::AddAlias("ll".into(), "ls -lha".into(), AliasTarget::Global, false, None),
         )
         .unwrap();
 
@@ -1629,6 +1634,7 @@ mod tests {
                 "ls -lha".into(),
                 AliasTarget::ActiveProfile,
                 false,
+                None,
             ),
         )
         .unwrap();
@@ -1640,7 +1646,7 @@ mod tests {
     #[test]
     fn remove_global_alias_mutates_config_and_returns_save_config() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config = ProfileConfig::default();
         let mut model = AppModel::new(config, profile_config);
 
@@ -1658,7 +1664,7 @@ mod tests {
     fn remove_alias_active_profile_no_profiles_no_local_falls_back_to_global() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config = ProfileConfig::default();
         let mut model = AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
 
@@ -1680,7 +1686,7 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false, None),
         )
         .unwrap();
 
@@ -1690,6 +1696,7 @@ mod tests {
                 name: "t".into(),
                 cmd: "cargo test".into(),
                 raw: false,
+                description: None,
             }]
         );
         assert!(model.config.aliases.is_empty());
@@ -1909,6 +1916,7 @@ mod tests {
                 "cargo test".into(),
                 AliasTarget::Profile("rust".into()),
                 false,
+                None,
             ),
         )
         .unwrap();
@@ -2059,6 +2067,7 @@ mod tests {
                 "jj:ab".into(),
                 vec!["abandon".into()],
                 AliasTarget::Global,
+                None,
             ),
         )
         .unwrap();
@@ -2074,7 +2083,7 @@ mod tests {
     #[test]
     fn remove_global_subcommand_alias() {
         let mut config = Config::default();
-        config.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        config.add_subcommand("jj:ab".into(), vec!["abandon".into()], None);
         let profile_config = ProfileConfig::default();
         let mut model = AppModel::new(config, profile_config);
 
@@ -2096,7 +2105,7 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddSubcommandAlias("jj:ab".into(), vec!["abandon".into()], AliasTarget::Local),
+            Message::AddSubcommandAlias("jj:ab".into(), vec!["abandon".into()], AliasTarget::Local, None),
         )
         .unwrap();
 
@@ -2105,6 +2114,7 @@ mod tests {
             vec![Effect::AddLocalSubcommand {
                 key: "jj:ab".into(),
                 long_subcommands: vec!["abandon".into()],
+                description: None,
             }]
         );
     }
@@ -2122,6 +2132,7 @@ mod tests {
                 "cargo:t".into(),
                 vec!["test".into()],
                 AliasTarget::Profile("rust".into()),
+                None,
             ),
         )
         .unwrap();
@@ -2146,7 +2157,7 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false, None),
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
     }
@@ -2189,7 +2200,7 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false, None),
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
     }
@@ -2197,7 +2208,7 @@ mod tests {
     #[test]
     fn update_alias_renames_global_alias() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let mut model = AppModel::new(config, ProfileConfig::default());
 
         let result = update(
@@ -2222,7 +2233,7 @@ mod tests {
     #[test]
     fn update_alias_changes_command_global() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let mut model = AppModel::new(config, ProfileConfig::default());
 
         update(
@@ -2262,7 +2273,7 @@ mod tests {
     #[test]
     fn move_aliases_from_global_to_profile() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config: ProfileConfig =
             toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
         let mut model = AppModel::new(config, profile_config);
@@ -2289,7 +2300,7 @@ mod tests {
     #[test]
     fn copy_aliases_preserves_source() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config: ProfileConfig =
             toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
         let mut model = AppModel::new(config, profile_config);
@@ -2317,7 +2328,7 @@ mod tests {
         let aliases_path = dir.path().join(".aliases");
         std::fs::write(&aliases_path, "[aliases]\n").unwrap();
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let mut security = SecurityConfig::default();
         security.untrust(&aliases_path);
         let mut model = AppModel::new_with_security(config, ProfileConfig::default(), security)
@@ -2419,7 +2430,7 @@ mod tests {
         fn save_config_writes_to_config_dir() {
             let dir = tempfile::tempdir().unwrap();
             let mut model = AppModel::load_from(dir.path().to_path_buf());
-            model.config.add_alias("ll".into(), "ls -lha".into(), false);
+            model.config.add_alias("ll".into(), "ls -lha".into(), false, None);
             model.save_config().unwrap();
 
             let saved = Config::load_from(dir.path()).unwrap();

@@ -85,7 +85,7 @@ mod tests {
         let mut model = make_model();
         dispatch(
             &mut model,
-            Message::AddAlias("ll".into(), "ls -lha".into(), AliasTarget::Global, false),
+            Message::AddAlias("ll".into(), "ls -lha".into(), AliasTarget::Global, false, None),
         )
         .unwrap();
 
@@ -120,7 +120,7 @@ mod tests {
 
         dispatch(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false, None),
         )
         .unwrap();
 

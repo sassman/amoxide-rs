@@ -119,7 +119,7 @@ fn main() -> anyhow::Result<()> {
                 )?;
 
                 info!("Adding subcommand alias `{key}` to {target}");
-                Message::AddSubcommandAlias(key, long_subcommands, target)
+                Message::AddSubcommandAlias(key, long_subcommands, target, None)
             } else {
                 // Regular alias
                 let alias_cmd = match command {
@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
                     None => bail!("No command provided. Usage: am add <name> <command...>"),
                 };
                 info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
-                Message::AddAlias(name.clone(), alias_cmd, target, *raw)
+                Message::AddAlias(name.clone(), alias_cmd, target, *raw, None)
             }
         }
         Commands::Remove { scope, name, sub } => {
@@ -440,11 +440,12 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
             Effect::SaveConfig => model.save_config()?,
             Effect::SaveSession => model.save_session()?,
             Effect::SaveProfiles => model.save_profiles()?,
-            Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(model, &name, &cmd, raw)?,
+            Effect::AddLocalAlias { name, cmd, raw, .. } => add_local_alias(model, &name, &cmd, raw)?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(model, &name)?,
             Effect::AddLocalSubcommand {
                 key,
                 long_subcommands,
+                ..
             } => add_local_subcommand(model, &key, &long_subcommands)?,
             Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(model, &key)?,
             Effect::AddLocalVar { name, value } => add_local_var(model, &name, &value)?,
@@ -586,7 +587,7 @@ fn add_local_alias(
     raw: bool,
 ) -> anyhow::Result<()> {
     upsert_local_aliases(model, &format!("alias `{name}`"), |project| {
-        project.add_alias(name.to_string(), command.to_string(), raw);
+        project.add_alias(name.to_string(), command.to_string(), raw, None);
         Ok(())
     })
 }
@@ -604,7 +605,7 @@ fn add_local_subcommand(
     long_subcommands: &[String],
 ) -> anyhow::Result<()> {
     upsert_local_aliases(model, &format!("subcommand alias `{key}`"), |project| {
-        project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+        project.add_subcommand(key.to_string(), long_subcommands.to_vec(), None);
         Ok(())
     })
 }

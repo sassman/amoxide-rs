@@ -812,7 +812,7 @@ mod tests {
         model
             .app_model
             .config
-            .add_alias("ll".into(), "ls -la".into(), false);
+            .add_alias("ll".into(), "ls -la".into(), false, None);
         model.rebuild_tree();
         assert_eq!(model.tree[model.cursor].kind, NodeKind::GlobalHeader);
         update(&mut model, TuiMessage::EditItem);
