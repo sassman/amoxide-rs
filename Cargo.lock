@@ -50,6 +50,7 @@ dependencies = [
  "ratatui",
  "tempfile",
  "toml",
+ "unicode-width",
 ]
 
 [[package]]

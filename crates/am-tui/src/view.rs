@@ -2,6 +2,7 @@ use crate::model::*;
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
+use unicode_width::UnicodeWidthStr;
 
 // Noctavox-inspired warm color palette
 const TEXT_PRIMARY: Color = Color::Rgb(210, 210, 213); // #d2d2d5
@@ -538,8 +539,50 @@ fn render_confirm(frame: &mut Frame, action: &ConfirmAction, area: Rect) {
     frame.render_widget(widget, input_area);
 }
 
+/// Width of `prefix + arm + marker + label + " -> " + cmd` for an `AliasItem`,
+/// or `prefix + marker + label` for a `SubcommandItem`. Used to align the
+/// trailing `# desc` column across all described rows in the tree.
+fn row_body_width(node: &TreeNode) -> usize {
+    match node.kind {
+        NodeKind::AliasItem => {
+            node.content_prefix.width()
+                + TREE_BRANCH.width()
+                + MARKER_NONE.width()
+                + node.label.width()
+                + " -> ".width()
+                + node.alias_command.as_deref().unwrap_or("").width()
+        }
+        NodeKind::SubcommandItem => {
+            node.prefix.width() + MARKER_NONE.width() + node.label.width()
+        }
+        _ => 0,
+    }
+}
+
+/// Target column for `# desc` alignment — max body width across rows that
+/// will actually emit a description (i.e. `descriptions_visible` is on AND
+/// the row has a non-empty description). Returns 0 when no rows qualify.
+fn description_target_column(model: &TuiModel) -> usize {
+    if !model.descriptions_visible {
+        return 0;
+    }
+    model
+        .tree
+        .iter()
+        .filter(|n| {
+            n.alias_description
+                .as_deref()
+                .filter(|d| !d.is_empty())
+                .is_some()
+        })
+        .map(row_body_width)
+        .max()
+        .unwrap_or(0)
+}
+
 fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
+    let desc_col = description_target_column(model);
 
     for (i, node) in model.tree.iter().enumerate() {
         let is_cursor = i == model.cursor && model.active_column == Column::Left;
@@ -703,6 +746,10 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 ];
                 if model.descriptions_visible {
                     if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty()) {
+                        let pad = desc_col.saturating_sub(row_body_width(node));
+                        if pad > 0 {
+                            row_spans.push(Span::raw(" ".repeat(pad)));
+                        }
                         row_spans.push(Span::styled(
                             format!(" # {desc}"),
                             Style::default().fg(TEXT_MUTED),
@@ -793,6 +840,10 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                 ];
                 if model.descriptions_visible {
                     if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty()) {
+                        let pad = desc_col.saturating_sub(row_body_width(node));
+                        if pad > 0 {
+                            alias_spans.push(Span::raw(" ".repeat(pad)));
+                        }
                         alias_spans.push(Span::styled(
                             format!(" # {desc}"),
                             Style::default().fg(TEXT_MUTED),
@@ -1001,6 +1052,50 @@ mod description_render {
             .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
             .collect();
         assert!(rendered.contains("# long listing"), "description should appear when descriptions_visible");
+    }
+
+    #[test]
+    fn descriptions_align_to_shared_column() {
+        // Two aliases with different command widths and both having descriptions —
+        // the `#` columns of the rendered output must match.
+        let mut config = Config::default();
+        config.add_alias(
+            "ll".into(),
+            "ls -lha".into(),
+            false,
+            Some("long listing".to_string()),
+        );
+        config.add_alias(
+            "claude-ft".into(),
+            "claude --dangerously-skip-permissions".into(),
+            false,
+            Some("fast track".to_string()),
+        );
+        let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
+        let mut model = TuiModel::new().unwrap();
+        model.app_model = app;
+        model.rebuild_tree();
+        model.descriptions_visible = true;
+
+        let lines = render_tree_lines(&model);
+        let described_line_positions: Vec<usize> = lines
+            .iter()
+            .filter_map(|l| {
+                let s: String = l.spans.iter().map(|s| s.content.as_ref()).collect();
+                s.find('#').map(|pos| {
+                    use unicode_width::UnicodeWidthStr;
+                    s[..pos].width()
+                })
+            })
+            .collect();
+        assert!(
+            described_line_positions.len() >= 2,
+            "expected at least 2 described rows, got {described_line_positions:?}"
+        );
+        assert!(
+            described_line_positions.windows(2).all(|w| w[0] == w[1]),
+            "`#` columns not aligned: {described_line_positions:?}"
+        );
     }
 
     #[test]
