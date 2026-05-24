@@ -19,10 +19,11 @@ struct SubcmdTrieNode {
 fn build_subcmd_trie(subcommands: &amoxide::SubcommandSet, program: &str) -> SubcmdTrieNode {
     let prefix = format!("{program}:");
     let mut root = SubcmdTrieNode::default();
-    for (key, longs) in subcommands {
+    for (key, subcmd) in subcommands {
         let Some(rest) = key.strip_prefix(&prefix) else {
             continue;
         };
+        let longs = subcmd.expansions();
         let segments: Vec<&str> = rest.split(':').collect();
         if segments.len() != longs.len() {
             continue;
@@ -595,10 +596,10 @@ mod tests {
         }
 
         fn global_subcommand(mut self, key: &str, longs: &[&str]) -> Self {
-            self.config
-                .subcommands
-                .as_mut()
-                .insert(key.into(), longs.iter().map(|s| s.to_string()).collect());
+            self.config.subcommands.as_mut().insert(
+                key.into(),
+                amoxide::TomlSubcommand::Expansion(longs.iter().map(|s| s.to_string()).collect()),
+            );
             self
         }
 

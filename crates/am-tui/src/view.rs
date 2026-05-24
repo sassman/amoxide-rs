@@ -867,7 +867,7 @@ mod subcommand_render {
         config
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), amoxide::TomlSubcommand::Expansion(vec!["abandon".into()]));
         let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
         let mut model = TuiModel::new().unwrap();
         model.app_model = app;

@@ -827,7 +827,7 @@ mod tests {
             .config
             .subcommands
             .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+            .insert("jj:ab".into(), amoxide::TomlSubcommand::Expansion(vec!["abandon".into()]));
         model.rebuild_tree();
         let idx = model
             .tree
@@ -1021,7 +1021,7 @@ mod tests {
         for (key, longs) in keys {
             config.subcommands.as_mut().insert(
                 key.to_string(),
-                longs.iter().map(|s| s.to_string()).collect(),
+                amoxide::TomlSubcommand::Expansion(longs.iter().map(|s| s.to_string()).collect()),
             );
         }
         let app_model = AppModel::new(config, ProfileConfig::default());
