@@ -49,6 +49,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;add' {
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
             [CompletionResult]::new('--profile', '--profile', [CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Optional description shown next to the alias in `am ls -d` and the TUI')
+            [CompletionResult]::new('--description', '--description', [CompletionResultType]::ParameterName, 'Optional description shown next to the alias in `am ls -d` and the TUI')
             [CompletionResult]::new('--sub', '--sub', [CompletionResultType]::ParameterName, 'Define a subcommand alias (repeatable: --sub short long)')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
             [CompletionResult]::new('--local', '--local', [CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')

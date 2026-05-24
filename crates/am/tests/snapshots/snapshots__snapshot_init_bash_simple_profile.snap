@@ -299,7 +299,7 @@ _am() {
             return 0
             ;;
         am__subcmd__add)
-            opts="-p -l -g -h -V --profile --local --global --raw --sub --help --version <NAME> [COMMAND]..."
+            opts="-p -l -g -d -h -V --profile --local --global --raw --description --sub --help --version <NAME> [COMMAND]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -310,6 +310,14 @@ _am() {
                     return 0
                     ;;
                 -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --description)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

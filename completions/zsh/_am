@@ -32,6 +32,8 @@ _am() {
 _arguments "${_arguments_options[@]}" : \
 '(-l --local -g --global)-p+[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
 '(-l --local -g --global)--profile=[Operate on a specific profile (defaults to active profile)]:PROFILE:_default' \
+'-d+[Optional description shown next to the alias in \`am ls -d\` and the TUI]:DESCRIPTION:_default' \
+'--description=[Optional description shown next to the alias in \`am ls -d\` and the TUI]:DESCRIPTION:_default' \
 '*--sub=[Define a subcommand alias (repeatable\: --sub short long)]:SHORT:_default:SHORT:_default' \
 '(-g --global)-l[Operate on the project'\''s .aliases file]' \
 '(-g --global)--local[Operate on the project'\''s .aliases file]' \

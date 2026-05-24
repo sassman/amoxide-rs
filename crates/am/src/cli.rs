@@ -194,6 +194,10 @@ pub struct Alias {
     #[arg(long)]
     pub raw: bool,
 
+    /// Optional description shown next to the alias in `am ls -d` and the TUI
+    #[arg(short = 'd', long = "description")]
+    pub description: Option<String>,
+
     /// The alias name
     pub name: String,
 

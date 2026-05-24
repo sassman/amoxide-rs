@@ -101,6 +101,7 @@ complete -c am -n "__fish_am_needs_command" -f -a "sync" -d 'Internal: compute a
 complete -c am -n "__fish_am_needs_command" -f -a "__update-check" -d 'Internal: refresh the update-check cache from crates.io. Spawned detached by the listing commands; never invoked directly by users'
 complete -c am -n "__fish_am_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c am -n "__fish_am_using_subcommand add" -s p -l profile -d 'Operate on a specific profile (defaults to active profile)' -r
+complete -c am -n "__fish_am_using_subcommand add" -s d -l description -d 'Optional description shown next to the alias in `am ls -d` and the TUI' -r
 complete -c am -n "__fish_am_using_subcommand add" -l sub -d 'Define a subcommand alias (repeatable: --sub short long)' -r
 complete -c am -n "__fish_am_using_subcommand add" -s l -l local -d 'Operate on the project\'s .aliases file'
 complete -c am -n "__fish_am_using_subcommand add" -s g -l global -d 'Operate on global config'

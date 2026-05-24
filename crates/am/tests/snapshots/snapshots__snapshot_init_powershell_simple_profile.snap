@@ -100,6 +100,8 @@ Register-ArgumentCompleter -Native -CommandName 'am' -ScriptBlock {
         'am;add' {
             [System.Management.Automation.CompletionResult]::new('-p', '-p', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
             [System.Management.Automation.CompletionResult]::new('--profile', '--profile', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on a specific profile (defaults to active profile)')
+            [System.Management.Automation.CompletionResult]::new('-d', '-d', [System.Management.Automation.CompletionResultType]::ParameterName, 'Optional description shown next to the alias in `am ls -d` and the TUI')
+            [System.Management.Automation.CompletionResult]::new('--description', '--description', [System.Management.Automation.CompletionResultType]::ParameterName, 'Optional description shown next to the alias in `am ls -d` and the TUI')
             [System.Management.Automation.CompletionResult]::new('--sub', '--sub', [System.Management.Automation.CompletionResultType]::ParameterName, 'Define a subcommand alias (repeatable: --sub short long)')
             [System.Management.Automation.CompletionResult]::new('-l', '-l', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
             [System.Management.Automation.CompletionResult]::new('--local', '--local', [System.Management.Automation.CompletionResultType]::ParameterName, 'Operate on the project''s .aliases file')
