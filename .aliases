@@ -1,10 +1,11 @@
 [aliases]
 docs = "fnm use 24 && cd website/ && npm run dev"
-echofoo = "echo Hello {{foo}}!"
 f = "cargo fmt"
 i = "cargo install --path crates/am && cargo install --path crates/am-tui"
 l = "cargo clippy --locked --all-targets -- -D warnings"
+release-notes = 'sh -c "GITHUB_TOKEN=$(gh auth token) git-cliff --unreleased --tag {{1}} > RELEASE_NOTES_{{1}}.md;zed RELEASE_NOTES_{{1}}.md"'
 t = "cargo test --all-features"
+tag = "git tag -s {{1}} -F RELEASE_NOTES_{{1}}.md && git push o {{1}}"
 
 [vars]
 foo = "bar"

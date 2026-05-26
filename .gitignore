@@ -11,3 +11,6 @@ TODOs.md
 website/node_modules/
 website/.vitepress/cache/
 website/.vitepress/dist/
+
+# Scratch buffer for release notes drafting (see `release-notes` project alias)
+RELEASE_NOTES_v*.md
