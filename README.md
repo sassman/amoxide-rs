@@ -114,4 +114,4 @@ Full documentation — usage guides, profiles, project aliases, parameterized al
 
 **[amoxide.rs](https://amoxide.rs)**
 
-- **AI coding agents** — `am context` prints your active aliases for tools like Claude Code so the agent can expand short forms. See [AI Agents](https://amoxide.rs/usage/ai-agents/) (or run `am context --setup claude` for the one-line setup).
+- **AI coding agents** — `am context` prints your active aliases for tools like Claude Code so the agent can expand short forms. See [AI Agents](https://amoxide.rs/usage/ai-agents/) (or run `am setup claude` for the one-line setup).
