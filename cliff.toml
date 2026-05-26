@@ -1,25 +1,15 @@
-[workspace]
-changelog_update = true
-git_tag_enable = false
-publish = false
-# Unified tag for all crates: v0.2.0 instead of amoxide-v0.2.0 / amoxide-tui-v0.2.0
-# This lets cargo-dist produce a single GitHub Release with artifacts for all binaries
-git_tag_name = "v{{ version }}"
-git_release_name = "v{{ version }}"
+# git-cliff configuration — canonical source of truth for changelog rendering.
+#
+# Consumed by:
+#   - the `release-notes` project alias (`git-cliff --unreleased --tag vX.Y.Z`)
+#     which finds this file by default in the repo root
+#   - any direct local `git-cliff` invocation
+#
+# Mirrored in `release-plz.toml`'s `[changelog]` and `commit_parsers` blocks
+# (which release-plz uses in CI). When you change anything here, mirror the
+# change there too. release-plz's `changelog_config` option that would let
+# us point at this file is deprecated, so we duplicate instead.
 
-[[package]]
-name = "amoxide-tui"
-# Include amoxide library commits in the TUI changelog.
-# Needed because the unified git tag (v{{ version }}) prevents release-plz
-# from attributing per-crate commits, so amoxide-tui would otherwise get an
-# empty changelog entry on every release.
-changelog_include = ["amoxide"]
-
-# The `[changelog]` and `commit_parsers` blocks below mirror `cliff.toml`,
-# which is the canonical source of truth (consumed by the local
-# `release-notes` alias). When you change anything here, mirror the change
-# in `cliff.toml` too. release-plz's `changelog_config` option that would
-# let us point at the external file is deprecated, so we duplicate instead.
 [changelog]
 header = """
 # Changelog
