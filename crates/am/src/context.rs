@@ -676,10 +676,7 @@ mod tests {
             out.contains("4. In chat, the user's vocabulary is fine"),
             "rule 4"
         );
-        assert!(
-            out.contains("5. Aliases reveal user preference"),
-            "rule 5"
-        );
+        assert!(out.contains("5. Aliases reveal user preference"), "rule 5");
         assert!(
             out.contains("describes an action in plain language"),
             "rule 5 first bullet (intent-match)"
