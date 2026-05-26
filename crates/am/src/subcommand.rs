@@ -173,7 +173,10 @@ impl SubcommandSet {
             let description = crate::Described::description(entry).map(str::to_string);
             match SubcommandEntry::parse_key(key, entry.expansions().to_vec(), description) {
                 Ok(parsed) => {
-                    groups.entry(parsed.program.clone()).or_default().push(parsed);
+                    groups
+                        .entry(parsed.program.clone())
+                        .or_default()
+                        .push(parsed);
                 }
                 Err(e) => {
                     warn!("Skipping invalid subcommand alias '{key}': {e}");
@@ -278,8 +281,7 @@ mod tests {
 
     #[test]
     fn parse_single_level() {
-        let entry =
-            SubcommandEntry::parse_key("jj:ab", vec!["abandon".into()], None).unwrap();
+        let entry = SubcommandEntry::parse_key("jj:ab", vec!["abandon".into()], None).unwrap();
         assert_eq!(entry.program, "jj");
         assert_eq!(entry.short_subcommands, vec!["ab"]);
         assert_eq!(entry.long_subcommands, vec!["abandon"]);
@@ -288,12 +290,9 @@ mod tests {
 
     #[test]
     fn parse_multi_level() {
-        let entry = SubcommandEntry::parse_key(
-            "jj:b:l",
-            vec!["branch".into(), "list".into()],
-            None,
-        )
-        .unwrap();
+        let entry =
+            SubcommandEntry::parse_key("jj:b:l", vec!["branch".into(), "list".into()], None)
+                .unwrap();
         assert_eq!(entry.program, "jj");
         assert_eq!(entry.short_subcommands, vec!["b", "l"]);
         assert_eq!(entry.long_subcommands, vec!["branch", "list"]);
@@ -320,26 +319,27 @@ mod tests {
 
     #[test]
     fn to_key_roundtrips() {
-        let entry = SubcommandEntry::parse_key(
-            "jj:b:l",
-            vec!["branch".into(), "list".into()],
-            None,
-        )
-        .unwrap();
+        let entry =
+            SubcommandEntry::parse_key("jj:b:l", vec!["branch".into(), "list".into()], None)
+                .unwrap();
         assert_eq!(entry.to_key(), "jj:b:l");
     }
 
     #[test]
     fn group_by_program_groups_correctly() {
         let mut set = SubcommandSet::new();
-        set.as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        set.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         set.as_mut().insert(
             "jj:b:l".into(),
             TomlSubcommand::Expansion(vec!["branch".into(), "list".into()]),
         );
-        set.as_mut()
-            .insert("git:co".into(), TomlSubcommand::Expansion(vec!["checkout".into()]));
+        set.as_mut().insert(
+            "git:co".into(),
+            TomlSubcommand::Expansion(vec!["checkout".into()]),
+        );
 
         let groups = set.group_by_program();
         assert_eq!(groups.len(), 2);
@@ -357,14 +357,20 @@ mod tests {
     #[test]
     fn group_by_program_skips_invalid_entries() {
         let mut set = SubcommandSet::new();
-        set.as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        set.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         // mismatched counts — invalid
-        set.as_mut()
-            .insert("jj:b:l".into(), TomlSubcommand::Expansion(vec!["branch".into()]));
+        set.as_mut().insert(
+            "jj:b:l".into(),
+            TomlSubcommand::Expansion(vec!["branch".into()]),
+        );
         // no colon — invalid
-        set.as_mut()
-            .insert("bad".into(), TomlSubcommand::Expansion(vec!["whatever".into()]));
+        set.as_mut().insert(
+            "bad".into(),
+            TomlSubcommand::Expansion(vec!["whatever".into()]),
+        );
 
         let groups = set.group_by_program();
         assert_eq!(groups.len(), 1);
@@ -379,8 +385,10 @@ mod tests {
         let mut set = SubcommandSet::new();
         assert!(set.is_empty());
 
-        set.as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        set.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         assert_eq!(set.as_ref().len(), 1);
         assert!(set.as_ref().contains_key("jj:ab"));
         assert_eq!(
@@ -503,8 +511,10 @@ mod tests {
             subcommands: SubcommandSet,
         }
         let mut set = SubcommandSet::new();
-        set.as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        set.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let toml_str = toml::to_string(&Wrapper { subcommands: set }).unwrap();
         assert!(toml_str.contains(r#""jj:ab" = ["abandon"]"#));
         assert!(!toml_str.contains("description"));

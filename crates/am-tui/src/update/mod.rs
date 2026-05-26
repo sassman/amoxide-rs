@@ -827,12 +827,10 @@ mod tests {
     #[test]
     fn test_start_add_alias_on_subcommand_program_header_opens_subcmd_editor() {
         let mut model = test_model("profiles = []");
-        model
-            .app_model
-            .config
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), amoxide::TomlSubcommand::Expansion(vec!["abandon".into()]));
+        model.app_model.config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            amoxide::TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         model.rebuild_tree();
         let idx = model
             .tree

@@ -260,7 +260,13 @@ impl Profile {
         }
     }
 
-    pub fn add_alias(&mut self, name: String, command: String, raw: bool, description: Option<String>) -> Result<()> {
+    pub fn add_alias(
+        &mut self,
+        name: String,
+        command: String,
+        raw: bool,
+        description: Option<String>,
+    ) -> Result<()> {
         let key: AliasName = name.into();
         let alias = if description.is_some() || raw {
             TomlAlias::Detailed(AliasDetail {
@@ -283,7 +289,12 @@ impl Profile {
         Ok(())
     }
 
-    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>, description: Option<String>) {
+    pub fn add_subcommand(
+        &mut self,
+        key: String,
+        long_subcommands: Vec<String>,
+        description: Option<String>,
+    ) {
         let value = match description {
             Some(d) => TomlSubcommand::Detailed(crate::subcommand::SubcommandDetail {
                 expansions: long_subcommands,

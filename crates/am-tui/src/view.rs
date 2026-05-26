@@ -48,7 +48,8 @@ pub fn draw(frame: &mut Frame, model: &TuiModel) {
         constraints.push(Constraint::Length(1)); // status above editor
         constraints.push(Constraint::Length(editor_rows)); // editor
     } else if in_editor || has_status {
-        constraints.push(Constraint::Length(if in_editor { editor_rows } else { 1 })); // editor or status
+        constraints.push(Constraint::Length(if in_editor { editor_rows } else { 1 }));
+        // editor or status
     }
 
     let chunks = Layout::default()
@@ -317,9 +318,10 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let mut desc_spans = vec![
-                Span::styled(format!("{desc_marker}description: "), Style::default().fg(TEXT_MUTED)),
-            ];
+            let mut desc_spans = vec![Span::styled(
+                format!("{desc_marker}description: "),
+                Style::default().fg(TEXT_MUTED),
+            )];
             if desc_active {
                 let dpos = pos.min(description.len());
                 desc_spans.push(Span::styled(description[..dpos].to_string(), desc_style));
@@ -405,9 +407,10 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let mut desc_spans = vec![
-                Span::styled(format!("{desc_marker}description: "), Style::default().fg(TEXT_MUTED)),
-            ];
+            let mut desc_spans = vec![Span::styled(
+                format!("{desc_marker}description: "),
+                Style::default().fg(TEXT_MUTED),
+            )];
             if desc_active {
                 let pos = (*cursor).min(description.len());
                 desc_spans.push(Span::styled(description[..pos].to_string(), desc_style));
@@ -486,9 +489,10 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             } else {
                 Style::default().fg(TEXT_MUTED)
             };
-            let mut desc_spans = vec![
-                Span::styled(format!("{desc_marker}description: "), Style::default().fg(TEXT_MUTED)),
-            ];
+            let mut desc_spans = vec![Span::styled(
+                format!("{desc_marker}description: "),
+                Style::default().fg(TEXT_MUTED),
+            )];
             if desc_active {
                 let dpos = pos.min(description.len());
                 desc_spans.push(Span::styled(description[..dpos].to_string(), desc_style));
@@ -552,9 +556,7 @@ fn row_body_width(node: &TreeNode) -> usize {
                 + " -> ".width()
                 + node.alias_command.as_deref().unwrap_or("").width()
         }
-        NodeKind::SubcommandItem => {
-            node.prefix.width() + MARKER_NONE.width() + node.label.width()
-        }
+        NodeKind::SubcommandItem => node.prefix.width() + MARKER_NONE.width() + node.label.width(),
         _ => 0,
     }
 }
@@ -745,7 +747,8 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     exp_span,
                 ];
                 if model.descriptions_visible {
-                    if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty()) {
+                    if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty())
+                    {
                         let pad = desc_col.saturating_sub(row_body_width(node));
                         if pad > 0 {
                             row_spans.push(Span::raw(" ".repeat(pad)));
@@ -839,7 +842,8 @@ fn render_tree_lines(model: &TuiModel) -> Vec<Line<'static>> {
                     Span::styled(cmd_text.to_string(), cmd_style),
                 ];
                 if model.descriptions_visible {
-                    if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty()) {
+                    if let Some(desc) = node.alias_description.as_deref().filter(|d| !d.is_empty())
+                    {
                         let pad = desc_col.saturating_sub(row_body_width(node));
                         if pad > 0 {
                             alias_spans.push(Span::raw(" ".repeat(pad)));
@@ -1022,7 +1026,12 @@ mod description_render {
 
     fn make_model_with_described_alias() -> TuiModel {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false, Some("long listing".to_string()));
+        config.add_alias(
+            "ll".into(),
+            "ls -lha".into(),
+            false,
+            Some("long listing".to_string()),
+        );
         let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
         let mut model = TuiModel::new().unwrap();
         model.app_model = app;
@@ -1039,7 +1048,10 @@ mod description_render {
             .iter()
             .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
             .collect();
-        assert!(!rendered.contains("# long listing"), "description should be hidden by default");
+        assert!(
+            !rendered.contains("# long listing"),
+            "description should be hidden by default"
+        );
     }
 
     #[test]
@@ -1051,7 +1063,10 @@ mod description_render {
             .iter()
             .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
             .collect();
-        assert!(rendered.contains("# long listing"), "description should appear when descriptions_visible");
+        assert!(
+            rendered.contains("# long listing"),
+            "description should appear when descriptions_visible"
+        );
     }
 
     #[test]
@@ -1100,8 +1115,8 @@ mod description_render {
 
     #[test]
     fn described_subcommand_shown_when_visible() {
-        use amoxide::TomlSubcommand;
         use amoxide::subcommand::SubcommandDetail;
+        use amoxide::TomlSubcommand;
         let mut config = Config::default();
         config.subcommands.as_mut().insert(
             "jj:ab".into(),
@@ -1121,7 +1136,10 @@ mod description_render {
             .iter()
             .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
             .collect();
-        assert!(rendered.contains("# abandon a change"), "subcommand description should appear");
+        assert!(
+            rendered.contains("# abandon a change"),
+            "subcommand description should appear"
+        );
     }
 }
 
@@ -1133,10 +1151,10 @@ mod subcommand_render {
 
     fn make_model_with_subcommand() -> TuiModel {
         let mut config = Config::default();
-        config
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), amoxide::TomlSubcommand::Expansion(vec!["abandon".into()]));
+        config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            amoxide::TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let app = amoxide::update::AppModel::new(config, ProfileConfig::default());
         let mut model = TuiModel::new().unwrap();
         model.app_model = app;

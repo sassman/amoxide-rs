@@ -22,9 +22,7 @@ pub fn normalize_description(s: &str) -> Option<String> {
 /// Serde deserializer helper: deserialise an `Option<String>` description
 /// and normalise it (trim + empty→None) in one step.
 /// Used by [`SubcommandDetail`] and [`AliasDetail`].
-pub(crate) fn deserialize_normalized_description<'de, D>(
-    d: D,
-) -> Result<Option<String>, D::Error>
+pub(crate) fn deserialize_normalized_description<'de, D>(d: D) -> Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -53,10 +51,7 @@ mod tests {
 
     #[test]
     fn normalize_trims_and_returns_some() {
-        assert_eq!(
-            normalize_description("  hi  "),
-            Some("hi".to_string())
-        );
+        assert_eq!(normalize_description("  hi  "), Some("hi".to_string()));
     }
 
     #[test]

@@ -231,12 +231,14 @@ fn snapshot_init_fish_deep_chain() {
 fn snapshot_init_fish_with_simple_subcommands() {
     let globals = aliases(&[("gs", "git status")]);
     let mut subcommands = SubcommandSet::new();
-    subcommands
-        .as_mut()
-        .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
-    subcommands
-        .as_mut()
-        .insert("jj:new".into(), TomlSubcommand::Expansion(vec!["new --no-edit".into()]));
+    subcommands.as_mut().insert(
+        "jj:ab".into(),
+        TomlSubcommand::Expansion(vec!["abandon".into()]),
+    );
+    subcommands.as_mut().insert(
+        "jj:new".into(),
+        TomlSubcommand::Expansion(vec!["new --no-edit".into()]),
+    );
     let output = init_for_test(
         &default_ctx(&Shell::Fish),
         &globals,
@@ -958,8 +960,10 @@ fn snapshot_sync_fish_incremental_one_alias_updated() {
 fn snapshot_sync_bash_subcommand_wrapper_fresh_load() {
     use amoxide::precedence::Precedence;
     let mut subs = SubcommandSet::new();
-    subs.as_mut()
-        .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+    subs.as_mut().insert(
+        "jj:ab".into(),
+        TomlSubcommand::Expansion(vec!["abandon".into()]),
+    );
     let shell = Shell::Bash.as_shell(&Default::default(), Default::default(), Default::default());
     let diff = Precedence::new()
         .with_project(

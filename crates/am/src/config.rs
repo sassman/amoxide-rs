@@ -96,7 +96,13 @@ impl Config {
         Self::load_from(&crate::dirs::config_dir())
     }
 
-    pub fn add_alias(&mut self, name: String, command: String, raw: bool, description: Option<String>) {
+    pub fn add_alias(
+        &mut self,
+        name: String,
+        command: String,
+        raw: bool,
+        description: Option<String>,
+    ) {
         let key: AliasName = name.into();
         let alias = if description.is_some() || raw {
             TomlAlias::Detailed(AliasDetail {
@@ -124,7 +130,12 @@ impl Config {
         Ok(())
     }
 
-    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>, description: Option<String>) {
+    pub fn add_subcommand(
+        &mut self,
+        key: String,
+        long_subcommands: Vec<String>,
+        description: Option<String>,
+    ) {
         let value = match description {
             Some(d) => TomlSubcommand::Detailed(crate::subcommand::SubcommandDetail {
                 expansions: long_subcommands,
@@ -217,10 +228,10 @@ mod tests {
     fn test_config_with_subcommands_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
-        config
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         config.save_to(dir.path()).unwrap();
 
         let loaded = Config::load_from(dir.path()).unwrap();

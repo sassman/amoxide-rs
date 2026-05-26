@@ -19,12 +19,7 @@ fn am_add_with_description_writes_detailed_form_global() {
     let description = normalize_description("git status short");
 
     let mut config = Config::default();
-    config.add_alias(
-        "gs".into(),
-        "git status".into(),
-        false,
-        description,
-    );
+    config.add_alias("gs".into(), "git status".into(), false, description);
     config.save_to(dir.path()).unwrap();
 
     let toml = std::fs::read_to_string(dir.path().join("config.toml")).unwrap();
@@ -41,7 +36,10 @@ fn am_add_with_description_writes_detailed_form_global() {
 fn am_add_with_empty_description_writes_simple_form_global() {
     let dir = tempfile::tempdir().unwrap();
     let description = normalize_description("   ");
-    assert!(description.is_none(), "whitespace-only should normalize to None");
+    assert!(
+        description.is_none(),
+        "whitespace-only should normalize to None"
+    );
 
     let mut config = Config::default();
     config.add_alias("ll".into(), "ls -lha".into(), false, description);
@@ -123,7 +121,11 @@ fn am_add_alias_message_with_description_reaches_global_config() {
     .unwrap();
 
     let key = amoxide::AliasName::from("gs");
-    let alias = model.config.aliases.get(&key).expect("alias should be in config");
+    let alias = model
+        .config
+        .aliases
+        .get(&key)
+        .expect("alias should be in config");
     assert_eq!(alias.description(), Some("short status"));
 }
 

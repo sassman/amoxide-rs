@@ -148,14 +148,23 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         let existing_desc = match &id {
                             AliasId::Global { alias_name } => {
                                 let key = amoxide::AliasName::from(alias_name.as_str());
-                                model.app_model.config.aliases.get(&key)
+                                model
+                                    .app_model
+                                    .config
+                                    .aliases
+                                    .get(&key)
                                     .and_then(|a| a.description())
                                     .unwrap_or("")
                                     .to_string()
                             }
-                            AliasId::Profile { profile_name, alias_name } => {
+                            AliasId::Profile {
+                                profile_name,
+                                alias_name,
+                            } => {
                                 let key = amoxide::AliasName::from(alias_name.as_str());
-                                model.app_model.profile_config()
+                                model
+                                    .app_model
+                                    .profile_config()
                                     .get_profile_by_name(profile_name)
                                     .and_then(|p| p.aliases.get(&key))
                                     .and_then(|a| a.description())
@@ -164,7 +173,9 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             }
                             AliasId::Project { alias_name } => {
                                 let key = amoxide::AliasName::from(alias_name.as_str());
-                                model.app_model.project_aliases()
+                                model
+                                    .app_model
+                                    .project_aliases()
                                     .and_then(|p| p.aliases.get(&key))
                                     .and_then(|a| a.description())
                                     .unwrap_or("")
@@ -192,27 +203,30 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         };
                         // Pre-populate description from the existing subcommand.
                         let existing_desc = match scope {
-                            amoxide::SubcommandScope::Global => {
-                                model.app_model.config.subcommands.as_ref().get(key.as_str())
-                                    .and_then(|s| s.description())
-                                    .unwrap_or("")
-                                    .to_string()
-                            }
-                            amoxide::SubcommandScope::Profile(pname) => {
-                                model.app_model.profile_config()
-                                    .get_profile_by_name(pname)
-                                    .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
-                                    .and_then(|s| s.description())
-                                    .unwrap_or("")
-                                    .to_string()
-                            }
-                            amoxide::SubcommandScope::Project => {
-                                model.app_model.project_aliases()
-                                    .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
-                                    .and_then(|s| s.description())
-                                    .unwrap_or("")
-                                    .to_string()
-                            }
+                            amoxide::SubcommandScope::Global => model
+                                .app_model
+                                .config
+                                .subcommands
+                                .as_ref()
+                                .get(key.as_str())
+                                .and_then(|s| s.description())
+                                .unwrap_or("")
+                                .to_string(),
+                            amoxide::SubcommandScope::Profile(pname) => model
+                                .app_model
+                                .profile_config()
+                                .get_profile_by_name(pname)
+                                .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
+                                .and_then(|s| s.description())
+                                .unwrap_or("")
+                                .to_string(),
+                            amoxide::SubcommandScope::Project => model
+                                .app_model
+                                .project_aliases()
+                                .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
+                                .and_then(|s| s.description())
+                                .unwrap_or("")
+                                .to_string(),
                         };
                         let pairs = collect_pairs_to_cursor(model);
                         let program = key.split(':').next().unwrap_or("").to_string();
@@ -287,25 +301,23 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         cursor,
                         description,
                         ..
-                    } => {
-                        match active_field {
-                            SubcommandField::Description => {
-                                description.insert(*cursor, c);
+                    } => match active_field {
+                        SubcommandField::Description => {
+                            description.insert(*cursor, c);
+                            *cursor += c.len_utf8();
+                        }
+                        SubcommandField::Short | SubcommandField::Long => {
+                            if let Some((short, long)) = pairs.get_mut(*active_pair) {
+                                let field = match active_field {
+                                    SubcommandField::Short => short,
+                                    SubcommandField::Long => long,
+                                    SubcommandField::Description => unreachable!(),
+                                };
+                                field.insert(*cursor, c);
                                 *cursor += c.len_utf8();
                             }
-                            SubcommandField::Short | SubcommandField::Long => {
-                                if let Some((short, long)) = pairs.get_mut(*active_pair) {
-                                    let field = match active_field {
-                                        SubcommandField::Short => short,
-                                        SubcommandField::Long => long,
-                                        SubcommandField::Description => unreachable!(),
-                                    };
-                                    field.insert(*cursor, c);
-                                    *cursor += c.len_utf8();
-                                }
-                            }
                         }
-                    }
+                    },
                 }
             }
         }
@@ -366,31 +378,29 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         cursor,
                         description,
                         ..
-                    } => {
-                        match active_field {
-                            SubcommandField::Description => {
+                    } => match active_field {
+                        SubcommandField::Description => {
+                            if *cursor > 0 {
+                                let prev = cursor_left(description, *cursor);
+                                description.remove(prev);
+                                *cursor = prev;
+                            }
+                        }
+                        SubcommandField::Short | SubcommandField::Long => {
+                            if let Some((short, long)) = pairs.get_mut(*active_pair) {
+                                let field = match active_field {
+                                    SubcommandField::Short => short,
+                                    SubcommandField::Long => long,
+                                    SubcommandField::Description => unreachable!(),
+                                };
                                 if *cursor > 0 {
-                                    let prev = cursor_left(description, *cursor);
-                                    description.remove(prev);
+                                    let prev = cursor_left(field, *cursor);
+                                    field.remove(prev);
                                     *cursor = prev;
                                 }
                             }
-                            SubcommandField::Short | SubcommandField::Long => {
-                                if let Some((short, long)) = pairs.get_mut(*active_pair) {
-                                    let field = match active_field {
-                                        SubcommandField::Short => short,
-                                        SubcommandField::Long => long,
-                                        SubcommandField::Description => unreachable!(),
-                                    };
-                                    if *cursor > 0 {
-                                        let prev = cursor_left(field, *cursor);
-                                        field.remove(prev);
-                                        *cursor = prev;
-                                    }
-                                }
-                            }
                         }
-                    }
+                    },
                 }
             }
         }
@@ -540,7 +550,13 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     let normalized_desc = amoxide::normalize_description(&description);
                     let _ = super::delegation::dispatch(
                         model,
-                        amoxide::Message::AddAlias(name, command, lib_target, false, normalized_desc),
+                        amoxide::Message::AddAlias(
+                            name,
+                            command,
+                            lib_target,
+                            false,
+                            normalized_desc,
+                        ),
                     );
                     model.mode = Mode::Normal;
                 }
@@ -715,7 +731,12 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             description: normalized_desc,
                         }
                     } else {
-                        amoxide::Message::AddSubcommandAlias(key, long_subcommands, lib_target, normalized_desc)
+                        amoxide::Message::AddSubcommandAlias(
+                            key,
+                            long_subcommands,
+                            lib_target,
+                            normalized_desc,
+                        )
                     };
                     let _ = super::delegation::dispatch(model, msg);
                     model.mode = Mode::Normal;
@@ -839,23 +860,21 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 cursor,
                 description,
                 ..
-            }) => {
-                match active_field {
-                    SubcommandField::Description => {
-                        *cursor = cursor_left(description.as_str(), *cursor);
-                    }
-                    SubcommandField::Short | SubcommandField::Long => {
-                        if let Some((short, long)) = pairs.get(*active_pair) {
-                            let field = match active_field {
-                                SubcommandField::Short => short.as_str(),
-                                SubcommandField::Long => long.as_str(),
-                                SubcommandField::Description => unreachable!(),
-                            };
-                            *cursor = cursor_left(field, *cursor);
-                        }
+            }) => match active_field {
+                SubcommandField::Description => {
+                    *cursor = cursor_left(description.as_str(), *cursor);
+                }
+                SubcommandField::Short | SubcommandField::Long => {
+                    if let Some((short, long)) = pairs.get(*active_pair) {
+                        let field = match active_field {
+                            SubcommandField::Short => short.as_str(),
+                            SubcommandField::Long => long.as_str(),
+                            SubcommandField::Description => unreachable!(),
+                        };
+                        *cursor = cursor_left(field, *cursor);
                     }
                 }
-            }
+            },
             _ => {}
         },
         TuiMessage::TextInputCursorRight => match &mut model.mode {
@@ -889,23 +908,21 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                 cursor,
                 description,
                 ..
-            }) => {
-                match active_field {
-                    SubcommandField::Description => {
-                        *cursor = cursor_right(description.as_str(), *cursor);
-                    }
-                    SubcommandField::Short | SubcommandField::Long => {
-                        if let Some((short, long)) = pairs.get(*active_pair) {
-                            let field = match active_field {
-                                SubcommandField::Short => short.as_str(),
-                                SubcommandField::Long => long.as_str(),
-                                SubcommandField::Description => unreachable!(),
-                            };
-                            *cursor = cursor_right(field, *cursor);
-                        }
+            }) => match active_field {
+                SubcommandField::Description => {
+                    *cursor = cursor_right(description.as_str(), *cursor);
+                }
+                SubcommandField::Short | SubcommandField::Long => {
+                    if let Some((short, long)) = pairs.get(*active_pair) {
+                        let field = match active_field {
+                            SubcommandField::Short => short.as_str(),
+                            SubcommandField::Long => long.as_str(),
+                            SubcommandField::Description => unreachable!(),
+                        };
+                        *cursor = cursor_right(field, *cursor);
                     }
                 }
-            }
+            },
             _ => {}
         },
         _ => {}
@@ -1143,7 +1160,10 @@ mod description_field_tests {
         // Pre-populate the alias so the handler can look it up during the no-change check.
         // Use a different initial command so the confirm is not short-circuited by the
         // "nothing changed" early-exit path.
-        model.app_model.config.add_alias("gs".into(), "git status --short".into(), false, None);
+        model
+            .app_model
+            .config
+            .add_alias("gs".into(), "git status --short".into(), false, None);
         // Set up EditAlias mode with a description typed in and the updated command
         model.mode = Mode::TextInput(TextInputState::EditAlias {
             alias_id: AliasId::Global {
@@ -1162,7 +1182,12 @@ mod description_field_tests {
         assert_eq!(model.mode, Mode::Normal);
         // The alias should now carry the description
         let key = AliasName::from("gs");
-        let alias = model.app_model.config.aliases.get(&key).expect("alias gs must exist");
+        let alias = model
+            .app_model
+            .config
+            .aliases
+            .get(&key)
+            .expect("alias gs must exist");
         assert_eq!(alias.description(), Some("short git status"));
     }
 
@@ -1206,7 +1231,10 @@ mod description_field_tests {
         let mut model = empty_model();
         // Pre-populate the alias with the SAME command we'll confirm with —
         // only the description changes. This exercises the no-change guard.
-        model.app_model.config.add_alias("gs".into(), "git status".into(), false, None);
+        model
+            .app_model
+            .config
+            .add_alias("gs".into(), "git status".into(), false, None);
         model.mode = Mode::TextInput(TextInputState::EditAlias {
             alias_id: AliasId::Global {
                 alias_name: "gs".into(),
@@ -1255,7 +1283,10 @@ mod description_field_tests {
         handle(&mut model, TuiMessage::EditItem);
         match &model.mode {
             Mode::TextInput(TextInputState::EditAlias { description, .. }) => {
-                assert_eq!(description, "show git status", "EditItem should pre-populate description");
+                assert_eq!(
+                    description, "show git status",
+                    "EditItem should pre-populate description"
+                );
             }
             _ => panic!("expected EditAlias mode"),
         }

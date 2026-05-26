@@ -119,7 +119,13 @@ impl ProjectAliases {
         }
     }
 
-    pub fn add_alias(&mut self, name: String, command: String, raw: bool, description: Option<String>) {
+    pub fn add_alias(
+        &mut self,
+        name: String,
+        command: String,
+        raw: bool,
+        description: Option<String>,
+    ) {
         let key: AliasName = name.into();
         let alias = if description.is_some() || raw {
             TomlAlias::Detailed(AliasDetail {
@@ -133,7 +139,12 @@ impl ProjectAliases {
         self.aliases.insert(key, alias);
     }
 
-    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>, description: Option<String>) {
+    pub fn add_subcommand(
+        &mut self,
+        key: String,
+        long_subcommands: Vec<String>,
+        description: Option<String>,
+    ) {
         let value = match description {
             Some(d) => TomlSubcommand::Detailed(crate::subcommand::SubcommandDetail {
                 expansions: long_subcommands,
@@ -295,10 +306,10 @@ mod tests {
         let path = dir.path().join(".aliases");
 
         let mut project = ProjectAliases::default();
-        project
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        project.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         project.save(&path).unwrap();
 
         let loaded = ProjectAliases::load(&path).unwrap();

@@ -726,8 +726,10 @@ mod tests {
 
         let config: ProfileConfig = ProfileConfig::default();
         let mut subs = SubcommandSet::new();
-        subs.as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        subs.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         subs.as_mut().insert(
             "jj:b:l".into(),
             TomlSubcommand::Expansion(vec!["branch".into(), "list".into()]),
@@ -877,8 +879,10 @@ mod tests {
             "expected 2 described lines, got {}:\n{output}",
             described_lines.len()
         );
-        let hash_cols: Vec<usize> =
-            described_lines.iter().map(|l| l.find('#').unwrap()).collect();
+        let hash_cols: Vec<usize> = described_lines
+            .iter()
+            .map(|l| l.find('#').unwrap())
+            .collect();
         assert_eq!(
             hash_cols[0], hash_cols[1],
             "subcommand and alias descriptions not aligned: {hash_cols:?}\n{output}"

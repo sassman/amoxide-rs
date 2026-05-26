@@ -140,8 +140,10 @@ mod tests {
 
     fn test_subcommands() -> SubcommandSet {
         let mut subs = SubcommandSet::new();
-        subs.as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        subs.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         subs
     }
 

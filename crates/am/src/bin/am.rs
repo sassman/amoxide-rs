@@ -454,9 +454,12 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
             Effect::SaveConfig => model.save_config()?,
             Effect::SaveSession => model.save_session()?,
             Effect::SaveProfiles => model.save_profiles()?,
-            Effect::AddLocalAlias { name, cmd, raw, description } => {
-                add_local_alias(model, &name, &cmd, raw, description.as_deref())?
-            }
+            Effect::AddLocalAlias {
+                name,
+                cmd,
+                raw,
+                description,
+            } => add_local_alias(model, &name, &cmd, raw, description.as_deref())?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(model, &name)?,
             Effect::AddLocalSubcommand {
                 key,
@@ -604,7 +607,12 @@ fn add_local_alias(
     description: Option<&str>,
 ) -> anyhow::Result<()> {
     upsert_local_aliases(model, &format!("alias `{name}`"), |project| {
-        project.add_alias(name.to_string(), command.to_string(), raw, description.map(str::to_string));
+        project.add_alias(
+            name.to_string(),
+            command.to_string(),
+            raw,
+            description.map(str::to_string),
+        );
         Ok(())
     })
 }
@@ -623,7 +631,11 @@ fn add_local_subcommand(
     description: Option<&str>,
 ) -> anyhow::Result<()> {
     upsert_local_aliases(model, &format!("subcommand alias `{key}`"), |project| {
-        project.add_subcommand(key.to_string(), long_subcommands.to_vec(), description.map(str::to_string));
+        project.add_subcommand(
+            key.to_string(),
+            long_subcommands.to_vec(),
+            description.map(str::to_string),
+        );
         Ok(())
     })
 }

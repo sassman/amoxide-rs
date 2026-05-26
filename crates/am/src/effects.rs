@@ -80,7 +80,12 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::SaveSession => model.save_session()?,
         Effect::SaveProfiles => model.save_profiles()?,
         Effect::SaveSecurity => model.save_security()?,
-        Effect::AddLocalAlias { name, cmd, raw, description } => {
+        Effect::AddLocalAlias {
+            name,
+            cmd,
+            raw,
+            description,
+        } => {
             model.save_project_aliases_add(name, cmd, *raw, description.as_deref())?;
         }
         Effect::RemoveLocalAlias { name } => {
@@ -167,7 +172,9 @@ mod tests {
     fn execute_effect_save_config_writes_config_file() {
         let dir = tempfile::tempdir().unwrap();
         let mut model = AppModel::load_from(dir.path().to_path_buf());
-        model.config.add_alias("ll".into(), "ls -lha".into(), false, None);
+        model
+            .config
+            .add_alias("ll".into(), "ls -lha".into(), false, None);
         execute_effect(&mut model, &Effect::SaveConfig).unwrap();
 
         let saved = crate::config::Config::load_from(dir.path()).unwrap();

@@ -455,8 +455,10 @@ mod tests {
     #[test]
     fn hash_subcmd_program_includes_all_entries_under_it() {
         let mut a = SubcommandSet::new();
-        a.as_mut()
-            .insert("jj:ab".into(), TomlSubcommand::Expansion(vec!["abandon".into()]));
+        a.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let mut b = a.clone();
         b.as_mut().insert(
             "jj:bl".into(),
