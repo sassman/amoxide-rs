@@ -40,7 +40,6 @@ pub enum Message {
     Sync(Shell, bool),
     Context {
         verbose: bool,
-        setup: Option<String>,
     },
 
     ToggleProfiles(Vec<String>),

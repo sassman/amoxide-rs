@@ -261,8 +261,20 @@ fn main() -> anyhow::Result<()> {
             },
             ProfileAction::Use(_) => unreachable!("handled by outer match arm"),
         },
-        Commands::Setup { shell } => {
-            amoxide::setup::run_setup(shell)?;
+        Commands::Setup { target } => {
+            use amoxide::shell::Shell;
+            match target {
+                SetupTarget::Bash => amoxide::setup::run_setup(&Shell::Bash)?,
+                SetupTarget::Brush => amoxide::setup::run_setup(&Shell::Brush)?,
+                SetupTarget::Fish => amoxide::setup::run_setup(&Shell::Fish)?,
+                SetupTarget::Powershell => amoxide::setup::run_setup(&Shell::Powershell)?,
+                SetupTarget::Zsh => amoxide::setup::run_setup(&Shell::Zsh)?,
+                SetupTarget::Claude => {
+                    let outcome =
+                        amoxide::setup::run_assistant_setup(amoxide::setup::Assistant::Claude)?;
+                    println!("{}", outcome.render());
+                }
+            }
             return Ok(());
         }
         Commands::Tui => {
@@ -400,10 +412,7 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Init { shell, force } => Message::InitShell(shell.clone(), *force),
         Commands::Sync { shell, quiet } => Message::Sync(shell.clone(), *quiet),
-        Commands::Context { verbose, setup } => Message::Context {
-            verbose: *verbose,
-            setup: setup.clone(),
-        },
+        Commands::Context { verbose } => Message::Context { verbose: *verbose },
         Commands::Var { action } => match action {
             VarAction::Set { scope, name, value } => Message::SetVar {
                 target: target_from_scope(scope),

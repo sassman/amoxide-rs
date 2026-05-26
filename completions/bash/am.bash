@@ -289,16 +289,12 @@ _am() {
             return 0
             ;;
         am__subcmd__context)
-            opts="-v -h -V --verbose --setup --help --version"
+            opts="-v -h -V --verbose --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                --setup)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -987,7 +983,7 @@ _am() {
             return 0
             ;;
         am__subcmd__setup)
-            opts="-h -V --help --version bash brush fish powershell zsh"
+            opts="-h -V --help --version bash brush fish powershell zsh claude"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

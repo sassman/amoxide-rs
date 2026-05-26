@@ -20,7 +20,7 @@ test`: dieses Projekt, Deine Flags. Kein Beibringen, kein Raten.
 ## Einrichtung
 
 ```sh
-am context --setup claude
+am setup claude
 ```
 
 Legt `~/.claude/settings.json` an, falls nicht vorhanden, oder fügt sich

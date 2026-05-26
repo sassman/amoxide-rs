@@ -19,7 +19,7 @@ project, with your flags. No teaching, no guessing.
 ## Setup
 
 ```sh
-am context --setup claude
+am setup claude
 ```
 
 This creates `~/.claude/settings.json` if it's missing, or merges into it

@@ -88,25 +88,26 @@ pub enum Commands {
         shell: Shell,
     },
 
-    /// Guided setup — adds amoxide to your shell profile
-    Setup { shell: Shell },
+    /// Guided setup — adds amoxide to your shell profile, or wires `am context`
+    /// into an AI coding agent's session-start hook.
+    ///
+    /// Examples:
+    ///   am setup zsh       Wire amoxide into ~/.zshrc
+    ///   am setup claude    Wire `am context` into ~/.claude/settings.json
+    #[command(verbatim_doc_comment)]
+    Setup { target: SetupTarget },
 
     /// Print a model-friendly snapshot of the active alias set for AI coding agents.
     ///
     /// Designed to be wired into a session-start hook so the agent can expand
     /// short forms (e.g. `git cm`, `gst`) into the canonical commands before running.
     ///
-    /// Use `--setup claude` to automatically wire this into ~/.claude/settings.json.
+    /// Use `am setup claude` to wire this into ~/.claude/settings.json.
     #[command(verbatim_doc_comment)]
     Context {
         /// Expand shadowed-section into a full table and include invalid-alias diagnostics
-        #[arg(short, long, conflicts_with = "setup")]
+        #[arg(short, long)]
         verbose: bool,
-
-        /// Configure the named agent's session-start hook to call `am context`.
-        /// Supported values: `claude`.
-        #[arg(long, value_name = "AGENT")]
-        setup: Option<String>,
     },
 
     /// Shortcut for `am profile use` — toggle one or more profiles
@@ -153,6 +154,18 @@ pub enum Commands {
     /// detached by the listing commands; never invoked directly by users.
     #[command(name = "__update-check", hide = true)]
     UpdateCheck,
+}
+
+/// Positional target for `am setup`. Flat over shells and AI agents so
+/// `am setup zsh` and `am setup claude` share one ergonomic shape.
+#[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
+pub enum SetupTarget {
+    Bash,
+    Brush,
+    Fish,
+    Powershell,
+    Zsh,
+    Claude,
 }
 
 #[derive(Args)]
@@ -362,9 +375,8 @@ mod tests {
     fn context_subcommand_parses_with_no_flags() {
         let cli = Cli::try_parse_from(["am", "context"]).expect("should parse");
         match cli.command {
-            Commands::Context { verbose, setup } => {
+            Commands::Context { verbose } => {
                 assert!(!verbose);
-                assert!(setup.is_none());
             }
             _ => panic!("expected Commands::Context"),
         }
@@ -374,34 +386,35 @@ mod tests {
     fn context_subcommand_parses_with_verbose() {
         let cli = Cli::try_parse_from(["am", "context", "--verbose"]).expect("should parse");
         match cli.command {
-            Commands::Context { verbose, setup } => {
+            Commands::Context { verbose } => {
                 assert!(verbose);
-                assert!(setup.is_none());
             }
             _ => panic!("expected Commands::Context"),
         }
     }
 
     #[test]
-    fn context_subcommand_parses_with_setup() {
-        let cli =
-            Cli::try_parse_from(["am", "context", "--setup", "claude"]).expect("should parse");
+    fn setup_subcommand_parses_shell_target() {
+        let cli = Cli::try_parse_from(["am", "setup", "zsh"]).expect("should parse");
         match cli.command {
-            Commands::Context { verbose, setup } => {
-                assert!(!verbose);
-                assert_eq!(setup.as_deref(), Some("claude"));
-            }
-            _ => panic!("expected Commands::Context"),
+            Commands::Setup { target } => assert_eq!(target, SetupTarget::Zsh),
+            _ => panic!("expected Commands::Setup"),
         }
     }
 
     #[test]
-    fn context_subcommand_rejects_verbose_with_setup() {
-        let result = Cli::try_parse_from(["am", "context", "--verbose", "--setup", "claude"]);
-        assert!(
-            result.is_err(),
-            "verbose and setup must be mutually exclusive"
-        );
+    fn setup_subcommand_parses_claude_target() {
+        let cli = Cli::try_parse_from(["am", "setup", "claude"]).expect("should parse");
+        match cli.command {
+            Commands::Setup { target } => assert_eq!(target, SetupTarget::Claude),
+            _ => panic!("expected Commands::Setup"),
+        }
+    }
+
+    #[test]
+    fn setup_subcommand_rejects_unknown_target() {
+        let result = Cli::try_parse_from(["am", "setup", "openai"]);
+        assert!(result.is_err(), "unknown target must be rejected");
     }
 
     /// Var values often contain compiler/tool flags like `-C opt-level=3`.

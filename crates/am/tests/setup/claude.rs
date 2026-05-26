@@ -1,4 +1,4 @@
-//! Integration tests for `am context --setup claude`.
+//! Integration tests for `am setup claude`.
 //!
 //! Each test operates on a temp file path passed to `run_claude_setup`
 //! directly — no real `~/.claude/` is ever touched.

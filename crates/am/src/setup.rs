@@ -4,22 +4,10 @@ use std::path::PathBuf;
 use crate::prompt::{ask_user, Answer};
 use crate::shell::Shell;
 
-/// Supported AI coding agents for `am context --setup <agent>`.
+/// Supported AI coding agents for `am setup <agent>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Assistant {
     Claude,
-}
-
-impl Assistant {
-    /// Parse an agent name from a CLI flag value.
-    pub fn parse(s: &str) -> anyhow::Result<Self> {
-        match s {
-            "claude" => Ok(Self::Claude),
-            other => Err(anyhow::anyhow!(
-                "unsupported agent '{other}'. supported: claude"
-            )),
-        }
-    }
 }
 
 /// Ask PowerShell for its $PROFILE path by shelling out.
@@ -394,25 +382,6 @@ mod tests {
             }
         });
         assert!(claude_settings_already_wired(&json));
-    }
-
-    #[test]
-    fn assistant_parse_accepts_claude() {
-        assert!(matches!(Assistant::parse("claude"), Ok(Assistant::Claude)));
-    }
-
-    #[test]
-    fn assistant_parse_rejects_unknown() {
-        let err = Assistant::parse("openai").unwrap_err();
-        assert!(err.to_string().contains("unsupported agent"), "got: {err}");
-        assert!(
-            err.to_string().contains("openai"),
-            "error should mention input: {err}"
-        );
-        assert!(
-            err.to_string().contains("claude"),
-            "error should list supported: {err}"
-        );
     }
 
     const INIT_LINE: &str = r#"eval "$(am init zsh)""#;

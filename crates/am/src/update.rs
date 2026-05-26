@@ -822,13 +822,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 Ok(UpdateResult::effect(Effect::RenderSync(outcome)))
             }
         }
-        Message::Context { verbose, setup } => {
-            if let Some(name) = setup {
-                let assistant = crate::setup::Assistant::parse(name.as_str())?;
-                let outcome = crate::setup::run_assistant_setup(assistant)?;
-                return Ok(UpdateResult::effect(Effect::Print(outcome.render())));
-            }
-
+        Message::Context { verbose } => {
             let cwd = model.cwd.clone();
 
             let profile_layers = model
