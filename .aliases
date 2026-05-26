@@ -6,5 +6,9 @@ i = "cargo install --path crates/am && cargo install --path crates/am-tui"
 l = "cargo clippy --locked --all-targets -- -D warnings"
 t = "cargo test --all-features"
 
+# --- release flow (added by feat/improved-release-notes) ---
+release-notes = "sh -c 'GITHUB_TOKEN=$(gh auth token) git-cliff --unreleased --tag {{1}} -o RELEASE_NOTES_{{1}}.md && $EDITOR RELEASE_NOTES_{{1}}.md'"
+tag = "git tag -s {{1}} -F RELEASE_NOTES_{{1}}.md && git push o {{1}}"
+
 [vars]
 foo = "bar"
