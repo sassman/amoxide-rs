@@ -223,10 +223,31 @@ pub fn write_settings_atomic(
     Ok(())
 }
 
+/// True when `cmd` invokes `am context` as a program + subcommand, not as a
+/// substring. Tolerates absolute paths (`/usr/local/bin/am context`), wrapper
+/// invocations (`cargo run -- am context`), and trailing flags
+/// (`am context --verbose`). Rejects comments (`# am context`), unrelated
+/// subcommands (`am context-foo`), and unrelated programs (`notam contextual`).
+fn command_invokes_am_context(cmd: &str) -> bool {
+    let trimmed = cmd.trim_start();
+    if trimmed.starts_with('#') {
+        return false;
+    }
+    let mut tokens = trimmed.split_whitespace().peekable();
+    while let Some(tok) = tokens.next() {
+        let is_am = tok == "am" || tok.rsplit('/').next() == Some("am");
+        if is_am && tokens.peek() == Some(&"context") {
+            return true;
+        }
+    }
+    false
+}
+
 /// Returns true if `settings` already contains a `SessionStart` hook entry
-/// whose command contains `am context`. Detects both the v2 schema
+/// whose command invokes `am context`. Detects both the v2 schema
 /// (`SessionStart[].hooks[].command`) and the legacy flat shape
-/// (`SessionStart[].command`).
+/// (`SessionStart[].command`). Uses `command_invokes_am_context` to avoid
+/// false-positives on substrings like `am context-foo`.
 pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
     let Some(session_start) = settings
         .get("hooks")
@@ -239,7 +260,7 @@ pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
     for entry in session_start {
         // Legacy flat shape: { "command": "am context" }
         if let Some(cmd) = entry.get("command").and_then(|c| c.as_str()) {
-            if cmd.contains("am context") {
+            if command_invokes_am_context(cmd) {
                 return true;
             }
         }
@@ -247,7 +268,7 @@ pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
         if let Some(nested) = entry.get("hooks").and_then(|h| h.as_array()) {
             for h in nested {
                 if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
-                    if cmd.contains("am context") {
+                    if command_invokes_am_context(cmd) {
                         return true;
                     }
                 }
@@ -330,6 +351,79 @@ pub fn run_claude_setup(path: &std::path::Path) -> anyhow::Result<SetupOutcome> 
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    fn command_invokes_am_context_accepts_plain_form() {
+        assert!(command_invokes_am_context("am context"));
+        assert!(command_invokes_am_context("am context --verbose"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_accepts_absolute_and_relative_paths() {
+        assert!(command_invokes_am_context("/usr/local/bin/am context"));
+        assert!(command_invokes_am_context("./am context"));
+        assert!(command_invokes_am_context(
+            "/Users/me/.cargo/bin/am context"
+        ));
+    }
+
+    #[test]
+    fn command_invokes_am_context_accepts_wrapper_invocations() {
+        assert!(command_invokes_am_context("cargo run -- am context"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_rejects_comment_lines() {
+        assert!(!command_invokes_am_context("# am context"));
+        assert!(!command_invokes_am_context("  #am context"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_rejects_sibling_subcommand() {
+        assert!(!command_invokes_am_context("am context-foo"));
+        assert!(!command_invokes_am_context("am contextual"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_rejects_unrelated_program() {
+        assert!(!command_invokes_am_context("notam contextual"));
+        assert!(!command_invokes_am_context("samba context"));
+    }
+
+    #[test]
+    fn already_wired_returns_false_when_session_start_entry_contains_substring_only() {
+        // `am context-foo` shares the substring `am context` but isn't our hook.
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup",
+                        "hooks": [
+                            { "type": "command", "command": "am context-foo" }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(!claude_settings_already_wired(&json));
+    }
+
+    #[test]
+    fn already_wired_returns_false_when_session_start_command_is_commented_out() {
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup",
+                        "hooks": [
+                            { "type": "command", "command": "# am context" }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(!claude_settings_already_wired(&json));
+    }
 
     #[test]
     fn already_wired_returns_true_for_v2_schema_with_am_context() {
