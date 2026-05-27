@@ -129,6 +129,93 @@ fn setup_aborts_on_parse_failure_without_overwriting() {
 }
 
 #[test]
+fn setup_coexists_with_another_session_start_hook_from_a_different_installer() {
+    // Some other tool already wrote a SessionStart entry with a non-`am`
+    // command. We should append ours alongside, not overwrite or refuse.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+    write_settings_atomic(
+        &path,
+        &json!({
+            "hooks": {
+                "SessionStart": [{
+                    "matcher": "startup",
+                    "hooks": [{ "type": "command", "command": "other-tool init" }]
+                }]
+            }
+        }),
+    )
+    .unwrap();
+
+    let outcome = run_claude_setup(&path).unwrap();
+    assert!(matches!(outcome, SetupOutcome::Updated(_)));
+
+    let after = read_json(&path);
+    let entries = after["hooks"]["SessionStart"].as_array().unwrap();
+    assert_eq!(entries.len(), 2, "ours appended next to theirs");
+    assert_eq!(
+        entries[0]["hooks"][0]["command"], "other-tool init",
+        "other installer's command preserved"
+    );
+    assert!(claude_settings_already_wired(&after));
+}
+
+#[test]
+fn setup_treats_substring_only_match_as_not_wired_and_adds_real_hook() {
+    // A SessionStart command that merely contains the substring `am context`
+    // (e.g. a sibling subcommand) is not our hook — `run_claude_setup` must
+    // append the real one, not return AlreadyConfigured.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+    write_settings_atomic(
+        &path,
+        &json!({
+            "hooks": {
+                "SessionStart": [{
+                    "matcher": "startup",
+                    "hooks": [{ "type": "command", "command": "am context-foo" }]
+                }]
+            }
+        }),
+    )
+    .unwrap();
+
+    let outcome = run_claude_setup(&path).unwrap();
+    assert!(
+        matches!(outcome, SetupOutcome::Updated(_)),
+        "substring-only match must not short-circuit to AlreadyConfigured"
+    );
+
+    let after = read_json(&path);
+    assert!(claude_settings_already_wired(&after));
+    let entries = after["hooks"]["SessionStart"].as_array().unwrap();
+    assert_eq!(entries.len(), 2, "real hook appended alongside the sibling");
+}
+
+#[test]
+fn setup_parse_failure_leaves_no_stray_tempfile_in_parent_dir() {
+    // NamedTempFile cleans up on drop; parse failure aborts before any
+    // write_settings_atomic call. Belt-and-suspenders: confirm no leftover
+    // hidden tmp file in the same directory as settings.json.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+    std::fs::write(&path, "{ not valid json").unwrap();
+
+    assert!(run_claude_setup(&path).is_err());
+
+    let entries: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(
+        entries.len(),
+        1,
+        "only the original settings.json should remain; got: {entries:?}"
+    );
+    assert_eq!(entries[0], "settings.json");
+}
+
+#[test]
 fn setup_outcome_render_includes_path() {
     let path = std::path::PathBuf::from("/tmp/x/settings.json");
     let created = SetupOutcome::Created(path.clone()).render();
