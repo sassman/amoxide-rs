@@ -903,6 +903,12 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 .resolve();
 
             // Build the precedence-chain description for the preamble.
+            //
+            // Engine treats `profile_layers[i+1]` as higher precedence than
+            // `[i]`. The chain is printed highest-first, so walk the slice in
+            // reverse. Priority numbers count up with precedence (`prio N`
+            // higher means wins over `prio N-1`) so the head of the chain
+            // carries the largest number.
             let mut chain_layers = Vec::new();
             if include_project {
                 chain_layers.push(crate::context::ChainLayer {
@@ -910,10 +916,11 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     priority: None,
                 });
             }
-            for (i, p) in profile_layers.iter().enumerate() {
+            let n_profiles = profile_layers.len();
+            for (i, p) in profile_layers.iter().rev().enumerate() {
                 chain_layers.push(crate::context::ChainLayer {
                     scope: crate::precedence::OriginScope::Profile(p.name.clone()),
-                    priority: Some(i + 1),
+                    priority: Some(n_profiles - i),
                 });
             }
             chain_layers.push(crate::context::ChainLayer {

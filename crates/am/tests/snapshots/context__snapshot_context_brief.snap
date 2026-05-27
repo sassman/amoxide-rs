@@ -37,7 +37,7 @@ expression: out
 #
 # ## Format
 #
-# Precedence (highest first): project > profile(git, prio 1) > profile(rust, prio 2) > global
+# Precedence (highest first): project > profile(rust, prio 2) > profile(git, prio 1) > global
 #
 # Templates: {{N}} is a positional placeholder (1-indexed; `tag v1.0` expands {{1}} → `v1.0`).
 # Variables: {{name}} tokens are already substituted in the table below.

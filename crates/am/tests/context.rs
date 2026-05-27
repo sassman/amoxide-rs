@@ -64,6 +64,8 @@ fn snapshot_context_brief() {
         project_vars: &project_vars,
     };
 
+    // profile_layers = [git, rust] in slice; engine treats rust (later) as
+    // higher precedence. Chain is highest-first → rust before git.
     let chain = PrecedenceChain {
         layers: vec![
             ChainLayer {
@@ -71,12 +73,12 @@ fn snapshot_context_brief() {
                 priority: None,
             },
             ChainLayer {
-                scope: OriginScope::Profile("git".into()),
-                priority: Some(1),
-            },
-            ChainLayer {
                 scope: OriginScope::Profile("rust".into()),
                 priority: Some(2),
+            },
+            ChainLayer {
+                scope: OriginScope::Profile("git".into()),
+                priority: Some(1),
             },
             ChainLayer {
                 scope: OriginScope::Global,
