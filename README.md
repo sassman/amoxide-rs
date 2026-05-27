@@ -35,13 +35,13 @@
 brew install sassman/tap/amoxide sassman/tap/amoxide-tui
 ```
 
-or
+or from source via cargo:
 
 ```sh
 cargo install amoxide amoxide-tui
 ```
 
-Full options (shell script, PowerShell, `cargo binstall`, from source) → **[amoxide.rs/guide/installation](https://amoxide.rs/guide/installation/)**
+Full options (shell script, PowerShell, `cargo binstall` for pre-built binaries) → **[amoxide.rs/guide/installation](https://amoxide.rs/guide/installation/)**
 
 The crate is `amoxide`; the binary it installs is `am`.
 
