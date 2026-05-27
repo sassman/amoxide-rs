@@ -42,14 +42,15 @@ impl OriginScope {
     /// Canonical from-column label used in `am context` output:
     /// `global`, `profile:<name>`, or `project`.
     ///
-    /// Kept separate from `Display` so other consumers can render `OriginScope`
-    /// differently (e.g. for human listings) without breaking the `am context`
-    /// snapshot contract.
-    pub fn as_from_label(&self) -> String {
+    /// Returns `Cow<'static, str>` so `Global`/`Project` reuse a static
+    /// string and only `Profile(name)` allocates. Kept separate from
+    /// `Display` so other consumers can render `OriginScope` differently
+    /// (e.g. for human listings) without breaking the snapshot contract.
+    pub fn as_from_label(&self) -> std::borrow::Cow<'static, str> {
         match self {
-            OriginScope::Global => "global".to_string(),
-            OriginScope::Profile(name) => format!("profile:{name}"),
-            OriginScope::Project => "project".to_string(),
+            OriginScope::Global => std::borrow::Cow::Borrowed("global"),
+            OriginScope::Profile(name) => std::borrow::Cow::Owned(format!("profile:{name}")),
+            OriginScope::Project => std::borrow::Cow::Borrowed("project"),
         }
     }
 }
