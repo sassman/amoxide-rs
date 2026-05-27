@@ -177,6 +177,54 @@ fn get_profile_mut<'a>(
         })
 }
 
+/// Inputs that both `Message::Sync` and `Message::Context` derive from the
+/// model before building a `Precedence`. Owns its data so the handler can
+/// pass `&` borrows into `Precedence::with_*` and `LayerInputs`.
+///
+/// `include_project` is `true` exactly when the project trust is
+/// `Trusted` — the value carries no warning-side-effect intent; callers that
+/// need to emit warnings on `Unknown`/`Tampered` do so on their own.
+struct ResolveInputs {
+    profile_layers: Vec<crate::precedence::ProfileLayer>,
+    include_project: bool,
+    project_aliases: crate::AliasSet,
+    project_subs: crate::subcommand::SubcommandSet,
+    project_vars: crate::vars::VarSet,
+}
+
+fn prepare_resolve_inputs(model: &AppModel) -> ResolveInputs {
+    let profile_layers = model
+        .profile_config()
+        .active_profile_layers(&model.session.active_profiles);
+    let include_project = matches!(
+        model.project_trust(),
+        Some(crate::trust::ProjectTrust::Trusted(..))
+    );
+    let (project_aliases, project_subs) = if include_project {
+        model.project_alias_set_and_subcommands()
+    } else {
+        (
+            crate::AliasSet::default(),
+            crate::subcommand::SubcommandSet::new(),
+        )
+    };
+    let project_vars = if include_project {
+        model
+            .project_aliases()
+            .map(|p| p.vars.clone())
+            .unwrap_or_default()
+    } else {
+        crate::vars::VarSet::default()
+    };
+    ResolveInputs {
+        profile_layers,
+        include_project,
+        project_aliases,
+        project_subs,
+        project_vars,
+    }
+}
+
 pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, UpdateError> {
     match message {
         Message::AddAlias(name, cmd, target, raw, description) => {
@@ -703,11 +751,16 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
 
             let cwd = model.cwd.clone();
 
-            let profile_layers = model
-                .profile_config()
-                .active_profile_layers(&model.session.active_profiles);
+            let ResolveInputs {
+                profile_layers,
+                include_project,
+                project_aliases,
+                project_subs,
+                project_vars,
+            } = prepare_resolve_inputs(model);
 
-            // Resolve project state
+            // Sync-specific: surface security warnings when the project trust
+            // state has changed since we last saw this path.
             let project_path = model.project_trust().map(|t| t.path().to_path_buf());
             let is_direct = project_path
                 .as_deref()
@@ -720,11 +773,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
 
             let mut security_warnings = Vec::new();
             let mut security_changed = false;
-            let mut include_project = false;
             match model.project_trust() {
-                Some(crate::trust::ProjectTrust::Trusted(..)) => {
-                    include_project = true;
-                }
                 Some(crate::trust::ProjectTrust::Unknown(_)) => {
                     if show_warn {
                         security_warnings.push(
@@ -742,25 +791,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         );
                     }
                 }
-                Some(crate::trust::ProjectTrust::Untrusted(_)) | None => {}
+                Some(crate::trust::ProjectTrust::Trusted(..))
+                | Some(crate::trust::ProjectTrust::Untrusted(_))
+                | None => {}
             }
-
-            let (project_aliases, project_subs) = if include_project {
-                model.project_alias_set_and_subcommands()
-            } else {
-                (
-                    crate::AliasSet::default(),
-                    crate::subcommand::SubcommandSet::new(),
-                )
-            };
-            let project_vars = if include_project {
-                model
-                    .project_aliases()
-                    .map(|p| p.vars.clone())
-                    .unwrap_or_default()
-            } else {
-                crate::vars::VarSet::default()
-            };
 
             let is_fresh_project_load = include_project && is_direct && !already_seen_path;
 
@@ -825,14 +859,17 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         Message::Context { verbose } => {
             let cwd = model.cwd.clone();
 
-            let profile_layers = model
-                .profile_config()
-                .active_profile_layers(&model.session.active_profiles);
+            let ResolveInputs {
+                profile_layers,
+                include_project,
+                project_aliases,
+                project_subs,
+                project_vars,
+            } = prepare_resolve_inputs(model);
 
-            let include_project = matches!(
-                model.project_trust(),
-                Some(crate::trust::ProjectTrust::Trusted(..))
-            );
+            // Context-specific: emit a render-time trust notice on
+            // non-Trusted states so the agent sees why the project file
+            // didn't load.
             let project_trust_notice = match model.project_trust() {
                 Some(crate::trust::ProjectTrust::Unknown(p)) => {
                     Some(crate::context::ProjectTrustNotice {
@@ -853,22 +890,6 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     })
                 }
                 Some(crate::trust::ProjectTrust::Trusted(..)) | None => None,
-            };
-            let (project_aliases, project_subs) = if include_project {
-                model.project_alias_set_and_subcommands()
-            } else {
-                (
-                    crate::AliasSet::default(),
-                    crate::subcommand::SubcommandSet::new(),
-                )
-            };
-            let project_vars = if include_project {
-                model
-                    .project_aliases()
-                    .map(|p| p.vars.clone())
-                    .unwrap_or_default()
-            } else {
-                crate::vars::VarSet::default()
             };
 
             let outcome = crate::precedence::Precedence::new()
