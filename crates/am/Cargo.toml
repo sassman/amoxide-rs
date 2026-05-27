@@ -28,6 +28,7 @@ serde_json = "1"
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 blake3 = "1"
 indoc = "2.0"
+tempfile = { workspace = true }
 terminal_size = "0.4"
 unicode-width = "0.2"
 
@@ -35,7 +36,6 @@ unicode-width = "0.2"
 test-util = []
 
 [dev-dependencies]
-tempfile = { workspace = true }
 insta = "1"
 
 [build-dependencies]

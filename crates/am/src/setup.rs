@@ -201,25 +201,31 @@ pub fn merge_claude_hook(settings: &mut serde_json::Value) {
         }));
 }
 
-/// Write JSON atomically: temp file in same dir + rename.
-/// Pretty-printed for human review. Creates parent dir if needed.
+/// Write JSON to `path` crash-safely: random-named temp file in the same dir,
+/// `fsync`, then atomic rename. Pretty-printed for human review. Creates the
+/// parent dir if needed.
+///
+/// Uses `tempfile::NamedTempFile` so concurrent calls don't race on a shared
+/// `.foo.tmp` name and a failed `persist()` cleans up the temp on drop.
+/// `sync_all` before persist ensures the file's data — not just its name — is
+/// durable on disk before it takes over `path`.
 pub fn write_settings_atomic(
     path: &std::path::Path,
     value: &serde_json::Value,
 ) -> anyhow::Result<()> {
+    use std::io::Write;
+
     let parent = path
         .parent()
         .ok_or_else(|| anyhow::anyhow!("settings path has no parent: {}", path.display()))?;
     std::fs::create_dir_all(parent)?;
 
     let serialized = serde_json::to_string_pretty(value)?;
-    let file_name = path
-        .file_name()
-        .ok_or_else(|| anyhow::anyhow!("settings path has no file name: {}", path.display()))?
-        .to_string_lossy();
-    let tmp = parent.join(format!(".{file_name}.tmp"));
-    std::fs::write(&tmp, &serialized)?;
-    std::fs::rename(&tmp, path)?;
+    let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+    tmp.write_all(serialized.as_bytes())?;
+    tmp.as_file().sync_all()?;
+    tmp.persist(path)
+        .map_err(|e| anyhow::anyhow!("could not persist settings to {}: {}", path.display(), e))?;
     Ok(())
 }
 
