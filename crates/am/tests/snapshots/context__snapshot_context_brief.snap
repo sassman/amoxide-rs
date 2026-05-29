@@ -4,6 +4,21 @@ expression: out
 ---
 # amoxide aliases (active set, cwd: /tmp/fixture-cwd)
 #
+# ## Where this snapshot applies
+#
+# Snapshot CWD (where `am context` ran): /tmp/fixture-cwd
+#
+# - This snapshot is anchored to the CWD above. Project-local aliases
+#   here are scoped to that directory; running them from anywhere else
+#   will fail. Compare your *own* current working directory to the
+#   Snapshot CWD above — if they differ, this snapshot does NOT
+#   apply. Wait for the next `am context` to fire from your new CWD
+#   (the `CwdChanged` hook re-runs it on every directory change).
+# - If you saw an earlier `am context` snapshot in this conversation
+#   (from a previous `SessionStart` or `CwdChanged` hook), discard
+#   it. Only the aliases listed below are active right now; aliases
+#   tied to a previous directory are obsolete.
+#
 # ## How to use this snapshot
 #
 # When the user mentions a name from the `Aliases` table below in any context —
