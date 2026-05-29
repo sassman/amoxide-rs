@@ -42,14 +42,25 @@ If you'd rather edit the JSON yourself:
           { "type": "command", "command": "am context", "async": false }
         ]
       }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          { "type": "command", "command": "am context", "async": false }
+        ]
+      }
     ]
   }
 }
 ```
 
-The `"startup|clear|compact"` matcher is what re-injects the snapshot
-after `/clear` and `/compact`. Drop it and the agent loses your aliases
-the first time you clear the conversation.
+The `"startup|clear|compact"` matcher on `SessionStart` re-injects the
+snapshot after `/clear` and `/compact`. Drop it and the agent loses
+your aliases the first time you clear the conversation.
+
+The `CwdChanged` hook re-runs `am context` when Claude moves into
+another directory, so project `.aliases` from the new location show
+up immediately. `CwdChanged` doesn't support matchers — it always fires.
 
 Verified with Claude Code 2.1.126. See [Anthropic's hooks
 docs](https://code.claude.com/docs/en/hooks) for the full reference of

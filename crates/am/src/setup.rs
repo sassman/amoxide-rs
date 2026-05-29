@@ -156,13 +156,41 @@ fn run_setup_inner(
     Ok(())
 }
 
-/// In-place merge of our v2 hook entry into `settings.hooks.SessionStart`.
+/// In-place merge of our hook entries for the events `am context` cares about:
+/// `SessionStart` (initial snapshot) and `CwdChanged` (refresh when the agent
+/// moves between projects — project `.aliases` change with the directory).
 ///
-/// Idempotent: if `am context` is already wired (per `claude_settings_already_wired`),
-/// no change is made. Preserves all other top-level keys, hook events, and
-/// existing `SessionStart` entries.
+/// Per-event idempotent: if our hook is already present in an event, that
+/// event is left alone; the other event is still ensured. Upgrades a v1
+/// SessionStart-only setup by adding the missing `CwdChanged` entry.
+/// Preserves all other top-level keys, hook events, and sibling entries.
 pub fn merge_claude_hook(settings: &mut serde_json::Value) {
-    if claude_settings_already_wired(settings) {
+    ensure_event_wired(
+        settings,
+        "SessionStart",
+        serde_json::json!({
+            "matcher": "startup|clear|compact",
+            "hooks": [
+                { "type": "command", "command": "am context", "async": false }
+            ]
+        }),
+    );
+    ensure_event_wired(
+        settings,
+        "CwdChanged",
+        serde_json::json!({
+            "hooks": [
+                { "type": "command", "command": "am context", "async": false }
+            ]
+        }),
+    );
+}
+
+/// Push `entry` into `settings.hooks[event]` unless an `am context` invocation
+/// is already there. Materialises `settings`, `hooks`, and the per-event array
+/// if missing, so callers never need to pre-shape the JSON.
+fn ensure_event_wired(settings: &mut serde_json::Value, event: &str, entry: serde_json::Value) {
+    if event_has_am_context(settings, event) {
         return;
     }
 
@@ -180,25 +208,17 @@ pub fn merge_claude_hook(settings: &mut serde_json::Value) {
         *hooks = serde_json::json!({});
     }
 
-    let session_start = hooks
+    let event_arr = hooks
         .as_object_mut()
         .unwrap()
-        .entry("SessionStart".to_string())
+        .entry(event.to_string())
         .or_insert_with(|| serde_json::json!([]));
 
-    if !session_start.is_array() {
-        *session_start = serde_json::json!([]);
+    if !event_arr.is_array() {
+        *event_arr = serde_json::json!([]);
     }
 
-    session_start
-        .as_array_mut()
-        .unwrap()
-        .push(serde_json::json!({
-            "matcher": "startup|clear|compact",
-            "hooks": [
-                { "type": "command", "command": "am context", "async": false }
-            ]
-        }));
+    event_arr.as_array_mut().unwrap().push(entry);
 }
 
 /// Write JSON to `path` crash-safely: random-named temp file in the same dir,
@@ -249,21 +269,21 @@ fn command_invokes_am_context(cmd: &str) -> bool {
     false
 }
 
-/// Returns true if `settings` already contains a `SessionStart` hook entry
-/// whose command invokes `am context`. Detects both the v2 schema
-/// (`SessionStart[].hooks[].command`) and the legacy flat shape
-/// (`SessionStart[].command`). Uses `command_invokes_am_context` to avoid
+/// Returns true if `settings.hooks[event]` already has an entry whose command
+/// invokes `am context`. Detects both the v2 schema
+/// (`<event>[].hooks[].command`) and the legacy flat shape
+/// (`<event>[].command`). Uses `command_invokes_am_context` to avoid
 /// false-positives on substrings like `am context-foo`.
-pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
-    let Some(session_start) = settings
+pub fn event_has_am_context(settings: &serde_json::Value, event: &str) -> bool {
+    let Some(arr) = settings
         .get("hooks")
-        .and_then(|h| h.get("SessionStart"))
+        .and_then(|h| h.get(event))
         .and_then(|s| s.as_array())
     else {
         return false;
     };
 
-    for entry in session_start {
+    for entry in arr {
         // Legacy flat shape: { "command": "am context" }
         if let Some(cmd) = entry.get("command").and_then(|c| c.as_str()) {
             if command_invokes_am_context(cmd) {
@@ -284,6 +304,13 @@ pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
     false
 }
 
+/// Returns true when both events `am context` cares about
+/// (`SessionStart` + `CwdChanged`) are already wired. Used to short-circuit
+/// `run_claude_setup` with `AlreadyConfigured` when no merge is needed.
+pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
+    event_has_am_context(settings, "SessionStart") && event_has_am_context(settings, "CwdChanged")
+}
+
 /// What `run_assistant_setup` did. Returned for the handler to render.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SetupOutcome {
@@ -297,12 +324,15 @@ impl SetupOutcome {
         match self {
             Self::Created(p) => {
                 format!(
-                    "am: created {} with am context SessionStart hook",
+                    "am: created {} with am context hooks (SessionStart + CwdChanged)",
                     p.display()
                 )
             }
             Self::Updated(p) => {
-                format!("am: added am context SessionStart hook to {}", p.display())
+                format!(
+                    "am: wired am context hooks (SessionStart + CwdChanged) into {}",
+                    p.display()
+                )
             }
             Self::AlreadyConfigured(p) => {
                 format!("am: am context already wired into {}", p.display())
@@ -397,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn already_wired_returns_false_when_session_start_entry_contains_substring_only() {
+    fn event_has_am_context_rejects_substring_only_match() {
         // `am context-foo` shares the substring `am context` but isn't our hook.
         let json = serde_json::json!({
             "hooks": {
@@ -411,11 +441,11 @@ mod tests {
                 ]
             }
         });
-        assert!(!claude_settings_already_wired(&json));
+        assert!(!event_has_am_context(&json, "SessionStart"));
     }
 
     #[test]
-    fn already_wired_returns_false_when_session_start_command_is_commented_out() {
+    fn event_has_am_context_rejects_commented_out_command() {
         let json = serde_json::json!({
             "hooks": {
                 "SessionStart": [
@@ -428,11 +458,11 @@ mod tests {
                 ]
             }
         });
-        assert!(!claude_settings_already_wired(&json));
+        assert!(!event_has_am_context(&json, "SessionStart"));
     }
 
     #[test]
-    fn already_wired_returns_true_for_v2_schema_with_am_context() {
+    fn event_has_am_context_returns_true_for_v2_schema() {
         let json = serde_json::json!({
             "hooks": {
                 "SessionStart": [
@@ -445,17 +475,18 @@ mod tests {
                 ]
             }
         });
-        assert!(claude_settings_already_wired(&json));
+        assert!(event_has_am_context(&json, "SessionStart"));
     }
 
     #[test]
-    fn already_wired_returns_false_when_no_hooks_section() {
+    fn event_has_am_context_returns_false_when_no_hooks_section() {
         let json = serde_json::json!({});
-        assert!(!claude_settings_already_wired(&json));
+        assert!(!event_has_am_context(&json, "SessionStart"));
+        assert!(!event_has_am_context(&json, "CwdChanged"));
     }
 
     #[test]
-    fn already_wired_returns_false_when_session_start_has_other_command() {
+    fn event_has_am_context_returns_false_when_event_has_other_command() {
         let json = serde_json::json!({
             "hooks": {
                 "SessionStart": [
@@ -468,12 +499,12 @@ mod tests {
                 ]
             }
         });
-        assert!(!claude_settings_already_wired(&json));
+        assert!(!event_has_am_context(&json, "SessionStart"));
     }
 
     #[test]
-    fn already_wired_handles_legacy_flat_shape() {
-        // Pre-v2 schema: `{ "command": "am context" }` directly in SessionStart.
+    fn event_has_am_context_handles_legacy_flat_shape() {
+        // Pre-v2 schema: `{ "command": "am context" }` directly in the event array.
         let json = serde_json::json!({
             "hooks": {
                 "SessionStart": [
@@ -481,7 +512,40 @@ mod tests {
                 ]
             }
         });
-        assert!(claude_settings_already_wired(&json));
+        assert!(event_has_am_context(&json, "SessionStart"));
+    }
+
+    #[test]
+    fn already_wired_requires_both_session_start_and_cwd_changed() {
+        // SessionStart only — counts as half-wired.
+        let half = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        assert!(!claude_settings_already_wired(&half));
+
+        let full = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ],
+                "CwdChanged": [
+                    {
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        assert!(claude_settings_already_wired(&full));
     }
 
     const INIT_LINE: &str = r#"eval "$(am init zsh)""#;
@@ -616,12 +680,61 @@ mod tests {
                         "matcher": "startup|clear|compact",
                         "hooks": [{ "type": "command", "command": "am context", "async": false }]
                     }
+                ],
+                "CwdChanged": [
+                    {
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
                 ]
             }
         });
         let before = settings.clone();
         merge_claude_hook(&mut settings);
         assert_eq!(before, settings, "idempotent: no change on second run");
+    }
+
+    #[test]
+    fn merge_wires_both_session_start_and_cwd_changed_from_scratch() {
+        let mut settings = serde_json::json!({});
+        merge_claude_hook(&mut settings);
+        assert!(event_has_am_context(&settings, "SessionStart"));
+        assert!(event_has_am_context(&settings, "CwdChanged"));
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_upgrades_v1_session_start_only_setup_by_adding_cwd_changed() {
+        // Pre-CwdChanged installs only had SessionStart. Re-running `am setup
+        // claude` must add the missing CwdChanged entry without duplicating
+        // SessionStart.
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        merge_claude_hook(&mut settings);
+        let session_start = settings["hooks"]["SessionStart"].as_array().unwrap();
+        assert_eq!(session_start.len(), 1, "SessionStart untouched");
+        assert!(event_has_am_context(&settings, "CwdChanged"));
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_cwd_changed_entry_carries_no_matcher() {
+        // CwdChanged doesn't support matchers (it always fires). Sanity-check
+        // the merged entry doesn't accidentally inherit SessionStart's shape.
+        let mut settings = serde_json::json!({});
+        merge_claude_hook(&mut settings);
+        let cwd_entry = &settings["hooks"]["CwdChanged"][0];
+        assert!(
+            cwd_entry.get("matcher").is_none(),
+            "CwdChanged entry must not have a matcher key"
+        );
     }
 
     #[test]

@@ -216,6 +216,37 @@ fn setup_parse_failure_leaves_no_stray_tempfile_in_parent_dir() {
 }
 
 #[test]
+fn setup_preserves_unrelated_cwd_changed_entries() {
+    // User already had a CwdChanged hook from another tool. `am setup claude`
+    // must append our entry alongside it, not replace the array.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+    write_settings_atomic(
+        &path,
+        &json!({
+            "hooks": {
+                "CwdChanged": [{
+                    "hooks": [{ "type": "command", "command": "echo other-cwd" }]
+                }]
+            }
+        }),
+    )
+    .unwrap();
+
+    let outcome = run_claude_setup(&path).unwrap();
+    assert!(matches!(outcome, SetupOutcome::Updated(_)));
+
+    let after = read_json(&path);
+    let cwd = after["hooks"]["CwdChanged"].as_array().unwrap();
+    assert_eq!(cwd.len(), 2, "our entry appended, not replaced");
+    assert_eq!(
+        cwd[0]["hooks"][0]["command"], "echo other-cwd",
+        "pre-existing entry preserved at same position"
+    );
+    assert!(claude_settings_already_wired(&after));
+}
+
+#[test]
 fn setup_outcome_render_includes_path() {
     let path = std::path::PathBuf::from("/tmp/x/settings.json");
     let created = SetupOutcome::Created(path.clone()).render();
@@ -224,7 +255,7 @@ fn setup_outcome_render_includes_path() {
 
     let updated = SetupOutcome::Updated(path.clone()).render();
     assert!(updated.contains("/tmp/x/settings.json"));
-    assert!(updated.contains("added"));
+    assert!(updated.contains("wired"));
 
     let already = SetupOutcome::AlreadyConfigured(path).render();
     assert!(already.contains("/tmp/x/settings.json"));

@@ -44,14 +44,27 @@ Wenn Du das JSON lieber selbst editierst:
           { "type": "command", "command": "am context", "async": false }
         ]
       }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          { "type": "command", "command": "am context", "async": false }
+        ]
+      }
     ]
   }
 }
 ```
 
-Der Matcher `"startup|clear|compact"` sorgt dafür, dass die
-Momentaufnahme auch nach `/clear` und `/compact` neu injiziert wird.
-Ohne ihn verliert der Agent Deine Aliase beim ersten Clear.
+Der Matcher `"startup|clear|compact"` auf `SessionStart` sorgt dafür,
+dass die Momentaufnahme auch nach `/clear` und `/compact` neu
+injiziert wird. Ohne ihn verliert der Agent Deine Aliase beim ersten
+Clear.
+
+Der `CwdChanged`-Hook führt `am context` erneut aus, sobald Claude
+in ein anderes Verzeichnis wechselt, damit die `.aliases` des neuen
+Projekts sofort sichtbar sind. `CwdChanged` unterstützt keinen
+Matcher — er feuert immer.
 
 Verifiziert mit Claude Code 2.1.126. Siehe [Anthropics
 Hooks-Dokumentation](https://code.claude.com/docs/en/hooks) für die
