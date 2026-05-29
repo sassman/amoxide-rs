@@ -178,7 +178,7 @@ impl ProfileConfig {
 
 impl ProfileConfig {
     pub fn load() -> Result<Self> {
-        let profile_config_file = config_dir().join(CONFIG_FILE);
+        let profile_config_file = config_dir()?.join(CONFIG_FILE);
         if !profile_config_file.exists() {
             return Ok(Self::default());
         }

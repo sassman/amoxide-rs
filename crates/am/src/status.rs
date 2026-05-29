@@ -130,7 +130,10 @@ pub fn check_shell_config() -> Check {
 
 /// Check if the config directory and config.toml exist.
 pub fn check_config_dir() -> Check {
-    let dir = config_dir();
+    let dir = match config_dir() {
+        Ok(d) => d,
+        Err(e) => return Check::Warn(format!("{e}")),
+    };
     if !dir.exists() {
         return Check::Warn(format!("{} not found — run `am init` first", dir.display()));
     }

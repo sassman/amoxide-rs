@@ -10,11 +10,6 @@ const HOOK_BASH: &str = include_str!("shell_wrappers/hook.bash");
 const HOOK_FISH: &str = include_str!("shell_wrappers/hook.fish");
 const HOOK_ZSH: &str = include_str!("shell_wrappers/hook.zsh");
 const HOOK_PS1: &str = include_str!("shell_wrappers/hook.ps1");
-const COMPLETIONS_FISH: &str = include_str!(concat!(env!("OUT_DIR"), "/am.fish"));
-const COMPLETIONS_ZSH: &str = include_str!(concat!(env!("OUT_DIR"), "/_am"));
-// PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
-// We strip `using namespace` lines and expand type names at runtime for Invoke-Expression compat.
-const COMPLETIONS_PS1: &str = include_str!(concat!(env!("OUT_DIR"), "/_am.ps1"));
 
 /// Generate the complete shell init script.
 /// `global_aliases` — always loaded, independent of profile.
@@ -79,42 +74,48 @@ fn cd_hook_setup(shell: &Shell) -> String {
     }
 }
 
+/// Env-activated dynamic completion registration.
+///
+/// The line gets sourced as part of `am init <shell>`, which makes the shell
+/// invoke `am` with `COMPLETE=<shell>` set at completion time. `clap_complete`'s
+/// `CompleteEnv` (called first in `main`) detects the env var, emits the
+/// shell-specific completion shim, and exits.
+///
+/// **Bash/Brush** uses command substitution (`eval "$(...)"`) rather than
+/// process substitution (`source <(...)`): bash 3.2 (still on macOS) races the
+/// `<()` pipe close, producing a stray `Broken pipe`. `command am` also
+/// bypasses the wrapper function defined just above.
+///
+/// We then rewrap the registered `_clap_complete_am` so it exports
+/// `COMP_LINE` / `COMP_POINT` to the binary as `_AM_COMP_LINE` /
+/// `_AM_COMP_POINT`. clap_complete's bash 4+ shim replaces `words[CWORD]`
+/// with `$2`, which is empty when the cursor sits on a `COMP_WORDBREAKS`
+/// boundary (`:`) — so without `COMP_LINE` the completer can't tell apart
+/// `am r foo<TAB>` from `am r foo:<TAB>`. With the original line in env,
+/// the completer can detect the colon-shorthand context and strip the
+/// `program:` prefix from candidates.
 fn completions(shell: &Shell) -> String {
     match shell {
-        Shell::Bash | Shell::Brush => {
-            include_str!(concat!(env!("OUT_DIR"), "/am.bash")).to_string()
-        }
-        Shell::Fish => COMPLETIONS_FISH.to_string(),
-        Shell::Powershell => powershell_completions(),
-        Shell::Zsh => COMPLETIONS_ZSH.to_string(),
+        Shell::Bash | Shell::Brush => BASH_REGISTRATION.to_string(),
+        Shell::Fish => "COMPLETE=fish am | source\n".to_string(),
+        Shell::Powershell => "$env:COMPLETE = \"powershell\"; am | Out-String | Invoke-Expression; Remove-Item Env:\\COMPLETE\n".to_string(),
+        Shell::Zsh => "source <(COMPLETE=zsh am)\n".to_string(),
     }
 }
 
-/// PowerShell completions use `using namespace` which can't be inside Invoke-Expression.
-/// We strip those lines and replace short type names with fully qualified ones.
-fn powershell_completions() -> String {
-    COMPLETIONS_PS1
-        .lines()
-        .filter(|line| !line.starts_with("using namespace"))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .replace(
-            "[CompletionResult]",
-            "[System.Management.Automation.CompletionResult]",
-        )
-        .replace(
-            "[CompletionResultType]",
-            "[System.Management.Automation.CompletionResultType]",
-        )
-        .replace(
-            "[StringConstantExpressionAst]",
-            "[System.Management.Automation.Language.StringConstantExpressionAst]",
-        )
-        .replace(
-            "[StringConstantType]",
-            "[System.Management.Automation.Language.StringConstantType]",
-        )
-}
+const BASH_REGISTRATION: &str = r#"eval "$(COMPLETE=bash command am)"
+if declare -F _clap_complete_am > /dev/null; then
+    eval "_clap_complete_am_orig() $(declare -f _clap_complete_am | tail -n +2)"
+    _clap_complete_am() {
+        export _AM_COMP_LINE="${COMP_LINE-}"
+        export _AM_COMP_POINT="${COMP_POINT-0}"
+        _clap_complete_am_orig "$@"
+        local rc=$?
+        unset _AM_COMP_LINE _AM_COMP_POINT
+        return $rc
+    }
+fi
+"#;
 
 #[cfg(test)]
 mod tests {

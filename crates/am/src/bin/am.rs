@@ -52,9 +52,19 @@ fn main() -> anyhow::Result<()> {
     // If those calls were allowed to run normally they could trigger another
     // scan, causing infinite recursion.  Exiting here makes `eval "$(...)"` a
     // no-op, which is safe.
+    //
+    // Must come *before* `CompleteEnv::complete()` — the scan subshell sources
+    // the user's rc which includes the completion-registration line, and we
+    // want the recursive invocation to be a hard no-op regardless of env.
     if std::env::var(env_vars::AM_DETECTING_ALIASES).is_ok() {
         return Ok(());
     }
+
+    // Tab completion handler: when invoked with `COMPLETE=<shell>` in env,
+    // emits the shell-specific completion shim (or candidate list) and exits.
+    // Must run before any stdout write and before `Cli::parse` to avoid clap
+    // complaining about the unparsed completion request.
+    clap_complete::CompleteEnv::with_factory(Cli::command).complete();
 
     let cli = Cli::parse();
 
@@ -130,6 +140,17 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Remove { scope, name, sub } => {
+            // `name` is `Vec<String>` so clap's completion engine keeps
+            // routing past bash's `COMP_WORDBREAKS=:`-split tokens; at
+            // runtime we require exactly one alias name.
+            let name = match name.as_slice() {
+                [n] => n.clone(),
+                [] => bail!("alias name required"),
+                many => bail!(
+                    "remove takes exactly one alias name (got: {})",
+                    many.join(" ")
+                ),
+            };
             let target = target_from_scope(scope);
 
             let is_colon_notation = name.contains(':');
@@ -148,7 +169,7 @@ fn main() -> anyhow::Result<()> {
                 Message::RemoveSubcommandAlias(key, target)
             } else {
                 info!("Removing alias `{name}` from {target}");
-                Message::RemoveAlias(name.clone(), target)
+                Message::RemoveAlias(name, target)
             }
         }
         Commands::Ls { used } => Message::ListProfiles { used: *used },

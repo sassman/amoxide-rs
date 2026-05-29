@@ -18,6 +18,9 @@ anyhow = "1.0"
 thiserror = "2"
 base64 = "0.22"
 clap = { version = "4.6", features = ["help", "derive", "usage", "env"] }
+# `unstable-dynamic`: shell-tab completion engine (ArgValueCompleter, CompleteEnv).
+# The API has changed across 4.5.x → 4.6.x; bump deliberately and re-read the changelog.
+clap_complete = { version = "~4.6", features = ["unstable-dynamic"] }
 env_logger = "0.11"
 log = "0.4"
 dirs-lite = { version = "1", features = ["favor-xdg-style"] }
@@ -30,12 +33,12 @@ blake3 = "1"
 [features]
 test-util = []
 
+[[test]]
+name = "completion_snapshots"
+required-features = ["test-util"]
+
 [dev-dependencies]
 tempfile = { workspace = true }
 indoc = "2.0"
 insta = "1"
 
-[build-dependencies]
-clap_complete = "4.6"
-clap = { version = "4.6", features = ["help", "derive", "usage", "env"] }
-regex = "1"

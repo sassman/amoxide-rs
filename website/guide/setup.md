@@ -69,10 +69,11 @@ If you use starship, oh-my-bash, or bash-it, add the `am init` line **after** th
 
 ## What the Init Does
 
-The `am init` command does two things:
+The `am init` command does three things:
 
 1. **Loads aliases** from your active profiles into the current shell
 2. **Installs a cd hook** that automatically loads/unloads project aliases (from `.aliases` files) when you change directories
+3. **Registers tab completion** for profile, alias, subcommand-alias, and variable names <VersionBadge v="0.10.0" />. See [Shell Completion](/advanced/shell-completion) for what completes where.
 
 ## Reinitialising Without Restarting
 

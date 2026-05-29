@@ -101,7 +101,7 @@ jobs:
         run: echo "alias la='ls -lAh'" >> ~/.zshrc
       - name: cargo test
         shell: bash
-        run: cargo test --verbose --all --locked
+        run: cargo test --verbose --all --all-features --locked
         env:
           RUST_LOG: debug
           RUST_BACKTRACE: full

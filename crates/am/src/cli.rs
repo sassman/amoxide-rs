@@ -1,5 +1,7 @@
-pub use clap::{Args, Parser, Subcommand};
+pub use clap::{Args, CommandFactory, Parser, Subcommand};
+use clap_complete::engine::ArgValueCompleter;
 
+use crate::completion;
 use crate::shell::Shell;
 
 /// amoxide — the alias manager
@@ -28,10 +30,16 @@ pub enum Commands {
         scope: TargetScopeArgs,
 
         /// The alias name to remove
-        name: String,
+        ///
+        /// Declared variadic (`num_args = 1..`) so bash's `COMP_WORDBREAKS=:`
+        /// split of `prog:partial<TAB>` keeps subsequent tokens routed to
+        /// this positional's completer. The runtime handler enforces a
+        /// single value.
+        #[arg(num_args = 1.., add = ArgValueCompleter::new(completion::alias_names))]
+        name: Vec<String>,
 
         /// Subcommand path segments to complete the key (e.g. --sub b --sub l removes jj:b:l)
-        #[arg(long = "sub")]
+        #[arg(long = "sub", add = ArgValueCompleter::new(completion::sub_segments))]
         sub: Vec<String>,
     },
 
@@ -149,6 +157,7 @@ pub struct ProfileUse {
     #[arg(short, long, conflicts_with = "priority")]
     pub inverse: bool,
     /// Profile names
+    #[arg(add = ArgValueCompleter::new(completion::profile_names))]
     pub names: Vec<String>,
 }
 
@@ -169,6 +178,7 @@ pub enum ProfileAction {
     #[command(alias = "r")]
     Remove {
         /// Profile name
+        #[arg(add = ArgValueCompleter::new(completion::profile_names))]
         name: String,
 
         /// Skip confirmation prompt
@@ -219,7 +229,7 @@ pub struct ScopeArgs {
     pub global: bool,
 
     /// Operate on specific profile(s) — can be repeated
-    #[arg(short, long, conflicts_with = "all")]
+    #[arg(short, long, conflicts_with = "all", add = ArgValueCompleter::new(completion::profile_names))]
     pub profile: Vec<String>,
 
     /// Operate on everything (global + all profiles + local)
@@ -257,7 +267,7 @@ pub struct ShareArgs {
 #[derive(Args, Debug, Clone)]
 pub struct TargetScopeArgs {
     /// Operate on a specific profile (defaults to active profile)
-    #[arg(short, long, conflicts_with_all = ["local", "global"])]
+    #[arg(short, long, conflicts_with_all = ["local", "global"], add = ArgValueCompleter::new(completion::profile_names))]
     pub profile: Option<String>,
 
     /// Operate on the project's .aliases file
@@ -288,6 +298,7 @@ pub enum VarAction {
         #[command(flatten)]
         scope: TargetScopeArgs,
         /// Variable name
+        #[arg(add = ArgValueCompleter::new(completion::var_names))]
         name: String,
     },
     /// Print a variable's value
@@ -296,6 +307,7 @@ pub enum VarAction {
         #[command(flatten)]
         scope: TargetScopeArgs,
         /// Variable name
+        #[arg(add = ArgValueCompleter::new(completion::var_names))]
         name: String,
     },
     /// List variables (all scopes if no flag given)

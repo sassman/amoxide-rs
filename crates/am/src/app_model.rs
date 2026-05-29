@@ -38,7 +38,11 @@ fn resolve_project_trust(cwd: &Path, security_config: &mut SecurityConfig) -> Op
 
 impl Default for AppModel {
     fn default() -> Self {
-        Self::load_from_internal(crate::dirs::config_dir())
+        // The startup boundary: if HOME/APPDATA isn't set, amoxide cannot
+        // proceed. anyhow's chain surfaces the contextual reason on panic.
+        Self::load_from_internal(
+            crate::dirs::config_dir().expect("amoxide config directory is required"),
+        )
     }
 }
 
