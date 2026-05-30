@@ -1,23 +1,35 @@
 //! Integration tests for `am setup claude`.
 //!
 //! Each test operates on a temp file path passed to `run_claude_setup`
-//! directly — no real `~/.claude/` is ever touched.
+//! directly — no real `~/.claude/` is ever touched. A canned reader
+//! simulates the interactive confirmation prompt (Y/n).
 
 use amoxide::setup::{
     claude_settings_already_wired, run_claude_setup, write_settings_atomic, SetupOutcome,
 };
 use serde_json::{json, Value};
+use std::io::Cursor;
 
 fn read_json(path: &std::path::Path) -> Value {
     let contents = std::fs::read_to_string(path).unwrap();
     serde_json::from_str(&contents).unwrap()
 }
 
+/// Reader that accepts the confirmation prompt with "y".
+fn yes() -> Cursor<&'static [u8]> {
+    Cursor::new(b"y\n")
+}
+
+/// Reader that declines the confirmation prompt with "n".
+fn no() -> Cursor<&'static [u8]> {
+    Cursor::new(b"n\n")
+}
+
 #[test]
 fn setup_creates_settings_file_when_absent() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join(".claude/settings.json");
-    let outcome = run_claude_setup(&path).unwrap();
+    let outcome = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(outcome, SetupOutcome::Created(ref p) if p == &path));
     assert!(path.exists());
     assert!(claude_settings_already_wired(&read_json(&path)));
@@ -29,7 +41,7 @@ fn setup_adds_hook_to_existing_settings_without_hooks_key() {
     let path = dir.path().join("settings.json");
     write_settings_atomic(&path, &json!({ "model": "claude-opus-4" })).unwrap();
 
-    let outcome = run_claude_setup(&path).unwrap();
+    let outcome = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(outcome, SetupOutcome::Updated(_)));
 
     let after = read_json(&path);
@@ -54,7 +66,7 @@ fn setup_adds_session_start_alongside_other_hook_events() {
     )
     .unwrap();
 
-    let outcome = run_claude_setup(&path).unwrap();
+    let outcome = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(outcome, SetupOutcome::Updated(_)));
 
     let after = read_json(&path);
@@ -82,7 +94,7 @@ fn setup_appends_to_existing_session_start() {
     )
     .unwrap();
 
-    let outcome = run_claude_setup(&path).unwrap();
+    let outcome = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(outcome, SetupOutcome::Updated(_)));
 
     let after = read_json(&path);
@@ -99,11 +111,11 @@ fn setup_is_idempotent_when_already_wired() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("settings.json");
 
-    let first = run_claude_setup(&path).unwrap();
+    let first = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(first, SetupOutcome::Created(_)));
     let after_first = read_json(&path);
 
-    let second = run_claude_setup(&path).unwrap();
+    let second = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(second, SetupOutcome::AlreadyConfigured(_)));
     let after_second = read_json(&path);
 
@@ -116,7 +128,7 @@ fn setup_aborts_on_parse_failure_without_overwriting() {
     let path = dir.path().join("settings.json");
     std::fs::write(&path, "{ not valid json").unwrap();
 
-    let result = run_claude_setup(&path);
+    let result = run_claude_setup(&path, &mut yes());
     assert!(
         result.is_err(),
         "should refuse to overwrite unparsable file"
@@ -147,7 +159,7 @@ fn setup_coexists_with_another_session_start_hook_from_a_different_installer() {
     )
     .unwrap();
 
-    let outcome = run_claude_setup(&path).unwrap();
+    let outcome = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(outcome, SetupOutcome::Updated(_)));
 
     let after = read_json(&path);
@@ -180,7 +192,7 @@ fn setup_treats_substring_only_match_as_not_wired_and_adds_real_hook() {
     )
     .unwrap();
 
-    let outcome = run_claude_setup(&path).unwrap();
+    let outcome = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(
         matches!(outcome, SetupOutcome::Updated(_)),
         "substring-only match must not short-circuit to AlreadyConfigured"
@@ -201,7 +213,7 @@ fn setup_parse_failure_leaves_no_stray_tempfile_in_parent_dir() {
     let path = dir.path().join("settings.json");
     std::fs::write(&path, "{ not valid json").unwrap();
 
-    assert!(run_claude_setup(&path).is_err());
+    assert!(run_claude_setup(&path, &mut yes()).is_err());
 
     let entries: Vec<_> = std::fs::read_dir(dir.path())
         .unwrap()
@@ -233,7 +245,7 @@ fn setup_preserves_unrelated_cwd_changed_entries() {
     )
     .unwrap();
 
-    let outcome = run_claude_setup(&path).unwrap();
+    let outcome = run_claude_setup(&path, &mut yes()).unwrap();
     assert!(matches!(outcome, SetupOutcome::Updated(_)));
 
     let after = read_json(&path);
@@ -247,17 +259,40 @@ fn setup_preserves_unrelated_cwd_changed_entries() {
 }
 
 #[test]
-fn setup_outcome_render_includes_path() {
-    let path = std::path::PathBuf::from("/tmp/x/settings.json");
-    let created = SetupOutcome::Created(path.clone()).render();
-    assert!(created.contains("/tmp/x/settings.json"));
-    assert!(created.contains("created"));
+fn setup_cancels_and_leaves_file_untouched_on_no() {
+    // The interactive prompt is the trust-building surface — declining must
+    // mean *nothing* gets written, even though the merge plan is computed.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+    write_settings_atomic(&path, &json!({ "model": "claude-opus-4" })).unwrap();
+    let before = std::fs::read_to_string(&path).unwrap();
 
-    let updated = SetupOutcome::Updated(path.clone()).render();
-    assert!(updated.contains("/tmp/x/settings.json"));
-    assert!(updated.contains("wired"));
+    let outcome = run_claude_setup(&path, &mut no()).unwrap();
+    assert!(matches!(outcome, SetupOutcome::Cancelled(ref p) if p == &path));
 
-    let already = SetupOutcome::AlreadyConfigured(path).render();
-    assert!(already.contains("/tmp/x/settings.json"));
-    assert!(already.contains("already wired"));
+    let after = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(before, after, "file untouched on No");
+}
+
+#[test]
+fn setup_cancels_when_target_file_does_not_exist_and_user_says_no() {
+    // Even when there's no file to damage, declining must not create one.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join(".claude/settings.json");
+
+    let outcome = run_claude_setup(&path, &mut no()).unwrap();
+    assert!(matches!(outcome, SetupOutcome::Cancelled(ref p) if p == &path));
+    assert!(!path.exists(), "no file should be created on No");
+}
+
+#[test]
+fn setup_cancels_on_eof_at_prompt() {
+    // EOF reader (empty input) behaves like an aborted interactive session.
+    // Mirror shell setup's behaviour: do not apply, do not crash.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+
+    let outcome = run_claude_setup(&path, &mut Cursor::new(b"")).unwrap();
+    assert!(matches!(outcome, SetupOutcome::Cancelled(_)));
+    assert!(!path.exists(), "no file should be created on EOF");
 }

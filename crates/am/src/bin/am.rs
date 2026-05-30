@@ -270,9 +270,10 @@ fn main() -> anyhow::Result<()> {
                 SetupTarget::Powershell => amoxide::setup::run_setup(&Shell::Powershell)?,
                 SetupTarget::Zsh => amoxide::setup::run_setup(&Shell::Zsh)?,
                 SetupTarget::Claude => {
-                    let outcome =
-                        amoxide::setup::run_assistant_setup(amoxide::setup::Assistant::Claude)?;
-                    println!("{}", outcome.render());
+                    // Outcome ignored: `run_assistant_setup` prints user-facing
+                    // status itself, matching `run_setup` (shells). The Result
+                    // value is preserved for tests and library callers.
+                    amoxide::setup::run_assistant_setup(amoxide::setup::Assistant::Claude)?;
                 }
             }
             return Ok(());

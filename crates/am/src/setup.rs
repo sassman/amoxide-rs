@@ -156,6 +156,27 @@ fn run_setup_inner(
     Ok(())
 }
 
+/// Hook entry we install under `SessionStart`. Single source of truth shared
+/// by `merge_claude_hook` (writes) and `pending_event_additions` (preview).
+fn session_start_entry() -> serde_json::Value {
+    serde_json::json!({
+        "matcher": "startup|clear|compact",
+        "hooks": [
+            { "type": "command", "command": "am context", "async": false }
+        ]
+    })
+}
+
+/// Hook entry we install under `CwdChanged`. `CwdChanged` has no matcher
+/// support — the event always fires.
+fn cwd_changed_entry() -> serde_json::Value {
+    serde_json::json!({
+        "hooks": [
+            { "type": "command", "command": "am context", "async": false }
+        ]
+    })
+}
+
 /// In-place merge of our hook entries for the events `am context` cares about:
 /// `SessionStart` (initial snapshot) and `CwdChanged` (refresh when the agent
 /// moves between projects — project `.aliases` change with the directory).
@@ -165,25 +186,25 @@ fn run_setup_inner(
 /// SessionStart-only setup by adding the missing `CwdChanged` entry.
 /// Preserves all other top-level keys, hook events, and sibling entries.
 pub fn merge_claude_hook(settings: &mut serde_json::Value) {
-    ensure_event_wired(
-        settings,
-        "SessionStart",
-        serde_json::json!({
-            "matcher": "startup|clear|compact",
-            "hooks": [
-                { "type": "command", "command": "am context", "async": false }
-            ]
-        }),
-    );
-    ensure_event_wired(
-        settings,
-        "CwdChanged",
-        serde_json::json!({
-            "hooks": [
-                { "type": "command", "command": "am context", "async": false }
-            ]
-        }),
-    );
+    ensure_event_wired(settings, "SessionStart", session_start_entry());
+    ensure_event_wired(settings, "CwdChanged", cwd_changed_entry());
+}
+
+/// Returns the hook entries that a `merge_claude_hook` call would actually
+/// add to `settings`, in the order they'd be written. Empty when both events
+/// are already wired. Used to drive the pre-write preview so the prompt shows
+/// only what's about to change (not the v1->v2 upgrade's pre-existing entry).
+pub fn pending_event_additions(
+    settings: &serde_json::Value,
+) -> Vec<(&'static str, serde_json::Value)> {
+    let mut out = Vec::new();
+    if !event_has_am_context(settings, "SessionStart") {
+        out.push(("SessionStart", session_start_entry()));
+    }
+    if !event_has_am_context(settings, "CwdChanged") {
+        out.push(("CwdChanged", cwd_changed_entry()));
+    }
+    out
 }
 
 /// Push `entry` into `settings.hooks[event]` unless an `am context` invocation
@@ -311,34 +332,17 @@ pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
     event_has_am_context(settings, "SessionStart") && event_has_am_context(settings, "CwdChanged")
 }
 
-/// What `run_assistant_setup` did. Returned for the handler to render.
+/// What `run_assistant_setup` did. The interactive flow already prints
+/// user-facing status via `eprintln!` (mirroring `run_setup_inner` for
+/// shells); this enum is the structured return value for tests and callers
+/// that need to branch on outcome.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SetupOutcome {
     Created(std::path::PathBuf),
     Updated(std::path::PathBuf),
     AlreadyConfigured(std::path::PathBuf),
-}
-
-impl SetupOutcome {
-    pub fn render(&self) -> String {
-        match self {
-            Self::Created(p) => {
-                format!(
-                    "am: created {} with am context hooks (SessionStart + CwdChanged)",
-                    p.display()
-                )
-            }
-            Self::Updated(p) => {
-                format!(
-                    "am: wired am context hooks (SessionStart + CwdChanged) into {}",
-                    p.display()
-                )
-            }
-            Self::AlreadyConfigured(p) => {
-                format!("am: am context already wired into {}", p.display())
-            }
-        }
-    }
+    /// User answered No (or EOF) at the confirmation prompt. File untouched.
+    Cancelled(std::path::PathBuf),
 }
 
 /// Resolve the Claude Code settings file path: `~/.claude/settings.json`.
@@ -351,15 +355,22 @@ pub fn claude_settings_path() -> anyhow::Result<std::path::PathBuf> {
 /// Drive the full setup pipeline for the given assistant.
 pub fn run_assistant_setup(assistant: Assistant) -> anyhow::Result<SetupOutcome> {
     match assistant {
-        Assistant::Claude => run_claude_setup(&claude_settings_path()?),
+        Assistant::Claude => {
+            run_claude_setup(&claude_settings_path()?, &mut std::io::stdin().lock())
+        }
     }
 }
 
-/// Underlying impl for Claude — takes the target path for test injectability.
+/// Underlying impl for Claude — takes the target path and a stdin reader for
+/// test injectability. Mirrors `run_setup_inner` (shells): prints a preview
+/// of pending changes, asks for confirmation, applies on Yes, cancels on No.
 ///
 /// Read+parse failures abort without overwriting. Idempotent: returns
-/// `AlreadyConfigured` when our hook is already present.
-pub fn run_claude_setup(path: &std::path::Path) -> anyhow::Result<SetupOutcome> {
+/// `AlreadyConfigured` when both hook entries are already present.
+pub fn run_claude_setup(
+    path: &std::path::Path,
+    reader: &mut dyn BufRead,
+) -> anyhow::Result<SetupOutcome> {
     let (mut settings, existed) = if path.exists() {
         let contents = std::fs::read_to_string(path)?;
         let parsed: serde_json::Value = serde_json::from_str(&contents)
@@ -369,18 +380,51 @@ pub fn run_claude_setup(path: &std::path::Path) -> anyhow::Result<SetupOutcome> 
         (serde_json::json!({}), false)
     };
 
+    eprintln!("Detected agent: claude");
+    eprintln!("Settings file:  {}\n", path.display());
+
     if claude_settings_already_wired(&settings) {
+        eprintln!("\u{2713} am context hooks are already wired into your Claude settings.");
         return Ok(SetupOutcome::AlreadyConfigured(path.to_path_buf()));
+    }
+
+    let pending = pending_event_additions(&settings);
+
+    if !existed {
+        eprintln!("Settings file does not exist — it will be created.");
+    }
+    eprintln!(
+        "The following hook entries will be added to {}:\n",
+        path.display()
+    );
+    for (event, entry) in &pending {
+        eprintln!("  [{event}]");
+        let pretty = serde_json::to_string_pretty(entry)?;
+        for line in pretty.lines() {
+            eprintln!("    {line}");
+        }
+        eprintln!();
+    }
+
+    if ask_user("Add it now?", Answer::Yes, false, reader)? != Answer::Yes {
+        eprintln!("Cancelled.");
+        return Ok(SetupOutcome::Cancelled(path.to_path_buf()));
     }
 
     merge_claude_hook(&mut settings);
     write_settings_atomic(path, &settings)?;
 
-    Ok(if existed {
+    let outcome = if existed {
+        eprintln!("\n\u{2713} Added am context hooks to {}", path.display());
         SetupOutcome::Updated(path.to_path_buf())
     } else {
+        eprintln!(
+            "\n\u{2713} Created {} with am context hooks",
+            path.display()
+        );
         SetupOutcome::Created(path.to_path_buf())
-    })
+    };
+    Ok(outcome)
 }
 
 #[cfg(test)]
