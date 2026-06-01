@@ -41,11 +41,13 @@ fn render_row(row: &Row, target_col: usize, term_width: Option<usize>) -> String
     };
     let line_width = row.width();
     let padded_width = target_col + HASH_GAP_PADDED.width() + desc.width();
-    let inline_width = line_width + HASH_GAP_INLINE.width() + desc.width();
 
+    // Per spec: padded form when it fits the terminal; otherwise inline
+    // (shorter). When even inline overflows, still emit inline and let the
+    // terminal wrap — padding only makes the overflow worse.
     let use_inline = match term_width {
-        Some(w) => padded_width > w && inline_width <= w,
-        None => false, // no terminal → always pad
+        Some(w) => padded_width > w,
+        None => false,
     };
 
     if use_inline {
@@ -794,6 +796,96 @@ mod tests {
         assert!(
             hash_cols.windows(2).all(|w| w[0] == w[1]),
             "`#` columns not aligned: {hash_cols:?}\n{output}"
+        );
+    }
+
+    #[test]
+    fn listing_aligns_descriptions_with_wide_unicode_chars() {
+        // Verify the alignment math uses display width (CJK = 2 cols), not
+        // chars().count(). Two rows: one ASCII command, one CJK command.
+        // Their `#` columns must line up by display width.
+        let config = ProfileConfig::default();
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "ascii".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "ls".into(),
+                description: Some("a".into()),
+                raw: false,
+            }),
+        );
+        globals.insert(
+            "cjk".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "你好世界".into(), // 4 CJK chars, display width 8
+                description: Some("b".into()),
+                raw: false,
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &[],
+            None,
+            None,
+            true,
+            Some(120),
+        );
+
+        let hash_cols: Vec<usize> = output
+            .lines()
+            .filter(|l| l.contains('#'))
+            .map(|l| {
+                use unicode_width::UnicodeWidthStr;
+                let prefix: String = l.chars().take_while(|&c| c != '#').collect();
+                prefix.width()
+            })
+            .collect();
+        assert!(
+            hash_cols.len() == 2 && hash_cols[0] == hash_cols[1],
+            "`#` columns not aligned by display width: {hash_cols:?}\n{output}"
+        );
+    }
+
+    #[test]
+    fn listing_uses_inline_form_when_both_padded_and_inline_overflow() {
+        let config = ProfileConfig::default();
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "verylongname".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "this is a fairly long command line".into(),
+                description: Some("desc".into()),
+                raw: false,
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &[],
+            None,
+            None,
+            /* descriptions */ true,
+            /* term_width */ Some(20), // narrow enough that even inline overflows
+        );
+
+        // Long row must use single-space inline form (" # "), not padded ("  # "),
+        // because padding only makes the overflow worse.
+        let long_line = output
+            .lines()
+            .find(|l| l.contains("verylongname"))
+            .expect("long row missing");
+        assert!(
+            long_line.contains("command line # desc"),
+            "expected inline form when both overflow, got:\n{long_line}\nfull output:\n{output}"
+        );
+        assert!(
+            !long_line.contains("command line  # desc"),
+            "should not pad when both forms overflow:\n{long_line}"
         );
     }
 

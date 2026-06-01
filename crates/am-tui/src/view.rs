@@ -19,6 +19,31 @@ const TRUST_WARN: Color = Color::Rgb(200, 160, 60); // amber — unknown/untrust
 const TRUST_TAMPERED: Color = Color::Rgb(220, 80, 80); // red — tampered project
 const SUBCOMMAND_COLOR: Color = Color::Rgb(80, 180, 160); // teal for subcommand nodes
 
+/// Render the second editor row that shows the `description: …` field.
+///
+/// `cursor` is a byte offset into `description`; it is clamped before use.
+fn description_line(description: &str, desc_active: bool, cursor: usize) -> Line<'static> {
+    let desc_marker = if desc_active { "▸ " } else { "  " };
+    let desc_style = if desc_active {
+        Style::default().fg(TEXT_PRIMARY)
+    } else {
+        Style::default().fg(TEXT_MUTED)
+    };
+    let mut spans = vec![Span::styled(
+        format!("{desc_marker}description: "),
+        Style::default().fg(TEXT_MUTED),
+    )];
+    if desc_active {
+        let pos = cursor.min(description.len());
+        spans.push(Span::styled(description[..pos].to_string(), desc_style));
+        spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
+        spans.push(Span::styled(description[pos..].to_string(), desc_style));
+    } else {
+        spans.push(Span::styled(description.to_string(), desc_style));
+    }
+    Line::from(spans)
+}
+
 pub fn draw(frame: &mut Frame, model: &TuiModel) {
     let area = frame.area();
 
@@ -310,27 +335,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             }
             spans.push(hint);
             lines.push(Line::from(spans));
-
-            // Description row (line 2)
-            let desc_marker = if desc_active { "▸ " } else { "  " };
-            let desc_style = if desc_active {
-                Style::default().fg(TEXT_PRIMARY)
-            } else {
-                Style::default().fg(TEXT_MUTED)
-            };
-            let mut desc_spans = vec![Span::styled(
-                format!("{desc_marker}description: "),
-                Style::default().fg(TEXT_MUTED),
-            )];
-            if desc_active {
-                let dpos = pos.min(description.len());
-                desc_spans.push(Span::styled(description[..dpos].to_string(), desc_style));
-                desc_spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
-                desc_spans.push(Span::styled(description[dpos..].to_string(), desc_style));
-            } else {
-                desc_spans.push(Span::styled(description.clone(), desc_style));
-            }
-            lines.push(Line::from(desc_spans));
+            lines.push(description_line(description, desc_active, pos));
         }
         TextInputState::EditProfile { name, error, .. } => {
             let err_span = error
@@ -398,28 +403,8 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
                 }
             }
             lines.push(Line::from(spans));
-
-            // Description row (line 2)
             let desc_active = *active_field == SubcommandField::Description;
-            let desc_marker = if desc_active { "▸ " } else { "  " };
-            let desc_style = if desc_active {
-                Style::default().fg(TEXT_PRIMARY)
-            } else {
-                Style::default().fg(TEXT_MUTED)
-            };
-            let mut desc_spans = vec![Span::styled(
-                format!("{desc_marker}description: "),
-                Style::default().fg(TEXT_MUTED),
-            )];
-            if desc_active {
-                let pos = (*cursor).min(description.len());
-                desc_spans.push(Span::styled(description[..pos].to_string(), desc_style));
-                desc_spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
-                desc_spans.push(Span::styled(description[pos..].to_string(), desc_style));
-            } else {
-                desc_spans.push(Span::styled(description.clone(), desc_style));
-            }
-            lines.push(Line::from(desc_spans));
+            lines.push(description_line(description, desc_active, *cursor));
         }
         TextInputState::EditAlias {
             alias_id,
@@ -481,27 +466,7 @@ fn render_text_input(frame: &mut Frame, state: &TextInputState, area: Rect) {
             }
             spans.push(err_span);
             lines.push(Line::from(spans));
-
-            // Description row (line 2)
-            let desc_marker = if desc_active { "▸ " } else { "  " };
-            let desc_style = if desc_active {
-                Style::default().fg(TEXT_PRIMARY)
-            } else {
-                Style::default().fg(TEXT_MUTED)
-            };
-            let mut desc_spans = vec![Span::styled(
-                format!("{desc_marker}description: "),
-                Style::default().fg(TEXT_MUTED),
-            )];
-            if desc_active {
-                let dpos = pos.min(description.len());
-                desc_spans.push(Span::styled(description[..dpos].to_string(), desc_style));
-                desc_spans.push(Span::styled("_", Style::default().fg(TEXT_PRIMARY)));
-                desc_spans.push(Span::styled(description[dpos..].to_string(), desc_style));
-            } else {
-                desc_spans.push(Span::styled(description.clone(), desc_style));
-            }
-            lines.push(Line::from(desc_spans));
+            lines.push(description_line(description, desc_active, pos));
         }
     }
 
@@ -978,7 +943,7 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
                 Span::styled("Esc", Style::default().fg(GOLD)),
                 Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
                 Span::styled("Enter", Style::default().fg(GOLD)),
-                Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+                Span::styled(" → desc / confirm", Style::default().fg(TEXT_MUTED)),
             ])
         }
         Mode::TextInput(TextInputState::EditProfile { .. }) => Line::from(vec![
@@ -995,7 +960,7 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::styled("Esc", Style::default().fg(GOLD)),
             Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Enter", Style::default().fg(GOLD)),
-            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+            Span::styled(" → desc / confirm", Style::default().fg(TEXT_MUTED)),
         ]),
         Mode::TextInput(TextInputState::SubcommandInput { .. }) => Line::from(vec![
             Span::raw("  "),
@@ -1006,7 +971,7 @@ fn help_bar(mode: &Mode, model: &TuiModel) -> Line<'static> {
             Span::styled("Esc", Style::default().fg(GOLD)),
             Span::styled(" cancel  ", Style::default().fg(TEXT_MUTED)),
             Span::styled("Enter", Style::default().fg(GOLD)),
-            Span::styled(" confirm", Style::default().fg(TEXT_MUTED)),
+            Span::styled(" → desc / confirm", Style::default().fg(TEXT_MUTED)),
         ]),
         Mode::Confirm(_) => Line::from(vec![
             Span::raw("  "),

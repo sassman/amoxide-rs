@@ -31,7 +31,7 @@ pub mod vars;
 pub use alias::*;
 pub use alias_id::*;
 pub use config::*;
-pub use described::{normalize_description, Described};
+pub use described::{normalize_description, Described, DescriptionUpdate};
 pub use effects::*;
 pub use exchange::*;
 pub use messages::*;

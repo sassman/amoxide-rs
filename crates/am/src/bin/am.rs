@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
             sub,
         }) => {
             let target = target_from_scope(scope);
-            let desc = amoxide::normalize_description(description.as_deref().unwrap_or(""));
+            let desc = amoxide::DescriptionUpdate::from_cli_arg(description.as_deref());
 
             // Check if this is a subcommand alias
             let is_colon_notation = name.contains(':');

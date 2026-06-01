@@ -91,7 +91,7 @@ mod tests {
                 "ls -lha".into(),
                 AliasTarget::Global,
                 false,
-                None,
+                amoxide::DescriptionUpdate::Clear,
             ),
         )
         .unwrap();
@@ -133,7 +133,7 @@ mod tests {
                 "cargo test".into(),
                 AliasTarget::Local,
                 false,
-                None,
+                amoxide::DescriptionUpdate::Clear,
             ),
         )
         .unwrap();

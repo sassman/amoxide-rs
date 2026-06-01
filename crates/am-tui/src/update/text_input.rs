@@ -29,14 +29,19 @@ fn cursor_right(s: &str, cursor: usize) -> usize {
             .unwrap_or(0)
 }
 
-/// Return the byte length of the active subcommand field.
+/// Return the byte length of the active pair-bound subcommand field.
+///
+/// Only `Short`/`Long` are valid here — `Description` is not pair-bound and
+/// its length must be read from the description buffer directly.
 fn active_field_len(pairs: &[(String, String)], pair: usize, field: &SubcommandField) -> usize {
     pairs
         .get(pair)
         .map(|(s, l)| match field {
             SubcommandField::Short => s.len(),
             SubcommandField::Long => l.len(),
-            SubcommandField::Description => 0,
+            SubcommandField::Description => {
+                unreachable!("active_field_len called with Description — use description.len()")
+            }
         })
         .unwrap_or(0)
 }
@@ -144,51 +149,12 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                     if let (Some(id), Some(cmd)) =
                         (node.alias_id.clone(), node.alias_command.clone())
                     {
-                        // Pre-populate description from the existing alias.
-                        let existing_desc = match &id {
-                            AliasId::Global { alias_name } => {
-                                let key = amoxide::AliasName::from(alias_name.as_str());
-                                model
-                                    .app_model
-                                    .config
-                                    .aliases
-                                    .get(&key)
-                                    .and_then(|a| a.description())
-                                    .unwrap_or("")
-                                    .to_string()
-                            }
-                            AliasId::Profile {
-                                profile_name,
-                                alias_name,
-                            } => {
-                                let key = amoxide::AliasName::from(alias_name.as_str());
-                                model
-                                    .app_model
-                                    .profile_config()
-                                    .get_profile_by_name(profile_name)
-                                    .and_then(|p| p.aliases.get(&key))
-                                    .and_then(|a| a.description())
-                                    .unwrap_or("")
-                                    .to_string()
-                            }
-                            AliasId::Project { alias_name } => {
-                                let key = amoxide::AliasName::from(alias_name.as_str());
-                                model
-                                    .app_model
-                                    .project_aliases()
-                                    .and_then(|p| p.aliases.get(&key))
-                                    .and_then(|a| a.description())
-                                    .unwrap_or("")
-                                    .to_string()
-                            }
-                            AliasId::Subcommand { .. } => String::new(),
-                        };
                         model.mode = Mode::TextInput(TextInputState::EditAlias {
                             alias_id: id,
                             cursor: node.label.len(),
                             name: node.label.clone(),
                             command: cmd,
-                            description: existing_desc,
+                            description: node.alias_description.clone().unwrap_or_default(),
                             active_field: AliasField::Name,
                             error: None,
                         });
@@ -201,33 +167,6 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             amoxide::SubcommandScope::Profile(n) => AliasTarget::Profile(n.clone()),
                             amoxide::SubcommandScope::Project => AliasTarget::Project,
                         };
-                        // Pre-populate description from the existing subcommand.
-                        let existing_desc = match scope {
-                            amoxide::SubcommandScope::Global => model
-                                .app_model
-                                .config
-                                .subcommands
-                                .as_ref()
-                                .get(key.as_str())
-                                .and_then(|s| s.description())
-                                .unwrap_or("")
-                                .to_string(),
-                            amoxide::SubcommandScope::Profile(pname) => model
-                                .app_model
-                                .profile_config()
-                                .get_profile_by_name(pname)
-                                .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
-                                .and_then(|s| s.description())
-                                .unwrap_or("")
-                                .to_string(),
-                            amoxide::SubcommandScope::Project => model
-                                .app_model
-                                .project_aliases()
-                                .and_then(|p| p.subcommands.as_ref().get(key.as_str()))
-                                .and_then(|s| s.description())
-                                .unwrap_or("")
-                                .to_string(),
-                        };
                         let pairs = collect_pairs_to_cursor(model);
                         let program = key.split(':').next().unwrap_or("").to_string();
                         let active_pair = pairs.len().saturating_sub(1);
@@ -235,7 +174,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
                             program,
                             pairs,
-                            description: existing_desc,
+                            description: node.alias_description.clone().unwrap_or_default(),
                             active_pair,
                             active_field: SubcommandField::Short,
                             cursor,
@@ -509,6 +448,39 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
             }
         }
         TuiMessage::TextInputConfirm => {
+            // Alias and subcommand input forms: Enter from a non-Description
+            // field advances to Description instead of committing. Enter on
+            // Description commits. Makes the description field discoverable
+            // without forcing Tab cycles.
+            match &mut model.mode {
+                Mode::TextInput(TextInputState::NewAlias {
+                    active_field,
+                    description,
+                    cursor,
+                    ..
+                })
+                | Mode::TextInput(TextInputState::EditAlias {
+                    active_field,
+                    description,
+                    cursor,
+                    ..
+                }) if *active_field != AliasField::Description => {
+                    *active_field = AliasField::Description;
+                    *cursor = description.len();
+                    return;
+                }
+                Mode::TextInput(TextInputState::SubcommandInput {
+                    active_field,
+                    description,
+                    cursor,
+                    ..
+                }) if *active_field != SubcommandField::Description => {
+                    *active_field = SubcommandField::Description;
+                    *cursor = description.len();
+                    return;
+                }
+                _ => {}
+            }
             let state = match &model.mode {
                 Mode::TextInput(s) => s.clone(),
                 _ => return,
@@ -548,6 +520,9 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                         AliasTarget::Project => amoxide::AliasTarget::Local,
                     };
                     let normalized_desc = amoxide::normalize_description(&description);
+                    // TUI new-alias: empty buffer → Clear via `Option<String> → DescriptionUpdate`.
+                    // For a brand-new alias Clear and Preserve are equivalent (no prior value).
+                    // CLI differs: absent `-d` is Preserve, `-d ""` is Clear.
                     let _ = super::delegation::dispatch(
                         model,
                         amoxide::Message::AddAlias(
@@ -555,7 +530,7 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             command,
                             lib_target,
                             false,
-                            normalized_desc,
+                            normalized_desc.into(),
                         ),
                     );
                     model.mode = Mode::Normal;
@@ -731,11 +706,12 @@ pub fn handle(model: &mut TuiModel, msg: TuiMessage) {
                             description: normalized_desc,
                         }
                     } else {
+                        // TUI new-subcommand: same Clear-on-empty semantics as new-alias above.
                         amoxide::Message::AddSubcommandAlias(
                             key,
                             long_subcommands,
                             lib_target,
-                            normalized_desc,
+                            normalized_desc.into(),
                         )
                     };
                     let _ = super::delegation::dispatch(model, msg);
@@ -1176,7 +1152,9 @@ mod description_field_tests {
             cursor: "gs".len(),
             error: None,
         });
-        // Confirm — should dispatch UpdateAlias with description: Some("short git status")
+        // Confirm — first Enter advances Name → Description; second commits
+        // and dispatches UpdateAlias with description: Some("short git status").
+        handle(&mut model, TuiMessage::TextInputConfirm);
         handle(&mut model, TuiMessage::TextInputConfirm);
         // Mode returns to Normal on success
         assert_eq!(model.mode, Mode::Normal);
@@ -1189,6 +1167,179 @@ mod description_field_tests {
             .get(&key)
             .expect("alias gs must exist");
         assert_eq!(alias.description(), Some("short git status"));
+    }
+
+    #[test]
+    fn new_alias_enter_on_name_jumps_to_description() {
+        let mut model = empty_model_with_new_alias();
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(
+                    *active_field,
+                    AliasField::Description,
+                    "Enter on Name should jump to Description, not commit"
+                );
+            }
+            other => panic!("expected NewAlias still active, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn new_alias_enter_on_command_jumps_to_description() {
+        let mut model = empty_model_with_new_alias();
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Name → Command
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        match &model.mode {
+            Mode::TextInput(TextInputState::NewAlias { active_field, .. }) => {
+                assert_eq!(
+                    *active_field,
+                    AliasField::Description,
+                    "Enter on Command should jump to Description, not commit"
+                );
+            }
+            other => panic!("expected NewAlias still active, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn new_alias_enter_on_description_commits() {
+        use amoxide::{AliasName, Described};
+        let mut model = empty_model_with_new_alias();
+        // Jump straight to Description via Tab cycles.
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Name → Command
+        handle(&mut model, TuiMessage::TextInputSwitchField); // Command → Description
+                                                              // Type a description, then confirm.
+        handle(&mut model, TuiMessage::TextInputChar('s'));
+        handle(&mut model, TuiMessage::TextInputChar('s'));
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(model.mode, Mode::Normal);
+        let alias = model
+            .app_model
+            .config
+            .aliases
+            .get(&AliasName::from("gs"))
+            .expect("alias gs must exist after commit");
+        assert_eq!(alias.description(), Some("ss"));
+    }
+
+    #[test]
+    fn edit_alias_enter_on_name_jumps_to_description() {
+        use amoxide::AliasId;
+        let mut model = empty_model();
+        model
+            .app_model
+            .config
+            .add_alias("gs".into(), "git status".into(), false, None);
+        model.mode = Mode::TextInput(TextInputState::EditAlias {
+            alias_id: AliasId::Global {
+                alias_name: "gs".into(),
+            },
+            name: "gs".into(),
+            command: "git status".into(),
+            description: String::new(),
+            active_field: AliasField::Name,
+            cursor: "gs".len(),
+            error: None,
+        });
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        match &model.mode {
+            Mode::TextInput(TextInputState::EditAlias { active_field, .. }) => {
+                assert_eq!(
+                    *active_field,
+                    AliasField::Description,
+                    "Enter on EditAlias Name should jump to Description"
+                );
+            }
+            other => panic!("expected EditAlias still active, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn subcmd_enter_on_long_jumps_to_description_not_commit() {
+        let mut model = empty_model();
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            description: String::new(),
+            active_pair: 0,
+            active_field: SubcommandField::Long,
+            cursor: "abandon".len(),
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput { active_field, .. }) => {
+                assert_eq!(
+                    *active_field,
+                    SubcommandField::Description,
+                    "Enter on Long should jump to Description, not commit"
+                );
+            }
+            other => panic!("expected SubcommandInput still active, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn subcmd_enter_on_short_jumps_to_description_not_commit() {
+        let mut model = empty_model();
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            description: String::new(),
+            active_pair: 0,
+            active_field: SubcommandField::Short,
+            cursor: "ab".len(),
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        match &model.mode {
+            Mode::TextInput(TextInputState::SubcommandInput { active_field, .. }) => {
+                assert_eq!(
+                    *active_field,
+                    SubcommandField::Description,
+                    "Enter on Short should jump to Description, not commit"
+                );
+            }
+            other => panic!("expected SubcommandInput still active, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn subcmd_enter_on_description_commits() {
+        let mut model = empty_model();
+        model.mode = Mode::TextInput(TextInputState::SubcommandInput {
+            program: "jj".into(),
+            pairs: vec![("ab".into(), "abandon".into())],
+            description: "toss change".into(),
+            active_pair: 0,
+            active_field: SubcommandField::Description,
+            cursor: "toss change".len(),
+            target: AliasTarget::Global,
+            original_key: None,
+        });
+        handle(&mut model, TuiMessage::TextInputConfirm);
+        assert_eq!(
+            model.mode,
+            Mode::Normal,
+            "Enter on Description should commit and exit text input"
+        );
+        // And the description must round-trip.
+        let key = "jj:ab";
+        let entry = model
+            .app_model
+            .config
+            .subcommands
+            .as_ref()
+            .get(key)
+            .expect("subcommand alias must be saved");
+        assert_eq!(
+            amoxide::Described::description(entry),
+            Some("toss change"),
+            "description must round-trip on commit"
+        );
     }
 
     #[test]

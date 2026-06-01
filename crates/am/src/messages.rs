@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::described::DescriptionUpdate;
 use crate::exchange::ImportPayload;
 use crate::shell::Shell;
 
@@ -24,7 +25,7 @@ impl Display for AliasTarget {
 
 #[derive(Debug)]
 pub enum Message {
-    AddAlias(String, String, AliasTarget, bool, Option<String>),
+    AddAlias(String, String, AliasTarget, bool, DescriptionUpdate),
     RemoveAlias(String, AliasTarget),
     /// Update an alias in place — renames, changes command, or both.
     UpdateAlias {
@@ -57,7 +58,7 @@ pub enum Message {
 
     Import(ImportPayload),
 
-    AddSubcommandAlias(String, Vec<String>, AliasTarget, Option<String>),
+    AddSubcommandAlias(String, Vec<String>, AliasTarget, DescriptionUpdate),
     RemoveSubcommandAlias(String, AliasTarget),
     UpdateSubcommandAlias {
         original_key: String,

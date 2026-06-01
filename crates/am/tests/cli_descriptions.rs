@@ -8,7 +8,7 @@ use amoxide::{
     config::Config,
     normalize_description,
     update::{update, AppModel},
-    AliasTarget, Described, Message, ProfileConfig,
+    AliasTarget, Described, DescriptionUpdate, Message, ProfileConfig,
 };
 
 // ── Global scope — description present ───────────────────────────────────────
@@ -68,7 +68,7 @@ fn am_add_with_description_writes_detailed_form_profile() {
             "git status".into(),
             AliasTarget::Profile("work".into()),
             false,
-            description,
+            description.into(),
         ),
     )
     .unwrap();
@@ -115,7 +115,7 @@ fn am_add_alias_message_with_description_reaches_global_config() {
             "git status".into(),
             AliasTarget::Global,
             false,
-            description,
+            description.into(),
         ),
     )
     .unwrap();
@@ -173,6 +173,124 @@ fn am_ls_accepts_descriptions_long_flag() {
         }
         _ => panic!("expected Ls"),
     }
+}
+
+// ── DescriptionUpdate semantics — preserve existing on add without -d ────────
+
+#[test]
+fn am_add_without_d_preserves_existing_description_global() {
+    let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+    // Seed an alias with a description.
+    update(
+        &mut model,
+        Message::AddAlias(
+            "gs".into(),
+            "git status".into(),
+            AliasTarget::Global,
+            false,
+            DescriptionUpdate::Set("short status".into()),
+        ),
+    )
+    .unwrap();
+
+    // Overwrite the command, but pass DescriptionUpdate::Preserve.
+    update(
+        &mut model,
+        Message::AddAlias(
+            "gs".into(),
+            "git status -sb".into(),
+            AliasTarget::Global,
+            false,
+            DescriptionUpdate::Preserve,
+        ),
+    )
+    .unwrap();
+
+    let key = amoxide::AliasName::from("gs");
+    let alias = model.config.aliases.get(&key).expect("alias present");
+    assert_eq!(alias.command(), "git status -sb");
+    assert_eq!(alias.description(), Some("short status"));
+}
+
+#[test]
+fn am_add_with_empty_d_clears_description_global() {
+    let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+    update(
+        &mut model,
+        Message::AddAlias(
+            "gs".into(),
+            "git status".into(),
+            AliasTarget::Global,
+            false,
+            DescriptionUpdate::Set("short status".into()),
+        ),
+    )
+    .unwrap();
+    update(
+        &mut model,
+        Message::AddAlias(
+            "gs".into(),
+            "git status".into(),
+            AliasTarget::Global,
+            false,
+            DescriptionUpdate::Clear,
+        ),
+    )
+    .unwrap();
+    let key = amoxide::AliasName::from("gs");
+    let alias = model.config.aliases.get(&key).expect("alias present");
+    assert_eq!(alias.description(), None);
+}
+
+#[test]
+fn am_add_new_alias_with_preserve_yields_no_description() {
+    let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+    update(
+        &mut model,
+        Message::AddAlias(
+            "ll".into(),
+            "ls -lha".into(),
+            AliasTarget::Global,
+            false,
+            DescriptionUpdate::Preserve,
+        ),
+    )
+    .unwrap();
+    let key = amoxide::AliasName::from("ll");
+    let alias = model.config.aliases.get(&key).expect("alias present");
+    assert_eq!(alias.description(), None);
+}
+
+#[test]
+fn am_add_without_d_preserves_existing_subcommand_description() {
+    let mut model = AppModel::new(Config::default(), ProfileConfig::default());
+    update(
+        &mut model,
+        Message::AddSubcommandAlias(
+            "jj:ab".into(),
+            vec!["abandon".into()],
+            AliasTarget::Global,
+            DescriptionUpdate::Set("toss change".into()),
+        ),
+    )
+    .unwrap();
+    update(
+        &mut model,
+        Message::AddSubcommandAlias(
+            "jj:ab".into(),
+            vec!["abandon".into(), "--no-edit".into()],
+            AliasTarget::Global,
+            DescriptionUpdate::Preserve,
+        ),
+    )
+    .unwrap();
+    let longs = model
+        .config
+        .subcommands
+        .as_ref()
+        .get("jj:ab")
+        .expect("subcommand present");
+    assert_eq!(Described::description(longs), Some("toss change"));
 }
 
 #[test]

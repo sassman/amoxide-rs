@@ -180,21 +180,40 @@ fn get_profile_mut<'a>(
 pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, UpdateError> {
     match message {
         Message::AddAlias(name, cmd, target, raw, description) => {
+            let key = crate::AliasName::from(name.as_str());
             match resolve_target(model, &target)? {
                 ConcreteScope::Global => {
-                    model.config.add_alias(name, cmd, raw, description);
+                    let existing = model
+                        .config
+                        .aliases
+                        .get(&key)
+                        .and_then(|a| a.description().map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    model.config.add_alias(name, cmd, raw, resolved);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
-                ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalAlias {
-                    name,
-                    cmd,
-                    raw,
-                    description,
-                })),
+                ConcreteScope::Local => {
+                    let existing = model
+                        .project_aliases()
+                        .and_then(|p| p.aliases.get(&key))
+                        .and_then(|a| a.description().map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    Ok(UpdateResult::effect(Effect::AddLocalAlias {
+                        name,
+                        cmd,
+                        raw,
+                        description: resolved,
+                    }))
+                }
                 ConcreteScope::Profile(profile_name) => {
+                    let existing = get_profile_mut(model, &profile_name)?
+                        .aliases
+                        .get(&key)
+                        .and_then(|a| a.description().map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
                     let profile = get_profile_mut(model, &profile_name)?;
                     profile
-                        .add_alias(name, cmd, raw, description)
+                        .add_alias(name, cmd, raw, resolved)
                         .map_err(|e| UpdateError::Other(e.to_string()))?;
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
@@ -268,19 +287,37 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
         Message::AddSubcommandAlias(key, long_subcommands, target, description) => {
             match resolve_target(model, &target)? {
                 ConcreteScope::Global => {
-                    model
+                    let existing = model
                         .config
-                        .add_subcommand(key, long_subcommands, description);
+                        .subcommands
+                        .as_ref()
+                        .get(&key)
+                        .and_then(|s| crate::Described::description(s).map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    model.config.add_subcommand(key, long_subcommands, resolved);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
-                ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
-                    key,
-                    long_subcommands,
-                    description,
-                })),
+                ConcreteScope::Local => {
+                    let existing = model
+                        .project_aliases()
+                        .and_then(|p| p.subcommands.as_ref().get(&key))
+                        .and_then(|s| crate::Described::description(s).map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
+                        key,
+                        long_subcommands,
+                        description: resolved,
+                    }))
+                }
                 ConcreteScope::Profile(profile_name) => {
+                    let existing = get_profile_mut(model, &profile_name)?
+                        .subcommands
+                        .as_ref()
+                        .get(&key)
+                        .and_then(|s| crate::Described::description(s).map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
                     let profile = get_profile_mut(model, &profile_name)?;
-                    profile.add_subcommand(key, long_subcommands, description);
+                    profile.add_subcommand(key, long_subcommands, resolved);
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
@@ -316,7 +353,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                     new_key,
                     long_subcommands,
                     AliasTarget::Local,
-                    description,
+                    description.into(),
                 ),
                 vec![Effect::RemoveLocalSubcommand { key: original_key }],
             )),
@@ -1670,7 +1707,7 @@ mod tests {
                 "ls -lha".into(),
                 AliasTarget::Global,
                 false,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -1694,7 +1731,7 @@ mod tests {
                 "ls -lha".into(),
                 AliasTarget::ActiveProfile,
                 false,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -1751,7 +1788,7 @@ mod tests {
                 "cargo test".into(),
                 AliasTarget::Local,
                 false,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -1982,7 +2019,7 @@ mod tests {
                 "cargo test".into(),
                 AliasTarget::Profile("rust".into()),
                 false,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -2133,7 +2170,7 @@ mod tests {
                 "jj:ab".into(),
                 vec!["abandon".into()],
                 AliasTarget::Global,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -2175,7 +2212,7 @@ mod tests {
                 "jj:ab".into(),
                 vec!["abandon".into()],
                 AliasTarget::Local,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -2203,7 +2240,7 @@ mod tests {
                 "cargo:t".into(),
                 vec!["test".into()],
                 AliasTarget::Profile("rust".into()),
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -2233,7 +2270,7 @@ mod tests {
                 "cargo test".into(),
                 AliasTarget::Local,
                 false,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
@@ -2282,7 +2319,7 @@ mod tests {
                 "cargo test".into(),
                 AliasTarget::Local,
                 false,
-                None,
+                crate::DescriptionUpdate::Preserve,
             ),
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));

@@ -407,8 +407,20 @@ pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
             let cur_desc = conflict.current.description();
             let inc_desc = conflict.incoming.description();
             if cur_desc != inc_desc {
-                output.push_str(&format!("      - # {}\n", cur_desc.unwrap_or("(none)")));
-                output.push_str(&format!("      + # {}\n", inc_desc.unwrap_or("(none)")));
+                output.push_str(&format!(
+                    "      - # {}\n",
+                    cur_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
+                output.push_str(&format!(
+                    "      + # {}\n",
+                    inc_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
             }
         }
     }
@@ -484,8 +496,20 @@ pub fn render_import_summary_subcommands(
             let cur_desc = Described::description(&conflict.current);
             let inc_desc = Described::description(&conflict.incoming);
             if cur_desc != inc_desc {
-                output.push_str(&format!("      - # {}\n", cur_desc.unwrap_or("(none)")));
-                output.push_str(&format!("      + # {}\n", inc_desc.unwrap_or("(none)")));
+                output.push_str(&format!(
+                    "      - # {}\n",
+                    cur_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
+                output.push_str(&format!(
+                    "      + # {}\n",
+                    inc_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
             }
         }
     }
@@ -598,9 +622,11 @@ impl fmt::Display for Scope {
 pub enum SuspiciousField {
     AliasName,
     AliasCommand,
+    AliasDescription,
     ProfileName,
     SubcommandKey,
     SubcommandExpansion,
+    SubcommandDescription,
     VarName,
     VarValue,
 }
@@ -610,9 +636,11 @@ impl fmt::Display for SuspiciousField {
         match self {
             SuspiciousField::AliasName => write!(f, "name"),
             SuspiciousField::AliasCommand => write!(f, "command"),
+            SuspiciousField::AliasDescription => write!(f, "description"),
             SuspiciousField::ProfileName => write!(f, "profile_name"),
             SuspiciousField::SubcommandKey => write!(f, "subcommand_key"),
             SuspiciousField::SubcommandExpansion => write!(f, "subcommand_expansion"),
+            SuspiciousField::SubcommandDescription => write!(f, "subcommand_description"),
             SuspiciousField::VarName => write!(f, "var_name"),
             SuspiciousField::VarValue => write!(f, "var_value"),
         }
@@ -710,6 +738,24 @@ impl SuspiciousAlias {
         }
     }
 
+    pub fn alias_description(scope: Scope, name: &str, description: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::AliasDescription,
+            raw_value: RawValue::new(description),
+        }
+    }
+
+    pub fn subcommand_description(scope: Scope, key: &str, description: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(key),
+            field: SuspiciousField::SubcommandDescription,
+            raw_value: RawValue::new(description),
+        }
+    }
+
     pub fn var_name(scope: Scope, name: &str) -> Self {
         Self {
             scope,
@@ -755,6 +801,15 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
                     alias.command(),
                 ));
             }
+            if let Some(desc) = alias.description() {
+                if has_suspicious_chars(desc) {
+                    findings.push(SuspiciousAlias::alias_description(
+                        scope.clone(),
+                        name.as_ref(),
+                        desc,
+                    ));
+                }
+            }
         }
         scan_subcommands(&mut findings, scope.clone(), &profile.subcommands);
         scan_vars(&mut findings, scope, &profile.vars);
@@ -785,6 +840,15 @@ fn scan_bundle(findings: &mut Vec<SuspiciousAlias>, scope: Scope, bundle: &Scope
         if has_suspicious_chars(alias.command()) {
             findings.push(mk_command(name.as_ref(), alias.command()));
         }
+        if let Some(desc) = alias.description() {
+            if has_suspicious_chars(desc) {
+                findings.push(SuspiciousAlias::alias_description(
+                    scope.clone(),
+                    name.as_ref(),
+                    desc,
+                ));
+            }
+        }
     }
     scan_subcommands(findings, scope.clone(), &bundle.subcommands);
     scan_vars(findings, scope, &bundle.vars);
@@ -805,6 +869,15 @@ fn scan_subcommands(
                     scope.clone(),
                     key,
                     expansion,
+                ));
+            }
+        }
+        if let Some(desc) = Described::description(longs) {
+            if has_suspicious_chars(desc) {
+                findings.push(SuspiciousAlias::subcommand_description(
+                    scope.clone(),
+                    key,
+                    desc,
                 ));
             }
         }
@@ -1673,6 +1746,139 @@ mod tests {
         assert!(
             expansion_lines.is_empty(),
             "expected no expansion lines for description-only conflict, got:\n{output}"
+        );
+    }
+
+    // ─── scan_suspicious: description fields ─────────────────────────────
+
+    #[test]
+    fn test_scan_suspicious_detects_global_alias_description() {
+        let mut export = ExportAll::default();
+        export.global.aliases.insert(
+            "gs".into(),
+            TomlAlias::Detailed(crate::AliasDetail {
+                command: "git status".into(),
+                description: Some("\x1B[31mPWNED\x1B[0m".into()),
+                raw: false,
+            }),
+        );
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "global");
+        assert_eq!(findings[0].alias_name.to_string(), "gs");
+        assert_eq!(findings[0].field.to_string(), "description");
+    }
+
+    #[test]
+    fn test_scan_suspicious_detects_local_alias_description() {
+        let mut export = ExportAll::default();
+        export.local.aliases.insert(
+            "t".into(),
+            TomlAlias::Detailed(crate::AliasDetail {
+                command: "cargo test".into(),
+                description: Some("run \x07tests".into()),
+                raw: false,
+            }),
+        );
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "local");
+        assert_eq!(findings[0].field.to_string(), "description");
+    }
+
+    #[test]
+    fn test_scan_suspicious_detects_profile_alias_description() {
+        let export = ExportAll {
+            profiles: vec![Profile {
+                name: "git".into(),
+                aliases: {
+                    let mut a = AliasSet::default();
+                    a.insert(
+                        "gs".into(),
+                        TomlAlias::Detailed(crate::AliasDetail {
+                            command: "git status".into(),
+                            description: Some("\x1B[2Jhide".into()),
+                            raw: false,
+                        }),
+                    );
+                    a
+                },
+                subcommands: Default::default(),
+                vars: Default::default(),
+            }],
+            ..Default::default()
+        };
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "profile:git");
+        assert_eq!(findings[0].field.to_string(), "description");
+    }
+
+    #[test]
+    fn test_scan_suspicious_detects_subcommand_description() {
+        use crate::subcommand::{SubcommandDetail, TomlSubcommand};
+        let mut export = ExportAll::default();
+        export.global.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("\x1B[31mtaken\x1B[0m".into()),
+            }),
+        );
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "global");
+        assert_eq!(findings[0].field.to_string(), "subcommand_description");
+    }
+
+    #[test]
+    fn render_import_summary_sanitizes_description_diff() {
+        use crate::alias::{AliasConflict, MergeResult};
+        use crate::{AliasDetail, AliasName};
+        let result = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts: vec![AliasConflict {
+                name: AliasName::from("gs"),
+                current: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("old".into()),
+                    raw: false,
+                }),
+                incoming: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("\x1B[31mPWNED\x1B[0m".into()),
+                    raw: false,
+                }),
+            }],
+        };
+        let output = render_import_summary("global", &result);
+        assert!(
+            !output.contains('\x1B'),
+            "raw escape leaked into rendered output:\n{output}"
+        );
+    }
+
+    #[test]
+    fn render_import_summary_subcommands_sanitizes_description_diff() {
+        use crate::subcommand::{SubcommandDetail, TomlSubcommand};
+        let result = SubcommandMergeResult {
+            new_subcommands: SubcommandSet::new(),
+            conflicts: vec![SubcommandConflict {
+                key: "jj:ab".into(),
+                current: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("old".into()),
+                }),
+                incoming: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("\x1B[31mPWNED\x1B[0m".into()),
+                }),
+            }],
+        };
+        let output = render_import_summary_subcommands("global", &result);
+        assert!(
+            !output.contains('\x1B'),
+            "raw escape leaked into rendered output:\n{output}"
         );
     }
 }

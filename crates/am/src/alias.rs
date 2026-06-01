@@ -121,7 +121,7 @@ pub struct AliasDetail {
         deserialize_with = "crate::described::deserialize_normalized_description"
     )]
     pub description: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub raw: bool,
 }
 
@@ -379,6 +379,45 @@ fancy = { command = "echo hi", description = "" }
             TomlAlias::Detailed(d) => assert_eq!(d.description, None),
             _ => panic!("expected Detailed"),
         }
+    }
+
+    #[test]
+    fn alias_detail_skips_raw_when_false() {
+        #[derive(Debug, serde::Serialize)]
+        struct Wrapper {
+            aliases: std::collections::BTreeMap<String, TomlAlias>,
+        }
+        let mut aliases = std::collections::BTreeMap::new();
+        aliases.insert(
+            "gs".to_string(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("short".into()),
+                raw: false,
+            }),
+        );
+        let wrapper = Wrapper { aliases };
+        let serialised = toml::to_string(&wrapper).unwrap();
+        assert!(
+            !serialised.contains("raw"),
+            "raw=false should be omitted from output, got:\n{serialised}"
+        );
+        // raw = true must still be emitted.
+        let mut aliases = std::collections::BTreeMap::new();
+        aliases.insert(
+            "my-awk".to_string(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "awk '{print $1}'".into(),
+                description: None,
+                raw: true,
+            }),
+        );
+        let wrapper = Wrapper { aliases };
+        let serialised = toml::to_string(&wrapper).unwrap();
+        assert!(
+            serialised.contains("raw = true"),
+            "raw = true must round-trip, got:\n{serialised}"
+        );
     }
 
     #[test]

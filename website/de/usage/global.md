@@ -19,6 +19,8 @@ am add -g gs "git status" -d "short git status"
 
 <VersionBadge v="0.10.0" /> Beschreibungen werden zusammen mit dem Alias gespeichert und beim Export/Import vollständig erhalten.
 
+`am add` ohne `-d` auf einem bereits beschriebenen Alias **erhält** die Beschreibung. Mit `-d ""` (leerer String) wird sie explizit gelöscht.
+
 ::: tip
 Kurzform: `am a -g gs git status`
 :::

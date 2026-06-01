@@ -758,6 +758,8 @@ mod tests {
         for c in "git status -sb".chars() {
             update(&mut model, TuiMessage::TextInputChar(c));
         }
+        // First Enter: Command → Description; second commits.
+        update(&mut model, TuiMessage::TextInputConfirm);
         update(&mut model, TuiMessage::TextInputConfirm);
         assert_eq!(model.mode, Mode::Normal);
         let profile = model
@@ -802,6 +804,9 @@ mod tests {
         for c in "gp".chars() {
             update(&mut model, TuiMessage::TextInputChar(c));
         }
+        // First Enter advances Name → Description; second triggers commit
+        // logic where the collision check rejects the rename.
+        update(&mut model, TuiMessage::TextInputConfirm);
         update(&mut model, TuiMessage::TextInputConfirm);
         match &model.mode {
             Mode::TextInput(TextInputState::EditAlias { error, .. }) => {
@@ -1016,6 +1021,9 @@ mod tests {
             target: AliasTarget::Global,
             original_key: None,
         });
+        // First Enter advances from Long → Description.
+        update(&mut model, TuiMessage::TextInputConfirm);
+        // Second Enter commits.
         update(&mut model, TuiMessage::TextInputConfirm);
         assert_eq!(model.mode, Mode::Normal);
         assert!(model
