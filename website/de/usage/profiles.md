@@ -16,6 +16,14 @@ am add -p rust ct "cargo test"
 am add -p rust cb "cargo build"
 ```
 
+Mit `-d` lässt sich eine optionale Beschreibung anhängen: <VersionBadge v="0.10.0" />
+
+```sh
+am add -p rust ct "cargo test" -d "Test-Suite ausführen"
+```
+
+Zur Preserve-vs-Clear-Semantik von `-d` siehe [Globale Aliase](/de/usage/global).
+
 ## Profile aktivieren
 
 ```sh
