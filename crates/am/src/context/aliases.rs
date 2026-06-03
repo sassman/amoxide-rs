@@ -209,15 +209,15 @@ mod tests {
 
     #[test]
     fn aliases_table_flattens_subcommand_wrappers() {
-        use crate::subcommand::SubcommandEntry;
+        use crate::subcommand::{SubcommandEntry, TomlSubcommand};
         let global = AliasSet::default();
         let mut global_subs = SubcommandSet::new();
         global_subs
             .as_mut()
-            .insert("git:pl".into(), Default::default());
+            .insert("git:pl".into(), TomlSubcommand::Expansion(vec![]));
         global_subs
             .as_mut()
-            .insert("git:psh".into(), Default::default());
+            .insert("git:psh".into(), TomlSubcommand::Expansion(vec![]));
         let global_vars = VarSet::default();
         let project = AliasSet::default();
         let project_subs = SubcommandSet::new();
@@ -240,11 +240,13 @@ mod tests {
                         program: "git".into(),
                         short_subcommands: vec!["pl".into()],
                         long_subcommands: vec!["pull --rebase".into()],
+                        description: None,
                     },
                     SubcommandEntry {
                         program: "git".into(),
                         short_subcommands: vec!["psh".into()],
                         long_subcommands: vec!["push".into()],
+                        description: None,
                     },
                 ],
                 base_cmd: None,
