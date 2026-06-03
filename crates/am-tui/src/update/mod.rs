@@ -46,6 +46,10 @@ pub fn update(model: &mut TuiModel, msg: TuiMessage) {
 
         TuiMessage::ToggleTrust => trust::handle(model),
 
+        TuiMessage::ToggleDescriptions => {
+            model.descriptions_visible = !model.descriptions_visible;
+        }
+
         TuiMessage::Quit | TuiMessage::Resize(_, _) => {} // handled at app layer
     }
 }
@@ -91,6 +95,7 @@ mod tests {
             active_column: crate::model::Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         }
     }
 
@@ -753,6 +758,8 @@ mod tests {
         for c in "git status -sb".chars() {
             update(&mut model, TuiMessage::TextInputChar(c));
         }
+        // First Enter: Command → Description; second commits.
+        update(&mut model, TuiMessage::TextInputConfirm);
         update(&mut model, TuiMessage::TextInputConfirm);
         assert_eq!(model.mode, Mode::Normal);
         let profile = model
@@ -797,6 +804,9 @@ mod tests {
         for c in "gp".chars() {
             update(&mut model, TuiMessage::TextInputChar(c));
         }
+        // First Enter advances Name → Description; second triggers commit
+        // logic where the collision check rejects the rename.
+        update(&mut model, TuiMessage::TextInputConfirm);
         update(&mut model, TuiMessage::TextInputConfirm);
         match &model.mode {
             Mode::TextInput(TextInputState::EditAlias { error, .. }) => {
@@ -812,7 +822,7 @@ mod tests {
         model
             .app_model
             .config
-            .add_alias("ll".into(), "ls -la".into(), false);
+            .add_alias("ll".into(), "ls -la".into(), false, None);
         model.rebuild_tree();
         assert_eq!(model.tree[model.cursor].kind, NodeKind::GlobalHeader);
         update(&mut model, TuiMessage::EditItem);
@@ -822,12 +832,10 @@ mod tests {
     #[test]
     fn test_start_add_alias_on_subcommand_program_header_opens_subcmd_editor() {
         let mut model = test_model("profiles = []");
-        model
-            .app_model
-            .config
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        model.app_model.config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            amoxide::TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         model.rebuild_tree();
         let idx = model
             .tree
@@ -852,6 +860,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::NewAlias {
             name: "git:".into(),
             command: String::new(),
+            description: String::new(),
             active_field: AliasField::Name,
             cursor: 4,
             target: AliasTarget::Global,
@@ -873,6 +882,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::NewAlias {
             name: "git:co".into(),
             command: String::new(),
+            description: String::new(),
             active_field: AliasField::Name,
             cursor: 6,
             target: AliasTarget::Global,
@@ -899,6 +909,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::NewAlias {
             name: "ll".into(),
             command: String::new(),
+            description: String::new(),
             active_field: AliasField::Name,
             cursor: 2,
             target: AliasTarget::Global,
@@ -919,6 +930,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into())],
+            description: String::new(),
             active_pair: 0,
             active_field: SubcommandField::Long,
             cursor: "abandon".len(),
@@ -948,6 +960,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "".into())],
+            description: String::new(),
             active_pair: 0,
             active_field: SubcommandField::Long,
             cursor: 0,
@@ -973,6 +986,7 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into()), ("".into(), "".into())],
+            description: String::new(),
             active_pair: 1,
             active_field: SubcommandField::Short,
             cursor: 0,
@@ -1000,12 +1014,16 @@ mod tests {
         model.mode = Mode::TextInput(TextInputState::SubcommandInput {
             program: "jj".into(),
             pairs: vec![("ab".into(), "abandon".into())],
+            description: String::new(),
             active_pair: 0,
             active_field: SubcommandField::Long,
             cursor: "abandon".len(),
             target: AliasTarget::Global,
             original_key: None,
         });
+        // First Enter advances from Long → Description.
+        update(&mut model, TuiMessage::TextInputConfirm);
+        // Second Enter commits.
         update(&mut model, TuiMessage::TextInputConfirm);
         assert_eq!(model.mode, Mode::Normal);
         assert!(model
@@ -1021,7 +1039,7 @@ mod tests {
         for (key, longs) in keys {
             config.subcommands.as_mut().insert(
                 key.to_string(),
-                longs.iter().map(|s| s.to_string()).collect(),
+                amoxide::TomlSubcommand::Expansion(longs.iter().map(|s| s.to_string()).collect()),
             );
         }
         let app_model = AppModel::new(config, ProfileConfig::default());
@@ -1050,6 +1068,7 @@ mod tests {
             active_column: crate::model::Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         }
     }
 

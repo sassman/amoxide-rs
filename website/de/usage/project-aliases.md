@@ -14,6 +14,14 @@ am add -l b "./x.py build"
 
 Wenn keine `.aliases`-Datei existiert, wird eine im aktuellen Verzeichnis erstellt. Wenn eine `.aliases`-Datei weiter oben im Verzeichnisbaum existiert, wirst du gefragt, ob du die Aliase dort hinzufügen möchtest.
 
+Mit `-d` lässt sich eine optionale Beschreibung anhängen: <VersionBadge v="0.10.0" />
+
+```sh
+am add -l t "./x.py test" -d "Test-Suite ausführen"
+```
+
+Zur Preserve-vs-Clear-Semantik von `-d` siehe [Globale Aliase](/de/usage/global).
+
 ## Projekt-Aliase entfernen <VersionBadge v="0.6.0" />
 
 Verwende dasselbe `-l`-Flag mit `am remove`:

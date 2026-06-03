@@ -106,7 +106,7 @@ impl Precedence {
             .as_ref()
             .iter()
             .filter(|(k, _)| k.starts_with(&format!("{program}:")))
-            .map(|(k, v)| format!("{k}={}", v.join(",")))
+            .map(|(k, v)| format!("{k}={}", v.expansions().join(",")))
             .collect::<Vec<_>>()
             .join(";");
         crate::trust::compute_short_hash(entries_str.as_bytes())
@@ -266,13 +266,13 @@ impl Precedence {
         // Per-key subcommand tracking for `_AM_SUBCOMMANDS`.
         let mut effective_subkeys: BTreeMap<String, EffectiveEntry> = BTreeMap::new();
         for (key, longs) in &merged_subcommands {
-            let hash = Self::subcmd_key_hash(longs);
+            let hash = Self::subcmd_key_hash(longs.expansions());
             effective_subkeys.insert(
                 key.clone(),
                 EffectiveEntry {
                     name: key.clone(),
                     kind: EntryKind::SubcommandKey {
-                        longs: longs.clone(),
+                        longs: longs.expansions().to_vec(),
                     },
                     hash,
                 },
@@ -386,6 +386,7 @@ fn resolve_layer_aliases(
 mod tests {
     use super::*;
     use crate::alias::AliasName;
+    use crate::subcommand::TomlSubcommand;
 
     fn profile_layer(name: &str, aliases: &AliasSet, subs: &SubcommandSet) -> ProfileLayer {
         ProfileLayer {
@@ -454,10 +455,15 @@ mod tests {
     #[test]
     fn hash_subcmd_program_includes_all_entries_under_it() {
         let mut a = SubcommandSet::new();
-        a.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
+        a.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let mut b = a.clone();
-        b.as_mut()
-            .insert("jj:bl".into(), vec!["branch".into(), "list".into()]);
+        b.as_mut().insert(
+            "jj:bl".into(),
+            TomlSubcommand::Expansion(vec!["branch".into(), "list".into()]),
+        );
 
         let h_a = Precedence::subcmd_program_hash_for_test("jj", &a);
         let h_b = Precedence::subcmd_program_hash_for_test("jj", &b);
@@ -626,8 +632,10 @@ mod tests {
     fn subset(pairs: &[(&str, &[&str])]) -> SubcommandSet {
         let mut s = SubcommandSet::new();
         for (k, longs) in pairs {
-            s.as_mut()
-                .insert((*k).into(), longs.iter().map(|x| (*x).into()).collect());
+            s.as_mut().insert(
+                (*k).into(),
+                TomlSubcommand::Expansion(longs.iter().map(|x| (*x).into()).collect()),
+            );
         }
         s
     }

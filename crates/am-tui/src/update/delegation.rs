@@ -77,6 +77,7 @@ mod tests {
             active_column: Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         }
     }
 
@@ -85,7 +86,13 @@ mod tests {
         let mut model = make_model();
         dispatch(
             &mut model,
-            Message::AddAlias("ll".into(), "ls -lha".into(), AliasTarget::Global, false),
+            Message::AddAlias(
+                "ll".into(),
+                "ls -lha".into(),
+                AliasTarget::Global,
+                false,
+                amoxide::DescriptionUpdate::Clear,
+            ),
         )
         .unwrap();
 
@@ -116,11 +123,18 @@ mod tests {
             active_column: Column::Left,
             scroll_offset: 0,
             status_line: None,
+            descriptions_visible: false,
         };
 
         dispatch(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias(
+                "t".into(),
+                "cargo test".into(),
+                AliasTarget::Local,
+                false,
+                amoxide::DescriptionUpdate::Clear,
+            ),
         )
         .unwrap();
 

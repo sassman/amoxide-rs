@@ -11,8 +11,8 @@ use crate::shell::Shell;
 use crate::shell::ShellContext;
 use crate::sync_outcome::{PathUpdate, ProjectTransition, SyncOutcome};
 use crate::trust::ProjectTrust;
+use crate::{described::Described, profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 use crate::{env_vars, update_check};
-use crate::{profile, AliasDisplayFilter, AliasTarget, Message, Profile};
 
 #[derive(Debug)]
 pub struct UpdateResult {
@@ -179,24 +179,46 @@ fn get_profile_mut<'a>(
 
 pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, UpdateError> {
     match message {
-        Message::AddAlias(name, cmd, target, raw) => match resolve_target(model, &target)? {
-            ConcreteScope::Global => {
-                model.config.add_alias(name, cmd, raw);
-                Ok(UpdateResult::effect(Effect::SaveConfig))
+        Message::AddAlias(name, cmd, target, raw, description) => {
+            let key = crate::AliasName::from(name.as_str());
+            match resolve_target(model, &target)? {
+                ConcreteScope::Global => {
+                    let existing = model
+                        .config
+                        .aliases
+                        .get(&key)
+                        .and_then(|a| a.description().map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    model.config.add_alias(name, cmd, raw, resolved);
+                    Ok(UpdateResult::effect(Effect::SaveConfig))
+                }
+                ConcreteScope::Local => {
+                    let existing = model
+                        .project_aliases()
+                        .and_then(|p| p.aliases.get(&key))
+                        .and_then(|a| a.description().map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    Ok(UpdateResult::effect(Effect::AddLocalAlias {
+                        name,
+                        cmd,
+                        raw,
+                        description: resolved,
+                    }))
+                }
+                ConcreteScope::Profile(profile_name) => {
+                    let existing = get_profile_mut(model, &profile_name)?
+                        .aliases
+                        .get(&key)
+                        .and_then(|a| a.description().map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    let profile = get_profile_mut(model, &profile_name)?;
+                    profile
+                        .add_alias(name, cmd, raw, resolved)
+                        .map_err(|e| UpdateError::Other(e.to_string()))?;
+                    Ok(UpdateResult::effect(Effect::SaveProfiles))
+                }
             }
-            ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalAlias {
-                name,
-                cmd,
-                raw,
-            })),
-            ConcreteScope::Profile(profile_name) => {
-                let profile = get_profile_mut(model, &profile_name)?;
-                profile
-                    .add_alias(name, cmd, raw)
-                    .map_err(|e| UpdateError::Other(e.to_string()))?;
-                Ok(UpdateResult::effect(Effect::SaveProfiles))
-            }
-        },
+        }
         Message::RemoveAlias(name, target) => match resolve_target(model, &target)? {
             ConcreteScope::Global => {
                 model
@@ -220,6 +242,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             new_name,
             new_command,
             raw,
+            description,
         } => {
             match resolve_target(model, &target)? {
                 ConcreteScope::Global => {
@@ -230,7 +253,9 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             target: "global".to_string(),
                         }
                     })?;
-                    model.config.add_alias(new_name, new_command, raw);
+                    model
+                        .config
+                        .add_alias(new_name, new_command, raw, description);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
                 ConcreteScope::Local => Ok(UpdateResult::with_effects(vec![
@@ -239,6 +264,7 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         name: new_name,
                         cmd: new_command,
                         raw,
+                        description,
                     },
                 ])),
                 ConcreteScope::Profile(profile_name) => {
@@ -252,25 +278,46 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                             target: format!("Profile: `{profile_name}`"),
                         })?;
                     profile
-                        .add_alias(new_name, new_command, raw)
+                        .add_alias(new_name, new_command, raw, description)
                         .map_err(|e| UpdateError::Other(e.to_string()))?;
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
         }
-        Message::AddSubcommandAlias(key, long_subcommands, target) => {
+        Message::AddSubcommandAlias(key, long_subcommands, target, description) => {
             match resolve_target(model, &target)? {
                 ConcreteScope::Global => {
-                    model.config.add_subcommand(key, long_subcommands);
+                    let existing = model
+                        .config
+                        .subcommands
+                        .as_ref()
+                        .get(&key)
+                        .and_then(|s| crate::Described::description(s).map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    model.config.add_subcommand(key, long_subcommands, resolved);
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
-                ConcreteScope::Local => Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
-                    key,
-                    long_subcommands,
-                })),
+                ConcreteScope::Local => {
+                    let existing = model
+                        .project_aliases()
+                        .and_then(|p| p.subcommands.as_ref().get(&key))
+                        .and_then(|s| crate::Described::description(s).map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
+                    Ok(UpdateResult::effect(Effect::AddLocalSubcommand {
+                        key,
+                        long_subcommands,
+                        description: resolved,
+                    }))
+                }
                 ConcreteScope::Profile(profile_name) => {
+                    let existing = get_profile_mut(model, &profile_name)?
+                        .subcommands
+                        .as_ref()
+                        .get(&key)
+                        .and_then(|s| crate::Described::description(s).map(str::to_owned));
+                    let resolved = description.resolve(existing.as_deref());
                     let profile = get_profile_mut(model, &profile_name)?;
-                    profile.add_subcommand(key, long_subcommands);
+                    profile.add_subcommand(key, long_subcommands, resolved);
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
@@ -292,25 +339,33 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             new_key,
             long_subcommands,
             target,
+            description,
         } => match resolve_target(model, &target)? {
             ConcreteScope::Global => {
                 model.config.subcommands.as_mut().remove(&original_key);
-                model.config.add_subcommand(new_key, long_subcommands);
+                model
+                    .config
+                    .add_subcommand(new_key, long_subcommands, description);
                 Ok(UpdateResult::effect(Effect::SaveConfig))
             }
             ConcreteScope::Local => Ok(UpdateResult::new(
-                Message::AddSubcommandAlias(new_key, long_subcommands, AliasTarget::Local),
+                Message::AddSubcommandAlias(
+                    new_key,
+                    long_subcommands,
+                    AliasTarget::Local,
+                    description.into(),
+                ),
                 vec![Effect::RemoveLocalSubcommand { key: original_key }],
             )),
             ConcreteScope::Profile(profile_name) => {
                 let profile = get_profile_mut(model, &profile_name)?;
                 profile.subcommands.as_mut().remove(&original_key);
-                profile.add_subcommand(new_key, long_subcommands);
+                profile.add_subcommand(new_key, long_subcommands, description);
                 Ok(UpdateResult::effect(Effect::SaveProfiles))
             }
         },
         Message::CopySubcommandAliases { keys, from, to } => {
-            let pairs: Vec<(String, Vec<String>)> = {
+            let pairs: Vec<(String, crate::subcommand::TomlSubcommand)> = {
                 let src_subcommands = match &from {
                     AliasTarget::Global => Some(&model.config.subcommands),
                     AliasTarget::Local => model.project_aliases().map(|p| &p.subcommands),
@@ -340,16 +395,21 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match to {
                 AliasTarget::Global => {
                     for (key, longs) in pairs {
-                        model.config.add_subcommand(key, longs);
+                        model.config.add_subcommand(
+                            key,
+                            longs.expansions().to_vec(),
+                            longs.description().map(str::to_string),
+                        );
                     }
                     Ok(UpdateResult::effect(Effect::SaveConfig))
                 }
                 AliasTarget::Local => {
                     let effects: Vec<Effect> = pairs
                         .into_iter()
-                        .map(|(key, long_subcommands)| Effect::AddLocalSubcommand {
+                        .map(|(key, longs)| Effect::AddLocalSubcommand {
                             key,
-                            long_subcommands,
+                            description: longs.description().map(str::to_string),
+                            long_subcommands: longs.expansions().to_vec(),
                         })
                         .collect();
                     Ok(UpdateResult::with_effects(effects))
@@ -357,14 +417,18 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
                     for (key, longs) in pairs {
-                        profile.add_subcommand(key, longs);
+                        profile.add_subcommand(
+                            key,
+                            longs.expansions().to_vec(),
+                            longs.description().map(str::to_string),
+                        );
                     }
                     Ok(UpdateResult::effect(Effect::SaveProfiles))
                 }
             }
         }
         Message::MoveSubcommandAliases { keys, from, to } => {
-            let pairs: Vec<(String, Vec<String>)> = {
+            let pairs: Vec<(String, crate::subcommand::TomlSubcommand)> = {
                 let src_subcommands = match &from {
                     AliasTarget::Global => Some(&model.config.subcommands),
                     AliasTarget::Local => model.project_aliases().map(|p| &p.subcommands),
@@ -437,7 +501,11 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
             match to {
                 AliasTarget::Global => {
                     for (key, longs) in pairs {
-                        model.config.add_subcommand(key, longs);
+                        model.config.add_subcommand(
+                            key,
+                            longs.expansions().to_vec(),
+                            longs.description().map(str::to_string),
+                        );
                     }
                     let needs_profiles =
                         matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile);
@@ -452,9 +520,10 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 AliasTarget::Local => {
                     let mut effects: Vec<Effect> = pairs
                         .into_iter()
-                        .map(|(key, long_subcommands)| Effect::AddLocalSubcommand {
+                        .map(|(key, longs)| Effect::AddLocalSubcommand {
                             key,
-                            long_subcommands,
+                            description: longs.description().map(str::to_string),
+                            long_subcommands: longs.expansions().to_vec(),
                         })
                         .collect();
                     if matches!(from, AliasTarget::Profile(_) | AliasTarget::ActiveProfile) {
@@ -467,7 +536,11 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                     let profile = resolve_profile_mut(model, &target)?;
                     for (key, longs) in pairs {
-                        profile.add_subcommand(key, longs);
+                        profile.add_subcommand(
+                            key,
+                            longs.expansions().to_vec(),
+                            longs.description().map(str::to_string),
+                        );
                     }
                     let needs_config = matches!(from, AliasTarget::Global);
                     let mut effects = remove_local_effects;
@@ -480,7 +553,11 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                 }
             }
         }
-        Message::ListProfiles { used } => {
+        Message::ListProfiles {
+            used,
+            descriptions,
+            term_width,
+        } => {
             let output = render_listing(
                 &model.config.aliases,
                 &model.config.subcommands,
@@ -494,6 +571,8 @@ pub fn update(model: &mut AppModel, message: Message) -> Result<UpdateResult, Up
                         None
                     }
                 },
+                descriptions,
+                term_width,
             );
             let mut effects = vec![Effect::Print(output)];
             if update_check_enabled(model) {
@@ -1206,7 +1285,7 @@ fn transfer_aliases(
 
     for id in aliases {
         // Read alias from source
-        let (cmd, raw) =
+        let (cmd, raw, description) =
             read_alias_from_model(model, id).ok_or_else(|| UpdateError::AliasNotFound {
                 name: id.name().to_string(),
                 target: format!("{}", id.target()),
@@ -1249,16 +1328,21 @@ fn transfer_aliases(
         let name = id.name().to_string();
         match to {
             AliasTarget::Global => {
-                model.config.add_alias(name, cmd, raw);
+                model.config.add_alias(name, cmd, raw, description);
                 needs_save_config = true;
             }
             AliasTarget::Local => {
-                effects.push(Effect::AddLocalAlias { name, cmd, raw });
+                effects.push(Effect::AddLocalAlias {
+                    name,
+                    cmd,
+                    raw,
+                    description,
+                });
             }
             target @ (AliasTarget::Profile(_) | AliasTarget::ActiveProfile) => {
                 let profile = resolve_profile_mut(model, target)?;
                 profile
-                    .add_alias(name, cmd, raw)
+                    .add_alias(name, cmd, raw, description)
                     .map_err(|e| UpdateError::Other(e.to_string()))?;
                 needs_save_profiles = true;
             }
@@ -1275,14 +1359,18 @@ fn transfer_aliases(
     Ok(UpdateResult::with_effects(effects))
 }
 
-fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(String, bool)> {
-    use crate::AliasId;
+fn read_alias_from_model(
+    model: &AppModel,
+    id: &crate::AliasId,
+) -> Option<(String, bool, Option<String>)> {
+    use crate::{AliasId, Described};
     match id {
         AliasId::Global { alias_name } => {
             let key = crate::AliasName::from(alias_name.as_str());
             model.config.aliases.get(&key).map(|a| {
                 let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
-                (a.command().to_string(), raw)
+                let description = a.description().map(str::to_string);
+                (a.command().to_string(), raw, description)
             })
         }
         AliasId::Profile {
@@ -1296,7 +1384,8 @@ fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(Strin
                 .and_then(|p| p.aliases.get(&key))
                 .map(|a| {
                     let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
-                    (a.command().to_string(), raw)
+                    let description = a.description().map(str::to_string);
+                    (a.command().to_string(), raw, description)
                 })
         }
         AliasId::Project { alias_name } => {
@@ -1306,7 +1395,8 @@ fn read_alias_from_model(model: &AppModel, id: &crate::AliasId) -> Option<(Strin
                 .and_then(|p| p.aliases.get(&key))
                 .map(|a| {
                     let raw = matches!(a, crate::TomlAlias::Detailed(d) if d.raw);
-                    (a.command().to_string(), raw)
+                    let description = a.description().map(str::to_string);
+                    (a.command().to_string(), raw, description)
                 })
         }
         AliasId::Subcommand { .. } => None,
@@ -1319,6 +1409,7 @@ mod tests {
     use crate::config::Config;
     use crate::effects::Effect;
     use crate::security::SecurityConfig;
+    use crate::subcommand::TomlSubcommand;
     use crate::ProfileConfig;
 
     #[test]
@@ -1483,11 +1574,10 @@ mod tests {
     #[test]
     fn update_subcommand_alias_replaces_key() {
         let mut model = AppModel::new(Config::default(), ProfileConfig::default());
-        model
-            .config
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        model.config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let result = update(
             &mut model,
             Message::UpdateSubcommandAlias {
@@ -1495,13 +1585,14 @@ mod tests {
                 new_key: "jj:a".into(),
                 long_subcommands: vec!["abandon".into()],
                 target: AliasTarget::Global,
+                description: None,
             },
         )
         .unwrap();
         assert!(!model.config.subcommands.as_ref().contains_key("jj:ab"));
         assert_eq!(
             model.config.subcommands.as_ref().get("jj:a"),
-            Some(&vec!["abandon".to_string()])
+            Some(&TomlSubcommand::Expansion(vec!["abandon".to_string()]))
         );
         assert!(result
             .effects
@@ -1512,11 +1603,10 @@ mod tests {
     #[test]
     fn copy_subcommand_aliases_adds_to_destination() {
         let mut model = AppModel::new(Config::default(), ProfileConfig::default());
-        model
-            .config
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        model.config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
             &mut model,
@@ -1530,7 +1620,7 @@ mod tests {
         let profile = model.profile_config().get_profile_by_name("rust").unwrap();
         assert_eq!(
             profile.subcommands.as_ref().get("jj:ab"),
-            Some(&vec!["abandon".to_string()])
+            Some(&TomlSubcommand::Expansion(vec!["abandon".to_string()]))
         );
         // Source preserved
         assert!(model.config.subcommands.as_ref().contains_key("jj:ab"));
@@ -1539,11 +1629,10 @@ mod tests {
     #[test]
     fn move_subcommand_aliases_removes_from_source() {
         let mut model = AppModel::new(Config::default(), ProfileConfig::default());
-        model
-            .config
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        model.config.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         model.profile_config_mut().add_profile("rust").unwrap();
         let _ = update(
             &mut model,
@@ -1568,7 +1657,11 @@ mod tests {
 
     #[test]
     fn update_result_message_has_message_and_no_effects() {
-        let r = UpdateResult::message(Message::ListProfiles { used: false });
+        let r = UpdateResult::message(Message::ListProfiles {
+            used: false,
+            descriptions: false,
+            term_width: None,
+        });
         assert!(r.next.is_some());
         assert!(r.effects.is_empty());
     }
@@ -1583,7 +1676,11 @@ mod tests {
     #[test]
     fn update_result_new_has_message_and_effects() {
         let r = UpdateResult::new(
-            Message::ListProfiles { used: false },
+            Message::ListProfiles {
+                used: false,
+                descriptions: false,
+                term_width: None,
+            },
             vec![Effect::SaveConfig, Effect::SaveProfiles],
         );
         assert!(r.next.is_some());
@@ -1605,7 +1702,13 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("ll".into(), "ls -lha".into(), AliasTarget::Global, false),
+            Message::AddAlias(
+                "ll".into(),
+                "ls -lha".into(),
+                AliasTarget::Global,
+                false,
+                crate::DescriptionUpdate::Preserve,
+            ),
         )
         .unwrap();
 
@@ -1628,6 +1731,7 @@ mod tests {
                 "ls -lha".into(),
                 AliasTarget::ActiveProfile,
                 false,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -1639,7 +1743,7 @@ mod tests {
     #[test]
     fn remove_global_alias_mutates_config_and_returns_save_config() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config = ProfileConfig::default();
         let mut model = AppModel::new(config, profile_config);
 
@@ -1657,7 +1761,7 @@ mod tests {
     fn remove_alias_active_profile_no_profiles_no_local_falls_back_to_global() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config = ProfileConfig::default();
         let mut model = AppModel::new(config, profile_config).with_cwd(dir.path().to_path_buf());
 
@@ -1679,7 +1783,13 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias(
+                "t".into(),
+                "cargo test".into(),
+                AliasTarget::Local,
+                false,
+                crate::DescriptionUpdate::Preserve,
+            ),
         )
         .unwrap();
 
@@ -1689,6 +1799,7 @@ mod tests {
                 name: "t".into(),
                 cmd: "cargo test".into(),
                 raw: false,
+                description: None,
             }]
         );
         assert!(model.config.aliases.is_empty());
@@ -1908,6 +2019,7 @@ mod tests {
                 "cargo test".into(),
                 AliasTarget::Profile("rust".into()),
                 false,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -2058,19 +2170,23 @@ mod tests {
                 "jj:ab".into(),
                 vec!["abandon".into()],
                 AliasTarget::Global,
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
 
         assert_eq!(model.config.subcommands.as_ref().len(), 1);
-        assert_eq!(model.config.subcommands.as_ref()["jj:ab"], vec!["abandon"]);
+        assert_eq!(
+            model.config.subcommands.as_ref()["jj:ab"],
+            TomlSubcommand::Expansion(vec!["abandon".to_string()])
+        );
         assert_eq!(result.effects, vec![Effect::SaveConfig]);
     }
 
     #[test]
     fn remove_global_subcommand_alias() {
         let mut config = Config::default();
-        config.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        config.add_subcommand("jj:ab".into(), vec!["abandon".into()], None);
         let profile_config = ProfileConfig::default();
         let mut model = AppModel::new(config, profile_config);
 
@@ -2092,7 +2208,12 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddSubcommandAlias("jj:ab".into(), vec!["abandon".into()], AliasTarget::Local),
+            Message::AddSubcommandAlias(
+                "jj:ab".into(),
+                vec!["abandon".into()],
+                AliasTarget::Local,
+                crate::DescriptionUpdate::Preserve,
+            ),
         )
         .unwrap();
 
@@ -2101,6 +2222,7 @@ mod tests {
             vec![Effect::AddLocalSubcommand {
                 key: "jj:ab".into(),
                 long_subcommands: vec!["abandon".into()],
+                description: None,
             }]
         );
     }
@@ -2118,6 +2240,7 @@ mod tests {
                 "cargo:t".into(),
                 vec!["test".into()],
                 AliasTarget::Profile("rust".into()),
+                crate::DescriptionUpdate::Preserve,
             ),
         )
         .unwrap();
@@ -2142,7 +2265,13 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias(
+                "t".into(),
+                "cargo test".into(),
+                AliasTarget::Local,
+                false,
+                crate::DescriptionUpdate::Preserve,
+            ),
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
     }
@@ -2185,7 +2314,13 @@ mod tests {
 
         let result = update(
             &mut model,
-            Message::AddAlias("t".into(), "cargo test".into(), AliasTarget::Local, false),
+            Message::AddAlias(
+                "t".into(),
+                "cargo test".into(),
+                AliasTarget::Local,
+                false,
+                crate::DescriptionUpdate::Preserve,
+            ),
         );
         assert!(matches!(result, Err(UpdateError::ProjectNotTrusted { .. })));
     }
@@ -2193,7 +2328,7 @@ mod tests {
     #[test]
     fn update_alias_renames_global_alias() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let mut model = AppModel::new(config, ProfileConfig::default());
 
         let result = update(
@@ -2204,6 +2339,7 @@ mod tests {
                 new_name: "la".into(),
                 new_command: "ls -lha".into(),
                 raw: false,
+                description: None,
             },
         )
         .unwrap();
@@ -2218,7 +2354,7 @@ mod tests {
     #[test]
     fn update_alias_changes_command_global() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let mut model = AppModel::new(config, ProfileConfig::default());
 
         update(
@@ -2229,6 +2365,7 @@ mod tests {
                 new_name: "ll".into(),
                 new_command: "ls -la".into(),
                 raw: false,
+                description: None,
             },
         )
         .unwrap();
@@ -2250,6 +2387,7 @@ mod tests {
                 new_name: "nope".into(),
                 new_command: "cmd".into(),
                 raw: false,
+                description: None,
             },
         );
         assert!(matches!(result, Err(UpdateError::AliasNotFound { .. })));
@@ -2258,7 +2396,7 @@ mod tests {
     #[test]
     fn move_aliases_from_global_to_profile() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config: ProfileConfig =
             toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
         let mut model = AppModel::new(config, profile_config);
@@ -2285,7 +2423,7 @@ mod tests {
     #[test]
     fn copy_aliases_preserves_source() {
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let profile_config: ProfileConfig =
             toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
         let mut model = AppModel::new(config, profile_config);
@@ -2308,12 +2446,81 @@ mod tests {
     }
 
     #[test]
+    fn copy_aliases_preserves_description() {
+        let mut config = Config::default();
+        config.add_alias(
+            "ll".into(),
+            "ls -lha".into(),
+            false,
+            Some("long listing".into()),
+        );
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        update(
+            &mut model,
+            Message::CopyAliases {
+                aliases: vec![crate::AliasId::Global {
+                    alias_name: "ll".into(),
+                }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        let alias = profile
+            .aliases
+            .get(&key)
+            .expect("alias should exist in profile");
+        assert_eq!(alias.description(), Some("long listing"));
+    }
+
+    #[test]
+    fn move_aliases_preserves_description() {
+        let mut config = Config::default();
+        config.add_alias(
+            "ll".into(),
+            "ls -lha".into(),
+            false,
+            Some("long listing".into()),
+        );
+        let profile_config: ProfileConfig =
+            toml::from_str("[[profiles]]\nname = \"nav\"\n").unwrap();
+        let mut model = AppModel::new(config, profile_config);
+
+        update(
+            &mut model,
+            Message::MoveAliases {
+                aliases: vec![crate::AliasId::Global {
+                    alias_name: "ll".into(),
+                }],
+                to: AliasTarget::Profile("nav".into()),
+            },
+        )
+        .unwrap();
+
+        let key = crate::AliasName::from("ll");
+        // Source should be gone
+        assert!(!model.config.aliases.contains_key(&key));
+        // Destination should have the description
+        let profile = model.profile_config().get_profile_by_name("nav").unwrap();
+        let alias = profile
+            .aliases
+            .get(&key)
+            .expect("alias should exist in profile");
+        assert_eq!(alias.description(), Some("long listing"));
+    }
+
+    #[test]
     fn move_to_untrusted_project_returns_error() {
         let dir = tempfile::tempdir().unwrap();
         let aliases_path = dir.path().join(".aliases");
         std::fs::write(&aliases_path, "[aliases]\n").unwrap();
         let mut config = Config::default();
-        config.add_alias("ll".into(), "ls -lha".into(), false);
+        config.add_alias("ll".into(), "ls -lha".into(), false, None);
         let mut security = SecurityConfig::default();
         security.untrust(&aliases_path);
         let mut model = AppModel::new_with_security(config, ProfileConfig::default(), security)
@@ -2415,7 +2622,9 @@ mod tests {
         fn save_config_writes_to_config_dir() {
             let dir = tempfile::tempdir().unwrap();
             let mut model = AppModel::load_from(dir.path().to_path_buf());
-            model.config.add_alias("ll".into(), "ls -lha".into(), false);
+            model
+                .config
+                .add_alias("ll".into(), "ls -lha".into(), false, None);
             model.save_config().unwrap();
 
             let saved = Config::load_from(dir.path()).unwrap();
@@ -2460,9 +2669,16 @@ mod tests {
                 checked_at_secs: u64::MAX / 2,
                 latest_version: "999.999.999".into(),
             });
-            update(&mut model, Message::ListProfiles { used: false })
-                .unwrap()
-                .effects
+            update(
+                &mut model,
+                Message::ListProfiles {
+                    used: false,
+                    descriptions: false,
+                    term_width: None,
+                },
+            )
+            .unwrap()
+            .effects
         }
 
         #[test]
@@ -2476,9 +2692,16 @@ mod tests {
         fn no_cache_emits_spawn_after_print() {
             let mut model = AppModel::new(Config::default(), ProfileConfig::default());
             model.update_cache = None;
-            let effects = update(&mut model, Message::ListProfiles { used: false })
-                .unwrap()
-                .effects;
+            let effects = update(
+                &mut model,
+                Message::ListProfiles {
+                    used: false,
+                    descriptions: false,
+                    term_width: None,
+                },
+            )
+            .unwrap()
+            .effects;
             assert!(matches!(effects.first(), Some(Effect::Print(_))));
             assert!(matches!(effects.get(1), Some(Effect::SpawnUpdateCheck)));
         }
@@ -2490,9 +2713,16 @@ mod tests {
                 checked_at_secs: u64::MAX / 2,
                 latest_version: env!("CARGO_PKG_VERSION").into(),
             });
-            let effects = update(&mut model, Message::ListProfiles { used: false })
-                .unwrap()
-                .effects;
+            let effects = update(
+                &mut model,
+                Message::ListProfiles {
+                    used: false,
+                    descriptions: false,
+                    term_width: None,
+                },
+            )
+            .unwrap()
+            .effects;
             assert_eq!(effects.len(), 1);
             assert!(matches!(effects.first(), Some(Effect::Print(_))));
         }
@@ -2502,9 +2732,16 @@ mod tests {
             let mut model = AppModel::new(Config::default(), ProfileConfig::default());
             model.config.update.check = false;
             model.update_cache = None; // would normally spawn
-            let effects = update(&mut model, Message::ListProfiles { used: false })
-                .unwrap()
-                .effects;
+            let effects = update(
+                &mut model,
+                Message::ListProfiles {
+                    used: false,
+                    descriptions: false,
+                    term_width: None,
+                },
+            )
+            .unwrap()
+            .effects;
             assert_eq!(effects.len(), 1);
             assert!(matches!(effects.first(), Some(Effect::Print(_))));
         }

@@ -3,9 +3,9 @@ use std::fmt;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
-use crate::subcommand::SubcommandSet;
+use crate::subcommand::{SubcommandSet, TomlSubcommand};
 use crate::vars::VarSet;
-use crate::{AliasSet, Profile, ProjectAliases};
+use crate::{AliasSet, Described, Profile, ProjectAliases};
 
 /// Current export-file format version. Written into `[meta]` by every export.
 pub const EXPORT_FORMAT_VERSION: u32 = 2;
@@ -217,8 +217,8 @@ pub struct SubcommandMergeResult {
 #[derive(Debug)]
 pub struct SubcommandConflict {
     pub key: String,
-    pub current: Vec<String>,
-    pub incoming: Vec<String>,
+    pub current: TomlSubcommand,
+    pub incoming: TomlSubcommand,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -280,11 +280,13 @@ pub fn subcommand_merge_check(
                     .as_mut()
                     .insert(key.clone(), incoming_longs.clone());
             }
-            Some(existing_longs) => {
-                if existing_longs != incoming_longs {
+            Some(existing) => {
+                let same = existing.expansions() == incoming_longs.expansions()
+                    && Described::description(existing) == Described::description(incoming_longs);
+                if !same {
                     conflicts.push(SubcommandConflict {
                         key: key.clone(),
-                        current: existing_longs.clone(),
+                        current: existing.clone(),
                         incoming: incoming_longs.clone(),
                     });
                 }
@@ -398,8 +400,28 @@ pub fn render_import_summary(scope_name: &str, result: &MergeResult) -> String {
         ));
         for conflict in &result.conflicts {
             output.push_str(&format!("\n    {}:\n", conflict.name.as_ref()));
-            output.push_str(&format!("      - {}\n", conflict.current.command()));
-            output.push_str(&format!("      + {}\n", conflict.incoming.command()));
+            if conflict.current.command() != conflict.incoming.command() {
+                output.push_str(&format!("      - {}\n", conflict.current.command()));
+                output.push_str(&format!("      + {}\n", conflict.incoming.command()));
+            }
+            let cur_desc = conflict.current.description();
+            let inc_desc = conflict.incoming.description();
+            if cur_desc != inc_desc {
+                output.push_str(&format!(
+                    "      - # {}\n",
+                    cur_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
+                output.push_str(&format!(
+                    "      + # {}\n",
+                    inc_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
+            }
         }
     }
 
@@ -445,7 +467,11 @@ pub fn render_import_summary_subcommands(
     if !result.new_subcommands.is_empty() {
         output.push_str("\n  new:\n");
         for (key, longs) in &result.new_subcommands {
-            output.push_str(&format!("    {} \u{2192} {}\n", key, longs.join(" ")));
+            output.push_str(&format!(
+                "    {} \u{2192} {}\n",
+                key,
+                longs.expansions().join(" ")
+            ));
         }
     }
 
@@ -457,8 +483,34 @@ pub fn render_import_summary_subcommands(
         ));
         for conflict in &result.conflicts {
             output.push_str(&format!("\n    {}:\n", conflict.key));
-            output.push_str(&format!("      - {}\n", conflict.current.join(" ")));
-            output.push_str(&format!("      + {}\n", conflict.incoming.join(" ")));
+            if conflict.current.expansions() != conflict.incoming.expansions() {
+                output.push_str(&format!(
+                    "      - {}\n",
+                    conflict.current.expansions().join(" ")
+                ));
+                output.push_str(&format!(
+                    "      + {}\n",
+                    conflict.incoming.expansions().join(" ")
+                ));
+            }
+            let cur_desc = Described::description(&conflict.current);
+            let inc_desc = Described::description(&conflict.incoming);
+            if cur_desc != inc_desc {
+                output.push_str(&format!(
+                    "      - # {}\n",
+                    cur_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
+                output.push_str(&format!(
+                    "      + # {}\n",
+                    inc_desc
+                        .map(sanitize_for_display)
+                        .as_deref()
+                        .unwrap_or("(none)")
+                ));
+            }
         }
     }
 
@@ -570,9 +622,11 @@ impl fmt::Display for Scope {
 pub enum SuspiciousField {
     AliasName,
     AliasCommand,
+    AliasDescription,
     ProfileName,
     SubcommandKey,
     SubcommandExpansion,
+    SubcommandDescription,
     VarName,
     VarValue,
 }
@@ -582,9 +636,11 @@ impl fmt::Display for SuspiciousField {
         match self {
             SuspiciousField::AliasName => write!(f, "name"),
             SuspiciousField::AliasCommand => write!(f, "command"),
+            SuspiciousField::AliasDescription => write!(f, "description"),
             SuspiciousField::ProfileName => write!(f, "profile_name"),
             SuspiciousField::SubcommandKey => write!(f, "subcommand_key"),
             SuspiciousField::SubcommandExpansion => write!(f, "subcommand_expansion"),
+            SuspiciousField::SubcommandDescription => write!(f, "subcommand_description"),
             SuspiciousField::VarName => write!(f, "var_name"),
             SuspiciousField::VarValue => write!(f, "var_value"),
         }
@@ -682,6 +738,24 @@ impl SuspiciousAlias {
         }
     }
 
+    pub fn alias_description(scope: Scope, name: &str, description: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(name),
+            field: SuspiciousField::AliasDescription,
+            raw_value: RawValue::new(description),
+        }
+    }
+
+    pub fn subcommand_description(scope: Scope, key: &str, description: &str) -> Self {
+        Self {
+            scope,
+            alias_name: SanitizedName::new(key),
+            field: SuspiciousField::SubcommandDescription,
+            raw_value: RawValue::new(description),
+        }
+    }
+
     pub fn var_name(scope: Scope, name: &str) -> Self {
         Self {
             scope,
@@ -727,6 +801,15 @@ pub fn scan_suspicious(parsed: &ExportAll) -> Vec<SuspiciousAlias> {
                     alias.command(),
                 ));
             }
+            if let Some(desc) = alias.description() {
+                if has_suspicious_chars(desc) {
+                    findings.push(SuspiciousAlias::alias_description(
+                        scope.clone(),
+                        name.as_ref(),
+                        desc,
+                    ));
+                }
+            }
         }
         scan_subcommands(&mut findings, scope.clone(), &profile.subcommands);
         scan_vars(&mut findings, scope, &profile.vars);
@@ -757,6 +840,15 @@ fn scan_bundle(findings: &mut Vec<SuspiciousAlias>, scope: Scope, bundle: &Scope
         if has_suspicious_chars(alias.command()) {
             findings.push(mk_command(name.as_ref(), alias.command()));
         }
+        if let Some(desc) = alias.description() {
+            if has_suspicious_chars(desc) {
+                findings.push(SuspiciousAlias::alias_description(
+                    scope.clone(),
+                    name.as_ref(),
+                    desc,
+                ));
+            }
+        }
     }
     scan_subcommands(findings, scope.clone(), &bundle.subcommands);
     scan_vars(findings, scope, &bundle.vars);
@@ -771,12 +863,21 @@ fn scan_subcommands(
         if has_suspicious_chars(key) {
             findings.push(SuspiciousAlias::subcommand_key(scope.clone(), key));
         }
-        for expansion in longs {
+        for expansion in longs.expansions() {
             if has_suspicious_chars(expansion) {
                 findings.push(SuspiciousAlias::subcommand_expansion(
                     scope.clone(),
                     key,
                     expansion,
+                ));
+            }
+        }
+        if let Some(desc) = Described::description(longs) {
+            if has_suspicious_chars(desc) {
+                findings.push(SuspiciousAlias::subcommand_description(
+                    scope.clone(),
+                    key,
+                    desc,
                 ));
             }
         }
@@ -1297,26 +1398,27 @@ mod tests {
     #[test]
     fn test_flatten_subcommands_merges_all_scopes() {
         let mut export = ExportAll::default();
-        export
-            .global
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        export.global.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         export.profiles.push(Profile {
             name: "vcs".into(),
             aliases: AliasSet::default(),
             subcommands: {
                 let mut s = SubcommandSet::new();
-                s.as_mut().insert("jj:d".into(), vec!["diff".into()]);
+                s.as_mut().insert(
+                    "jj:d".into(),
+                    TomlSubcommand::Expansion(vec!["diff".into()]),
+                );
                 s
             },
             vars: Default::default(),
         });
-        export
-            .local
-            .subcommands
-            .as_mut()
-            .insert("git:psh".into(), vec!["push".into()]);
+        export.local.subcommands.as_mut().insert(
+            "git:psh".into(),
+            TomlSubcommand::Expansion(vec!["push".into()]),
+        );
 
         let flat = export.flatten_subcommands();
         assert_eq!(flat.as_ref().len(), 3);
@@ -1328,18 +1430,20 @@ mod tests {
     #[test]
     fn test_flatten_subcommands_local_wins_over_global() {
         let mut export = ExportAll::default();
-        export
-            .global
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        export.global.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         export.local.subcommands.as_mut().insert(
             "jj:ab".into(),
-            vec!["abandon", "!"].into_iter().map(String::from).collect(),
+            TomlSubcommand::Expansion(vec!["abandon", "!"].into_iter().map(String::from).collect()),
         );
 
         let flat = export.flatten_subcommands();
-        assert_eq!(flat.as_ref()["jj:ab"], vec!["abandon", "!"]);
+        assert_eq!(
+            flat.as_ref()["jj:ab"],
+            TomlSubcommand::Expansion(vec!["abandon".to_string(), "!".to_string()])
+        );
     }
 
     // ─── subcommand_merge_check ──────────────────────────────────────────
@@ -1348,9 +1452,10 @@ mod tests {
     fn test_merge_check_new_entries() {
         let current = SubcommandSet::new();
         let mut incoming = SubcommandSet::new();
-        incoming
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        incoming.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
 
         let result = subcommand_merge_check(&current, &incoming);
         assert_eq!(result.new_subcommands.as_ref().len(), 1);
@@ -1360,16 +1465,19 @@ mod tests {
     #[test]
     fn test_merge_check_conflict() {
         let mut current = SubcommandSet::new();
-        current
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        current.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let mut incoming = SubcommandSet::new();
         incoming.as_mut().insert(
             "jj:ab".into(),
-            vec!["abandon", "--detach"]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            TomlSubcommand::Expansion(
+                vec!["abandon", "--detach"]
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
+            ),
         );
 
         let result = subcommand_merge_check(&current, &incoming);
@@ -1381,17 +1489,43 @@ mod tests {
     #[test]
     fn test_merge_check_identical_entry_skipped() {
         let mut current = SubcommandSet::new();
-        current
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        current.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let mut incoming = SubcommandSet::new();
-        incoming
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        incoming.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
 
         let result = subcommand_merge_check(&current, &incoming);
         assert!(result.new_subcommands.is_empty());
         assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn subcommand_merge_check_description_change_is_conflict() {
+        use crate::subcommand::SubcommandDetail;
+        let mut current = SubcommandSet::new();
+        current.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("old".into()),
+            }),
+        );
+        let mut incoming = SubcommandSet::new();
+        incoming.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("new".into()),
+            }),
+        );
+        let result = subcommand_merge_check(&current, &incoming);
+        assert!(result.new_subcommands.is_empty());
+        assert_eq!(result.conflicts.len(), 1);
     }
 
     // ─── render_import_summary ───────────────────────────────────────────
@@ -1435,9 +1569,10 @@ mod tests {
     #[test]
     fn test_render_import_summary_subcommands_new_only() {
         let mut new_subcommands = SubcommandSet::new();
-        new_subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        new_subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let result = SubcommandMergeResult {
             new_subcommands,
             conflicts: vec![],
@@ -1455,8 +1590,8 @@ mod tests {
             new_subcommands: SubcommandSet::new(),
             conflicts: vec![SubcommandConflict {
                 key: "jj:ab".into(),
-                current: vec!["abandon".into()],
-                incoming: vec!["abandon".into(), "--detach".into()],
+                current: TomlSubcommand::Expansion(vec!["abandon".into()]),
+                incoming: TomlSubcommand::Expansion(vec!["abandon".into(), "--detach".into()]),
             }],
         };
         let output = render_import_summary_subcommands("global", &result);
@@ -1470,11 +1605,10 @@ mod tests {
     #[test]
     fn test_scan_suspicious_subcommand_key() {
         let mut export = ExportAll::default();
-        export
-            .global
-            .subcommands
-            .as_mut()
-            .insert("jj:\x1Bab".into(), vec!["abandon".into()]);
+        export.global.subcommands.as_mut().insert(
+            "jj:\x1Bab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].field.to_string(), "subcommand_key");
@@ -1484,11 +1618,10 @@ mod tests {
     #[test]
     fn test_scan_suspicious_subcommand_expansion() {
         let mut export = ExportAll::default();
-        export
-            .local
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["aban\x07don".into()]);
+        export.local.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["aban\x07don".into()]),
+        );
         let findings = scan_suspicious(&export);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].field.to_string(), "subcommand_expansion");
@@ -1503,8 +1636,10 @@ mod tests {
                 aliases: AliasSet::default(),
                 subcommands: {
                     let mut s = SubcommandSet::new();
-                    s.as_mut()
-                        .insert("jj:ab".into(), vec!["aban\x1Bdon".into()]);
+                    s.as_mut().insert(
+                        "jj:ab".into(),
+                        TomlSubcommand::Expansion(vec!["aban\x1Bdon".into()]),
+                    );
                     s
                 },
                 vars: Default::default(),
@@ -1522,22 +1657,20 @@ mod tests {
     #[test]
     fn test_export_all_is_empty_false_with_global_subcommands() {
         let mut export = ExportAll::default();
-        export
-            .global
-            .subcommands
-            .as_mut()
-            .insert("jj:ab".into(), vec!["abandon".into()]);
+        export.global.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         assert!(!export.is_empty());
     }
 
     #[test]
     fn test_export_all_is_empty_false_with_local_subcommands() {
         let mut export = ExportAll::default();
-        export
-            .local
-            .subcommands
-            .as_mut()
-            .insert("git:psh".into(), vec!["push".into()]);
+        export.local.subcommands.as_mut().insert(
+            "git:psh".into(),
+            TomlSubcommand::Expansion(vec!["push".into()]),
+        );
         assert!(!export.is_empty());
     }
 
@@ -1547,5 +1680,205 @@ mod tests {
     fn test_base64_decode_invalid_input() {
         let result = base64_decode("not-valid-base64!!!");
         assert!(result.is_err());
+    }
+
+    // ─── description-only conflict suppresses command/expansion lines ─────
+
+    #[test]
+    fn render_import_summary_description_only_conflict_omits_command_lines() {
+        use crate::alias::{AliasConflict, MergeResult};
+        use crate::{AliasDetail, AliasName};
+        let result = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts: vec![AliasConflict {
+                name: AliasName::from("gs"),
+                current: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("short".into()),
+                    raw: false,
+                }),
+                incoming: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("detailed status".into()),
+                    raw: false,
+                }),
+            }],
+        };
+        let output = render_import_summary("global", &result);
+        // Command lines suppressed because both sides are identical
+        let command_lines: Vec<&str> = output
+            .lines()
+            .filter(|l| l.trim_start().starts_with("- git") || l.trim_start().starts_with("+ git"))
+            .collect();
+        assert!(
+            command_lines.is_empty(),
+            "expected no command lines for description-only conflict, got:\n{output}"
+        );
+        // Description diff still appears
+        assert!(output.contains("short"));
+        assert!(output.contains("detailed status"));
+    }
+
+    #[test]
+    fn render_import_summary_subcommands_expansion_only_conflict_omits_expansion_lines() {
+        use crate::subcommand::{SubcommandDetail, TomlSubcommand};
+        let result = SubcommandMergeResult {
+            new_subcommands: SubcommandSet::new(),
+            conflicts: vec![SubcommandConflict {
+                key: "jj:ab".into(),
+                current: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("old".into()),
+                }),
+                incoming: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("new".into()),
+                }),
+            }],
+        };
+        let output = render_import_summary_subcommands("global", &result);
+        let expansion_lines: Vec<&str> = output
+            .lines()
+            .filter(|l| {
+                l.trim_start().starts_with("- abandon") || l.trim_start().starts_with("+ abandon")
+            })
+            .collect();
+        assert!(
+            expansion_lines.is_empty(),
+            "expected no expansion lines for description-only conflict, got:\n{output}"
+        );
+    }
+
+    // ─── scan_suspicious: description fields ─────────────────────────────
+
+    #[test]
+    fn test_scan_suspicious_detects_global_alias_description() {
+        let mut export = ExportAll::default();
+        export.global.aliases.insert(
+            "gs".into(),
+            TomlAlias::Detailed(crate::AliasDetail {
+                command: "git status".into(),
+                description: Some("\x1B[31mPWNED\x1B[0m".into()),
+                raw: false,
+            }),
+        );
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "global");
+        assert_eq!(findings[0].alias_name.to_string(), "gs");
+        assert_eq!(findings[0].field.to_string(), "description");
+    }
+
+    #[test]
+    fn test_scan_suspicious_detects_local_alias_description() {
+        let mut export = ExportAll::default();
+        export.local.aliases.insert(
+            "t".into(),
+            TomlAlias::Detailed(crate::AliasDetail {
+                command: "cargo test".into(),
+                description: Some("run \x07tests".into()),
+                raw: false,
+            }),
+        );
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "local");
+        assert_eq!(findings[0].field.to_string(), "description");
+    }
+
+    #[test]
+    fn test_scan_suspicious_detects_profile_alias_description() {
+        let export = ExportAll {
+            profiles: vec![Profile {
+                name: "git".into(),
+                aliases: {
+                    let mut a = AliasSet::default();
+                    a.insert(
+                        "gs".into(),
+                        TomlAlias::Detailed(crate::AliasDetail {
+                            command: "git status".into(),
+                            description: Some("\x1B[2Jhide".into()),
+                            raw: false,
+                        }),
+                    );
+                    a
+                },
+                subcommands: Default::default(),
+                vars: Default::default(),
+            }],
+            ..Default::default()
+        };
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "profile:git");
+        assert_eq!(findings[0].field.to_string(), "description");
+    }
+
+    #[test]
+    fn test_scan_suspicious_detects_subcommand_description() {
+        use crate::subcommand::{SubcommandDetail, TomlSubcommand};
+        let mut export = ExportAll::default();
+        export.global.subcommands.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("\x1B[31mtaken\x1B[0m".into()),
+            }),
+        );
+        let findings = scan_suspicious(&export);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].scope.to_string(), "global");
+        assert_eq!(findings[0].field.to_string(), "subcommand_description");
+    }
+
+    #[test]
+    fn render_import_summary_sanitizes_description_diff() {
+        use crate::alias::{AliasConflict, MergeResult};
+        use crate::{AliasDetail, AliasName};
+        let result = MergeResult {
+            new_aliases: AliasSet::default(),
+            conflicts: vec![AliasConflict {
+                name: AliasName::from("gs"),
+                current: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("old".into()),
+                    raw: false,
+                }),
+                incoming: TomlAlias::Detailed(AliasDetail {
+                    command: "git status".into(),
+                    description: Some("\x1B[31mPWNED\x1B[0m".into()),
+                    raw: false,
+                }),
+            }],
+        };
+        let output = render_import_summary("global", &result);
+        assert!(
+            !output.contains('\x1B'),
+            "raw escape leaked into rendered output:\n{output}"
+        );
+    }
+
+    #[test]
+    fn render_import_summary_subcommands_sanitizes_description_diff() {
+        use crate::subcommand::{SubcommandDetail, TomlSubcommand};
+        let result = SubcommandMergeResult {
+            new_subcommands: SubcommandSet::new(),
+            conflicts: vec![SubcommandConflict {
+                key: "jj:ab".into(),
+                current: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("old".into()),
+                }),
+                incoming: TomlSubcommand::Detailed(SubcommandDetail {
+                    expansions: vec!["abandon".into()],
+                    description: Some("\x1B[31mPWNED\x1B[0m".into()),
+                }),
+            }],
+        };
+        let output = render_import_summary_subcommands("global", &result);
+        assert!(
+            !output.contains('\x1B'),
+            "raw escape leaked into rendered output:\n{output}"
+        );
     }
 }

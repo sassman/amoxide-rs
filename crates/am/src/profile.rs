@@ -4,7 +4,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::dirs::config_dir;
-use crate::subcommand::SubcommandSet;
+use crate::subcommand::{SubcommandSet, TomlSubcommand};
 use crate::{AliasDetail, AliasName, AliasSet, Result, TomlAlias};
 
 /// A collection of aliases (regular and/or subcommand) that can report its
@@ -260,13 +260,19 @@ impl Profile {
         }
     }
 
-    pub fn add_alias(&mut self, name: String, command: String, raw: bool) -> Result<()> {
+    pub fn add_alias(
+        &mut self,
+        name: String,
+        command: String,
+        raw: bool,
+        description: Option<String>,
+    ) -> Result<()> {
         let key: AliasName = name.into();
-        let alias = if raw {
+        let alias = if description.is_some() || raw {
             TomlAlias::Detailed(AliasDetail {
                 command,
-                description: None,
-                raw: true,
+                description,
+                raw,
             })
         } else {
             TomlAlias::Command(command)
@@ -283,8 +289,20 @@ impl Profile {
         Ok(())
     }
 
-    pub fn add_subcommand(&mut self, key: String, long_subcommands: Vec<String>) {
-        self.subcommands.as_mut().insert(key, long_subcommands);
+    pub fn add_subcommand(
+        &mut self,
+        key: String,
+        long_subcommands: Vec<String>,
+        description: Option<String>,
+    ) {
+        let value = match description {
+            Some(d) => TomlSubcommand::Detailed(crate::subcommand::SubcommandDetail {
+                expansions: long_subcommands,
+                description: Some(d),
+            }),
+            None => TomlSubcommand::Expansion(long_subcommands),
+        };
+        self.subcommands.as_mut().insert(key, value);
     }
 
     pub fn remove_subcommand(&mut self, key: &str) -> Result<()> {
@@ -432,7 +450,7 @@ mod tests {
         let mut config = ProfileConfig::default();
         let mut profile = Profile::new("git".into());
         profile
-            .add_alias("gs".into(), "git status".into(), false)
+            .add_alias("gs".into(), "git status".into(), false, None)
             .unwrap();
         config.merge_profile(profile);
         assert_eq!(config.len(), 1);
@@ -450,10 +468,10 @@ mod tests {
         .unwrap();
         let mut incoming = Profile::new("git".into());
         incoming
-            .add_alias("gp".into(), "git push".into(), false)
+            .add_alias("gp".into(), "git push".into(), false, None)
             .unwrap();
         incoming
-            .add_alias("gs".into(), "git status -s".into(), false)
+            .add_alias("gs".into(), "git status -s".into(), false, None)
             .unwrap();
         config.merge_profile(incoming);
         assert_eq!(config.len(), 1);
@@ -513,7 +531,7 @@ mod tests {
     fn alias_collection_is_not_empty_with_regular_alias() {
         let mut profile = Profile::new("git".into());
         profile
-            .add_alias("gs".into(), "git status".into(), false)
+            .add_alias("gs".into(), "git status".into(), false, None)
             .unwrap();
         assert!(!profile.is_empty());
     }
@@ -521,7 +539,7 @@ mod tests {
     #[test]
     fn alias_collection_is_not_empty_with_subcommand() {
         let mut profile = Profile::new("jj".into());
-        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
+        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()], None);
         assert!(!profile.is_empty());
     }
 
@@ -529,10 +547,10 @@ mod tests {
     fn alias_collection_len_counts_both() {
         let mut profile = Profile::new("mixed".into());
         profile
-            .add_alias("gs".into(), "git status".into(), false)
+            .add_alias("gs".into(), "git status".into(), false, None)
             .unwrap();
-        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
-        profile.add_subcommand("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()], None);
+        profile.add_subcommand("jj:b:l".into(), vec!["branch".into(), "list".into()], None);
         assert_eq!(profile.len(), 3); // 1 alias + 2 subcommand entries
     }
 
@@ -556,8 +574,8 @@ mod tests {
     #[test]
     fn alias_collection_short_list_subcommands_only() {
         let mut profile = Profile::new("jj".into());
-        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()]);
-        profile.add_subcommand("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+        profile.add_subcommand("jj:ab".into(), vec!["abandon".into()], None);
+        profile.add_subcommand("jj:b:l".into(), vec!["branch".into(), "list".into()], None);
         let list = profile.short_list();
         assert!(list.contains("◆ jj"), "expected '◆ jj' in '{list}'");
         assert!(list.contains("ab"), "expected 'ab' in '{list}'");

@@ -32,6 +32,26 @@ editor = "hx"
 
 The `[vars]` table <VersionBadge v="0.9.0" /> holds reusable values referenced as `{{name}}` inside alias commands. See [Variables](/usage/variables) for resolution rules.
 
+Aliases can be written in either compact or detailed form:
+
+```toml
+[aliases]
+ll = "ls -lha"                                            # compact
+gs = { command = "git status", description = "status" }   # detailed
+```
+
+<VersionBadge v="0.10.0" /> The detailed form lets you attach a description.
+
+Subcommand aliases similarly accept a detailed form for descriptions:
+
+```toml
+[subcommands]
+"jj:ab"  = ["abandon"]                                                            # compact
+"jj:b:l" = { expansions = ["branch", "list"], description = "list branches" }     # detailed
+```
+
+<VersionBadge v="0.10.0" />
+
 ## `config.toml` — Shell Options
 
 Shell-specific rendering options can be set under the `[shell.<name>]` section.

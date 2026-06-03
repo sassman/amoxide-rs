@@ -17,6 +17,7 @@ path = "src/main.rs"
 amoxide.workspace = true
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 anyhow = "1.0"
+unicode-width = "0.2"
 
 [dev-dependencies]
 amoxide = { workspace = true, features = ["test-util"] }

@@ -1,7 +1,77 @@
 use std::path::Path;
 
+use unicode_width::UnicodeWidthStr;
+
+use crate::described::Described;
 use crate::trust::ProjectTrust;
 use crate::{AliasDisplayFilter, AliasSet, Profile, ProfileConfig};
+
+// ── alignment types ───────────────────────────────────────────────────────────
+
+#[derive(Debug)]
+struct Row {
+    prefix: String,
+    body: String,
+    description: Option<String>,
+}
+
+impl Row {
+    fn width(&self) -> usize {
+        self.prefix.width() + self.body.width()
+    }
+}
+
+const HASH_GAP_PADDED: &str = "  # ";
+const HASH_GAP_INLINE: &str = " # ";
+
+fn compute_target_column(rows: &[OutputItem]) -> usize {
+    rows.iter()
+        .filter_map(|item| match item {
+            OutputItem::Row(r) if r.description.is_some() => Some(r.width()),
+            _ => None,
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+fn render_row(row: &Row, target_col: usize, term_width: Option<usize>) -> String {
+    let mut out = format!("{}{}", row.prefix, row.body);
+    let Some(desc) = row.description.as_deref() else {
+        return out;
+    };
+    let line_width = row.width();
+    let padded_width = target_col + HASH_GAP_PADDED.width() + desc.width();
+
+    // Per spec: padded form when it fits the terminal; otherwise inline
+    // (shorter). When even inline overflows, still emit inline and let the
+    // terminal wrap — padding only makes the overflow worse.
+    let use_inline = match term_width {
+        Some(w) => padded_width > w,
+        None => false,
+    };
+
+    if use_inline {
+        out.push_str(HASH_GAP_INLINE);
+        out.push_str(desc);
+    } else {
+        let pad = target_col.saturating_sub(line_width);
+        out.push_str(&" ".repeat(pad));
+        out.push_str(HASH_GAP_PADDED);
+        out.push_str(desc);
+    }
+    out
+}
+
+// ── output item enum ──────────────────────────────────────────────────────────
+
+enum OutputItem {
+    /// Raw text written as-is (headers, trunk lines, blank separators).
+    Header(String),
+    /// An alias / subcommand entry that participates in column alignment.
+    Row(Row),
+}
+
+// ── display_path helper ───────────────────────────────────────────────────────
 
 /// Display a path as `~/…` when it falls under the user's home directory.
 fn display_path(path: &Path) -> String {
@@ -13,23 +83,30 @@ fn display_path(path: &Path) -> String {
     path.display().to_string()
 }
 
-/// Render one section's aliases and subcommand groups with `├─`/`╰─` connectors.
+// ── render_items ──────────────────────────────────────────────────────────────
+
+/// Append one section's aliases and subcommand groups into `items`.
 ///
-/// `prefix` is prepended before each connector — it carries the outer trunk
-/// context (e.g. `"│ "` under global, `"│   "` inside an active profile, `"  "` under project).
+/// `prefix` carries the outer trunk context (e.g. `"│  "` under global).
+/// Headers and trunk lines are pushed as `OutputItem::Header`; alias /
+/// subcommand entries are pushed as `OutputItem::Row`.
 fn render_items(
-    output: &mut String,
+    items: &mut Vec<OutputItem>,
     prefix: &str,
     aliases: &AliasSet,
     subcommands: &crate::subcommand::SubcommandSet,
 ) {
     let subcmd_groups = subcommands.group_by_program();
 
-    // Chain aliases then subcommand groups into one peekable stream.
-    // Each "item" is rendered with ├─ unless peek() returns None (last item).
-    let alias_items: Vec<(String, String)> = aliases
+    let alias_items: Vec<(String, String, Option<String>)> = aliases
         .iter()
-        .map(|(k, v)| (k.as_ref().to_string(), v.command().to_string()))
+        .map(|(k, v)| {
+            (
+                k.as_ref().to_string(),
+                v.command().to_string(),
+                v.description().map(str::to_owned),
+            )
+        })
         .collect();
     let group_items: Vec<(String, Vec<crate::subcommand::SubcommandEntry>)> =
         subcmd_groups.into_iter().collect();
@@ -37,14 +114,22 @@ fn render_items(
     let alias_count = alias_items.len();
     let total = alias_count + group_items.len();
 
-    for (i, (name, cmd)) in alias_items.iter().enumerate() {
+    for (i, (name, cmd, desc)) in alias_items.iter().enumerate() {
         let is_last = i + 1 == total;
         let conn = if is_last {
             "\u{2570}\u{2500}"
         } else {
             "\u{251c}\u{2500}"
         };
-        output.push_str(&format!("\n{prefix}{conn} {name} \u{2192} {cmd}"));
+        // Keep the leading newline separate so Row.width() is purely visual.
+        items.push(OutputItem::Header("\n".to_string()));
+        let prefix_str = format!("{prefix}{conn} ");
+        let body = format!("{name} \u{2192} {cmd}");
+        items.push(OutputItem::Row(Row {
+            prefix: prefix_str,
+            body,
+            description: desc.clone(),
+        }));
     }
 
     for (gi, (program, entries)) in group_items.iter().enumerate() {
@@ -54,10 +139,10 @@ fn render_items(
         } else {
             "\u{251c}\u{2500}"
         };
-        output.push_str(&format!("\n{prefix}{conn}\u{25c6} {program} (subcommands)"));
+        items.push(OutputItem::Header(format!(
+            "\n{prefix}{conn}\u{25c6} {program} (subcommands)"
+        )));
 
-        // Continuation prefix for items inside the group.
-        // ├─ keeps a trunk; ╰─ uses spaces only.
         let inner: String = if is_last {
             format!("{}  ", prefix)
         } else {
@@ -73,10 +158,17 @@ fn render_items(
             };
             let shorts = entry.short_subcommands.join(" ");
             let longs = entry.long_subcommands.join(" ");
-            output.push_str(&format!("\n{inner}{entry_conn} {shorts} \u{2192} {longs}"));
+            items.push(OutputItem::Header("\n".to_string()));
+            items.push(OutputItem::Row(Row {
+                prefix: format!("{inner}{entry_conn} "),
+                body: format!("{shorts} \u{2192} {longs}"),
+                description: entry.description.clone(),
+            }));
         }
     }
 }
+
+// ── render_listing ────────────────────────────────────────────────────────────
 
 /// Render profiles + project aliases as a complete two-zone listing.
 ///
@@ -85,6 +177,7 @@ fn render_items(
 ///
 /// **Inactive zone** (flat, alphabetical):
 ///   remaining profiles
+#[allow(clippy::too_many_arguments)]
 pub fn render_listing(
     global_aliases: &AliasSet,
     global_subcommands: &crate::subcommand::SubcommandSet,
@@ -92,8 +185,10 @@ pub fn render_listing(
     active_profiles: &[String],
     project: Option<&ProjectTrust>,
     filter: Option<AliasDisplayFilter>,
+    descriptions: bool,
+    term_width: Option<usize>,
 ) -> String {
-    let mut output = String::new();
+    let mut items: Vec<OutputItem> = Vec::new();
 
     // Collect active profiles in activation order
     let active_ordered: Vec<&Profile> = active_profiles
@@ -107,28 +202,26 @@ pub fn render_listing(
         .filter(|p| !active_profiles.contains(&p.name))
         .collect();
 
-    // Determine if there are items after global in the active zone
     let has_active_items = !active_ordered.is_empty() || project.is_some();
 
     // ── Active zone ──────────────────────────────────────────────
 
-    // Global header (always present)
-    output.push_str("\u{1f310} global");
+    // Global header
+    items.push(OutputItem::Header("\u{1f310} global".to_string()));
     let global_prefix = if has_active_items {
         "\u{2502}  "
     } else {
         "   "
     };
     render_items(
-        &mut output,
+        &mut items,
         global_prefix,
         global_aliases,
         global_subcommands,
     );
 
-    // Blank line under global aliases (trunk continues if more items)
     if has_active_items {
-        output.push_str("\n\u{2502}");
+        items.push(OutputItem::Header("\n\u{2502}".to_string()));
     }
 
     // Active profiles
@@ -148,24 +241,21 @@ pub fn render_listing(
         };
         let trunk = if is_last_active_item { " " } else { "\u{2502}" };
 
-        output.push_str(&format!(
+        items.push(OutputItem::Header(format!(
             "\n{connector}\u{25cf} {} (active: {order})",
             profile.name
-        ));
+        )));
 
-        // Items are indented under the profile connector (├─● or ╰─●).
-        // Trunk width is 1 char (│ or space); we add 3 spaces to align past ─●·.
         let profile_prefix = format!("{trunk}   ");
         render_items(
-            &mut output,
+            &mut items,
             &profile_prefix,
             &profile.aliases,
             &profile.subcommands,
         );
 
-        // Blank line after profile (trunk continues if not last)
         if !is_last_active_item {
-            output.push_str(&format!("\n{trunk}"));
+            items.push(OutputItem::Header(format!("\n{trunk}")));
         }
     }
 
@@ -174,38 +264,41 @@ pub fn render_listing(
         let path = trust.path();
         match trust {
             ProjectTrust::Trusted(proj, _) => {
-                output.push_str(&format!(
+                items.push(OutputItem::Header(format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
                     display_path(path)
-                ));
-                render_items(&mut output, "  ", &proj.aliases, &proj.subcommands);
+                )));
+                render_items(&mut items, "  ", &proj.aliases, &proj.subcommands);
             }
             ProjectTrust::Unknown(_) => {
-                output.push_str(&format!(
+                items.push(OutputItem::Header(format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
                     display_path(path)
+                )));
+                items.push(OutputItem::Header(
+                    "\n       \u{26A0} untrusted \u{2014} run 'am trust' to review and allow"
+                        .to_string(),
                 ));
-                output.push_str(
-                    "\n       \u{26A0} untrusted \u{2014} run 'am trust' to review and allow",
-                );
             }
             ProjectTrust::Tampered(_) => {
-                output.push_str(&format!(
+                items.push(OutputItem::Header(format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
                     display_path(path)
+                )));
+                items.push(OutputItem::Header(
+                    "\n       \u{26A0} modified since last trust \u{2014} run 'am trust' to review and allow"
+                        .to_string(),
                 ));
-                output.push_str(
-                    "\n       \u{26A0} modified since last trust \u{2014} run 'am trust' to review and allow",
-                );
             }
             ProjectTrust::Untrusted(_) => {
-                output.push_str(&format!(
+                items.push(OutputItem::Header(format!(
                     "\n\u{2570}\u{2500}\u{1f4c1} project ({})",
                     display_path(path)
+                )));
+                items.push(OutputItem::Header(
+                    "\n       \u{26A0} blocked \u{2014} run 'am untrust --forget' to reset"
+                        .to_string(),
                 ));
-                output.push_str(
-                    "\n       \u{26A0} blocked \u{2014} run 'am untrust --forget' to reset",
-                );
             }
         }
     }
@@ -213,16 +306,39 @@ pub fn render_listing(
     // ── Inactive zone ────────────────────────────────────────────
 
     if !matches!(filter, Some(AliasDisplayFilter::Used)) && !inactive.is_empty() {
-        output.push('\n');
+        items.push(OutputItem::Header("\n".to_string()));
         for profile in &inactive {
-            output.push_str(&format!("\n\u{25cb} {}", profile.name));
-            render_items(&mut output, "  ", &profile.aliases, &profile.subcommands);
-            output.push('\n');
+            items.push(OutputItem::Header(format!("\n\u{25cb} {}", profile.name)));
+            render_items(&mut items, "  ", &profile.aliases, &profile.subcommands);
+            items.push(OutputItem::Header("\n".to_string()));
+        }
+    }
+
+    // ── Two-pass rendering ────────────────────────────────────────
+
+    // If descriptions are disabled, clear them before computing column width.
+    if !descriptions {
+        for item in &mut items {
+            if let OutputItem::Row(row) = item {
+                row.description = None;
+            }
+        }
+    }
+
+    let target_col = compute_target_column(&items);
+
+    let mut output = String::new();
+    for item in &items {
+        match item {
+            OutputItem::Header(s) => output.push_str(s),
+            OutputItem::Row(row) => output.push_str(&render_row(row, target_col, term_width)),
         }
     }
 
     output
 }
+
+// ── render_profiles ───────────────────────────────────────────────────────────
 
 /// Render profiles as a two-zone display (active zone + inactive zone).
 ///
@@ -288,6 +404,8 @@ pub fn render_profiles(config: &ProfileConfig, active_profiles: &[String]) -> St
 
     lines.join("\n")
 }
+
+// ── tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -398,6 +516,8 @@ mod tests {
             &["rust".to_string()],
             None,
             None,
+            false,
+            None,
         );
         // Global with trunk
         assert!(output.contains("🌐 global"));
@@ -433,6 +553,8 @@ mod tests {
             &["git".to_string(), "rust".to_string()],
             Some(&trust),
             None,
+            false,
+            None,
         );
         assert!(output.contains("├─● git (active: 1)"));
         assert!(output.contains("├─● rust (active: 2)"));
@@ -455,6 +577,8 @@ mod tests {
             &config,
             &["rust".to_string()],
             None,
+            None,
+            false,
             None,
         );
         assert!(output.contains("╰─● rust (active: 1)"));
@@ -481,6 +605,8 @@ mod tests {
             &["rust".to_string()],
             None,
             None,
+            false,
+            None,
         );
         assert!(output.contains("╰─● rust (active: 1)"));
         assert!(output.contains("○ foo"));
@@ -497,6 +623,8 @@ mod tests {
             &config,
             &[],
             None,
+            None,
+            false,
             None,
         );
         assert!(output.contains("🌐 global"));
@@ -526,6 +654,8 @@ mod tests {
             &["default".to_string()],
             Some(&trust),
             None,
+            false,
+            None,
         );
         assert!(output.contains("● default (active: 1)"));
         assert!(output.contains("📁 project"));
@@ -545,6 +675,8 @@ mod tests {
             &config,
             &["default".to_string()],
             None,
+            None,
+            false,
             None,
         );
         assert!(output.contains("● default (active: 1)"));
@@ -572,6 +704,8 @@ mod tests {
             &["active".to_string()],
             None,
             Some(AliasDisplayFilter::Used),
+            false,
+            None,
         );
 
         assert!(
@@ -590,17 +724,288 @@ mod tests {
 
     #[test]
     fn test_listing_global_subcommands() {
-        use crate::subcommand::SubcommandSet;
+        use crate::subcommand::{SubcommandSet, TomlSubcommand};
 
         let config: ProfileConfig = ProfileConfig::default();
         let mut subs = SubcommandSet::new();
-        subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
-        subs.as_mut()
-            .insert("jj:b:l".into(), vec!["branch".into(), "list".into()]);
+        subs.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
+        subs.as_mut().insert(
+            "jj:b:l".into(),
+            TomlSubcommand::Expansion(vec!["branch".into(), "list".into()]),
+        );
 
-        let output = render_listing(&AliasSet::default(), &subs, &config, &[], None, None);
+        let output = render_listing(
+            &AliasSet::default(),
+            &subs,
+            &config,
+            &[],
+            None,
+            None,
+            false,
+            None,
+        );
         assert!(output.contains("jj (subcommands)"));
         assert!(output.contains("ab → abandon"));
         assert!(output.contains("b l → branch list"));
+    }
+
+    // ── new alignment tests ───────────────────────────────────────────────────
+
+    #[test]
+    fn listing_with_descriptions_pads_to_global_column() {
+        let config = make_config(indoc! {r#"
+            [[profiles]]
+            name = "rust"
+            [profiles.aliases]
+            b = { command = "cargo b --release", description = "release build" }
+            t = { command = "cargo test --all-features", description = "run all tests" }
+        "#});
+
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "ll".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "ls -lha".into(),
+                description: Some("long listing".into()),
+                raw: false,
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &["rust".to_string()],
+            None,
+            None,
+            /* descriptions */ true,
+            /* term_width */ Some(120),
+        );
+
+        // All three described rows align at the same `#` column.
+        // Use char-count (not byte offset) so multi-byte unicode box-drawing
+        // chars are counted as single columns, matching terminal display width.
+        let lines: Vec<&str> = output.lines().filter(|l| l.contains('#')).collect();
+        let hash_cols: Vec<usize> = lines
+            .iter()
+            .map(|l| l.chars().take_while(|&c| c != '#').count())
+            .collect();
+        assert!(
+            hash_cols.windows(2).all(|w| w[0] == w[1]),
+            "`#` columns not aligned: {hash_cols:?}\n{output}"
+        );
+    }
+
+    #[test]
+    fn listing_aligns_descriptions_with_wide_unicode_chars() {
+        // Verify the alignment math uses display width (CJK = 2 cols), not
+        // chars().count(). Two rows: one ASCII command, one CJK command.
+        // Their `#` columns must line up by display width.
+        let config = ProfileConfig::default();
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "ascii".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "ls".into(),
+                description: Some("a".into()),
+                raw: false,
+            }),
+        );
+        globals.insert(
+            "cjk".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "你好世界".into(), // 4 CJK chars, display width 8
+                description: Some("b".into()),
+                raw: false,
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &[],
+            None,
+            None,
+            true,
+            Some(120),
+        );
+
+        let hash_cols: Vec<usize> = output
+            .lines()
+            .filter(|l| l.contains('#'))
+            .map(|l| {
+                use unicode_width::UnicodeWidthStr;
+                let prefix: String = l.chars().take_while(|&c| c != '#').collect();
+                prefix.width()
+            })
+            .collect();
+        assert!(
+            hash_cols.len() == 2 && hash_cols[0] == hash_cols[1],
+            "`#` columns not aligned by display width: {hash_cols:?}\n{output}"
+        );
+    }
+
+    #[test]
+    fn listing_uses_inline_form_when_both_padded_and_inline_overflow() {
+        let config = ProfileConfig::default();
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "verylongname".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "this is a fairly long command line".into(),
+                description: Some("desc".into()),
+                raw: false,
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &[],
+            None,
+            None,
+            /* descriptions */ true,
+            /* term_width */ Some(20), // narrow enough that even inline overflows
+        );
+
+        // Long row must use single-space inline form (" # "), not padded ("  # "),
+        // because padding only makes the overflow worse.
+        let long_line = output
+            .lines()
+            .find(|l| l.contains("verylongname"))
+            .expect("long row missing");
+        assert!(
+            long_line.contains("command line # desc"),
+            "expected inline form when both overflow, got:\n{long_line}\nfull output:\n{output}"
+        );
+        assert!(
+            !long_line.contains("command line  # desc"),
+            "should not pad when both forms overflow:\n{long_line}"
+        );
+    }
+
+    #[test]
+    fn listing_with_descriptions_falls_back_to_inline_when_narrow() {
+        let config: ProfileConfig = ProfileConfig::default();
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "verylongname".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "this is a fairly long command line".into(),
+                description: Some("desc".into()),
+                raw: false,
+            }),
+        );
+        globals.insert(
+            "x".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "y".into(),
+                description: Some("d".into()),
+                raw: false,
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &config,
+            &[],
+            None,
+            None,
+            /* descriptions */ true,
+            /* term_width */ Some(40), // too narrow to pad
+        );
+
+        // The short row gets inline form, not padded out to the long row's column.
+        let short_line = output.lines().find(|l| l.contains("x \u{2192} y")).unwrap();
+        let single_space_before_hash = short_line.contains("y # d");
+        assert!(
+            single_space_before_hash,
+            "expected inline form on narrow terminal:\n{output}"
+        );
+    }
+
+    #[test]
+    fn listing_subcommand_descriptions_align_with_alias_descriptions() {
+        use crate::subcommand::{SubcommandDetail, SubcommandSet, TomlSubcommand};
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "ll".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "ls -lha".into(),
+                description: Some("long listing".into()),
+                raw: false,
+            }),
+        );
+
+        let mut subs = SubcommandSet::new();
+        subs.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Detailed(SubcommandDetail {
+                expansions: vec!["abandon".into()],
+                description: Some("toss the change".into()),
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &subs,
+            &ProfileConfig::default(),
+            &[],
+            None,
+            None,
+            /* descriptions */ true,
+            /* term_width */ Some(120),
+        );
+
+        // Find the two lines that carry `#` (the alias and the subcommand entry)
+        let described_lines: Vec<&str> = output.lines().filter(|l| l.contains('#')).collect();
+        assert_eq!(
+            described_lines.len(),
+            2,
+            "expected 2 described lines, got {}:\n{output}",
+            described_lines.len()
+        );
+        let hash_cols: Vec<usize> = described_lines
+            .iter()
+            .map(|l| l.find('#').unwrap())
+            .collect();
+        assert_eq!(
+            hash_cols[0], hash_cols[1],
+            "subcommand and alias descriptions not aligned: {hash_cols:?}\n{output}"
+        );
+        assert!(output.contains("toss the change"));
+        assert!(output.contains("long listing"));
+    }
+
+    #[test]
+    fn listing_without_descriptions_flag_omits_them_entirely() {
+        let mut globals = AliasSet::default();
+        globals.insert(
+            "ll".into(),
+            crate::TomlAlias::Detailed(crate::AliasDetail {
+                command: "ls -lha".into(),
+                description: Some("long listing".into()),
+                raw: false,
+            }),
+        );
+
+        let output = render_listing(
+            &globals,
+            &crate::subcommand::SubcommandSet::new(),
+            &ProfileConfig::default(),
+            &[],
+            None,
+            None,
+            /* descriptions */ false,
+            Some(120),
+        );
+        assert!(!output.contains('#'));
+        assert!(!output.contains("long listing"));
     }
 }

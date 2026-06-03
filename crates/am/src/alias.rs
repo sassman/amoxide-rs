@@ -2,6 +2,8 @@ use std::{collections::BTreeMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
+use crate::Described;
+
 #[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct AliasName<T: AsRef<str> = String>(T);
 
@@ -83,7 +85,9 @@ impl AliasSet {
                     new_aliases.insert(name.clone(), incoming_alias.clone());
                 }
                 Some(existing_alias) => {
-                    if existing_alias.command() != incoming_alias.command() {
+                    let same = existing_alias.command() == incoming_alias.command()
+                        && existing_alias.description() == incoming_alias.description();
+                    if !same {
                         conflicts.push(AliasConflict {
                             name: name.clone(),
                             current: existing_alias.clone(),
@@ -111,8 +115,13 @@ pub enum TomlAlias {
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct AliasDetail {
     pub command: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::described::deserialize_normalized_description"
+    )]
     pub description: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub raw: bool,
 }
 
@@ -136,6 +145,15 @@ impl TomlAlias {
         match self {
             TomlAlias::Command(cmd) => cmd,
             TomlAlias::Detailed(d) => &d.command,
+        }
+    }
+}
+
+impl crate::Described for TomlAlias {
+    fn description(&self) -> Option<&str> {
+        match self {
+            TomlAlias::Command(_) => None,
+            TomlAlias::Detailed(d) => d.description.as_deref(),
         }
     }
 }
@@ -301,5 +319,128 @@ fancy = { command = "echo hi", description = "A fancy alias" }
         let result = existing.merge_check(&AliasSet::default());
         assert!(result.new_aliases.is_empty());
         assert!(result.conflicts.is_empty());
+    }
+
+    #[test]
+    fn merge_check_description_change_is_conflict() {
+        use crate::AliasDetail;
+        let mut existing = AliasSet::default();
+        existing.insert(
+            "gs".into(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("old".into()),
+                raw: false,
+            }),
+        );
+        let mut incoming = AliasSet::default();
+        incoming.insert(
+            "gs".into(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("new".into()),
+                raw: false,
+            }),
+        );
+        let result = existing.merge_check(&incoming);
+        assert!(result.new_aliases.is_empty());
+        assert_eq!(result.conflicts.len(), 1);
+    }
+
+    #[test]
+    fn merge_check_added_description_is_conflict() {
+        let mut existing = AliasSet::default();
+        existing.insert("gs".into(), TomlAlias::Command("git status".into()));
+        let mut incoming = AliasSet::default();
+        incoming.insert(
+            "gs".into(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("new".into()),
+                raw: false,
+            }),
+        );
+        let result = existing.merge_check(&incoming);
+        assert_eq!(result.conflicts.len(), 1);
+    }
+
+    #[test]
+    fn alias_serde_empty_description_field_normalises_to_none() {
+        #[derive(Debug, serde::Deserialize)]
+        struct Wrapper {
+            aliases: std::collections::BTreeMap<AliasName, TomlAlias>,
+        }
+        let toml_str = r#"
+[aliases]
+fancy = { command = "echo hi", description = "" }
+"#;
+        let parsed: Wrapper = toml::from_str(toml_str).unwrap();
+        match &parsed.aliases[&AliasName::from("fancy")] {
+            TomlAlias::Detailed(d) => assert_eq!(d.description, None),
+            _ => panic!("expected Detailed"),
+        }
+    }
+
+    #[test]
+    fn alias_detail_skips_raw_when_false() {
+        #[derive(Debug, serde::Serialize)]
+        struct Wrapper {
+            aliases: std::collections::BTreeMap<String, TomlAlias>,
+        }
+        let mut aliases = std::collections::BTreeMap::new();
+        aliases.insert(
+            "gs".to_string(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "git status".into(),
+                description: Some("short".into()),
+                raw: false,
+            }),
+        );
+        let wrapper = Wrapper { aliases };
+        let serialised = toml::to_string(&wrapper).unwrap();
+        assert!(
+            !serialised.contains("raw"),
+            "raw=false should be omitted from output, got:\n{serialised}"
+        );
+        // raw = true must still be emitted.
+        let mut aliases = std::collections::BTreeMap::new();
+        aliases.insert(
+            "my-awk".to_string(),
+            TomlAlias::Detailed(AliasDetail {
+                command: "awk '{print $1}'".into(),
+                description: None,
+                raw: true,
+            }),
+        );
+        let wrapper = Wrapper { aliases };
+        let serialised = toml::to_string(&wrapper).unwrap();
+        assert!(
+            serialised.contains("raw = true"),
+            "raw = true must round-trip, got:\n{serialised}"
+        );
+    }
+
+    #[test]
+    fn test_described_trait_for_toml_alias() {
+        use crate::Described;
+        assert_eq!(TomlAlias::Command("ls".into()).description(), None);
+        assert_eq!(
+            TomlAlias::Detailed(AliasDetail {
+                command: "ls".into(),
+                description: None,
+                raw: false,
+            })
+            .description(),
+            None
+        );
+        assert_eq!(
+            TomlAlias::Detailed(AliasDetail {
+                command: "ls".into(),
+                description: Some("list".into()),
+                raw: false,
+            })
+            .description(),
+            Some("list")
+        );
     }
 }

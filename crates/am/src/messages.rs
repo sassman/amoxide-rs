@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::described::DescriptionUpdate;
 use crate::exchange::ImportPayload;
 use crate::shell::Shell;
 
@@ -24,7 +25,7 @@ impl Display for AliasTarget {
 
 #[derive(Debug)]
 pub enum Message {
-    AddAlias(String, String, AliasTarget, bool),
+    AddAlias(String, String, AliasTarget, bool, DescriptionUpdate),
     RemoveAlias(String, AliasTarget),
     /// Update an alias in place — renames, changes command, or both.
     UpdateAlias {
@@ -33,6 +34,7 @@ pub enum Message {
         new_name: String,
         new_command: String,
         raw: bool,
+        description: Option<String>,
     },
     InitShell(Shell, bool),
     Sync(Shell, bool),
@@ -44,6 +46,8 @@ pub enum Message {
     RemoveProfile(String),
     ListProfiles {
         used: bool,
+        descriptions: bool,
+        term_width: Option<usize>,
     },
     CreateProfile(String),
     /// Rename a profile, preserving its aliases and activation state.
@@ -54,13 +58,14 @@ pub enum Message {
 
     Import(ImportPayload),
 
-    AddSubcommandAlias(String, Vec<String>, AliasTarget),
+    AddSubcommandAlias(String, Vec<String>, AliasTarget, DescriptionUpdate),
     RemoveSubcommandAlias(String, AliasTarget),
     UpdateSubcommandAlias {
         original_key: String,
         new_key: String,
         long_subcommands: Vec<String>,
         target: AliasTarget,
+        description: Option<String>,
     },
     CopySubcommandAliases {
         keys: Vec<String>,

@@ -260,9 +260,15 @@ impl AppModel {
         name: &str,
         cmd: &str,
         raw: bool,
+        description: Option<&str>,
     ) -> crate::Result<()> {
         self.save_project_with(|project| {
-            project.add_alias(name.to_string(), cmd.to_string(), raw);
+            project.add_alias(
+                name.to_string(),
+                cmd.to_string(),
+                raw,
+                description.map(str::to_string),
+            );
             Ok(())
         })
     }
@@ -280,9 +286,14 @@ impl AppModel {
         &mut self,
         key: &str,
         long_subcommands: &[String],
+        description: Option<&str>,
     ) -> crate::Result<()> {
         self.save_project_with(|project| {
-            project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+            project.add_subcommand(
+                key.to_string(),
+                long_subcommands.to_vec(),
+                description.map(str::to_string),
+            );
             Ok(())
         })
     }

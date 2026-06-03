@@ -32,6 +32,14 @@ am add -g jj:b:l branch list
 Kurzform: `am a -g jj:ab abandon`
 :::
 
+Subcommand-Aliase akzeptieren ebenfalls `-d/--description`:
+
+```bash
+am add -g jj --sub b branch --sub l list -d "list all branches"
+```
+
+<VersionBadge v="0.10.0" />
+
 Die Scope-Flags funktionieren genauso wie bei regulären Aliasen:
 
 | Flag | Scope |

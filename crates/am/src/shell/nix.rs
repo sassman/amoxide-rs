@@ -188,6 +188,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon".into()],
+            description: None,
         }];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
         // No alias entry for jj → no unalias guard needed
@@ -203,6 +204,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon".into()],
+            description: None,
         }];
         let output = NixShell.subcommand_wrapper("jj", "just-a-joke", &entries);
         // jj has an alias entry (just-a-joke) → clear any existing alias before the function
@@ -218,6 +220,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["ab".into()],
             long_subcommands: vec!["abandon --rev {{1}}".into()],
+            description: None,
         }];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("ab) shift; command jj abandon --rev \"$1\" ;;"));
@@ -231,6 +234,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["l".into()],
             long_subcommands: vec!["log --template {{@}}".into()],
+            description: None,
         }];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("l) shift; command jj log --template \"$@\" ;;"));
@@ -242,6 +246,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["b".into(), "l".into()],
             long_subcommands: vec!["branch".into(), "list --limit {{1}}".into()],
+            description: None,
         }];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("l) shift 2; command jj branch list --limit \"$1\" ;;"));
@@ -253,6 +258,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["anon".into()],
             long_subcommands: vec!["log -r 'anon()'".into()],
+            description: None,
         }];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("anon) shift; command jj log -r 'anon()' \"$@\" ;;"));
@@ -265,11 +271,13 @@ mod tests {
                 program: "jj".into(),
                 short_subcommands: vec!["ab".into()],
                 long_subcommands: vec!["abandon".into()],
+                description: None,
             },
             SubcommandEntry {
                 program: "jj".into(),
                 short_subcommands: vec!["b".into(), "l".into()],
                 long_subcommands: vec!["branch".into(), "list".into()],
+                description: None,
             },
         ];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
@@ -285,6 +293,7 @@ mod tests {
             program: "jj".into(),
             short_subcommands: vec!["b".into(), "l".into(), "x".into()],
             long_subcommands: vec!["branch".into(), "list".into(), "extra".into()],
+            description: None,
         }];
         let output = NixShell.subcommand_wrapper("jj", "command jj", &entries);
         assert!(output.contains("case \"$2\" in"), "depth-2 switch missing");

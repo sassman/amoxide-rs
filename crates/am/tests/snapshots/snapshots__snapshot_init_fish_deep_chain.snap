@@ -85,7 +85,7 @@ complete -c am -n "__fish_am_needs_command" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_needs_command" -f -a "add" -d 'Add a new alias'
 complete -c am -n "__fish_am_needs_command" -f -a "remove" -d 'Remove an alias'
 complete -c am -n "__fish_am_needs_command" -f -a "ls" -d 'List all profiles and project aliases'
-complete -c am -n "__fish_am_needs_command" -f -a "la" -d 'List all active profiles and project aliases'
+complete -c am -n "__fish_am_needs_command" -f -a "la" -d 'List all active profiles and project aliases (always shows descriptions)'
 complete -c am -n "__fish_am_needs_command" -f -a "status" -d 'Check if the shell is set up correctly'
 complete -c am -n "__fish_am_needs_command" -f -a "profile" -d 'Manage profiles (defaults to listing when no subcommand given)'
 complete -c am -n "__fish_am_needs_command" -f -a "var" -d 'Manage alias variables — substituted as `{{name}}` in alias commands'
@@ -102,6 +102,7 @@ complete -c am -n "__fish_am_needs_command" -f -a "sync" -d 'Internal: compute a
 complete -c am -n "__fish_am_needs_command" -f -a "__update-check" -d 'Internal: refresh the update-check cache from crates.io. Spawned detached by the listing commands; never invoked directly by users'
 complete -c am -n "__fish_am_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c am -n "__fish_am_using_subcommand add" -s p -l profile -d 'Operate on a specific profile (defaults to active profile)' -r
+complete -c am -n "__fish_am_using_subcommand add" -s d -l description -d 'Optional description shown next to the alias in `am ls -d` and the TUI' -r
 complete -c am -n "__fish_am_using_subcommand add" -l sub -d 'Define a subcommand alias (repeatable: --sub short long)' -r
 complete -c am -n "__fish_am_using_subcommand add" -s l -l local -d 'Operate on the project\'s .aliases file'
 complete -c am -n "__fish_am_using_subcommand add" -s g -l global -d 'Operate on global config'
@@ -115,6 +116,7 @@ complete -c am -n "__fish_am_using_subcommand remove" -s g -l global -d 'Operate
 complete -c am -n "__fish_am_using_subcommand remove" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand remove" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand ls" -s u -l used -d 'Show only active profiles and loaded project aliases'
+complete -c am -n "__fish_am_using_subcommand ls" -s d -l descriptions -d 'Show descriptions next to aliases (when present)'
 complete -c am -n "__fish_am_using_subcommand ls" -s h -l help -d 'Print help'
 complete -c am -n "__fish_am_using_subcommand ls" -s V -l version -d 'Print version'
 complete -c am -n "__fish_am_using_subcommand la" -s h -l help -d 'Print help'
@@ -229,7 +231,7 @@ complete -c am -n "__fish_am_using_subcommand __update-check" -s V -l version -d
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "add" -d 'Add a new alias'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "remove" -d 'Remove an alias'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "ls" -d 'List all profiles and project aliases'
-complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "la" -d 'List all active profiles and project aliases'
+complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "la" -d 'List all active profiles and project aliases (always shows descriptions)'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "status" -d 'Check if the shell is set up correctly'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "profile" -d 'Manage profiles (defaults to listing when no subcommand given)'
 complete -c am -n "__fish_am_using_subcommand help; and not __fish_seen_subcommand_from add remove ls la status profile var init setup use tui export import share trust untrust sync __update-check help" -f -a "var" -d 'Manage alias variables — substituted as `{{name}}` in alias commands'

@@ -11,6 +11,16 @@ am add -g ll "ls -lha"
 
 The `-g` (or `--global`) flag adds the alias globally, independent of any profile.
 
+You can attach an optional description that surfaces in `am ls -d` and the TUI:
+
+```bash
+am add -g gs "git status" -d "short git status"
+```
+
+<VersionBadge v="0.10.0" /> Descriptions are stored alongside the alias and round-trip through export/import.
+
+Re-running `am add` without `-d` on an alias that already has a description **preserves** it. Pass `-d ""` (empty string) to clear the description explicitly.
+
 ::: tip
 Short form: `am a -g gs git status`
 :::

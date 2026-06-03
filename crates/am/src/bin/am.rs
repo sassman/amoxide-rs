@@ -76,11 +76,13 @@ fn main() -> anyhow::Result<()> {
         Commands::Add(Alias {
             scope,
             raw,
+            description,
             name,
             command,
             sub,
         }) => {
             let target = target_from_scope(scope);
+            let desc = amoxide::DescriptionUpdate::from_cli_arg(description.as_deref());
 
             // Check if this is a subcommand alias
             let is_colon_notation = name.contains(':');
@@ -115,10 +117,11 @@ fn main() -> anyhow::Result<()> {
                 let _entry = amoxide::subcommand::SubcommandEntry::parse_key(
                     &key,
                     long_subcommands.clone(),
+                    None,
                 )?;
 
                 info!("Adding subcommand alias `{key}` to {target}");
-                Message::AddSubcommandAlias(key, long_subcommands, target)
+                Message::AddSubcommandAlias(key, long_subcommands, target, desc)
             } else {
                 // Regular alias
                 let alias_cmd = match command {
@@ -126,7 +129,7 @@ fn main() -> anyhow::Result<()> {
                     None => bail!("No command provided. Usage: am add <name> <command...>"),
                 };
                 info!("Adding alias `{name}` = `{alias_cmd}` to {target}");
-                Message::AddAlias(name.clone(), alias_cmd, target, *raw)
+                Message::AddAlias(name.clone(), alias_cmd, target, *raw, desc)
             }
         }
         Commands::Remove { scope, name, sub } => {
@@ -151,8 +154,16 @@ fn main() -> anyhow::Result<()> {
                 Message::RemoveAlias(name.clone(), target)
             }
         }
-        Commands::Ls { used } => Message::ListProfiles { used: *used },
-        Commands::La => Message::ListProfiles { used: true },
+        Commands::Ls { used, descriptions } => Message::ListProfiles {
+            used: *used,
+            descriptions: *descriptions,
+            term_width: terminal_size::terminal_size().map(|(w, _)| w.0 as usize),
+        },
+        Commands::La => Message::ListProfiles {
+            used: true,
+            descriptions: true,
+            term_width: terminal_size::terminal_size().map(|(w, _)| w.0 as usize),
+        },
         Commands::Status => {
             println!("{}", amoxide::status::run_status());
             return Ok(());
@@ -243,7 +254,11 @@ fn main() -> anyhow::Result<()> {
                 model.save_config()?;
                 return Ok(());
             }
-            ProfileAction::List { used } => Message::ListProfiles { used: *used },
+            ProfileAction::List { used } => Message::ListProfiles {
+                used: *used,
+                descriptions: false,
+                term_width: terminal_size::terminal_size().map(|(w, _)| w.0 as usize),
+            },
             ProfileAction::Use(_) => unreachable!("handled by outer match arm"),
         },
         Commands::Setup { shell } => {
@@ -439,12 +454,18 @@ fn execute_effects(model: &mut AppModel, effects: Vec<Effect>) -> anyhow::Result
             Effect::SaveConfig => model.save_config()?,
             Effect::SaveSession => model.save_session()?,
             Effect::SaveProfiles => model.save_profiles()?,
-            Effect::AddLocalAlias { name, cmd, raw } => add_local_alias(model, &name, &cmd, raw)?,
+            Effect::AddLocalAlias {
+                name,
+                cmd,
+                raw,
+                description,
+            } => add_local_alias(model, &name, &cmd, raw, description.as_deref())?,
             Effect::RemoveLocalAlias { name } => remove_local_alias(model, &name)?,
             Effect::AddLocalSubcommand {
                 key,
                 long_subcommands,
-            } => add_local_subcommand(model, &key, &long_subcommands)?,
+                description,
+            } => add_local_subcommand(model, &key, &long_subcommands, description.as_deref())?,
             Effect::RemoveLocalSubcommand { key } => remove_local_subcommand(model, &key)?,
             Effect::AddLocalVar { name, value } => add_local_var(model, &name, &value)?,
             Effect::RemoveLocalVar { name } => remove_local_var(model, &name)?,
@@ -583,9 +604,15 @@ fn add_local_alias(
     name: &str,
     command: &str,
     raw: bool,
+    description: Option<&str>,
 ) -> anyhow::Result<()> {
     upsert_local_aliases(model, &format!("alias `{name}`"), |project| {
-        project.add_alias(name.to_string(), command.to_string(), raw);
+        project.add_alias(
+            name.to_string(),
+            command.to_string(),
+            raw,
+            description.map(str::to_string),
+        );
         Ok(())
     })
 }
@@ -601,9 +628,14 @@ fn add_local_subcommand(
     model: &mut AppModel,
     key: &str,
     long_subcommands: &[String],
+    description: Option<&str>,
 ) -> anyhow::Result<()> {
     upsert_local_aliases(model, &format!("subcommand alias `{key}`"), |project| {
-        project.add_subcommand(key.to_string(), long_subcommands.to_vec());
+        project.add_subcommand(
+            key.to_string(),
+            long_subcommands.to_vec(),
+            description.map(str::to_string),
+        );
         Ok(())
     })
 }

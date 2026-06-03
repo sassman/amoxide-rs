@@ -40,6 +40,7 @@ pub enum Effect {
         name: String,
         cmd: String,
         raw: bool,
+        description: Option<String>,
     },
     RemoveLocalAlias {
         name: String,
@@ -47,6 +48,7 @@ pub enum Effect {
     AddLocalSubcommand {
         key: String,
         long_subcommands: Vec<String>,
+        description: Option<String>,
     },
     RemoveLocalSubcommand {
         key: String,
@@ -78,8 +80,13 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::SaveSession => model.save_session()?,
         Effect::SaveProfiles => model.save_profiles()?,
         Effect::SaveSecurity => model.save_security()?,
-        Effect::AddLocalAlias { name, cmd, raw } => {
-            model.save_project_aliases_add(name, cmd, *raw)?;
+        Effect::AddLocalAlias {
+            name,
+            cmd,
+            raw,
+            description,
+        } => {
+            model.save_project_aliases_add(name, cmd, *raw, description.as_deref())?;
         }
         Effect::RemoveLocalAlias { name } => {
             model.save_project_aliases_remove(name)?;
@@ -87,8 +94,9 @@ pub fn execute_effect(model: &mut AppModel, effect: &Effect) -> anyhow::Result<(
         Effect::AddLocalSubcommand {
             key,
             long_subcommands,
+            description,
         } => {
-            model.save_project_subcommand_add(key, long_subcommands)?;
+            model.save_project_subcommand_add(key, long_subcommands, description.as_deref())?;
         }
         Effect::RemoveLocalSubcommand { key } => {
             model.save_project_subcommand_remove(key)?;
@@ -164,7 +172,9 @@ mod tests {
     fn execute_effect_save_config_writes_config_file() {
         let dir = tempfile::tempdir().unwrap();
         let mut model = AppModel::load_from(dir.path().to_path_buf());
-        model.config.add_alias("ll".into(), "ls -lha".into(), false);
+        model
+            .config
+            .add_alias("ll".into(), "ls -lha".into(), false, None);
         execute_effect(&mut model, &Effect::SaveConfig).unwrap();
 
         let saved = crate::config::Config::load_from(dir.path()).unwrap();
@@ -202,6 +212,7 @@ mod tests {
                 name: "t".into(),
                 cmd: "cargo test".into(),
                 raw: false,
+                description: None,
             },
         )
         .unwrap();

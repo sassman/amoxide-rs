@@ -122,7 +122,7 @@ mod tests {
     use crate::config::ShellsTomlConfig;
     use crate::env_vars;
     use crate::shell::ShellContext;
-    use crate::subcommand::SubcommandSet;
+    use crate::subcommand::{SubcommandSet, TomlSubcommand};
     use crate::{AliasName, TomlAlias};
 
     static DEFAULT_CFG: std::sync::LazyLock<ShellsTomlConfig> =
@@ -140,7 +140,10 @@ mod tests {
 
     fn test_subcommands() -> SubcommandSet {
         let mut subs = SubcommandSet::new();
-        subs.as_mut().insert("jj:ab".into(), vec!["abandon".into()]);
+        subs.as_mut().insert(
+            "jj:ab".into(),
+            TomlSubcommand::Expansion(vec!["abandon".into()]),
+        );
         subs
     }
 
