@@ -41,21 +41,6 @@ pub fn render_preamble(
     formatdoc! {r#"
         # amoxide aliases (active set, cwd: {cwd})
         #
-        # ## Where this snapshot applies
-        #
-        # Snapshot CWD (where `am context` ran): {cwd}
-        #
-        # - This snapshot is anchored to the CWD above. Project-local aliases
-        #   here are scoped to that directory; running them from anywhere else
-        #   will fail. Compare your *own* current working directory to the
-        #   Snapshot CWD above — if they differ, this snapshot does NOT
-        #   apply. Wait for the next `am context` to fire from your new CWD
-        #   (the `CwdChanged` hook re-runs it on every directory change).
-        # - If you saw an earlier `am context` snapshot in this conversation
-        #   (from a previous `SessionStart` or `CwdChanged` hook), discard
-        #   it. Only the aliases listed below are active right now; aliases
-        #   tied to a previous directory are obsolete.
-        #
         # ## How to use this snapshot
         #
         # When the user mentions a name from the `Aliases` table below in any context —
@@ -140,32 +125,27 @@ mod tests {
     }
 
     #[test]
-    fn preamble_anchors_snapshot_to_cwd_and_supersedes_prior_output() {
-        let cwd = PathBuf::from("/tmp/anchored");
+    fn preamble_does_not_instruct_agent_to_compare_cwds() {
+        // The agent can't change directories; comparing CWDs is incoherent
+        // from its side. The top-line header still surfaces the cwd as
+        // informational context, but no rule should ask the agent to act on it.
+        let cwd = PathBuf::from("/tmp/anywhere");
         let c = chain(vec![ChainLayer {
             scope: OriginScope::Global,
             priority: None,
         }]);
         let out = render_preamble(&cwd, &c, None);
         assert!(
-            out.contains("## Where this snapshot applies"),
-            "scope section header missing: {out}"
+            !out.contains("## Where this snapshot applies"),
+            "the CWD-anchoring section must not be rendered: {out}"
         );
         assert!(
-            out.contains("Snapshot CWD (where `am context` ran): /tmp/anchored"),
-            "scope section must restate the concrete CWD: {out}"
+            !out.contains("Compare your"),
+            "must not ask the agent to compare CWDs: {out}"
         );
         assert!(
-            out.contains("Compare your *own* current working directory"),
-            "must instruct agent to compare its CWD against the snapshot CWD: {out}"
-        );
-        assert!(
-            out.contains("discard"),
-            "must explicitly invalidate prior snapshots in the conversation: {out}"
-        );
-        assert!(
-            out.contains("CwdChanged"),
-            "must name the CwdChanged hook so the agent knows when to expect a refresh: {out}"
+            !out.contains("Snapshot CWD"),
+            "no separate `Snapshot CWD` label — the header line carries cwd already: {out}"
         );
     }
 

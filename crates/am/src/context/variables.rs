@@ -1,47 +1,50 @@
-use crate::vars::VarSet;
+use std::collections::BTreeMap;
 
 use super::escape::escape_md_cell;
 use super::LayerInputs;
 
-/// Render the `## Variables` section, or empty string if no scope has any var.
+/// Render the `## Variables` section as a single table with rows for the
+/// variables that are actually defined; empty scopes contribute nothing.
 ///
-/// Per-scope subsections (`### project`, `### profile:<name>`, `### global`).
-/// Empty scopes show `(none)` when at least one scope has a var, so the model
-/// can confirm absence without re-running `am context`.
+/// Each name appears once with the scope that wins precedence
+/// (project > profile (last in slice first) > global), mirroring the
+/// `## Aliases` table. Returns an empty string when no scope defines any
+/// variable — the whole section is then dropped from the snapshot.
 pub fn render_variables(layers: &LayerInputs) -> String {
-    // Walk scopes in display order: project → profile (in priority/slice order) → global.
-    let scopes: Vec<(String, &VarSet)> =
-        std::iter::once(("project".to_string(), layers.project_vars))
-            .chain(
-                layers
-                    .profile_layers
-                    .iter()
-                    .map(|l| (format!("profile:{}", l.name), &l.vars)),
-            )
-            .chain(std::iter::once(("global".to_string(), layers.global_vars)))
-            .collect();
+    // First-write-wins map keyed by name: walk highest-precedence scope first
+    // and skip names we've already seen, so the winning scope is what lands.
+    let mut rows: BTreeMap<String, (String, String)> = BTreeMap::new();
 
-    if scopes.iter().all(|(_, v)| v.is_empty()) {
+    let mut visit = |label: &str, vars: &crate::vars::VarSet| {
+        for (name, value) in vars.iter() {
+            rows.entry(name.as_str().to_string())
+                .or_insert_with(|| (value.clone(), label.to_string()));
+        }
+    };
+
+    visit("project", layers.project_vars);
+    // Profiles: last in slice wins (matches the engine's merge order), so
+    // walk them in reverse for first-write-wins.
+    for layer in layers.profile_layers.iter().rev() {
+        let label = format!("profile:{}", layer.name);
+        visit(&label, &layer.vars);
+    }
+    visit("global", layers.global_vars);
+
+    if rows.is_empty() {
         return String::new();
     }
 
     let mut out = String::from("## Variables\n\n");
-    for (label, vs) in &scopes {
-        out.push_str(&format!("### {label}\n"));
-        if vs.is_empty() {
-            out.push_str("(none)\n\n");
-        } else {
-            out.push_str("| name | value |\n");
-            out.push_str("|------|-------|\n");
-            for (name, value) in vs.iter() {
-                out.push_str(&format!(
-                    "| {} | {} |\n",
-                    escape_md_cell(name.as_str()),
-                    escape_md_cell(value),
-                ));
-            }
-            out.push('\n');
-        }
+    out.push_str("| name | value | from |\n");
+    out.push_str("|------|-------|------|\n");
+    for (name, (value, from)) in &rows {
+        out.push_str(&format!(
+            "| {} | {} | {} |\n",
+            escape_md_cell(name),
+            escape_md_cell(value),
+            escape_md_cell(from),
+        ));
     }
     out
 }
@@ -92,7 +95,7 @@ mod tests {
     }
 
     #[test]
-    fn variables_section_rendered_when_global_has_var() {
+    fn variables_section_rendered_as_single_table_with_from_column() {
         let global = vset(&[("opt-flags", "-C opt-level=3")]);
         let project = VarSet::default();
         let empty_aliases = AliasSet::default();
@@ -100,28 +103,78 @@ mod tests {
         let layers = layers_no_aliases(&global, &[], &project, &empty_aliases, &empty_subs);
         let out = render_variables(&layers);
         assert!(out.contains("## Variables"), "section header: {out}");
-        assert!(out.contains("### global"), "global subsection: {out}");
-        assert!(out.contains("opt-flags"), "var name: {out}");
-        assert!(out.contains("-C opt-level=3"), "var value: {out}");
+        let header = out.lines().find(|l| l.starts_with("| name")).unwrap();
+        assert!(
+            header.contains("from"),
+            "table must carry a from column: {header}"
+        );
+        let row = out.lines().find(|l| l.contains("opt-flags")).unwrap();
+        assert!(row.contains("-C opt-level=3"), "value: {row}");
+        assert!(row.contains("global"), "from: {row}");
     }
 
     #[test]
-    fn variables_section_shows_none_for_empty_scope_when_any_other_has_one() {
+    fn variables_section_skips_empty_scopes_entirely() {
+        // profile:git has no vars; only global does. The output must not
+        // contain a per-scope subheading or any `(none)` placeholder.
         let global = vset(&[("opt-flags", "-C opt-level=3")]);
         let empty_subs = SubcommandSet::new();
         let empty_aliases = AliasSet::default();
-        let profile_vars = VarSet::default();
         let profiles = vec![ProfileLayer {
             name: "git".into(),
             aliases: AliasSet::default(),
             subcommands: SubcommandSet::new(),
-            vars: profile_vars.clone(),
+            vars: VarSet::default(),
         }];
         let project = VarSet::default();
         let layers = layers_no_aliases(&global, &profiles, &project, &empty_aliases, &empty_subs);
         let out = render_variables(&layers);
-        assert!(out.contains("### profile:git"), "profile subsection: {out}");
-        assert!(out.contains("(none)"), "(none) for empty scope: {out}");
+        assert!(
+            !out.contains("### profile:git"),
+            "empty scope must not get a subsection: {out}"
+        );
+        assert!(
+            !out.contains("(none)"),
+            "no `(none)` placeholder for empty scope: {out}"
+        );
+        assert!(!out.contains("### "), "no `###` subsections at all: {out}");
+    }
+
+    #[test]
+    fn variables_section_picks_highest_precedence_when_same_name_in_two_scopes() {
+        // `foo` defined in global and profile:rust; profile wins, only one row.
+        let global = vset(&[("foo", "global-value")]);
+        let empty_subs = SubcommandSet::new();
+        let empty_aliases = AliasSet::default();
+        let profiles = vec![ProfileLayer {
+            name: "rust".into(),
+            aliases: AliasSet::default(),
+            subcommands: SubcommandSet::new(),
+            vars: vset(&[("foo", "rust-value")]),
+        }];
+        let project = VarSet::default();
+        let layers = layers_no_aliases(&global, &profiles, &project, &empty_aliases, &empty_subs);
+        let out = render_variables(&layers);
+        let foo_rows: Vec<&str> = out.lines().filter(|l| l.contains("| foo ")).collect();
+        assert_eq!(
+            foo_rows.len(),
+            1,
+            "shadowed var must appear exactly once: {out}"
+        );
+        assert!(
+            foo_rows[0].contains("rust-value"),
+            "profile must win over global: {}",
+            foo_rows[0]
+        );
+        assert!(
+            foo_rows[0].contains("profile:rust"),
+            "from must point at the winning scope: {}",
+            foo_rows[0]
+        );
+        assert!(
+            !out.contains("global-value"),
+            "shadowed value must not appear at all: {out}"
+        );
     }
 
     #[test]
@@ -143,8 +196,8 @@ mod tests {
             .filter(|(c, prev)| *c == '|' && *prev != '\\')
             .count();
         assert_eq!(
-            unescaped_pipes, 3,
-            "data row must have exactly 3 unescaped pipes (2 column boundaries + outer): {data_line}"
+            unescaped_pipes, 4,
+            "data row must have exactly 4 unescaped pipes (3 columns: leading + 2 separators + trailing): {data_line}"
         );
     }
 }

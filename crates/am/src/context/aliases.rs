@@ -1,4 +1,5 @@
 use crate::precedence::{EffectiveEntry, EntryKind, OriginScope};
+use crate::Described;
 
 use super::escape::escape_md_cell;
 use super::LayerInputs;
@@ -51,11 +52,16 @@ fn lookup_subcommand_origin(
 ///
 /// Rows sorted by name. Subcommand wrappers are flattened to one row per
 /// (program, short) pair. Tracking-only `SubcommandKey` entries are skipped.
+///
+/// The `description` column is only emitted when at least one row carries
+/// a description — keeps the snapshot minimal for users who haven't set
+/// any, while surfacing the user's own intent hints where they exist.
 pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) -> String {
     struct Row {
         name: String,
         expansion: String,
         from: std::borrow::Cow<'static, str>,
+        description: Option<String>,
     }
 
     let mut rows: Vec<Row> = Vec::new();
@@ -75,6 +81,7 @@ pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) 
                     name: e.name.clone(),
                     expansion,
                     from,
+                    description: alias.description().map(str::to_owned),
                 });
             }
             EntryKind::SubcommandWrapper {
@@ -97,6 +104,7 @@ pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) 
                         name,
                         expansion,
                         from,
+                        description: sub.description.clone(),
                     });
                 }
             }
@@ -108,16 +116,32 @@ pub fn render_aliases_table(effective: &[EffectiveEntry], layers: &LayerInputs) 
 
     rows.sort_by(|a, b| a.name.cmp(&b.name));
 
+    let any_description = rows.iter().any(|r| r.description.is_some());
+
     let mut out = String::from("## Aliases\n\n");
-    out.push_str("| name | expands to | from |\n");
-    out.push_str("|------|------------|------|\n");
-    for r in rows {
-        out.push_str(&format!(
-            "| {} | {} | {} |\n",
-            escape_md_cell(&r.name),
-            escape_md_cell(&r.expansion),
-            escape_md_cell(&r.from),
-        ));
+    if any_description {
+        out.push_str("| name | expands to | from | description |\n");
+        out.push_str("|------|------------|------|-------------|\n");
+        for r in rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                escape_md_cell(&r.name),
+                escape_md_cell(&r.expansion),
+                escape_md_cell(&r.from),
+                escape_md_cell(r.description.as_deref().unwrap_or("")),
+            ));
+        }
+    } else {
+        out.push_str("| name | expands to | from |\n");
+        out.push_str("|------|------------|------|\n");
+        for r in rows {
+            out.push_str(&format!(
+                "| {} | {} | {} |\n",
+                escape_md_cell(&r.name),
+                escape_md_cell(&r.expansion),
+                escape_md_cell(&r.from),
+            ));
+        }
     }
     out
 }
@@ -314,6 +338,144 @@ mod tests {
         assert!(
             !data_line.contains("profile:git"),
             "loser must not be attributed; got: {data_line}"
+        );
+    }
+
+    #[test]
+    fn aliases_table_omits_description_column_when_no_row_has_one() {
+        let global = aset(&[("ll", "ls -lha")]);
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project = AliasSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let effective = vec![entry("ll", "ls -lha")];
+        let out = render_aliases_table(&effective, &layers);
+        let header = out.lines().find(|l| l.starts_with("| name")).unwrap();
+        assert!(
+            !header.contains("description"),
+            "header must stay 3-column when no descriptions are present: {header}"
+        );
+    }
+
+    #[test]
+    fn aliases_table_surfaces_description_for_aliases_when_any_row_has_one() {
+        use crate::alias::AliasDetail;
+        let mut global = AliasSet::default();
+        global.insert(
+            AliasName::from("t"),
+            TomlAlias::Detailed(AliasDetail {
+                command: "cargo test --all-features".into(),
+                description: Some("run the full test matrix".into()),
+                raw: false,
+            }),
+        );
+        // Second alias with no description — must still render with an empty
+        // description cell, not be dropped or break column alignment.
+        global.insert(
+            AliasName::from("ll"),
+            TomlAlias::Command("ls -lha".into()),
+        );
+        let global_subs = SubcommandSet::new();
+        let global_vars = VarSet::default();
+        let project = AliasSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let effective = vec![
+            EffectiveEntry {
+                name: "t".into(),
+                kind: EntryKind::Alias(global.as_ref().get(&AliasName::from("t")).unwrap().clone()),
+                hash: "x".into(),
+            },
+            EffectiveEntry {
+                name: "ll".into(),
+                kind: EntryKind::Alias(
+                    global.as_ref().get(&AliasName::from("ll")).unwrap().clone(),
+                ),
+                hash: "x".into(),
+            },
+        ];
+        let out = render_aliases_table(&effective, &layers);
+        let header = out.lines().find(|l| l.starts_with("| name")).unwrap();
+        assert!(
+            header.contains("description"),
+            "header must include description column when any row has one: {header}"
+        );
+        let t_row = out.lines().find(|l| l.contains("| t ")).unwrap();
+        assert!(
+            t_row.contains("run the full test matrix"),
+            "described alias must carry its description in the row: {t_row}"
+        );
+        let ll_row = out.lines().find(|l| l.contains("| ll ")).unwrap();
+        // 4 columns ⇒ 5 unescaped pipes per row (leading + 3 separators + trailing).
+        let unescaped_pipes = ll_row
+            .chars()
+            .zip(std::iter::once(' ').chain(ll_row.chars()))
+            .filter(|(c, prev)| *c == '|' && *prev != '\\')
+            .count();
+        assert_eq!(
+            unescaped_pipes, 5,
+            "row without a description must still emit an empty 4th cell: {ll_row}"
+        );
+    }
+
+    #[test]
+    fn aliases_table_surfaces_subcommand_descriptions() {
+        use crate::subcommand::{SubcommandEntry, TomlSubcommand};
+        let global = AliasSet::default();
+        let mut global_subs = SubcommandSet::new();
+        global_subs
+            .as_mut()
+            .insert("git:pl".into(), TomlSubcommand::Expansion(vec![]));
+        let global_vars = VarSet::default();
+        let project = AliasSet::default();
+        let project_subs = SubcommandSet::new();
+        let project_vars = VarSet::default();
+        let layers = LayerInputs {
+            global_aliases: &global,
+            global_subcommands: &global_subs,
+            global_vars: &global_vars,
+            profile_layers: &[],
+            project_aliases: &project,
+            project_subcommands: &project_subs,
+            project_vars: &project_vars,
+        };
+        let effective = vec![EffectiveEntry {
+            name: "git".into(),
+            kind: EntryKind::SubcommandWrapper {
+                program: "git".into(),
+                entries: vec![SubcommandEntry {
+                    program: "git".into(),
+                    short_subcommands: vec!["pl".into()],
+                    long_subcommands: vec!["pull --rebase".into()],
+                    description: Some("rebase-based pull, never merge".into()),
+                }],
+                base_cmd: None,
+            },
+            hash: "x".into(),
+        }];
+        let out = render_aliases_table(&effective, &layers);
+        assert!(
+            out.contains("rebase-based pull, never merge"),
+            "subcommand description must surface in the row: {out}"
         );
     }
 
