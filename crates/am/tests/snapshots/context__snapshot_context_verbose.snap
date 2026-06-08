@@ -37,11 +37,8 @@ expression: out
 #
 # ## Format
 #
-# Precedence (highest first): project > profile(rust, prio 1) > global
-#
 # Templates: {{N}} is a positional placeholder (1-indexed; `tag v1.0` expands {{1}} → `v1.0`).
-# Variables: {{name}} tokens are already substituted in the table below.
-#            The full variable table is in the `## Variables` section.
+# Variables: {{name}} tokens in alias values are already substituted to their final form — no work needed.
 
 ## Aliases
 

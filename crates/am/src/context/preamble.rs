@@ -22,9 +22,14 @@ pub struct ChainLayer {
 }
 
 /// Render the preamble. Leads with usage rules; format notes second.
+///
+/// `chain` is intentionally unused at render time: every place precedence
+/// matters in the snapshot is already pre-resolved (the `from` column on
+/// `## Aliases`, the per-row chains in `## Shadowed`). The parameter is
+/// kept on the signature for the caller's plumbing convenience.
 pub fn render_preamble(
     cwd: &Path,
-    chain: &PrecedenceChain,
+    _chain: &PrecedenceChain,
     project_trust_notice: Option<&ProjectTrustNotice>,
 ) -> String {
     let trust_bullet = if project_trust_notice.is_some() {
@@ -74,30 +79,12 @@ pub fn render_preamble(
         {trust_bullet}#
         # ## Format
         #
-        # Precedence (highest first): {chain}
-        #
         # Templates: {{{{N}}}} is a positional placeholder (1-indexed; `tag v1.0` expands {{{{1}}}} → `v1.0`).
-        # Variables: {{{{name}}}} tokens are already substituted in the table below.
-        #            The full variable table is in the `## Variables` section.
+        # Variables: {{{{name}}}} tokens in alias values are already substituted to their final form — no work needed.
     "#,
         cwd = cwd.display(),
         trust_bullet = trust_bullet,
-        chain = render_chain(chain),
     }
-}
-
-fn render_chain(chain: &PrecedenceChain) -> String {
-    chain
-        .layers
-        .iter()
-        .map(|l| match (&l.scope, l.priority) {
-            (OriginScope::Project, _) => "project".to_string(),
-            (OriginScope::Profile(name), Some(p)) => format!("profile({name}, prio {p})"),
-            (OriginScope::Profile(name), None) => format!("profile({name})"),
-            (OriginScope::Global, _) => "global".to_string(),
-        })
-        .collect::<Vec<_>>()
-        .join(" > ")
 }
 
 #[cfg(test)]
@@ -214,8 +201,10 @@ mod tests {
     }
 
     #[test]
-    fn preamble_renders_precedence_chain_in_order() {
-        let cwd = PathBuf::from("/x");
+    fn preamble_never_renders_precedence_chain() {
+        // Every reader of the chain is already pre-resolved (the `from`
+        // column on `## Aliases`, the per-row chains in `## Shadowed`), so
+        // the line is dead weight in the snapshot.
         let c = chain(vec![
             ChainLayer {
                 scope: OriginScope::Project,
@@ -226,18 +215,41 @@ mod tests {
                 priority: Some(2),
             },
             ChainLayer {
-                scope: OriginScope::Profile("rust".into()),
-                priority: Some(1),
-            },
-            ChainLayer {
                 scope: OriginScope::Global,
                 priority: None,
             },
         ]);
-        let out = render_preamble(&cwd, &c, None);
+        let out = render_preamble(&PathBuf::from("/x"), &c, None);
         assert!(
-            out.contains("project > profile(git, prio 2) > profile(rust, prio 1) > global"),
-            "got: {out}"
+            !out.contains("Precedence (highest first):"),
+            "precedence chain must not appear at all: {out}"
+        );
+        assert!(
+            !out.contains("profile(git, prio 2)"),
+            "no chain fragments either: {out}"
+        );
+    }
+
+    #[test]
+    fn preamble_keeps_template_and_variable_format_notes() {
+        // These two notes explain syntax the model can't infer from the
+        // alias table alone, so they survive the variables-section drop.
+        let c = chain(vec![ChainLayer {
+            scope: OriginScope::Global,
+            priority: None,
+        }]);
+        let out = render_preamble(&PathBuf::from("/x"), &c, None);
+        assert!(
+            out.contains("Templates: {{N}}"),
+            "template note must remain: {out}"
+        );
+        assert!(
+            out.contains("Variables: {{name}}"),
+            "variable-substitution note must remain: {out}"
+        );
+        assert!(
+            !out.contains("`## Variables` section"),
+            "must not point at the now-deleted Variables section: {out}"
         );
     }
 }

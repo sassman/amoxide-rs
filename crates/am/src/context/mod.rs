@@ -13,7 +13,6 @@ mod invalid;
 mod preamble;
 mod shadows;
 mod trust_notice;
-mod variables;
 
 use std::path::Path;
 
@@ -27,7 +26,6 @@ pub use invalid::render_invalid;
 pub use preamble::{render_preamble, ChainLayer, PrecedenceChain};
 pub use shadows::{render_shadow_brief, render_shadow_verbose};
 pub use trust_notice::{render_project_trust_notice, ProjectTrustNotice, ProjectTrustReason};
-pub use variables::render_variables;
 
 /// References to all the layered inputs that fed `Precedence::resolve()`.
 /// Carried as borrows so the renderer can re-lookup origins and (later)
@@ -51,7 +49,7 @@ pub struct RenderOptions {
 /// Top-level orchestrator for the `am context` snapshot.
 ///
 /// Wires every section into one markdown blob:
-///   preamble → project-trust-notice → aliases → variables → shadowed → invalid
+///   preamble → project-trust-notice → aliases → shadowed → invalid
 ///
 /// All sections except preamble and aliases are conditional. Invalid is
 /// verbose-only. The project-trust-notice appears when an `.aliases` file
@@ -105,12 +103,6 @@ pub fn render(
 
     out.push_str(&render_aliases_table(&effective, layers));
     out.push('\n');
-
-    let vars = render_variables(layers);
-    if !vars.is_empty() {
-        out.push_str(&vars);
-        out.push('\n');
-    }
 
     let shadow = if opts.verbose {
         render_shadow_verbose(layers)
@@ -214,11 +206,11 @@ mod tests {
         // Section presence
         assert!(out.contains("# amoxide aliases"), "preamble present: {out}");
         assert!(out.contains("## Aliases"), "aliases header present: {out}");
-        // No variables section (none defined); note the preamble comment references
-        // "## Variables" so we check for the standalone section header line.
+        // Variables section was dropped — vars carry no signal for the agent
+        // (values are pre-substituted upstream into the alias table).
         assert!(
-            !out.contains("\n## Variables\n"),
-            "no vars means no section: {out}"
+            !out.contains("## Variables"),
+            "variables section must not be rendered: {out}"
         );
         // No shadowed section (no shadows)
         assert!(!out.contains("## Shadowed"), "no shadows: {out}");
