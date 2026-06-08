@@ -381,10 +381,7 @@ mod tests {
         );
         // Second alias with no description — must still render with an empty
         // description cell, not be dropped or break column alignment.
-        global.insert(
-            AliasName::from("ll"),
-            TomlAlias::Command("ls -lha".into()),
-        );
+        global.insert(AliasName::from("ll"), TomlAlias::Command("ls -lha".into()));
         let global_subs = SubcommandSet::new();
         let global_vars = VarSet::default();
         let project = AliasSet::default();
