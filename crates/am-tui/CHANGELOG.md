@@ -5,6 +5,81 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.10.0](https://github.com/sassman/amoxide-rs/compare/v0.9.1...v0.10.0) - 2026-06-20
+
+
+### Features
+
+- Alias and subcommand descriptions ([#131](https://github.com/sassman/amoxide-rs/pull/131)) by @sassman in [#131](https://github.com/sassman/amoxide-rs/pull/131)
+
+  ## Why
+
+  Aliases were just `name → command` pairs. No way to remember what an
+  alias does without reading the expansion, especially in a profile with
+  30+ entries. This adds an optional human-readable description so `am ls
+  -d` and the TUI can show what each alias is for. Closes #110.
+
+  ## What changed
+
+  - `am add -d/--description` writes descriptions for aliases and
+  subcommand aliases across global, profile, and project scopes.
+  - `am ls -d` and `am la` render descriptions in an aligned `# desc`
+  column, falling back to inline when the terminal is narrow.
+  - TUI: `d` toggles the description column (shown in the help bar).
+  Add/edit flows include a description input on a second line; edits
+  round-trip cleanly, including description-only changes.
+  - Import/export preserves descriptions. Description-only differences are
+  flagged as conflicts so they get reviewed instead of silently
+  overwritten.
+  - Empty or whitespace descriptions normalize to `None` everywhere via a
+  single `normalize_description` helper, applied at the CLI, TUI, and
+  serde boundaries.
+  - Backwards compatible: the existing subcommand-alias array form
+  `"jj:ab" = ["abandon"]` keeps working unchanged (extended via an
+  untagged `TomlSubcommand` enum).
+  - Docs in `website/` (EN + DE) with `<VersionBadge v="0.10.0" />`.
+
+  ---------
+
+- Am context — snapshot active aliases for AI coding agents ([#125](https://github.com/sassman/amoxide-rs/pull/125)) by @sassman in [#125](https://github.com/sassman/amoxide-rs/pull/125)
+
+  ## Why
+
+  AI coding agents run shell commands in subshells that don't see your
+  aliases, so they suggest the long form when you've defined a short one.
+  `am context` exports the active set so the agent can read it from a
+  session-start hook. Closes #122.
+
+  ## What changed
+
+  - `am context` snapshots the effective alias set (global + active
+  profiles + trusted project `.aliases`) as model-friendly markdown, with
+  usage rules that teach the agent to expand short forms and match user
+  intent against alias commands
+  - `am setup claude` wires the snapshot into Claude Code's
+  `~/.claude/settings.json` — atomic write, idempotent, token-based hook
+  detection
+  - Snapshot surfaces an untrusted project `.aliases` notice and asks the
+  agent to prompt for `am trust` at session start, so project-specific
+  flavor isn't silently skipped
+  - Docs: `website/usage/ai-agents.md` in EN + DE; README rewritten as a
+  docs pointer-map so amoxide.rs is the single source of truth
+
+  ## Test plan
+
+  - [x] `am setup claude` against a real `~/.claude/settings.json` —
+  creates, merges into existing keys, idempotent on re-run
+  - [x] New Claude Code session, ask "what aliases do I have?" — agent
+  lists them straight from the snapshot
+  - [x] Drop an untrusted project `.aliases` in scope → agent surfaces the
+  trust ask before acting on any alias
+  - [x] `cargo test -p amoxide` (517 unit + 7 setup integration + snapshot
+  tests, all green) and `cargo clippy --locked --all-targets -- -D
+  warnings` clean
+
+  ---------
+
+
 ## [0.9.1](https://github.com/sassman/amoxide-rs/compare/v0.9.0...v0.9.1) - 2026-05-28
 
 
