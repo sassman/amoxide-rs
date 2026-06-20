@@ -5,24 +5,28 @@ expression: output
 functions -e cm
 complete -e -c cm
 function cm
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     git commit -sm $argv
 end
 complete -c cm --wraps "git"
 functions -e cmf
 complete -e -c cmf
 function cmf
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     cm feat: $argv
 end
 complete -c cmf --wraps "cm"
 functions -e gs
 complete -e -c gs
 function gs
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     git status $argv
 end
 complete -c gs --wraps "git"
 functions -e ll
 complete -e -c ll
 function ll
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     ls -lha $argv
 end
 complete -c ll --wraps "ls"

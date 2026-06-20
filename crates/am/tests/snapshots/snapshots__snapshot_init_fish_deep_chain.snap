@@ -5,18 +5,21 @@ expression: output
 functions -e ct
 complete -e -c ct
 function ct
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     cargo test $argv
 end
 complete -c ct --wraps "cargo"
 functions -e gs
 complete -e -c gs
 function gs
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     git status $argv
 end
 complete -c gs --wraps "git"
 functions -e ll
 complete -e -c ll
 function ll
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     ls -lha $argv
 end
 complete -c ll --wraps "ls"
