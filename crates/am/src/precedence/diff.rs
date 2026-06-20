@@ -38,6 +38,23 @@ pub enum OriginScope {
     Project,
 }
 
+impl OriginScope {
+    /// Canonical from-column label used in `am context` output:
+    /// `global`, `profile:<name>`, or `project`.
+    ///
+    /// Returns `Cow<'static, str>` so `Global`/`Project` reuse a static
+    /// string and only `Profile(name)` allocates. Kept separate from
+    /// `Display` so other consumers can render `OriginScope` differently
+    /// (e.g. for human listings) without breaking the snapshot contract.
+    pub fn as_from_label(&self) -> std::borrow::Cow<'static, str> {
+        match self {
+            OriginScope::Global => std::borrow::Cow::Borrowed("global"),
+            OriginScope::Profile(name) => std::borrow::Cow::Owned(format!("profile:{name}")),
+            OriginScope::Project => std::borrow::Cow::Borrowed("project"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InvalidReason {
     MissingVars(Vec<crate::vars::VarName>),
@@ -339,5 +356,19 @@ mod tests {
         match e.reason {
             InvalidReason::MissingVars(v) => assert_eq!(v[0].as_str(), "opt-flags"),
         }
+    }
+
+    #[test]
+    fn origin_scope_as_from_label_renders_canonical_strings() {
+        assert_eq!(OriginScope::Global.as_from_label(), "global");
+        assert_eq!(OriginScope::Project.as_from_label(), "project");
+        assert_eq!(
+            OriginScope::Profile("git".to_string()).as_from_label(),
+            "profile:git"
+        );
+        assert_eq!(
+            OriginScope::Profile("compile_help".to_string()).as_from_label(),
+            "profile:compile_help"
+        );
     }
 }

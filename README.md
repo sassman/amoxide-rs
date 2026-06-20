@@ -1,7 +1,7 @@
 <h1 align="center">amoxide (am) - alias manager oxidized</h1>
 
 <p align="center">
-  <img src="assets/banner.png" width="50%" alt="amoxide banner" />
+  <img src="assets/banner.png" width="80%" alt="amoxide banner" />
 </p>
 
 <p align="center">
@@ -10,106 +10,59 @@
   <a href="https://github.com/sassman/amoxide-rs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue" alt="license"/></a>
 </p>
 
+> [!TIP]
+> **Full documentation lives at [amoxide.rs](https://amoxide.rs).** Guides, usage references, and advanced topics — kept in sync with each release. This README is a pointer map; the docs are the source of truth.
+
 > If you only have a handful of shell aliases in your dotfiles, you're missing out. amoxide (`am`) lets you define aliases per project, per toolchain, or globally — and loads the right ones automatically when you `cd` into a directory. Think [direnv](https://direnv.net), but for aliases.
-
-```sh
-$ cd ~/my-rust-project
-am: loaded .aliases
-  i → cargo install --path crates/am && cargo install --path crates/am-tui
-  l → cargo clippy --locked --all-targets -- -D warnings
-  t → cargo test --all-features
-
-$ cd ~/my-node-project
-am: loaded .aliases
-  i → npm install
-  l → npm run lint
-  t → npm test
-  
-# same aliases, different commands, loaded automatically
-# the rust ones are gone — no pollution
-```
 
 ## Screenshots
 
-- `am tui` launches the tui to navigate, select, move, add, and delete aliases visually:
+`am tui` — navigate, select, move, add, and delete aliases visually:
 
 <p align="center">
   <img src="assets/am-tui-2.png" alt="am tui" />
 </p>
 
-- `am ls` the regular cli
+`am ls` — the regular cli:
 
 <p align="center">
   <img src="assets/am-ls.png" alt="am ls" />
 </p>
 
-## Installation
-
-### Homebrew (macOS and Linux)
+## Install
 
 ```sh
 brew install sassman/tap/amoxide sassman/tap/amoxide-tui
 ```
 
-### Shell Script (macOS and Linux)
-
-```sh
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
-```
-
-### PowerShell (Windows)
-
-```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
-```
-
-### Cargo (pre-built)
-
-```sh
-cargo binstall amoxide amoxide-tui
-```
-
-### Cargo (from source)
+or from source via cargo:
 
 ```sh
 cargo install amoxide amoxide-tui
 ```
 
-The crate is called `amoxide`, but the binary it installs is simply `am` (short for amoxide).
+Full options (shell script, PowerShell, `cargo binstall` for pre-built binaries) → **[amoxide.rs/guide/installation](https://amoxide.rs/guide/installation/)**
 
-## Shell Support
+The crate is `amoxide`; the binary it installs is `am`.
 
-| Shell | Status |
-|-------|--------|
-| Fish | Fully supported and tested |
-| PowerShell | Supported and tested (5.1 + 7) |
-| Zsh | Supported, not yet tested |
-| Bash | Supported (3.2+) |
-| Brush | Supported (bash-compatible) |
-| Nushell | Not yet implemented |
+## Docs
 
-## Quick Setup
+Everything lives on **[amoxide.rs](https://amoxide.rs)**. Jump to a section:
 
-```sh
-am setup fish          # or: zsh, bash, brush, powershell
-```
+- [Getting Started](https://amoxide.rs/guide/) — install, shell setup, first aliases
+- [Shell Setup](https://amoxide.rs/guide/setup/) — wire `am` into fish / zsh / bash / brush / powershell
+- [Global Aliases](https://amoxide.rs/usage/global/) — always-on aliases across every shell
+- [Profiles](https://amoxide.rs/usage/profiles/) — named groups you toggle on and off
+- [Project Aliases](https://amoxide.rs/usage/project-aliases/) — auto-load `.aliases` per directory
+- [Subcommand Aliases](https://amoxide.rs/usage/subcommand-aliases/) — short forms for `git cm`, `kubectl gp`, etc.
+- [Variables](https://amoxide.rs/usage/variables/) — `{{name}}` placeholders, scope-local values
+- [Parameterized Aliases](https://amoxide.rs/advanced/parameterized-aliases/) — `{{1}}` positional templates
+- [Composing Aliases](https://amoxide.rs/advanced/composing-aliases/) — layer aliases on top of aliases
+- [AI Agents](https://amoxide.rs/usage/ai-agents/) — teach Claude Code your active aliases via `am setup claude`
+- [Sharing](https://amoxide.rs/usage/sharing/) — export / import / paste-share alias sets
+- [Config Files](https://amoxide.rs/advanced/config-files/) — TOML format and file locations
+- [FAQ](https://amoxide.rs/faq/)
 
-Then add your first alias:
+## License
 
-```sh
-am add -l t cargo test      # project-local alias
-am add -p rust t cargo test  # profile alias
-am add -g ll ls -lha         # global alias
-am add -g jj:ab abandon      # subcommand alias: jj ab → jj abandon
-
-am var set -p rust opt-flags "-C opt-level=3"   # named variable, scope-local
-am add -p rust cc "compile some/file {{opt-flags}}"
-```
-
-## Documentation
-
-Full documentation — usage guides, profiles, project aliases, parameterized aliases, subcommand aliases, and more:
-
-**[amoxide.rs](https://amoxide.rs)**
+GPLv3 — see [LICENSE](LICENSE).

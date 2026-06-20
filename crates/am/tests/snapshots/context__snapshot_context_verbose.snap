@@ -1,0 +1,54 @@
+---
+source: crates/am/tests/context.rs
+expression: out
+---
+# amoxide aliases (active set, cwd: /tmp/fixture-cwd)
+#
+# ## How to use this snapshot
+#
+# When the user mentions a name from the `Aliases` table below in any context —
+# running a command, suggesting one, asking what it does — treat the `expands to`
+# value as the canonical form.
+#
+# 1. Recognise aliases by name match. If the user's input contains a token that
+#    matches a `name` from the table — including multi-word names with a space,
+#    like `git pl` — it is an alias. Expand it before running.
+#
+# 2. Subcommand aliases are deceptive. A name like `git pl` looks like a real
+#    git subcommand but is not. Running `git pl` verbatim in a subshell fails
+#    with `git: 'pl' is not a git command`. Always run the value from
+#    `expands to` (`git pull --rebase`), never the alias text.
+#
+# 3. Recover from `command not found` failures. If a shell command fails because
+#    the name is unknown, check this table — the user's shell sees the alias
+#    but your subshell does not.
+#
+# 4. In chat, the user's vocabulary is fine. When suggesting commands in
+#    conversation, the short form (`git cm "msg"`) matches the user's mental
+#    model. When *running* it in a subshell, use the canonical form.
+#
+# 5. Aliases reveal user preference — match them by intent, not just by name.
+#    - If the user describes an action in plain language ("test the code",
+#      "format", "install") rather than typing an alias name, scan the
+#      `expands to` column for a command that covers the intent and run
+#      *that* exact form. The flags are deliberate (`cargo test
+#      --all-features --verbose`, not bare `cargo test`); reaching for a
+#      vanilla command throws away the user's choices.
+#
+# ## Format
+#
+# Templates: {{N}} is a positional placeholder (1-indexed; `tag v1.0` expands {{1}} → `v1.0`).
+# Variables: {{name}} tokens in alias values are already substituted to their final form — no work needed.
+
+## Aliases
+
+| name | expands to | from |
+|------|------------|------|
+| f | cargo fmt | project |
+
+## Shadowed
+
+| name | expansion | from | shadowed by |
+|------|-----------|------|-------------|
+| f | cargo fmt --all | profile:rust | project |
+| f | cargo fmt --check | global | project |

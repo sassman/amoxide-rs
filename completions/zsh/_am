@@ -324,11 +324,21 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (setup)
 _arguments "${_arguments_options[@]}" : \
-'-h[Print help]' \
-'--help[Print help]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \
 '--version[Print version]' \
-':shell:(bash brush fish powershell zsh)' \
+':target:(bash brush fish powershell zsh claude)' \
+&& ret=0
+;;
+(context)
+_arguments "${_arguments_options[@]}" : \
+'-v[Expand shadowed-section into a full table and include invalid-alias diagnostics]' \
+'--verbose[Expand shadowed-section into a full table and include invalid-alias diagnostics]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+'-V[Print version]' \
+'--version[Print version]' \
 && ret=0
 ;;
 (use)
@@ -552,6 +562,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(context)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (use)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -612,7 +626,8 @@ _am_commands() {
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
 'init:Print shell init code' \
-'setup:Guided setup — adds amoxide to your shell profile' \
+'setup:Guided setup — adds amoxide to your shell profile, or wires \`am context\` into an AI coding agent'\''s session-start hook.' \
+'context:Print a model-friendly snapshot of the active alias set for AI coding agents.' \
 'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
@@ -636,6 +651,11 @@ _am__subcmd__add_commands() {
     local commands; commands=()
     _describe -t commands 'am add commands' commands "$@"
 }
+(( $+functions[_am__subcmd__context_commands] )) ||
+_am__subcmd__context_commands() {
+    local commands; commands=()
+    _describe -t commands 'am context commands' commands "$@"
+}
 (( $+functions[_am__subcmd__export_commands] )) ||
 _am__subcmd__export_commands() {
     local commands; commands=()
@@ -652,7 +672,8 @@ _am__subcmd__help_commands() {
 'profile:Manage profiles (defaults to listing when no subcommand given)' \
 'var:Manage alias variables — substituted as \`{{name}}\` in alias commands' \
 'init:Print shell init code' \
-'setup:Guided setup — adds amoxide to your shell profile' \
+'setup:Guided setup — adds amoxide to your shell profile, or wires \`am context\` into an AI coding agent'\''s session-start hook.' \
+'context:Print a model-friendly snapshot of the active alias set for AI coding agents.' \
 'use:Shortcut for \`am profile use\` — toggle one or more profiles' \
 'tui:Launch the interactive TUI for managing aliases and profiles' \
 'export:Export aliases to stdout as TOML' \
@@ -675,6 +696,11 @@ _am__subcmd__help__subcmd____update-check_commands() {
 _am__subcmd__help__subcmd__add_commands() {
     local commands; commands=()
     _describe -t commands 'am help add commands' commands "$@"
+}
+(( $+functions[_am__subcmd__help__subcmd__context_commands] )) ||
+_am__subcmd__help__subcmd__context_commands() {
+    local commands; commands=()
+    _describe -t commands 'am help context commands' commands "$@"
 }
 (( $+functions[_am__subcmd__help__subcmd__export_commands] )) ||
 _am__subcmd__help__subcmd__export_commands() {

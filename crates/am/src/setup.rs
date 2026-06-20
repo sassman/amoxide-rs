@@ -4,6 +4,12 @@ use std::path::PathBuf;
 use crate::prompt::{ask_user, Answer};
 use crate::shell::Shell;
 
+/// Supported AI coding agents for `am setup <agent>`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Assistant {
+    Claude,
+}
+
 /// Ask PowerShell for its $PROFILE path by shelling out.
 /// Works for both PS 5.1 (WindowsPowerShell) and PS 7+ (PowerShell).
 pub fn detect_powershell_profile() -> Option<PathBuf> {
@@ -150,10 +156,441 @@ fn run_setup_inner(
     Ok(())
 }
 
+/// Hook entry we install under `SessionStart`. Single source of truth shared
+/// by `merge_claude_hook` (writes) and `pending_event_additions` (preview).
+fn session_start_entry() -> serde_json::Value {
+    serde_json::json!({
+        "matcher": "startup|clear|compact",
+        "hooks": [
+            { "type": "command", "command": "am context", "async": false }
+        ]
+    })
+}
+
+/// Hook entry we install under `CwdChanged`. `CwdChanged` has no matcher
+/// support — the event always fires.
+fn cwd_changed_entry() -> serde_json::Value {
+    serde_json::json!({
+        "hooks": [
+            { "type": "command", "command": "am context", "async": false }
+        ]
+    })
+}
+
+/// In-place merge of our hook entries for the events `am context` cares about:
+/// `SessionStart` (initial snapshot) and `CwdChanged` (refresh when the agent
+/// moves between projects — project `.aliases` change with the directory).
+///
+/// Per-event idempotent: if our hook is already present in an event, that
+/// event is left alone; the other event is still ensured. Upgrades a v1
+/// SessionStart-only setup by adding the missing `CwdChanged` entry.
+/// Preserves all other top-level keys, hook events, and sibling entries.
+pub fn merge_claude_hook(settings: &mut serde_json::Value) {
+    ensure_event_wired(settings, "SessionStart", session_start_entry());
+    ensure_event_wired(settings, "CwdChanged", cwd_changed_entry());
+}
+
+/// Returns the hook entries that a `merge_claude_hook` call would actually
+/// add to `settings`, in the order they'd be written. Empty when both events
+/// are already wired. Used to drive the pre-write preview so the prompt shows
+/// only what's about to change (not the v1->v2 upgrade's pre-existing entry).
+pub fn pending_event_additions(
+    settings: &serde_json::Value,
+) -> Vec<(&'static str, serde_json::Value)> {
+    let mut out = Vec::new();
+    if !event_has_am_context(settings, "SessionStart") {
+        out.push(("SessionStart", session_start_entry()));
+    }
+    if !event_has_am_context(settings, "CwdChanged") {
+        out.push(("CwdChanged", cwd_changed_entry()));
+    }
+    out
+}
+
+/// Push `entry` into `settings.hooks[event]` unless an `am context` invocation
+/// is already there. Materialises `settings`, `hooks`, and the per-event array
+/// if missing, so callers never need to pre-shape the JSON.
+fn ensure_event_wired(settings: &mut serde_json::Value, event: &str, entry: serde_json::Value) {
+    if event_has_am_context(settings, event) {
+        return;
+    }
+
+    if !settings.is_object() {
+        *settings = serde_json::json!({});
+    }
+
+    let hooks = settings
+        .as_object_mut()
+        .unwrap()
+        .entry("hooks".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+
+    if !hooks.is_object() {
+        *hooks = serde_json::json!({});
+    }
+
+    let event_arr = hooks
+        .as_object_mut()
+        .unwrap()
+        .entry(event.to_string())
+        .or_insert_with(|| serde_json::json!([]));
+
+    if !event_arr.is_array() {
+        *event_arr = serde_json::json!([]);
+    }
+
+    event_arr.as_array_mut().unwrap().push(entry);
+}
+
+/// Write JSON to `path` crash-safely: random-named temp file in the same dir,
+/// `fsync`, then atomic rename. Pretty-printed for human review. Creates the
+/// parent dir if needed.
+///
+/// Uses `tempfile::NamedTempFile` so concurrent calls don't race on a shared
+/// `.foo.tmp` name and a failed `persist()` cleans up the temp on drop.
+/// `sync_all` before persist ensures the file's data — not just its name — is
+/// durable on disk before it takes over `path`.
+pub fn write_settings_atomic(
+    path: &std::path::Path,
+    value: &serde_json::Value,
+) -> anyhow::Result<()> {
+    use std::io::Write;
+
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("settings path has no parent: {}", path.display()))?;
+    std::fs::create_dir_all(parent)?;
+
+    let serialized = serde_json::to_string_pretty(value)?;
+    let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+    tmp.write_all(serialized.as_bytes())?;
+    tmp.as_file().sync_all()?;
+    tmp.persist(path)
+        .map_err(|e| anyhow::anyhow!("could not persist settings to {}: {}", path.display(), e))?;
+    Ok(())
+}
+
+/// True when `cmd` invokes `am context` as a program + subcommand, not as a
+/// substring. Tolerates absolute paths (`/usr/local/bin/am context`), wrapper
+/// invocations (`cargo run -- am context`), and trailing flags
+/// (`am context --verbose`). Rejects comments (`# am context`), unrelated
+/// subcommands (`am context-foo`), and unrelated programs (`notam contextual`).
+fn command_invokes_am_context(cmd: &str) -> bool {
+    let trimmed = cmd.trim_start();
+    if trimmed.starts_with('#') {
+        return false;
+    }
+    let mut tokens = trimmed.split_whitespace().peekable();
+    while let Some(tok) = tokens.next() {
+        let is_am = tok == "am" || tok.rsplit('/').next() == Some("am");
+        if is_am && tokens.peek() == Some(&"context") {
+            return true;
+        }
+    }
+    false
+}
+
+/// Returns true if `settings.hooks[event]` already has an entry whose command
+/// invokes `am context`. Detects both the v2 schema
+/// (`<event>[].hooks[].command`) and the legacy flat shape
+/// (`<event>[].command`). Uses `command_invokes_am_context` to avoid
+/// false-positives on substrings like `am context-foo`.
+pub fn event_has_am_context(settings: &serde_json::Value, event: &str) -> bool {
+    let Some(arr) = settings
+        .get("hooks")
+        .and_then(|h| h.get(event))
+        .and_then(|s| s.as_array())
+    else {
+        return false;
+    };
+
+    for entry in arr {
+        // Legacy flat shape: { "command": "am context" }
+        if let Some(cmd) = entry.get("command").and_then(|c| c.as_str()) {
+            if command_invokes_am_context(cmd) {
+                return true;
+            }
+        }
+        // V2 nested shape: { "matcher": "...", "hooks": [{ "command": "..." }] }
+        if let Some(nested) = entry.get("hooks").and_then(|h| h.as_array()) {
+            for h in nested {
+                if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
+                    if command_invokes_am_context(cmd) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Returns true when both events `am context` cares about
+/// (`SessionStart` + `CwdChanged`) are already wired. Used to short-circuit
+/// `run_claude_setup` with `AlreadyConfigured` when no merge is needed.
+pub fn claude_settings_already_wired(settings: &serde_json::Value) -> bool {
+    event_has_am_context(settings, "SessionStart") && event_has_am_context(settings, "CwdChanged")
+}
+
+/// What `run_assistant_setup` did. The interactive flow already prints
+/// user-facing status via `eprintln!` (mirroring `run_setup_inner` for
+/// shells); this enum is the structured return value for tests and callers
+/// that need to branch on outcome.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SetupOutcome {
+    Created(std::path::PathBuf),
+    Updated(std::path::PathBuf),
+    AlreadyConfigured(std::path::PathBuf),
+    /// User answered No (or EOF) at the confirmation prompt. File untouched.
+    Cancelled(std::path::PathBuf),
+}
+
+/// Resolve the Claude Code settings file path: `~/.claude/settings.json`.
+pub fn claude_settings_path() -> anyhow::Result<std::path::PathBuf> {
+    let home = crate::dirs::home_dir()
+        .ok_or_else(|| anyhow::anyhow!("could not determine HOME directory"))?;
+    Ok(home.join(".claude/settings.json"))
+}
+
+/// Drive the full setup pipeline for the given assistant.
+pub fn run_assistant_setup(assistant: Assistant) -> anyhow::Result<SetupOutcome> {
+    match assistant {
+        Assistant::Claude => {
+            run_claude_setup(&claude_settings_path()?, &mut std::io::stdin().lock())
+        }
+    }
+}
+
+/// Underlying impl for Claude — takes the target path and a stdin reader for
+/// test injectability. Mirrors `run_setup_inner` (shells): prints a preview
+/// of pending changes, asks for confirmation, applies on Yes, cancels on No.
+///
+/// Read+parse failures abort without overwriting. Idempotent: returns
+/// `AlreadyConfigured` when both hook entries are already present.
+pub fn run_claude_setup(
+    path: &std::path::Path,
+    reader: &mut dyn BufRead,
+) -> anyhow::Result<SetupOutcome> {
+    let (mut settings, existed) = if path.exists() {
+        let contents = std::fs::read_to_string(path)?;
+        let parsed: serde_json::Value = serde_json::from_str(&contents)
+            .map_err(|e| anyhow::anyhow!("could not parse {}: {}", path.display(), e))?;
+        (parsed, true)
+    } else {
+        (serde_json::json!({}), false)
+    };
+
+    eprintln!("Detected agent: claude");
+    eprintln!("Settings file:  {}\n", path.display());
+
+    if claude_settings_already_wired(&settings) {
+        eprintln!("\u{2713} am context hooks are already wired into your Claude settings.");
+        return Ok(SetupOutcome::AlreadyConfigured(path.to_path_buf()));
+    }
+
+    let pending = pending_event_additions(&settings);
+
+    if !existed {
+        eprintln!("Settings file does not exist — it will be created.");
+    }
+    eprintln!(
+        "The following hook entries will be added to {}:\n",
+        path.display()
+    );
+    for (event, entry) in &pending {
+        eprintln!("  [{event}]");
+        let pretty = serde_json::to_string_pretty(entry)?;
+        for line in pretty.lines() {
+            eprintln!("    {line}");
+        }
+        eprintln!();
+    }
+
+    if ask_user("Add it now?", Answer::Yes, false, reader)? != Answer::Yes {
+        eprintln!("Cancelled.");
+        return Ok(SetupOutcome::Cancelled(path.to_path_buf()));
+    }
+
+    merge_claude_hook(&mut settings);
+    write_settings_atomic(path, &settings)?;
+
+    let outcome = if existed {
+        eprintln!("\n\u{2713} Added am context hooks to {}", path.display());
+        SetupOutcome::Updated(path.to_path_buf())
+    } else {
+        eprintln!(
+            "\n\u{2713} Created {} with am context hooks",
+            path.display()
+        );
+        SetupOutcome::Created(path.to_path_buf())
+    };
+    Ok(outcome)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    fn command_invokes_am_context_accepts_plain_form() {
+        assert!(command_invokes_am_context("am context"));
+        assert!(command_invokes_am_context("am context --verbose"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_accepts_absolute_and_relative_paths() {
+        assert!(command_invokes_am_context("/usr/local/bin/am context"));
+        assert!(command_invokes_am_context("./am context"));
+        assert!(command_invokes_am_context(
+            "/Users/me/.cargo/bin/am context"
+        ));
+    }
+
+    #[test]
+    fn command_invokes_am_context_accepts_wrapper_invocations() {
+        assert!(command_invokes_am_context("cargo run -- am context"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_rejects_comment_lines() {
+        assert!(!command_invokes_am_context("# am context"));
+        assert!(!command_invokes_am_context("  #am context"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_rejects_sibling_subcommand() {
+        assert!(!command_invokes_am_context("am context-foo"));
+        assert!(!command_invokes_am_context("am contextual"));
+    }
+
+    #[test]
+    fn command_invokes_am_context_rejects_unrelated_program() {
+        assert!(!command_invokes_am_context("notam contextual"));
+        assert!(!command_invokes_am_context("samba context"));
+    }
+
+    #[test]
+    fn event_has_am_context_rejects_substring_only_match() {
+        // `am context-foo` shares the substring `am context` but isn't our hook.
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup",
+                        "hooks": [
+                            { "type": "command", "command": "am context-foo" }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(!event_has_am_context(&json, "SessionStart"));
+    }
+
+    #[test]
+    fn event_has_am_context_rejects_commented_out_command() {
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup",
+                        "hooks": [
+                            { "type": "command", "command": "# am context" }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(!event_has_am_context(&json, "SessionStart"));
+    }
+
+    #[test]
+    fn event_has_am_context_returns_true_for_v2_schema() {
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [
+                            { "type": "command", "command": "am context", "async": false }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(event_has_am_context(&json, "SessionStart"));
+    }
+
+    #[test]
+    fn event_has_am_context_returns_false_when_no_hooks_section() {
+        let json = serde_json::json!({});
+        assert!(!event_has_am_context(&json, "SessionStart"));
+        assert!(!event_has_am_context(&json, "CwdChanged"));
+    }
+
+    #[test]
+    fn event_has_am_context_returns_false_when_event_has_other_command() {
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup",
+                        "hooks": [
+                            { "type": "command", "command": "echo hi", "async": false }
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(!event_has_am_context(&json, "SessionStart"));
+    }
+
+    #[test]
+    fn event_has_am_context_handles_legacy_flat_shape() {
+        // Pre-v2 schema: `{ "command": "am context" }` directly in the event array.
+        let json = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    { "command": "am context" }
+                ]
+            }
+        });
+        assert!(event_has_am_context(&json, "SessionStart"));
+    }
+
+    #[test]
+    fn already_wired_requires_both_session_start_and_cwd_changed() {
+        // SessionStart only — counts as half-wired.
+        let half = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        assert!(!claude_settings_already_wired(&half));
+
+        let full = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ],
+                "CwdChanged": [
+                    {
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        assert!(claude_settings_already_wired(&full));
+    }
 
     const INIT_LINE: &str = r#"eval "$(am init zsh)""#;
 
@@ -227,5 +664,143 @@ mod tests {
             let content = std::fs::read_to_string(&profile).unwrap();
             assert!(!content.contains("am init"), "got: {content}");
         }
+    }
+
+    #[test]
+    fn merge_adds_session_start_when_no_hooks_key() {
+        let mut settings = serde_json::json!({});
+        merge_claude_hook(&mut settings);
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_preserves_existing_top_level_keys() {
+        let mut settings = serde_json::json!({
+            "model": "claude-opus-4",
+            "theme": "dark"
+        });
+        merge_claude_hook(&mut settings);
+        assert_eq!(settings["model"], "claude-opus-4");
+        assert_eq!(settings["theme"], "dark");
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_preserves_existing_hook_events() {
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "PreToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "echo pre" }] }]
+            }
+        });
+        merge_claude_hook(&mut settings);
+        assert_eq!(
+            settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
+            "echo pre"
+        );
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_appends_to_existing_session_start_without_dropping_other_entries() {
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    { "matcher": "startup", "hooks": [{ "type": "command", "command": "echo other" }] }
+                ]
+            }
+        });
+        merge_claude_hook(&mut settings);
+        let session_start = settings["hooks"]["SessionStart"].as_array().unwrap();
+        assert_eq!(session_start.len(), 2, "should append, not replace");
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_is_idempotent_when_already_wired() {
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ],
+                "CwdChanged": [
+                    {
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        let before = settings.clone();
+        merge_claude_hook(&mut settings);
+        assert_eq!(before, settings, "idempotent: no change on second run");
+    }
+
+    #[test]
+    fn merge_wires_both_session_start_and_cwd_changed_from_scratch() {
+        let mut settings = serde_json::json!({});
+        merge_claude_hook(&mut settings);
+        assert!(event_has_am_context(&settings, "SessionStart"));
+        assert!(event_has_am_context(&settings, "CwdChanged"));
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_upgrades_v1_session_start_only_setup_by_adding_cwd_changed() {
+        // Pre-CwdChanged installs only had SessionStart. Re-running `am setup
+        // claude` must add the missing CwdChanged entry without duplicating
+        // SessionStart.
+        let mut settings = serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "startup|clear|compact",
+                        "hooks": [{ "type": "command", "command": "am context", "async": false }]
+                    }
+                ]
+            }
+        });
+        merge_claude_hook(&mut settings);
+        let session_start = settings["hooks"]["SessionStart"].as_array().unwrap();
+        assert_eq!(session_start.len(), 1, "SessionStart untouched");
+        assert!(event_has_am_context(&settings, "CwdChanged"));
+        assert!(claude_settings_already_wired(&settings));
+    }
+
+    #[test]
+    fn merge_cwd_changed_entry_carries_no_matcher() {
+        // CwdChanged doesn't support matchers (it always fires). Sanity-check
+        // the merged entry doesn't accidentally inherit SessionStart's shape.
+        let mut settings = serde_json::json!({});
+        merge_claude_hook(&mut settings);
+        let cwd_entry = &settings["hooks"]["CwdChanged"][0];
+        assert!(
+            cwd_entry.get("matcher").is_none(),
+            "CwdChanged entry must not have a matcher key"
+        );
+    }
+
+    #[test]
+    fn write_settings_atomic_creates_parent_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("a/b/c/settings.json");
+        let value = serde_json::json!({"x": 1});
+        write_settings_atomic(&nested, &value).unwrap();
+        let read = std::fs::read_to_string(&nested).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&read).unwrap();
+        assert_eq!(parsed, value);
+    }
+
+    #[test]
+    fn write_settings_atomic_overwrites_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, r#"{"old": true}"#).unwrap();
+        let value = serde_json::json!({"new": true});
+        write_settings_atomic(&path, &value).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(parsed, value);
     }
 }
