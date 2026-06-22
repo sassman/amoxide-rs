@@ -21,6 +21,26 @@ fn substitute_offset(cmd: &str, offset: usize) -> String {
 use crate::alias::AliasEntry;
 use crate::subcommand::SubcommandEntry;
 
+/// Render `line` as the interior of a PowerShell double-quoted string literal.
+/// Escapes the two metacharacters that would break the surrounding `"…"`:
+/// the backtick (PS's escape character) and the literal `"`. Leaves `$(...)`
+/// subexpressions and `$args[N]` references intact so PS interpolates them
+/// at call time — that's the whole point of the trace line.
+fn ps_trace_escape(line: &str) -> String {
+    line.replace('`', "``").replace('"', "`\"")
+}
+
+/// Emit a one-line debug gate. When `$env:__AM_DEBUG` is `1`, writes the
+/// post-expansion command to stderr (so it doesn't intermix with the real
+/// stdout the wrapped command produces). When unset/`0`, the `if` short-
+/// circuits — no side effect.
+fn ps_trace(line: &str) -> String {
+    format!(
+        "if ($env:__AM_DEBUG -eq '1') {{ [Console]::Error.WriteLine(\"[am] {}\") }}; ",
+        ps_trace_escape(line)
+    )
+}
+
 #[derive(Debug, Default)]
 pub struct PowerShell;
 
@@ -32,10 +52,16 @@ impl ShellAdapter for PowerShell {
     fn alias(&self, entry: &AliasEntry) -> String {
         if !entry.raw && has_template_args(entry.command) {
             let body = substitute_powershell(entry.command);
-            format!("function global:{} {{ {} }}", entry.name, body)
+            let trace = ps_trace(&body);
+            format!("function global:{} {{ {trace}{body} }}", entry.name)
         } else {
+            // Non-parameterised: real call uses `@args` (splat); trace shows
+            // `$args` (space-joined interpolation) — visually equivalent for
+            // simple cases and avoids the splat-vs-interpolate mismatch
+            // inside a "..." literal.
+            let trace = ps_trace(&format!("{} $args", entry.command));
             format!(
-                "function global:{} {{ {} @args }}",
+                "function global:{} {{ {trace}{} @args }}",
                 entry.name, entry.command
             )
         }
@@ -91,7 +117,10 @@ fn emit_ps_switch(
         emit_ps_node_body(lines, node, depth, ps_base, &format!("{indent}    "));
         lines.push(format!("{indent}  }}"));
     }
-    lines.push(format!("{indent}  default {{ {ps_base} @args }}"));
+    let outer_default_trace = ps_trace(&format!("{ps_base} $args"));
+    lines.push(format!(
+        "{indent}  default {{ {outer_default_trace}{ps_base} @args }}"
+    ));
     lines.push(format!("{indent}}}"));
 }
 
@@ -106,17 +135,20 @@ fn emit_ps_node_body(
 ) {
     let next_depth = depth + 1;
     if node.children.is_empty() {
-        // Leaf node: emit the expansion.
+        // Leaf node: emit the expansion (and its trace).
         let expansion = node.leaf_longs.as_deref().unwrap_or_default().join(" ");
         if has_template_args(&expansion) {
-            lines.push(format!(
-                "{indent}{ps_base} {}",
-                substitute_offset(&expansion, next_depth)
-            ));
+            let resolved = substitute_offset(&expansion, next_depth);
+            let trace = ps_trace(&format!("{ps_base} {resolved}"));
+            lines.push(format!("{indent}{trace}{ps_base} {resolved}"));
         } else {
-            lines.push(format!(
-                "{indent}{ps_base} {expansion} ($args | Select-Object -Skip {next_depth})"
-            ));
+            // Trace shows the tail via $(($args | Select-Object -Skip N)) so
+            // the printed line reflects the actual args the wrapped command
+            // will receive, not the literal pipeline expression.
+            let tail_real = format!("($args | Select-Object -Skip {next_depth})");
+            let tail_trace = format!("$(($args | Select-Object -Skip {next_depth}))");
+            let trace = ps_trace(&format!("{ps_base} {expansion} {tail_trace}"));
+            lines.push(format!("{indent}{trace}{ps_base} {expansion} {tail_real}"));
         }
     } else {
         // Intermediate node with children: emit a nested switch.
@@ -130,17 +162,22 @@ fn emit_ps_node_body(
         if let Some(longs) = &node.leaf_longs {
             let expansion = longs.join(" ");
             if has_template_args(&expansion) {
+                let resolved = substitute_offset(&expansion, next_depth);
+                let trace = ps_trace(&format!("{ps_base} {resolved}"));
                 lines.push(format!(
-                    "{indent}  default {{ {ps_base} {} }}",
-                    substitute_offset(&expansion, next_depth)
+                    "{indent}  default {{ {trace}{ps_base} {resolved} }}"
                 ));
             } else {
+                let tail_real = format!("($args | Select-Object -Skip {next_depth})");
+                let tail_trace = format!("$(($args | Select-Object -Skip {next_depth}))");
+                let trace = ps_trace(&format!("{ps_base} {expansion} {tail_trace}"));
                 lines.push(format!(
-                    "{indent}  default {{ {ps_base} {expansion} ($args | Select-Object -Skip {next_depth}) }}"
+                    "{indent}  default {{ {trace}{ps_base} {expansion} {tail_real} }}"
                 ));
             }
         } else {
-            lines.push(format!("{indent}  default {{ {ps_base} @args }}"));
+            let trace = ps_trace(&format!("{ps_base} $args"));
+            lines.push(format!("{indent}  default {{ {trace}{ps_base} @args }}"));
         }
         lines.push(format!("{indent}}}"));
     }
@@ -152,11 +189,23 @@ mod tests {
     use crate::shell::test_helpers::{raw, simple};
     use crate::subcommand::SubcommandEntry;
 
+    /// Inline copy of the debug-gate format used inside emitted PS function
+    /// bodies. Tests build the expected output by formatting against the
+    /// post-expansion form — same shape `ps_trace` produces in src.
+    fn gate(traced: &str) -> String {
+        format!(
+            "if ($env:__AM_DEBUG -eq '1') {{ [Console]::Error.WriteLine(\"[am] {traced}\") }}; "
+        )
+    }
+
     #[test]
     fn test_simple_alias() {
         assert_eq!(
             PowerShell.alias(&simple("gs", "git status")),
-            "function global:gs { git status @args }"
+            format!(
+                "function global:gs {{ {}git status @args }}",
+                gate("git status $args")
+            )
         );
     }
 
@@ -164,11 +213,17 @@ mod tests {
     fn test_parameterized_alias() {
         assert_eq!(
             PowerShell.alias(&simple("cmf", "cm feat: {{@}}")),
-            "function global:cmf { cm feat: $args }"
+            format!(
+                "function global:cmf {{ {}cm feat: $args }}",
+                gate("cm feat: $args")
+            )
         );
         assert_eq!(
             PowerShell.alias(&simple("x", "echo {{1}} and {{2}}")),
-            "function global:x { echo $($args[0]) and $($args[1]) }"
+            format!(
+                "function global:x {{ {}echo $($args[0]) and $($args[1]) }}",
+                gate("echo $($args[0]) and $($args[1])")
+            )
         );
     }
 
@@ -176,7 +231,28 @@ mod tests {
     fn test_raw_alias() {
         assert_eq!(
             PowerShell.alias(&raw("my-awk", "awk '{print {{1}}}'")),
-            "function global:my-awk { awk '{print {{1}}}' @args }"
+            format!(
+                "function global:my-awk {{ {}awk '{{print {{{{1}}}}}}' @args }}",
+                gate("awk '{print {{1}}}' $args")
+            )
+        );
+    }
+
+    #[test]
+    fn test_ps_trace_escapes_inner_quotes() {
+        // Body with an embedded "..." (the headline case from issue #143):
+        // git cm → commit -m "{{1}}" --signoff
+        let out = PowerShell.alias(&simple("cm", "git commit -m \"{{1}}\" --signoff"));
+        // Inside the trace literal, the inner " must be backtick-escaped so
+        // PS doesn't terminate the WriteLine argument.
+        assert!(
+            out.contains("[am] git commit -m `\"$($args[0])`\" --signoff"),
+            "trace should backtick-escape inner quotes: {out}"
+        );
+        // The real call still uses unescaped double-quotes.
+        assert!(
+            out.contains("git commit -m \"$($args[0])\" --signoff }"),
+            "real call must keep literal quotes: {out}"
         );
     }
 
