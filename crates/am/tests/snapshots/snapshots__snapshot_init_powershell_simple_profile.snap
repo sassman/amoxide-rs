@@ -6,6 +6,7 @@ expression: output
 function global:gs { git status @args }
 function global:ll { ls -lha @args }
 $env:_AM_ALIASES = "gs|22db469,ll|619d266"
+Remove-Item -ErrorAction SilentlyContinue Env:_AM_SUBCOMMANDS
 # am wrapper: sync after mutations
 function am {
     $amBin = (Get-Command -CommandType Application am | Select-Object -First 1).Source

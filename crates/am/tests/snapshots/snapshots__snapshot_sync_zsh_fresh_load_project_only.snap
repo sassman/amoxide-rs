@@ -1,6 +1,8 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 871
 expression: output
 ---
 alias b="cargo build"
 export _AM_ALIASES="b|b58de66"
+unset _AM_SUBCOMMANDS

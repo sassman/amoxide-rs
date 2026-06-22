@@ -211,11 +211,19 @@ impl PrecedenceDiff {
             }
         }
 
+        let any_change =
+            !self.removed.is_empty() || !self.added.is_empty() || !self.changed.is_empty();
         if !alias_list.is_empty() {
             lines.push(shell.set_env(env_vars::AM_ALIASES, &alias_list.to_string()));
+        } else if any_change {
+            // All aliases were removed — clear the tracking var so the next sync
+            // doesn't see stale names and mistakenly compute an empty diff.
+            lines.push(shell.unset_env(env_vars::AM_ALIASES));
         }
         if !sub_list.is_empty() {
             lines.push(shell.set_env(env_vars::AM_SUBCOMMANDS, &sub_list.to_string()));
+        } else if any_change {
+            lines.push(shell.unset_env(env_vars::AM_SUBCOMMANDS));
         }
 
         lines.join("\n")
