@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1](https://github.com/sassman/amoxide-rs/compare/v0.10.0...v0.10.1) - 2026-06-23
+
+
+### Bug Fixes
+
+- Aliases not loaded on powershell session start ([#146](https://github.com/sassman/amoxide-rs/pull/146)) by @sassman in [#146](https://github.com/sassman/amoxide-rs/pull/146)
+
+  ## Why
+
+  Starting a new PowerShell session left it with no project aliases until
+  you `cd`'d elsewhere and back. The hook was wired only to the prompt's
+  directory-change branch, so the initial directory was never synced.
+  Cross-shell, the related env-var diff logic could also leave stale
+  tracking names behind after a sync emptied the alias set — silently
+  breaking the *next* sync.
+
+  ## What changed
+
+  - PowerShell cd hook now runs an explicit initial sync on session start,
+  matching bash/zsh/fish behaviour.
+  - Hook also clears any inherited `_AM_ALIASES` / `_AM_PROJECT_PATH`
+  before that initial sync, so a stale value from a parent process can't
+  make `am sync` think nothing's missing.
+  - Precedence diff now unsets `_AM_ALIASES` / `_AM_SUBCOMMANDS` when a
+  change empties them, instead of leaving the old names tracked. Same trap
+  could have bitten any shell on an inherited session.
+  - Closes #144.
+
+  ---------
+
+
 ## [0.10.0](https://github.com/sassman/amoxide-rs/compare/v0.9.1...v0.10.0) - 2026-06-20
 
 
