@@ -1,5 +1,6 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 956
 expression: output
 ---
 functions -e b
@@ -11,3 +12,4 @@ function b
 end
 complete -c b --wraps "cargo"
 set -gx _AM_ALIASES "b|0dc3caa,t|ab61de4"
+set -e _AM_SUBCOMMANDS
