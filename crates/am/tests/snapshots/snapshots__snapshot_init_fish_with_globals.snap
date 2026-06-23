@@ -1,5 +1,6 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 214
 expression: output
 ---
 functions -e ct
@@ -15,6 +16,7 @@ function ll
 end
 complete -c ll --wraps "ls"
 set -gx _AM_ALIASES "ct|ab61de4,ll|619d266"
+set -e _AM_SUBCOMMANDS
 # am wrapper: sync after mutations
 function am --wraps=am
     command am $argv
