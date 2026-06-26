@@ -4,6 +4,7 @@ function global:prompt {
     if ($PWD.Path -ne $env:__AM_LAST_DIR) {
         $env:__AM_LAST_DIR = $PWD.Path
         $amBin = (Get-Command -CommandType Application am | Select-Object -First 1).Source
+        if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] hook: syncing $($PWD.Path)") }
         $hookCode = (& $amBin sync __SHELL__) -join "`r`n"
         if ($hookCode) { Invoke-Command -ScriptBlock ([scriptblock]::Create($hookCode)) -NoNewScope }
     }

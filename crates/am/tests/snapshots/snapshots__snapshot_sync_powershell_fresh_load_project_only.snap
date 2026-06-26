@@ -3,6 +3,6 @@ source: crates/am/tests/snapshots.rs
 assertion_line: 889
 expression: output
 ---
-function global:b { cargo build @args }
+function global:b { if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] cargo build $args") }; cargo build @args }
 $env:_AM_ALIASES = "b|b58de66"
 Remove-Item -ErrorAction SilentlyContinue Env:_AM_SUBCOMMANDS

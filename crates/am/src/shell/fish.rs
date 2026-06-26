@@ -12,6 +12,13 @@ use crate::alias::AliasEntry;
 use crate::config::FishConfig;
 use crate::subcommand::SubcommandEntry;
 
+/// Runtime debug-trace prelude injected into every emitted fish function body.
+/// When the user's shell has `__AM_DEBUG=1`, this enables fish's native
+/// `fish_trace` for the duration of the function — printing each expanded
+/// statement on stderr before exec. With the var unset or `0`, this is a
+/// single no-op `test` call per invocation.
+const FISH_DEBUG_TRACE: &str = "test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1";
+
 /// Extract the wrappable command word from an alias body — the actual program
 /// name to register `complete --wraps` against.
 ///
@@ -181,15 +188,18 @@ impl ShellAdapter for Fish {
         if !entry.raw && has_template_args(entry.command) {
             let body = substitute_fish(entry.command);
             format!(
-                "{prelude}\nfunction {name}\n    {body}\nend{wraps}",
+                "{prelude}\nfunction {name}\n    {FISH_DEBUG_TRACE}\n    {body}\nend{wraps}",
                 name = entry.name,
                 wraps = wraps_line.as_deref().unwrap_or(""),
             )
         } else if self.use_abbr {
+            // Abbreviations are syntactic expansions performed by fish before
+            // the function would run — there's no body to inject a tracer into,
+            // so they stay opaque to debug mode. See issue #143 PoC scope.
             format!("abbr --add {} {}", entry.name, quote_cmd(entry.command))
         } else {
             format!(
-                "{prelude}\nfunction {name}\n    {cmd} $argv\nend{wraps}",
+                "{prelude}\nfunction {name}\n    {FISH_DEBUG_TRACE}\n    {cmd} $argv\nend{wraps}",
                 name = entry.name,
                 cmd = entry.command,
                 wraps = wraps_line.as_deref().unwrap_or(""),
@@ -217,6 +227,7 @@ impl ShellAdapter for Fish {
     ) -> String {
         let mut lines = Vec::new();
         lines.push(format!("function {program} --wraps={program}"));
+        lines.push(format!("  {FISH_DEBUG_TRACE}"));
         let roots = build_wrapper_trie(entries);
         emit_fish_switch(&mut lines, &roots, 1, base_cmd, "  ");
         lines.push("end".into());
@@ -301,11 +312,11 @@ mod tests {
         // Body starting with a quote → no clean command word, skip --wraps.
         assert_eq!(
             Fish::default().alias(&simple("h", "'echo hello'")),
-            "functions -e h\ncomplete -e -c h\nfunction h\n    'echo hello' $argv\nend"
+            "functions -e h\ncomplete -e -c h\nfunction h\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    'echo hello' $argv\nend"
         );
         assert_eq!(
             Fish::default().alias(&simple("h", "echo hello")),
-            "functions -e h\ncomplete -e -c h\nfunction h\n    echo hello $argv\nend\ncomplete -c h --wraps \"echo\""
+            "functions -e h\ncomplete -e -c h\nfunction h\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    echo hello $argv\nend\ncomplete -c h --wraps \"echo\""
         );
     }
 
@@ -334,11 +345,11 @@ mod tests {
     fn test_fish_parameterized() {
         assert_eq!(
             Fish::default().alias(&simple("cmf", "cm feat: {{@}}")),
-            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    cm feat: $argv\nend\ncomplete -c cmf --wraps \"cm\""
+            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    cm feat: $argv\nend\ncomplete -c cmf --wraps \"cm\""
         );
         assert_eq!(
             Fish::default().alias(&simple("x", "echo {{1}} and {{2}}")),
-            "functions -e x\ncomplete -e -c x\nfunction x\n    echo $argv[1] and $argv[2]\nend\ncomplete -c x --wraps \"echo\""
+            "functions -e x\ncomplete -e -c x\nfunction x\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    echo $argv[1] and $argv[2]\nend\ncomplete -c x --wraps \"echo\""
         );
     }
 
@@ -346,7 +357,7 @@ mod tests {
     fn test_fish_raw_skips_templates() {
         assert_eq!(
             Fish::default().alias(&raw("my-awk", "awk '{print {{1}}}'")),
-            "functions -e my-awk\ncomplete -e -c my-awk\nfunction my-awk\n    awk '{print {{1}}}' $argv\nend\ncomplete -c my-awk --wraps \"awk\""
+            "functions -e my-awk\ncomplete -e -c my-awk\nfunction my-awk\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    awk '{print {{1}}}' $argv\nend\ncomplete -c my-awk --wraps \"awk\""
         );
     }
 
@@ -502,7 +513,7 @@ mod tests {
         let fish = Fish { use_abbr: true };
         assert_eq!(
             fish.alias(&simple("cmf", "cm feat: {{@}}")),
-            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    cm feat: $argv\nend\ncomplete -c cmf --wraps \"cm\""
+            "functions -e cmf\ncomplete -e -c cmf\nfunction cmf\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    cm feat: $argv\nend\ncomplete -c cmf --wraps \"cm\""
         );
     }
 

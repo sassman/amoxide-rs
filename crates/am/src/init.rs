@@ -192,8 +192,8 @@ mod tests {
             &aliases,
             &SubcommandSet::new(),
         );
-        assert!(output.contains("function gs\n    git status $argv\nend"));
-        assert!(output.contains("function ll\n    ls -lha $argv\nend"));
+        assert!(output.contains("function gs\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    git status $argv\nend"));
+        assert!(output.contains("function ll\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    ls -lha $argv\nend"));
     }
 
     #[test]
@@ -298,7 +298,7 @@ mod tests {
             &AliasSet::default(),
             &SubcommandSet::new(),
         );
-        assert!(output.contains("function ll\n    ls -lha $argv\nend"));
+        assert!(output.contains("function ll\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    ls -lha $argv\nend"));
     }
 
     #[test]
