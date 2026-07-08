@@ -20,3 +20,16 @@ function ConvertFrom-Sha256Sidecar {
     }
     return $Matches[1].ToLower()
 }
+
+function Invoke-TemplateSubstitution {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Content,
+        [Parameter(Mandatory)][hashtable]$Substitutions
+    )
+    foreach ($key in $Substitutions.Keys) {
+        # Use [string]::Replace — literal (non-regex) substitution.
+        $Content = $Content.Replace($key, [string]$Substitutions[$key])
+    }
+    return $Content
+}

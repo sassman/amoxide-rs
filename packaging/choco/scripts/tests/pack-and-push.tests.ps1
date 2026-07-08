@@ -46,3 +46,30 @@ Describe 'ConvertFrom-Sha256Sidecar' {
         { ConvertFrom-Sha256Sidecar -Content '' } | Should -Throw
     }
 }
+
+Describe 'Invoke-TemplateSubstitution' {
+    It 'replaces a single sentinel' {
+        $out = Invoke-TemplateSubstitution -Content 'hello __NAME__' -Substitutions @{ '__NAME__' = 'world' }
+        $out | Should -Be 'hello world'
+    }
+    It 'replaces multiple sentinels in one pass' {
+        $subs = @{
+            '__A__' = '1'
+            '__B__' = '2'
+        }
+        $out = Invoke-TemplateSubstitution -Content '__A__ and __B__' -Substitutions $subs
+        $out | Should -Match '1 and 2'
+    }
+    It 'treats replacement values as literal strings (no regex)' {
+        $out = Invoke-TemplateSubstitution -Content 'x = __VAL__' -Substitutions @{ '__VAL__' = '$1 + [42]' }
+        $out | Should -Be 'x = $1 + [42]'
+    }
+    It 'replaces every occurrence of a repeated sentinel' {
+        $out = Invoke-TemplateSubstitution -Content '__X__ __X__ __X__' -Substitutions @{ '__X__' = 'go' }
+        $out | Should -Be 'go go go'
+    }
+    It 'passes content through when no sentinels match' {
+        $out = Invoke-TemplateSubstitution -Content 'unchanged' -Substitutions @{ '__NONE__' = 'x' }
+        $out | Should -Be 'unchanged'
+    }
+}
