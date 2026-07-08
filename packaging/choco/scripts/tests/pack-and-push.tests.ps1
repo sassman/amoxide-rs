@@ -73,3 +73,32 @@ Describe 'Invoke-TemplateSubstitution' {
         $out | Should -Be 'unchanged'
     }
 }
+
+Describe 'Get-ReleaseNotesFromTag' {
+    BeforeEach {
+        # Mock `Invoke-Git` (thin wrapper we'll define alongside Get-ReleaseNotesFromTag)
+        # so we don't need a real git tag during tests.
+        Mock Invoke-Git { return 'v0.11.0 release' + [Environment]::NewLine + [Environment]::NewLine + 'body line one' + [Environment]::NewLine + 'body line two' } -ParameterFilter { $GitArgs[0] -eq 'tag' -and $GitArgs[-1] -eq 'v0.11.0' }
+    }
+
+    It 'returns trimmed tag body when non-empty' {
+        $out = Get-ReleaseNotesFromTag -Tag 'v0.11.0'
+        $out | Should -Match 'v0.11.0 release'
+        $out | Should -Match 'body line two'
+    }
+
+    It 'falls back to release URL when tag body is empty' {
+        Mock Invoke-Git { return '' } -ParameterFilter { $GitArgs[0] -eq 'tag' }
+        Get-ReleaseNotesFromTag -Tag 'v0.11.0' | Should -Be 'See https://github.com/sassman/amoxide-rs/releases/tag/v0.11.0'
+    }
+
+    It 'falls back when tag body is whitespace only' {
+        Mock Invoke-Git { return "   `n`n  " } -ParameterFilter { $GitArgs[0] -eq 'tag' }
+        Get-ReleaseNotesFromTag -Tag 'v0.11.0' | Should -Be 'See https://github.com/sassman/amoxide-rs/releases/tag/v0.11.0'
+    }
+
+    It 'throws when tag body contains CDATA-end sequence' {
+        Mock Invoke-Git { return 'harmless prefix ]]> harmless suffix' } -ParameterFilter { $GitArgs[0] -eq 'tag' }
+        { Get-ReleaseNotesFromTag -Tag 'v0.11.0' } | Should -Throw '*]]>*'
+    }
+}

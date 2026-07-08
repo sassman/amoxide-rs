@@ -33,3 +33,29 @@ function Invoke-TemplateSubstitution {
     }
     return $Content
 }
+
+function Invoke-Git {
+    # Thin indirection so tests can Mock it. Real invocation forwards to the git CLI.
+    [CmdletBinding()]
+    param([Parameter(ValueFromRemainingArguments)][string[]]$GitArgs)
+    $out = & git @GitArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "git $($GitArgs -join ' ') failed with exit $LASTEXITCODE"
+    }
+    return $out -join [Environment]::NewLine
+}
+
+function Get-ReleaseNotesFromTag {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Tag)
+
+    $notes = Invoke-Git 'tag' '-l' '--format=%(contents:subject)%0a%0a%(contents:body)' $Tag
+    $notes = $notes.Trim()
+    if ($notes -eq '') {
+        return "See https://github.com/sassman/amoxide-rs/releases/tag/$Tag"
+    }
+    if ($notes.Contains(']]>')) {
+        throw "tag body for $Tag contains ']]>' which is illegal inside CDATA"
+    }
+    return $notes
+}
