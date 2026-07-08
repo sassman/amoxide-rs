@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>amoxide</id>
+    <title>amoxide (am) — the alias manager</title>
+    <version>$version$</version>
+    <authors>Sven Kanoldt</authors>
+    <owners>5422m4n</owners>
+    <projectUrl>https://amoxide.rs</projectUrl>
+    <projectSourceUrl>https://github.com/sassman/amoxide-rs</projectSourceUrl>
+    <packageSourceUrl>https://github.com/sassman/amoxide-rs/tree/main/packaging/choco/amoxide</packageSourceUrl>
+    <bugTrackerUrl>https://github.com/sassman/amoxide-rs/issues</bugTrackerUrl>
+    <docsUrl>https://amoxide.rs/guide/</docsUrl>
+    <licenseUrl>https://github.com/sassman/amoxide-rs/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <iconUrl>https://amoxide.rs/logo.png</iconUrl>
+    <summary>Manage shell aliases across profiles, projects, and shells.</summary>
+    <description><![CDATA[
+amoxide (binary: `am`) is a cross-shell alias manager written in Rust.
+It lets you define aliases in per-profile and per-project files,
+activate them with `am profile use`, and keeps your shell in sync via
+a small `am sync` hook.
+
+Supports fish, bash, zsh, PowerShell (5.1 and 7), and brush.
+See <https://amoxide.rs/guide/> for the full guide.
+
+The TUI companion is a separate Chocolatey package (`amoxide-tui`).
+    ]]></description>
+    <tags>amoxide am alias shell fish zsh bash powershell rust cross-platform admin</tags>
+    <releaseNotes><![CDATA[__RELEASE_NOTES__]]></releaseNotes>
+    <copyright>Copyright (c) Sven Kanoldt</copyright>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
