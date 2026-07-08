@@ -59,3 +59,10 @@ function Get-ReleaseNotesFromTag {
     }
     return $notes
 }
+
+function Get-Sha256FromUrl {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Url)
+    $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing
+    return ConvertFrom-Sha256Sidecar -Content $resp.Content
+}
