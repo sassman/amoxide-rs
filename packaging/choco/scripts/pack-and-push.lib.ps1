@@ -10,3 +10,13 @@ function Get-ChocoVersion {
     }
     return $Matches[1]
 }
+
+function ConvertFrom-Sha256Sidecar {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Content)
+    $trimmed = $Content.Trim()
+    if ($trimmed -notmatch '^([a-fA-F0-9]{64})\b') {
+        throw "sidecar content is not a valid sha256 line: '$trimmed'"
+    }
+    return $Matches[1].ToLower()
+}
