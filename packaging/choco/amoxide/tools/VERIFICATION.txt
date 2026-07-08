@@ -1,0 +1,20 @@
+VERIFICATION
+
+The binaries in this package are downloaded at install time from the
+upstream GitHub Release:
+
+    https://github.com/sassman/amoxide-rs/releases
+
+The x64 and ARM64 zip archives are checksummed with SHA-256. The
+expected checksums are pinned in chocolateyInstall.ps1 and match the
+`.sha256` sidecar files published alongside each release asset by
+cargo-dist.
+
+To verify manually, from any machine with `sha256sum` (Linux, macOS,
+Windows with Git Bash):
+
+    curl -LO https://github.com/sassman/amoxide-rs/releases/download/v<version>/amoxide-x86_64-pc-windows-msvc.zip
+    curl -LO https://github.com/sassman/amoxide-rs/releases/download/v<version>/amoxide-x86_64-pc-windows-msvc.zip.sha256
+    sha256sum -c amoxide-x86_64-pc-windows-msvc.zip.sha256
+
+The upstream project is licensed under GPL-3.0; see LICENSE.txt.
