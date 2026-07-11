@@ -421,6 +421,22 @@ jobs:
         shell: pwsh
         run: ./packaging/choco/scripts/pack-and-push.ps1 -Tag "${{ needs.plan.outputs.tag }}"
 
+  publish-chocolatey-dry-run:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-tags: true
+      - name: Ensure test tag is present locally
+        shell: bash
+        # Pin against a known-good published tag so the SHA sidecars and tag body resolve.
+        run: git fetch origin "refs/tags/v0.10.0:refs/tags/v0.10.0" --no-tags 2>/dev/null || true
+      - name: Dry-run pack
+        shell: pwsh
+        run: ./packaging/choco/scripts/pack-and-push.ps1 -Tag v0.10.0 -DryRun
+
   announce:
     needs:
       - plan
