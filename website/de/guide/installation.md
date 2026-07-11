@@ -1,5 +1,7 @@
 # Installation
 
+<VersionBadge v="0.11.0" />
+
 ## Paketmanager
 
 ::: code-group
@@ -8,14 +10,14 @@
 brew install sassman/tap/amoxide sassman/tap/amoxide-tui
 ```
 
+```powershell [Chocolatey (Windows)]
+choco install amoxide
+choco install amoxide-tui
+```
+
 ```sh [Shell-Skript (macOS/Linux)]
 curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.sh | sh
 curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
-```
-
-```powershell [PowerShell (Windows)]
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
 ```
 
 ```sh [Cargo (pre-built)]
@@ -33,6 +35,15 @@ Das Crate heißt `amoxide`, aber die installierte Binary heißt einfach `am`.
 ::: tip
 Der TUI-Companion (`am-tui`) ist ein separates Paket. Optional, aber empfohlen für visuelle Alias-Verwaltung.
 :::
+
+## Manuelle Installation (Windows)
+
+Falls du Chocolatey nicht verwenden kannst oder willst, installiere direkt über das PowerShell-Skript:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
+```
 
 ## Shell-Unterstützung
 
@@ -73,12 +84,12 @@ Der `am tui`-Befehl erfordert den TUI-Companion (`amoxide-tui`) als separate Ins
 brew install sassman/tap/amoxide-tui
 ```
 
-```sh [Shell-Skript]
-curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
+```powershell [Chocolatey]
+choco install amoxide-tui
 ```
 
-```powershell [PowerShell]
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.ps1 | iex"
+```sh [Shell-Skript]
+curl -fsSL https://github.com/sassman/amoxide-rs/releases/latest/download/amoxide-tui-installer.sh | sh
 ```
 
 ```sh [Cargo (pre-built)]
