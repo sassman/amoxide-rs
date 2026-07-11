@@ -60,6 +60,9 @@ $triples = [ordered]@{
 }
 
 # Fetch all sidecars up front — fail fast if any is missing.
+# In dry-run mode a missing sidecar (e.g. ARM64 on a pre-ARM64 release tag) is
+# tolerated: a stub hash is used so template substitution can still be verified.
+$stubSha = '0000000000000000000000000000000000000000000000000000000000000000'
 $hashes = @{}
 foreach ($pkg in $Packages) {
     $hashes[$pkg] = @{}
@@ -67,7 +70,16 @@ foreach ($pkg in $Packages) {
         $triple = $triples[$arch]
         $url = "https://github.com/sassman/amoxide-rs/releases/download/$Tag/$pkg-$triple.zip.sha256"
         Write-Host "  fetch $url"
-        $hashes[$pkg][$arch] = Get-Sha256FromUrl -Url $url
+        try {
+            $hashes[$pkg][$arch] = Get-Sha256FromUrl -Url $url
+        } catch {
+            if ($DryRun) {
+                Write-Host "    (dry-run) sidecar missing or invalid; using stub hash"
+                $hashes[$pkg][$arch] = $stubSha
+            } else {
+                throw
+            }
+        }
     }
 }
 
