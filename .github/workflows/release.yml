@@ -378,16 +378,60 @@ jobs:
           done
           git push
 
+  publish-chocolatey:
+    needs:
+      - plan
+      - host
+    if: ${{ !fromJson(needs.plan.outputs.val).announcement_is_prerelease || fromJson(needs.plan.outputs.val).publish_prereleases }}
+    runs-on: windows-latest
+    env:
+      CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-tags: true
+      - name: Ensure release tag is present locally
+        shell: bash
+        run: |
+          TAG="${{ needs.plan.outputs.tag }}"
+          git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --no-tags 2>/dev/null || true
+      - name: Wait for release assets
+        shell: pwsh
+        run: |
+          $tag = "${{ needs.plan.outputs.tag }}"
+          $triples = @('x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc')
+          $pkgs = @('amoxide', 'amoxide-tui')
+          foreach ($t in $triples) {
+            foreach ($p in $pkgs) {
+              $u = "https://github.com/sassman/amoxide-rs/releases/download/$tag/$p-$t.zip.sha256"
+              $ok = $false
+              for ($i = 0; $i -lt 20; $i++) {
+                try {
+                  Invoke-WebRequest -Uri $u -UseBasicParsing -Method Head | Out-Null
+                  $ok = $true; break
+                } catch {
+                  Start-Sleep -Seconds 6
+                }
+              }
+              if (-not $ok) { throw "sidecar never appeared: $u" }
+            }
+          }
+      - name: Pack and push
+        shell: pwsh
+        run: ./packaging/choco/scripts/pack-and-push.ps1 -Tag "${{ needs.plan.outputs.tag }}"
+
   announce:
     needs:
       - plan
       - host
       - publish-crates
       - publish-homebrew-formula
+      - publish-chocolatey
     # use "always() && ..." to allow us to wait for all publish jobs while
     # still allowing individual publish jobs to skip themselves (for prereleases).
     # "host" however must run to completion, no skipping allowed!
-    if: ${{ always() && needs.host.result == 'success' && (needs.publish-crates.result == 'skipped' || needs.publish-crates.result == 'success') && (needs.publish-homebrew-formula.result == 'skipped' || needs.publish-homebrew-formula.result == 'success') }}
+    if: ${{ always() && needs.host.result == 'success' && (needs.publish-crates.result == 'skipped' || needs.publish-crates.result == 'success') && (needs.publish-homebrew-formula.result == 'skipped' || needs.publish-homebrew-formula.result == 'success') && (needs.publish-chocolatey.result == 'skipped' || needs.publish-chocolatey.result == 'success') }}
     runs-on: "ubuntu-22.04"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
