@@ -10,7 +10,7 @@ Publishing is automated in `.github/workflows/release.yml` (`publish-chocolatey`
 - `amoxide-tui/` — `amoxide-tui` package (the `am-tui` visual companion).
 - `scripts/pack-and-push.ps1` — release-time orchestrator, invoked by CI.
 - `scripts/pack-and-push.lib.ps1` — pure helper functions, Pester-tested.
-- `scripts/tests/` — Pester 5 test suite.
+- `scripts/tests/` — Pester 5.5+ test suite.
 - `.staging/` — build output, gitignored.
 
 ## Local test (dry-run pack)
@@ -31,7 +31,7 @@ The tag must be a real published release — the script curls `.sha256` sidecars
 
 ## Run Pester tests
 
-Requires Pester 5:
+Requires Pester 5.5+:
 
 ```fish
 pwsh -Command "Install-Module Pester -MinimumVersion 5.5.0 -Force -Scope CurrentUser"
