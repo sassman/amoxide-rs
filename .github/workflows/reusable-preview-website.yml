@@ -23,7 +23,7 @@ jobs:
     environment: ${{ inputs.is_fork && 'preview-website' || '' }}
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.head_sha }}
           fetch-depth: 0
@@ -47,7 +47,7 @@ jobs:
           VITEPRESS_BASE: /_preview/${{ inputs.pr_number }}/
 
       - name: Checkout gh-pages branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: gh-pages
           path: gh-pages
