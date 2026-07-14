@@ -1,10 +1,12 @@
 ---
 source: crates/am/tests/snapshots.rs
+assertion_line: 182
 expression: output
 ---
 alias gs="git status"
 alias ll="ls -lha"
 export _AM_ALIASES="gs|22db469,ll|619d266"
+unset _AM_SUBCOMMANDS
 am() {
   command am "$@"
   local am_status=$?
