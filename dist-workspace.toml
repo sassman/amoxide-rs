@@ -19,6 +19,8 @@ install-updater = false
 tap = "sassman/homebrew-tap"
 # Publish jobs to run
 publish-jobs = ["homebrew"]
+# Post-announce jobs — run after the GitHub Release exists
+post-announce-jobs = ["./publish-chocolatey"]
 # Don't publish prereleases to Homebrew
 publish-prereleases = false
 # We customized release.yml (GitHub App auth for Homebrew) — don't overwrite

@@ -1,0 +1,33 @@
+name: PR check — Chocolatey pack
+
+# Runs `pack-and-push.ps1 -DryRun` on every PR to catch template regressions
+# before they reach a real release tag. Pinned to a known-good published tag
+# so the SHA sidecars and tag body resolve; ARM64 sidecars stubbed by the
+# script's dry-run tolerance.
+
+on:
+  pull_request:
+    paths:
+      - packaging/choco/**
+      - .github/workflows/publish-chocolatey.yml
+      - .github/workflows/pr-check-chocolatey.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-tags: true
+      - name: Ensure test tag is present locally
+        shell: bash
+        # Pin against a known-good published tag so the SHA sidecars and tag body resolve.
+        run: git fetch origin "refs/tags/v0.10.0:refs/tags/v0.10.0" --no-tags 2>/dev/null || true
+      - name: Dry-run pack
+        shell: pwsh
+        run: ./packaging/choco/scripts/pack-and-push.ps1 -Tag v0.10.0 -DryRun
