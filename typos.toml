@@ -4,3 +4,5 @@ extend-exclude = ["CHANGELOG.md", "website/de/"]
 [default.extend-words]
 fo = "fo"
 helo = "helo"
+ratatui = "ratatui"
+Ratatui = "Ratatui"
