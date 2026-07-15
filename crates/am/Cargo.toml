@@ -32,6 +32,12 @@ tempfile = { workspace = true }
 terminal_size = "0.4"
 unicode-width = "0.2"
 
+# blake3's NEON C path won't build under cargo-xwin's clang backend — the
+# msvc-sysroot exposes ARM64 NEON intrinsics as no-op macros that break
+# __builtin_shufflevector. Fall back to the portable path on this target only.
+[target.'cfg(all(target_arch = "aarch64", target_os = "windows"))'.dependencies]
+blake3 = { version = "1", features = ["no_neon"] }
+
 [features]
 test-util = []
 
