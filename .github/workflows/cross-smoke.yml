@@ -1,0 +1,105 @@
+# Cross-compilation smoke test.
+#
+# Builds every release target from dist-workspace.toml on PRs and on push to
+# main, so we catch cross-toolchain regressions (like the ring / blake3 xwin
+# breakage) before they blow up an actual release run.
+#
+# We deliberately reuse `dist plan` + `dist build --artifacts=local` so the
+# matrix and toolchain stay in sync with release.yml — no second target list
+# to maintain.
+name: Cross-compile smoke
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**"
+      - "dist-workspace.toml"
+      - ".github/workflows/cross-smoke.yml"
+      - ".github/workflows/release.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**"
+      - "dist-workspace.toml"
+      - ".github/workflows/cross-smoke.yml"
+      - ".github/workflows/release.yml"
+
+concurrency:
+  group: cross-smoke-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-22.04
+    outputs:
+      val: ${{ steps.plan.outputs.manifest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Install dist
+        shell: bash
+        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.32.0/cargo-dist-installer.sh | sh"
+      - name: Cache dist
+        uses: actions/upload-artifact@v7
+        with:
+          name: cargo-dist-cache
+          path: ~/.cargo/bin/dist
+      - id: plan
+        run: |
+          dist plan --output-format=json > plan-dist-manifest.json
+          echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
+      - name: Upload plan manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: artifacts-plan-dist-manifest
+          path: plan-dist-manifest.json
+
+  cross-build:
+    name: cross-build (${{ join(matrix.targets, ', ') }})
+    needs: plan
+    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container && matrix.container.image || null }}
+    env:
+      # ring 0.17 forces `clang` (not `clang-cl`) for aarch64-pc-windows-msvc;
+      # cargo-xwin's `clang` backend formats /imsvc include paths in a form
+      # plain clang understands. Harmless for other targets.
+      XWIN_CROSS_COMPILER: clang
+    steps:
+      - name: enable windows longpaths
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Install Rust non-interactively if not already installed
+        if: ${{ matrix.container }}
+        run: |
+          if ! command -v cargo > /dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          fi
+      - name: Install dist
+        run: ${{ matrix.install_dist.run }}
+      - name: Fetch plan manifest
+        uses: actions/download-artifact@v8
+        with:
+          pattern: artifacts-*
+          path: target/distrib/
+          merge-multiple: true
+      - name: Install dependencies
+        run: |
+          ${{ matrix.packages_install }}
+      - name: Build artifacts
+        run: |
+          dist build --print=linkage --output-format=json ${{ matrix.dist_args }}
