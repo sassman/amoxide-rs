@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>amoxide-tui</id>
+    <title>amoxide-tui (am-tui) — visual alias manager</title>
+    <version>$version$</version>
+    <authors>Sven Kanoldt</authors>
+    <owners>5422m4n</owners>
+    <projectUrl>https://amoxide.rs</projectUrl>
+    <projectSourceUrl>https://github.com/sassman/amoxide-rs</projectSourceUrl>
+    <packageSourceUrl>https://github.com/sassman/amoxide-rs/tree/main/packaging/choco/amoxide-tui</packageSourceUrl>
+    <bugTrackerUrl>https://github.com/sassman/amoxide-rs/issues</bugTrackerUrl>
+    <docsUrl>https://amoxide.rs/guide/</docsUrl>
+    <licenseUrl>https://github.com/sassman/amoxide-rs/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <iconUrl>https://amoxide.rs/logo.png</iconUrl>
+    <summary>Ratatui-based visual companion for amoxide.</summary>
+    <description><![CDATA[
+amoxide-tui (binary: `am-tui`) is the terminal UI companion for
+[amoxide](https://amoxide.rs). It offers a visual alias browser
+built with ratatui — pick a profile, view aliases, add/edit/remove
+without leaving your terminal.
+
+`am-tui` runs standalone but is most useful alongside the `amoxide`
+package, which provides the `am` CLI and the shell wrapper. Install
+both for the full experience.
+
+See <https://amoxide.rs/guide/> for the full guide.
+    ]]></description>
+    <tags>amoxide-tui am-tui alias shell tui ratatui rust cross-platform admin</tags>
+    <releaseNotes><![CDATA[__RELEASE_NOTES__]]></releaseNotes>
+    <copyright>Copyright (c) Sven Kanoldt</copyright>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

@@ -1,0 +1,55 @@
+name: Publish to Chocolatey
+
+# Reusable workflow invoked by cargo-dist as a `post-announce-jobs` entry
+# (see dist-workspace.toml). Runs after the GitHub Release exists — no need
+# to poll for asset availability.
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        description: The dist plan JSON. Emitted by cargo-dist's `plan` job.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v0.11.0). Required for manual runs.
+        required: true
+        type: string
+      dry_run:
+        description: Pack only, skip choco push. Useful for smoke-testing against old tags.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    env:
+      CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-tags: true
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG=$(printf '%s' '${{ inputs.plan }}' | jq -r '.announcement_tag')
+          fi
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --no-tags 2>/dev/null || true
+      - name: Pack and push
+        shell: pwsh
+        run: |
+          $args = @('-Tag', '${{ steps.tag.outputs.value }}')
+          if ('${{ inputs.dry_run }}' -eq 'true') { $args += '-DryRun' }
+          ./packaging/choco/scripts/pack-and-push.ps1 @args

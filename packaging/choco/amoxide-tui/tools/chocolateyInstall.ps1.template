@@ -1,0 +1,24 @@
+$ErrorActionPreference = 'Stop'
+$toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
+
+$packageArgs = @{
+  packageName       = $env:ChocolateyPackageName
+  unzipLocation     = $toolsDir
+  fileType          = 'zip'
+
+  url64bit          = '__URL_X64__'
+  checksum64        = '__SHA_X64__'
+  checksumType64    = 'sha256'
+
+  urlArm64          = '__URL_ARM64__'
+  checksumArm64     = '__SHA_ARM64__'
+  checksumTypeArm64 = 'sha256'
+}
+Install-ChocolateyZipPackage @packageArgs
+
+# cargo-dist zips unpack to amoxide-tui-<triple>/am-tui.exe — find and shim it explicitly.
+$exe = Get-ChildItem -Path $toolsDir -Recurse -Filter 'am-tui.exe' | Select-Object -First 1
+if ($null -eq $exe) {
+  throw "am-tui.exe not found under $toolsDir after unzip"
+}
+Install-BinFile -Name 'am-tui' -Path $exe.FullName

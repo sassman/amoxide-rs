@@ -11,6 +11,9 @@ website/node_modules/
 website/.vitepress/cache/
 website/.vitepress/dist/
 
+
+# Chocolatey packaging staging dir
+packaging/choco/.staging/
 # Scratch buffer for release notes drafting (see `release-notes` project alias)
 RELEASE_NOTES_*.md
 
