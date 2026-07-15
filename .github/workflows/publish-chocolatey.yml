@@ -50,6 +50,8 @@ jobs:
       - name: Pack and push
         shell: pwsh
         run: |
-          $scriptArgs = @('-Tag', '${{ steps.tag.outputs.value }}')
-          if ('${{ inputs.dry_run }}' -eq 'true') { $scriptArgs += '-DryRun' }
+          # Hashtable splat — PowerShell array splat is positional-only, so
+          # @('-Tag', 'v0.10.0') would bind the string '-Tag' as the value of $Tag.
+          $scriptArgs = @{ Tag = '${{ steps.tag.outputs.value }}' }
+          if ('${{ inputs.dry_run }}' -eq 'true') { $scriptArgs.DryRun = $true }
           ./packaging/choco/scripts/pack-and-push.ps1 @scriptArgs
