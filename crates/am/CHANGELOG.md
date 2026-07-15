@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.5](https://github.com/sassman/amoxide-rs/compare/v0.10.2...v0.10.5) - 2026-07-15
+
+
+### Bug Fixes
+
+- Disable blake3 NEON on aarch64-pc-windows-msvc ([#165](https://github.com/sassman/amoxide-rs/pull/165)) by @sassman in [#165](https://github.com/sassman/amoxide-rs/pull/165)
+
+  ## Why
+
+  The v0.10.4 release still fails on the `aarch64-pc-windows-msvc` leg.
+  With `XWIN_CROSS_COMPILER=clang` (shipped in #163) the msvc-sysroot
+  exposes ARM64 NEON intrinsics as no-op macros — e.g. `#define
+  vreinterpretq_u32_u8(a) (a)` — which makes `blake3_neon.c`'s call to
+  `__builtin_shufflevector` reject a scalar where it wants a vector.
+
+  ## What changed
+
+  - Enable `blake3`'s `no_neon` feature via a target-scoped dependency for
+  `cfg(all(target_arch = "aarch64", target_os = "windows"))`. Every other
+  target keeps the SIMD path — blake3 is only used for trust-content
+  hashing, so the perf cost on this one target is negligible.
+
+  <!-- This is an auto-generated comment: release notes by coderabbit.ai
+  -->
+
+  ## Summary by CodeRabbit
+
+  * **Bug Fixes**
+  * Improved compatibility and stability for users running the application
+  on ARM64-based Windows devices.
+  * Resolved a platform-specific issue that could prevent successful
+  builds or operation in this environment.
+
+  <!-- end of auto-generated comment: release notes by coderabbit.ai -->
+
+
 ## [0.10.4](https://github.com/sassman/amoxide-rs/compare/v0.10.3...v0.10.4) - 2026-07-15
 
 
