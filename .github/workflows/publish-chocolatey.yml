@@ -17,6 +17,11 @@ on:
         description: Release tag to publish (e.g. v0.11.0). Required for manual runs.
         required: true
         type: string
+      dry_run:
+        description: Pack only, skip choco push. Useful for smoke-testing against old tags.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,4 +49,7 @@ jobs:
           git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --no-tags 2>/dev/null || true
       - name: Pack and push
         shell: pwsh
-        run: ./packaging/choco/scripts/pack-and-push.ps1 -Tag "${{ steps.tag.outputs.value }}"
+        run: |
+          $args = @('-Tag', '${{ steps.tag.outputs.value }}')
+          if ('${{ inputs.dry_run }}' -eq 'true') { $args += '-DryRun' }
+          ./packaging/choco/scripts/pack-and-push.ps1 @args
