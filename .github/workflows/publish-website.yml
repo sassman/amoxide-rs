@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'website/**'
-      - 'community/**'
+      - "website/**"
+      - "community/**"
   workflow_dispatch:
   workflow_call:
 
@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: deploy-website
+  group: publish-website
   cancel-in-progress: false
 
 jobs:
