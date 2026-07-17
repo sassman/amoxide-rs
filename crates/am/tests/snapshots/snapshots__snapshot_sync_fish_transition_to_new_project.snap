@@ -7,6 +7,7 @@ functions -e old1
 functions -e new1
 complete -e -c new1
 function new1
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     echo new $argv
 end
 complete -c new1 --wraps "echo"

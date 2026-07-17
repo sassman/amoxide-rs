@@ -274,7 +274,7 @@ mod tests {
             "changed b must be unloaded: {out}"
         );
         assert!(
-            out.contains("function b\n    make build $argv\nend"),
+            out.contains("function b\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    make build $argv\nend"),
             "b must be reloaded: {out}"
         );
         // env-var update must be the last section
