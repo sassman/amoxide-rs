@@ -63,6 +63,10 @@ function Get-ReleaseNotesFromTag {
 function Get-Sha256FromUrl {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Url)
-    $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing
-    return ConvertFrom-Sha256Sidecar -Content $resp.Content
+    # GitHub serves release sidecars as application/octet-stream, which makes
+    # Invoke-WebRequest return $resp.Content as byte[] under PowerShell 7 —
+    # that breaks the [string] param on ConvertFrom-Sha256Sidecar.
+    # Invoke-RestMethod decodes the body to string for us.
+    $body = Invoke-RestMethod -Uri $Url
+    return ConvertFrom-Sha256Sidecar -Content $body
 }
