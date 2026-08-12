@@ -5,10 +5,12 @@ expression: output
 functions -e gs
 complete -e -c gs
 function gs
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     git status $argv
 end
 complete -c gs --wraps "git"
 function jj --wraps=jj
+  test "$__AM_DEBUG" = 1; and set -l fish_trace 1
   switch $argv[1]
     case 'ab'
       command jj abandon $argv[2..]

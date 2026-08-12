@@ -3,8 +3,8 @@ source: crates/am/tests/snapshots.rs
 assertion_line: 163
 expression: output
 ---
-function global:gs { git status @args }
-function global:ll { ls -lha @args }
+function global:gs { if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] git status $args") }; git status @args }
+function global:ll { if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] ls -lha $args") }; ls -lha @args }
 $env:_AM_ALIASES = "gs|22db469,ll|619d266"
 Remove-Item -ErrorAction SilentlyContinue Env:_AM_SUBCOMMANDS
 # am wrapper: sync after mutations
@@ -17,10 +17,12 @@ function am {
     $second = if ($args.Count -ge 2) { $args[1] } else { $null }
 
     $runSync = {
+        if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] wrapper: sync after '$first'") }
         $out = (& $amBin sync powershell) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
     $runSyncQuiet = {
+        if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] wrapper: sync (quiet) after '$first'") }
         $out = (& $amBin sync --quiet powershell) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
@@ -46,6 +48,7 @@ function global:prompt {
     if ($PWD.Path -ne $env:__AM_LAST_DIR) {
         $env:__AM_LAST_DIR = $PWD.Path
         $amBin = (Get-Command -CommandType Application am | Select-Object -First 1).Source
+        if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] hook: syncing $($PWD.Path)") }
         $hookCode = (& $amBin sync powershell) -join "`r`n"
         if ($hookCode) { Invoke-Command -ScriptBlock ([scriptblock]::Create($hookCode)) -NoNewScope }
     }

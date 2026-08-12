@@ -8,6 +8,7 @@ functions -e t
 functions -e t
 complete -e -c t
 function t
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     cargo test $argv
 end
 complete -c t --wraps "cargo"
