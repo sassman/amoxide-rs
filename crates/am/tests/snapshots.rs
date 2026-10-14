@@ -756,7 +756,7 @@ fn sync_fresh_load_emits_aliases_and_env_var() {
         .diff;
     let shell = Shell::Fish.as_shell(&Default::default(), Default::default(), Default::default());
     let out = diff.render(shell.as_ref());
-    assert!(out.contains("function gs\n    git status $argv\nend"));
+    assert!(out.contains("function gs\n    test \"$__AM_DEBUG\" = 1; and set -l fish_trace 1\n    git status $argv\nend"));
     assert!(out.contains("_AM_ALIASES"));
     assert!(out.contains("gs|"));
 }

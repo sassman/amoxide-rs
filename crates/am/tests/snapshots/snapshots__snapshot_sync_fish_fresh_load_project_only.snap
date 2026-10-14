@@ -6,12 +6,14 @@ expression: output
 functions -e b
 complete -e -c b
 function b
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     cargo build $argv
 end
 complete -c b --wraps "cargo"
 functions -e t
 complete -e -c t
 function t
+    test "$__AM_DEBUG" = 1; and set -l fish_trace 1
     cargo test $argv
 end
 complete -c t --wraps "cargo"

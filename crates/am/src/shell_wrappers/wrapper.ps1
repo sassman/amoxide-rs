@@ -8,10 +8,12 @@ function am {
     $second = if ($args.Count -ge 2) { $args[1] } else { $null }
 
     $runSync = {
+        if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] wrapper: sync after '$first'") }
         $out = (& $amBin sync __SHELL__) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
     $runSyncQuiet = {
+        if ($env:__AM_DEBUG -eq '1') { [Console]::Error.WriteLine("[am] wrapper: sync (quiet) after '$first'") }
         $out = (& $amBin sync --quiet __SHELL__) -join "`r`n"
         if ($out) { Invoke-Command -ScriptBlock ([scriptblock]::Create($out)) -NoNewScope }
     }
