@@ -255,7 +255,7 @@ _am() {
             return 0
             ;;
         am__subcmd__add)
-            opts="-p -l -g -d -h -V --profile --local --global --raw --description --sub --help --version <NAME> [COMMAND]..."
+            opts="-p -l -g -d -h -V --profile --local --global --raw --description --sub --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -731,7 +731,7 @@ _am() {
             return 0
             ;;
         am__subcmd__import)
-            opts="-l -g -p -b -y -h -V --local --global --profile --all --base64 --yes --trust --help --version <SOURCE>"
+            opts="-l -g -p -b -y -h -V --local --global --profile --all --base64 --yes --trust --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -809,7 +809,7 @@ _am() {
             return 0
             ;;
         am__subcmd__profile__subcmd__add)
-            opts="-h -V --help --version <NAME>"
+            opts="-h -V --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -921,7 +921,7 @@ _am() {
             return 0
             ;;
         am__subcmd__profile__subcmd__remove)
-            opts="-f -h -V --force --help --version <NAME>"
+            opts="-f -h -V --force --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -935,7 +935,7 @@ _am() {
             return 0
             ;;
         am__subcmd__profile__subcmd__use)
-            opts="-e -d -n -i -h -V --enable --disable --priority --inverse --help --version [NAMES]..."
+            opts="-e -d -n -i -h -V --enable --disable --priority --inverse --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -957,7 +957,7 @@ _am() {
             return 0
             ;;
         am__subcmd__remove)
-            opts="-p -l -g -h -V --profile --local --global --sub --help --version <NAME>"
+            opts="-p -l -g -h -V --profile --local --global --sub --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1089,7 +1089,7 @@ _am() {
             return 0
             ;;
         am__subcmd__use)
-            opts="-e -d -n -i -h -V --enable --disable --priority --inverse --help --version [NAMES]..."
+            opts="-e -d -n -i -h -V --enable --disable --priority --inverse --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1125,7 +1125,7 @@ _am() {
             return 0
             ;;
         am__subcmd__var__subcmd__get)
-            opts="-p -l -g -h -V --profile --local --global --help --version <NAME>"
+            opts="-p -l -g -h -V --profile --local --global --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1253,7 +1253,7 @@ _am() {
             return 0
             ;;
         am__subcmd__var__subcmd__set)
-            opts="-p -l -g -h -V --profile --local --global --help --version <NAME> <VALUE>"
+            opts="-p -l -g -h -V --profile --local --global --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1275,7 +1275,7 @@ _am() {
             return 0
             ;;
         am__subcmd__var__subcmd__unset)
-            opts="-p -l -g -h -V --profile --local --global --help --version <NAME>"
+            opts="-p -l -g -h -V --profile --local --global --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
