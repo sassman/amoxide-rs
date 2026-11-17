@@ -143,6 +143,21 @@ jobs:
           verbose: true
           fail_ci_if_error: false
 
+  shear:
+    name: unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: setup | rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: mozilla-actions/sccache-action@v0.0.11
+      - name: install cargo-shear
+        run: cargo install cargo-shear
+      - name: check unused dependencies
+        run: cargo shear
+
   audit:
     name: security audit
     runs-on: ubuntu-latest
