@@ -7,6 +7,7 @@ version = "0.10.8"
 edition = "2021"
 license = "GPL-3.0-only"
 repository = "https://github.com/sassman/amoxide-rs"
+homepage = "https://github.com/sassman/amoxide-rs"
 publish = false
 
 [workspace.dependencies]
