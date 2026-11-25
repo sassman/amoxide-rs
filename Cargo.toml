@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/am", "crates/am-tui"]
 
 [workspace.package]
-version = "0.10.9"
+version = "0.10.10"
 edition = "2021"
 license = "GPL-3.0-only"
 repository = "https://github.com/sassman/amoxide-rs"
@@ -13,7 +13,7 @@ publish = false
 [workspace.dependencies]
 toml = "1"
 tempfile = "3"
-amoxide = { path = "crates/am", version = "0.10.9" }
+amoxide = { path = "crates/am", version = "0.10.10" }
 
 # The profile that 'dist' will build with
 [profile.dist]
